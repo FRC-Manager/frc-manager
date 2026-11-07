@@ -50,7 +50,8 @@
       team: en.team, a, slot: i, cap: en.cap, look: en.look || {}, drv, isPlayer: !!en.isPlayer,
       plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, defTarget: null }, en.plan || {}),
       tune, conf, tuneAuto: en.tuneAuto || 0,
-      drvF: 0.78 + 0.22 * drv.drive / 100 + 0.06 * conf,
+      // practiced drive teams (confidence) drive faster, line up quicker, handle pieces faster, foul less and climb more surely; 0.6 ≈ an average AI team
+      drvF: 0.816 + 0.22 * drv.drive / 100 + 0.16 * (conf - 0.6), confK: conf - 0.6,
       opF: 0.86 + 0.14 * drv.mech / 100,
       cond: en.cond == null ? 100 : en.cond, batt: en.batt == null ? 1 : en.batt, hidden: en.hidden || 0,
       x: 0, y: 0, px: 0, py: 0, sx: 0, sy: 0, hd: 0, path: [], st: 'idle', timer: 0, onDone: null, onArrive: null, label: 'Ready',
@@ -113,7 +114,7 @@
       case 'idle': decide(m, r); break;
       case 'move': moveStep(m, r); break;
       case 'act': {
-        r.timer -= DT * (r.defBy && !r.climbing ? 0.85 : 1);
+        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) : 1);
         if (r.timer <= 0) { const f = r.onDone; r.onDone = null; r.st = 'idle'; if (f) f(); }
         break;
       }
@@ -150,7 +151,7 @@
     r.path = m.R.route ? (m.R.route(m, r, { x: r.x, y: r.y }, pt) || avoid(m, r, pt)) : avoid(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
     // alignment / acceleration overhead at the end of each leg
-    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) + 1.1 * (1 - r.drv.drive / 100)) * (m.R.settle || 1);
+    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) + 1.1 * (1 - r.drv.drive / 100)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
   }
   function avoid(m, a, b) {
     for (const o of m.obs) {
@@ -247,16 +248,25 @@
     for (const d of m.robots) {
       if (d.st !== 'defend' || !d.defT || d.dead || (d.fault && d.fault.stall)) continue;
       const t = d.defT;
-      if (dist(d, t) < 1.4 && !t.climbing) {
+      const DF = m.R.defense || { eff: 1, foul: 1 }; // how much defense matters in this game
+      // zone effect: other opponents passing close to the defender get caught in traffic
+      if (DF.zone) {
+        for (const o of m.robots) {
+          if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3) continue;
+          const zs = U.clamp(1 - DF.zone * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200), 0.6, 0.97);
+          if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
+        }
+      }
+      if (dist(d, t) < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner, 0.5, 0.95);
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff, 0.35, 0.97);
         t.defTime += DT; d.contacts += DT;
-        const pf = 0.012 * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1);
+        const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
         if (m.rng.next() < pf * DT) foul(m, d, m.rng.chance(0.2));
         if (m.rng.next() < 0.002 * DT) foul(m, t, false);
         const tall = t.cap.tall || 0;
-        if (tall > 0 && m.rng.next() < 0.004 * tall * PACE[t.plan.pace].wear * (1 - t.drv.comp / 300) * DT) triggerFault(m, t, 'tip');
+        if (tall > 0 && m.rng.next() < 0.0015 * tall * ((m.R.faults && m.R.faults.tip) || 1) * PACE[t.plan.pace].wear * (1 - t.drv.comp / 300) * DT) triggerFault(m, t, 'tip');
       }
     }
   }
@@ -267,14 +277,27 @@
   }
 
   // ---------- faults ----------
-  const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }, { id: 'comms', w: 8 }];
+  // Comms losses have their own, more frequent hazard (below); the season profile (R.faults) scales brownouts, tips and comms.
+  const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }];
+  // 0 = clean, well-built electronics … about 1.5 = poor wiring, worn robot, hidden defects, tired battery
+  const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
+  // in contact this tick: being defended, or pinned against the robot it is defending
+  const inContact = r => !!r.defBy || (r.st === 'defend' && r.defT && dist(r, r.defT) < 1.5);
   function faultRoll(m, r) {
-    const c = r.cap, P = PACE[r.plan.pace];
+    const c = r.cap, P = PACE[r.plan.pace], FP = m.R.faults || {};
     const h = 0.0002 * (1 + (100 - c.rel) / 25) * (1 + (100 - r.cond) / 40) * (1 + r.hidden * 0.8) * m.diff * P.wear;
-    if (m.rng.next() < h * DT) { triggerFault(m, r, m.rng.wpick(FAULTS, f => f.w).id); return; }
-    const hb = 0.00012 * P.brown * (r.batt < 0.8 ? 2 : 1) * (c.brown || 1);
-    if (m.rng.next() < hb * DT) triggerFault(m, r, 'brown');
-    if (m.rng.next() < 0.0006 * P.foul * (r.plan.avoid ? 0.5 : 1) * DT) foul(m, r, false);
+    if (m.rng.next() < h * DT) { triggerFault(m, r, m.rng.wpick(FAULTS, f => f.w * (f.id === 'brown' ? FP.brown || 1 : 1)).id); return; }
+    const hb = 0.00012 * P.brown * (r.batt < 0.8 ? 2 : 1) * (c.brown || 1) * (FP.brown || 1);
+    if (m.rng.next() < hb * DT) { triggerFault(m, r, 'brown'); return; }
+    // brief comms dropouts are common: radio resets, loose connectors, hard hits. Poor electronics and contact make them more frequent and longer.
+    if (!r.fault) {
+      const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff;
+      if (m.rng.next() < hc * DT) { triggerFault(m, r, 'comms'); return; }
+    }
+    // tall robots tip on their own now and then (high reach, fast turns), more in tip-heavy seasons
+    const tall = (c.tall || 0) + (FP.tipAll || 0); // tipAll: risk every robot shares this season (e.g. 2023 Charge Station)
+    if (tall > 0 && m.rng.next() < 0.00006 * tall * (FP.tip || 1) * P.wear * (1 - r.drv.comp / 300) * DT) { triggerFault(m, r, 'tip'); return; }
+    if (m.rng.next() < 0.0006 * P.foul * (r.plan.avoid ? 0.5 : 1) * (1 - 0.6 * r.confK) * DT) foul(m, r, false);
   }
   function triggerFault(m, r, id) {
     const rng = m.rng; let msg = '';
@@ -287,10 +310,12 @@
         r.perm[k] = true; msg = (k === 'endgame' ? 'Climber' : k === 'intake' ? 'Intake' : 'Scorer') + ' broke';
         break;
       }
-      case 'comms':
-        if (rng.chance(0.25)) { r.dead = true; r.st = 'dead'; msg = 'Lost comms — disabled'; }
-        else { r.fault = { stall: true, until: m.t + rng.range(3, 6), label: 'COMMS LOSS' }; msg = 'Comms dropout'; }
+      case 'comms': {
+        const poor = elecPoor(r), hit = inContact(r);
+        if (rng.chance(0.015 + 0.08 * poor * poor + (hit ? 0.05 : 0))) { r.dead = true; r.st = 'dead'; msg = 'Lost comms — disabled'; }
+        else { r.fault = { stall: true, until: m.t + rng.range(1.5, 3.5) * (1 + 0.8 * poor) * (hit ? 1.5 : 1), label: 'COMMS LOSS' }; msg = 'Comms dropout'; }
         break;
+      }
       case 'tip': r.dead = true; r.tipped = true; r.st = 'dead'; msg = 'TIPPED OVER'; break;
     }
     r.stats.faults.push(msg);
@@ -344,7 +369,7 @@
   }
   function climbChance(m, r, lvl) {
     if (m.R.endgame.levels[lvl - 1].sure) return 1;
-    return U.clamp(0.62 + 0.36 * (r.cap.endgame || 40) / 100 - 0.05 * (lvl - 1) + 0.06 * (r.drv.comp - 50) / 50
+    return U.clamp(0.62 + 0.36 * (r.cap.endgame || 40) / 100 - 0.05 * (lvl - 1) + 0.06 * (r.drv.comp - 50) / 50 + 0.1 * r.confK
       - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0), 0.25, 0.985);
   }
 
@@ -398,7 +423,7 @@
     res.robots = m.robots.map(r => ({
       team: r.team, a: r.a, pts: r.stats.pts, cycles: r.stats.cycles, shots: r.stats.shots, hits: r.stats.hits,
       fouls: r.stats.fouls, faults: r.stats.faults.slice(), defTime: Math.round(r.defTime), contacts: Math.round(r.contacts),
-      end: r.end, dead: r.dead, pace: r.plan.pace, autoOK: r.autoOK
+      end: r.end, dead: r.dead, pace: r.plan.pace, role: r.plan.role, autoOK: r.autoOK
     }));
     m.result = res;
     log(m, null, 'FINAL — Red ' + res.red.score + ' : ' + res.blue.score + ' Blue', 'phase');
@@ -417,11 +442,11 @@
     collectTime(m, r, kind, base) {
       const i = r.cap.intake, P = PACE[r.plan.pace];
       let t = kind === 'ground' ? base * (1.6 - 0.9 * i / 100) : base * (1.4 - 0.55 * i / 100) * (1.15 - 0.3 * (m.hp[r.a] || 50) / 100);
-      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1);
+      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1) * (1 - 0.4 * r.confK); // practiced crews handle game pieces faster
     },
     scoreTime(m, r, base, stat) {
       const s = stat == null ? r.cap.scoreSpd : stat;
-      return base * (1.5 - 0.8 * s / 100) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1);
+      return base * (1.5 - 0.8 * s / 100) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK);
     },
     endDue: (m, r) => m.phase !== 'auto' && !r.end && !r.endBusy && endgameDue(m, r),
     aimTime(m, r) {
@@ -432,8 +457,9 @@
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * (1 - r.drv.comp / 250);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250);
       p *= 0.95 + 0.05 * r.opF;
+      p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;
       return U.clamp(p, 0.1, 0.99);
     },

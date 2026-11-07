@@ -80,11 +80,13 @@
       const str = Math.round(U.clamp(rng.norm(48, 18) + (num < 2000 ? 6 : 0), 6, 96));
       pool[num] = {
         num, name: D.teamName(rng), region: rng.pick(D.REGIONS), str, traj: rng.pick([-1, 0, 0, 1]),
-        impact: Math.round(U.clamp(rng.norm(str * 0.6 + 15, 15), 5, 98)), rookie: false, rb: null
+        impact: AI.impactRoll(rng, str), rookie: false, rb: null
       };
     }
     return pool;
   };
+  // Impact strength of an established team: loosely tied to robot strength, plus a few outreach powerhouses.
+  AI.impactRoll = (rng, str) => Math.round(U.clamp(rng.norm(str * 0.45 + 20, 14) + (rng.chance(0.1) ? 24 : 0), 5, 98));
   AI.addRookies = function (pool, rng, year, count, playerNum) {
     for (let i = 0; i < count; i++) {
       let num; do { num = rng.int(11000, 11999); } while (pool[num] || num === playerNum);

@@ -144,11 +144,16 @@
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
     return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err };
   };
-  Robot.slots = S => Math.min(6, 2 + S.mentors.filter(m => m.role === 'design' || m.role === 'fab').length + (G.Career.hasPerk(S, 'tempMentor') ? 1 : 0));
+  // Permanent slots (base 2 + Design/Fab mentors + sponsor perk + facilities) are capped at MAX_SLOTS; temporary boost/guest slots go on top.
+  Robot.MAX_SLOTS = 6;
+  Robot.slotParts = S => ({ base: 2, mentors: S.mentors.filter(m => m.role === 'design' || m.role === 'fab').length, perk: G.Career.hasPerk(S, 'tempMentor') ? 1 : 0, facilities: G.Shop.facilitySlots(S), temp: G.Shop.boostSlots(S) });
+  Robot.permSlots = S => { const p = Robot.slotParts(S); return Math.min(Robot.MAX_SLOTS, p.base + p.mentors + p.perk + p.facilities); };
+  Robot.slots = S => Robot.permSlots(S) + G.Shop.boostSlots(S);
+  Robot.slotText = S => { const p = Robot.slotParts(S), raw = p.base + p.mentors + p.perk + p.facilities; return p.base + ' base + ' + p.mentors + ' mentors' + (p.perk ? ' + 1 sponsor' : '') + ' + ' + p.facilities + ' facilities' + (raw > Robot.MAX_SLOTS ? ' (capped at ' + Robot.MAX_SLOTS + ')' : ' (max ' + Robot.MAX_SLOTS + ')') + (p.temp ? ' + ' + p.temp + ' temporary' : ''); };
   Robot.startProject = function (S, spec) {
     const q = Robot.quote(S, spec);
     if (q.err) return q.err;
-    if (S.projects.length >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors for more.';
+    if (S.projects.length >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     if (S.money < q.cost) return 'Not enough money (' + U.money(q.cost) + ')';
     G.Career.spend(S, q.cost, q.name);
     S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S) }, spec));
@@ -161,30 +166,113 @@
     const refund = Math.round(p.cost * 0.4 * (1 - p.done / p.need));
     if (refund > 0) G.Career.earn(S, refund, 'Refund: ' + p.name);
   };
-  // Distribute weekly hours; returns list of completed project names
-  // Development category of a project (used by shop incidents)
+  // Development category of a project (used by shop incidents and boosts)
   Robot.cat = p => (p.type === 'research' || p.type === 'kb' || p.type === 'impact') ? 'research' : (p.type === 'auto' || p.type === 'vision' || p.sub === 'soft') ? 'soft' : 'fab';
-  // mods: optional { fab, soft, research } progress multipliers for this turn
-  Robot.work = function (S, hours, mods) {
+  // A sub-team can only put so many hours into one project per week (×4 for an offseason month).
+  Robot.capFor = (S, p) => D.PROJ_CAP * (S.phase === 'off' ? 4 : 1) * (p.prio === 'high' ? 1.25 : p.prio === 'low' ? 0.75 : 1);
+  // Plan how this turn's hours are shared: by priority, limited by each project's weekly cap and remaining work.
+  // mods: optional { fab, soft, research } progress multipliers. Returns { give: {projectId: hours}, idle, hours }.
+  Robot.alloc = function (S, hours, mods) {
     const W = { high: 3, normal: 2, low: 1 };
     const mult = p => (mods && mods[Robot.cat(p)] != null ? mods[Robot.cat(p)] : 1);
-    const done = [];
-    let left = hours;
-    for (let pass = 0; pass < 3 && left > 0.5; pass++) {
-      const act = S.projects.filter(p => p.done < p.need && mult(p) > 0);
+    const give = {};
+    const rem = p => (p.need - p.done) / Math.max(mult(p), 0.01) - (give[p.id] || 0);
+    const room = p => Robot.capFor(S, p) - (give[p.id] || 0);
+    let left = Math.max(0, hours);
+    for (let pass = 0; pass < 8 && left > 0.5; pass++) {
+      const act = S.projects.filter(p => mult(p) > 0 && rem(p) > 0.01 && room(p) > 0.01);
       if (!act.length) break;
       const tw = act.reduce((s, p) => s + W[p.prio], 0);
       let used = 0;
-      act.forEach(p => { const k = mult(p), share = left * W[p.prio] / tw; const take = Math.min(share, (p.need - p.done) / k); p.done += take * k; used += take; });
+      act.forEach(p => { const take = Math.min(left * W[p.prio] / tw, rem(p), room(p)); give[p.id] = (give[p.id] || 0) + take; used += take; });
       left -= used;
+      if (used < 0.01) break;
     }
+    return { give, idle: Math.max(0, left), hours, mult };
+  };
+  // ---------------- Development testing ----------------
+  // Projects that can use practice-field testing time (everything except the Impact submission)
+  Robot.testable = p => p.type !== 'impact' && p.type !== 'kb';
+  Robot.testCap = S => D.TEST_PER_PROJ * (S.phase === 'off' ? 4 : 1);
+  // How validated a project is: 0 (untested) … 1 (fully tested) → better upgrade quality on completion
+  Robot.testQ = p => Math.min(1, (p.test || 0) / Math.max(1, p.need * D.TEST_Q));
+  // Share development-testing hours between projects that are getting work this turn (each can absorb testCap).
+  Robot.testPlan = function (S, devH, give) {
+    const out = {}, cap = Robot.testCap(S);
+    let left = Math.max(0, devH);
+    for (let pass = 0; pass < 4 && left > 0.05; pass++) {
+      // a project can only absorb testing in proportion to the build work going into it this turn
+      const capOf = p => Math.min(cap, D.TEST_SHARE * (give[p.id] || 0));
+      const act = S.projects.filter(p => Robot.testable(p) && capOf(p) - (out[p.id] || 0) > 0.01);
+      if (!act.length) break;
+      const each = left / act.length;
+      act.forEach(p => { const t = Math.min(each, capOf(p) - (out[p.id] || 0)); out[p.id] = (out[p.id] || 0) + t; left -= t; });
+    }
+    return { give: out, idle: left };
+  };
+  // Apply this turn's hours (and development-testing hours); returns completed project names and testing use
+  Robot.work = function (S, hours, mods, devH) {
+    const a = Robot.alloc(S, hours, mods), done = [];
+    const tp = Robot.testPlan(S, devH || 0, a.give), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
+    let bonus = 0;
+    S.projects.forEach(p => {
+      const h = a.give[p.id] || 0, t = tp.give[p.id] || 0;
+      const extra = h * a.mult(p) * t * perH; // testing catches problems early: less rework
+      p.done += h * a.mult(p) + extra; p.lastHours = Math.round(h);
+      p.test = (p.test || 0) + t; p.lastTest = t; bonus += extra;
+    });
     S.projects.filter(p => p.done >= p.need - 0.01).forEach(p => { Robot.complete(S, p); done.push(p.name); });
     S.projects = S.projects.filter(p => p.done < p.need - 0.01);
-    return { done, spare: left };
+    return { done, spare: a.idle, used: hours - a.idle, testUsed: (devH || 0) - tp.idle, testIdle: tp.idle, testBonus: bonus };
+  };
+
+  // ---------------- Weekly design suggestion ----------------
+  const STAT_W = { scoreSpd: 1.25, accuracy: 1.25, intake: 1.0, speed: 0.95, endgame: 0.9, range: 0.85, agility: 0.6, push: 0.45, auto: 0.7, vision: 0.6, balance: 0.8, ampSkill: 0.7, amp: 0.7, algae: 0.7, traverse: 0.6, feed: 0.8 };
+  Robot.suggest = function (S) {
+    const R = S.robot;
+    if (!R || R.year !== S.year || !['kickoff', 'build', 'comp'].includes(S.phase)) return null;
+    const year = R.year, busy = k => S.projects.some(p => p.sub === k);
+    const mk = (spec, title, reason) => { const q = Robot.quote(S, Object.assign({ effort: 'std' }, spec)); return q.err ? null : { spec: Object.assign({ effort: 'std' }, spec), title, reason, quote: q }; };
+    const subs = G.Seasons[year].subs.filter(sd => sd.id !== 'soft');
+    // 1) anything not built yet
+    for (const sd of subs) {
+      const s = R.subs[sd.id];
+      if (s.ver || s.concept === 'none' || busy(sd.id)) continue;
+      const opts = sd.concepts.filter(c => c.id !== 'none' && !Robot.reqOk(S, c));
+      const score = c => Object.keys(c.ceil).reduce((t, k) => t + Robot.ceil(S, year, sd.id, c, k) * (STAT_W[k] || 0.7), 0) / Math.max(1, Object.keys(c.ceil).length) - (Robot.firstTime(S, c) ? 12 : 0) - c.cx * 2;
+      const best = opts.sort((p, q) => score(q) - score(p))[0];
+      if (best) { const r = mk({ type: 'build', sub: sd.id, concept: best.id }, 'Build the ' + sd.name + ': ' + best.name, 'Nothing is built for the ' + sd.name + ' yet, and the robot can\'t use it in matches until it is.'); if (r) return r; }
+    }
+    // 2) over the weight limit
+    if (Robot.weight(S) > Robot.WEIGHT_LIMIT) {
+      const k = Object.keys(R.subs).filter(k => R.subs[k].ver && k !== 'soft' && !busy(k)).sort((a, b) => R.subs[b].w - R.subs[a].w)[0];
+      if (k) { const r = mk({ type: 'light', sub: k }, 'Lighten the ' + G.Seasons.sub(year, k).name, 'The robot is ' + Robot.weight(S) + ' lb — over the 125 lb limit, so it will fail inspection.'); if (r) return r; }
+    }
+    // 3) a weak link in reliability
+    const weak = Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k].ver && !busy(k) && (R.subs[k].rel < 55 || R.subs[k].hidden > 0)).sort((a, b) => R.subs[a].rel - R.subs[b].rel)[0];
+    if (weak) { const r = mk({ type: 'harden', sub: weak }, 'Harden the ' + G.Seasons.sub(year, weak).name, 'Its reliability is only ' + R.subs[weak].rel + (R.subs[weak].hidden ? ' and the crew suspects a hidden fault' : '') + '. Breakdowns in matches cost more than a slower upgrade.'); if (r) return r; }
+    // 4) autonomous routine
+    if (R.autoTier < 2 && !S.projects.some(p => p.type === 'auto')) { const r = mk({ type: 'auto' }, 'Write a better auto: ' + G.Seasons[year].autoTiers[R.autoTier + 1], 'Auto points are cheap to earn and count for bonus ranking points in several games.'); if (r) return r; }
+    // 5) biggest weighted gap to a stat ceiling
+    let best = null;
+    Object.keys(R.subs).forEach(k => {
+      const s = R.subs[k]; if (!s.ver || busy(k)) return;
+      const c = G.Seasons.concept(year, k, s.concept); if (!c) return;
+      Object.keys(c.ceil).forEach(st => {
+        if (k === 'endgame' && !(c.caps && c.caps.endLevel)) return;
+        const gap = Robot.ceil(S, year, k, c, st) - (s.stats[st] || 0);
+        const v = gap * (STAT_W[st] || 0.7);
+        if (gap > 4 && (!best || v > best.v)) best = { v, k, st, gap };
+      });
+    });
+    if (best) return mk({ type: 'upgrade', sub: best.k, focus: best.st, forConcept: R.subs[best.k].concept },
+      'Upgrade ' + G.Seasons.sub(year, best.k).name + ' — ' + (D.STAT[best.st] || best.st), 'It has the biggest useful gap on the robot: ' + R.subs[best.k].stats[best.st] + ' now, ceiling ' + (R.subs[best.k].stats[best.st] + best.gap) + '.');
+    return null;
   };
   Robot.complete = function (S, p) {
     const rng = G.R, year = S.robot ? S.robot.year : S.year;
     const ef = EFFORT[p.effort || 'std'];
+    const q = Robot.testQ(p), qt = q >= 0.2 ? ' Tested ' + Math.round(q * 100) + '% on the practice field.' : '';
     const R = S.robot;
     const designSkill = Math.max(G.Career.mentorSkill(S, 'design'), G.Career.hasPerk(S, 'tempMentor') ? 55 : 0);
     switch (p.type) {
@@ -199,11 +287,11 @@
         const stats = {};
         Object.keys(c.base).forEach(k => { stats[k] = Math.min(Robot.ceil(S, year, p.sub, c, k), c.base[k] + 2 * Robot.know(S, statArea(p.sub, c, k)) + G.Shop.buildStat(S)); });
         let rel = 72 - 6 * c.cx + 4 * lvl + G.Shop.buildRel(S) + G.Career.mentorSkill(S, 'fab') / 20 - (first ? 15 : 0) + (ef.rel * 1.5)
-          + (p.sub === 'drive' && c.id === 'swerve' && S.parts.swerve === 2 ? 5 : 0);
-        let hidden = (p.effort === 'rush' && rng.chance(0.5) ? 1 : 0) + (first && rng.chance(0.6) ? 1 : 0);
+          + (p.sub === 'drive' && c.id === 'swerve' && S.parts.swerve === 2 ? 5 : 0) + 5 * q;
+        let hidden = (p.effort === 'rush' && rng.chance(0.5 * (1 - 0.5 * q)) ? 1 : 0) + (first && rng.chance(0.6 * (1 - 0.5 * q)) ? 1 : 0);
         Object.assign(sub, { concept: p.concept, ver: 1, stats, rel: Math.round(U.clamp(rel, 25, 95)), cond: 100, w: c.w, hidden, hours: p.need });
         c.areas.forEach((a, i) => Robot.addXP(S, a, Math.round(30 * ef.gain * (i === 0 ? 1 : 0.5))));
-        G.Career.inbox(S, 'Built: ' + c.name, 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + ' (v1).' + (first ? ' This is the team\'s first time building one, so expect teething problems.' : ''), 'dev');
+        G.Career.inbox(S, 'Built: ' + c.name, 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + ' (v1).' + (first ? ' This is the team\'s first time building one, so expect teething problems.' : '') + qt, 'dev');
         break;
       }
       case 'upgrade': {
@@ -211,7 +299,7 @@
         const sub = R.subs[p.sub], c = G.Seasons.concept(year, p.sub, sub.concept);
         if (!c || sub.concept !== p.forConcept && p.forConcept) return;
         const lvl = Robot.know(S, statArea(p.sub, c, p.focus));
-        const frac = 0.25 * ef.gain * (0.6 + 0.4 * designSkill / 100) * (1 + 0.05 * lvl) * G.Shop.gainMult(S) * rng.range(0.85, 1.15);
+        const frac = 0.25 * ef.gain * (0.6 + 0.4 * designSkill / 100) * (1 + 0.05 * lvl) * G.Shop.gainMult(S) * rng.range(0.85, 1.15) * (1 + 0.15 * q);
         const changes = [];
         Object.keys(c.ceil).forEach(k => {
           const cl = Robot.ceil(S, year, p.sub, c, k), cur = sub.stats[k] || 0;
@@ -222,11 +310,11 @@
         });
         sub.ver++;
         sub.hours += p.need;
-        if (p.sub !== 'soft') { sub.w += p.effort === 'rush' ? 1 : 0.6; sub.rel = U.clamp(sub.rel + ef.rel, 20, 97); }
-        if (p.effort === 'rush' && rng.chance(0.4)) sub.hidden++;
+        if (p.sub !== 'soft') { sub.w += p.effort === 'rush' ? 1 : 0.6; sub.rel = U.clamp(sub.rel + ef.rel + Math.round(4 * q), 20, 97); }
+        if (p.effort === 'rush' && rng.chance(0.4 * (1 - 0.5 * q))) sub.hidden++;
         (c.areas || []).forEach((a, i) => Robot.addXP(S, a, Math.round(30 * ef.gain * (i === 0 ? 1 : 0.4))));
         if (S.event && S.event.stage !== 'done' && p.sub !== 'soft') { R.pending.push(p.sub); G.Career.inbox(S, 'Upgrade ready: ' + p.name, 'Install it in the pits (practice block) to use it at this event. ' + changes.join(', '), 'dev'); }
-        else G.Career.inbox(S, 'Upgrade complete: ' + p.name, changes.join(', ') || 'Already near the ceiling.', 'dev');
+        else G.Career.inbox(S, 'Upgrade complete: ' + p.name, (changes.join(', ') || 'Already near the ceiling.') + qt, 'dev');
         break;
       }
       case 'harden': {
@@ -245,12 +333,12 @@
       }
       case 'auto': R.autoTier = Math.min(3, R.autoTier + 1); Robot.addXP(S, 'autoPath', 50); G.Career.inbox(S, 'New auto routine', 'The robot can now run: ' + G.Seasons[year].autoTiers[R.autoTier] + '.', 'dev'); break;
       case 'vision': R.visionLvl = Math.min(2, R.visionLvl + 1); R.subs.soft.stats.vision = Math.min(99, (R.subs.soft.stats.vision || 0) + 15); Robot.addXP(S, 'vision', 60); G.Career.inbox(S, 'Vision Level ' + R.visionLvl, R.visionLvl === 1 ? 'Auto-aim and auto-align are online.' : 'Pose estimation and shoot-on-the-move are online.', 'dev'); break;
-      case 'practiceBot': R.practiceBot = true; S.parts.spares += 6; G.Career.inbox(S, 'Practice robot complete', 'Drivers can now practice while the competition robot is upgraded (+driver growth, +10% starting tuning). +6 spare parts.', 'dev'); break;
+      case 'practiceBot': R.practiceBot = true; S.parts.spares += 6; G.Career.inbox(S, 'Practice robot complete', 'A second robot for the practice field: +' + D.TEST_BOT_HOURS + ' testing hours a week, driver practice no longer wears the competition robot, and +10% starting tuning at events. +6 spare parts.', 'dev'); break;
       case 'kb': S.equip.kb = true; G.Career.inbox(S, 'Knowledge Base online', 'Knowledge decay between seasons is halved.', 'dev'); break;
-      case 'impact': if (S.season) { S.season.impactDone = true; S.season.impact += 18; } G.Career.inbox(S, 'Impact submission ready', 'Judges will see a polished Impact story this season (+18 Impact score).', 'dev'); break;
+      case 'impact': if (S.season) S.season.impactDone = true; G.Career.inbox(S, 'Impact submission ready', 'Your Impact story is submitted. You can now compete for the Impact Award at every regional this season (see the odds on HQ).', 'dev'); break;
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === p.rid);
-        const g = Robot.addXP(S, r.area, r.xp);
+        const g = Robot.addXP(S, r.area, Math.round(r.xp * (1 + 0.2 * q)));
         G.Career.inbox(S, 'Research complete: ' + r.name, '+' + Math.round(g) + ' XP in ' + D.AREA[r.area].name + ' (now Level ' + Robot.know(S, r.area) + ').', 'know');
         break;
       }
@@ -259,7 +347,9 @@
 
   // ---------------- Events: entries, wear, repairs ----------------
   Robot.eventStart = function (S, ev) {
-    let tune = 0.3 + (S.equip.field === ev.year ? 0.2 : 0) + (S.robot && S.robot.practiceBot ? 0.1 : 0) + (S.lastTune || 0) * 0.3;
+    // practice field facility + this season's game elements raise starting tuning
+    const fieldTune = S.equip.field === ev.year ? 0.05 + G.Shop.fx(S, 'pfield', 'tune') : 0;
+    let tune = 0.3 + fieldTune + (S.robot && S.robot.practiceBot ? 0.1 : 0) + (S.lastTune || 0) * 0.3;
     let conf = 0.3 + (S.practiceWeeks || 0) * 0.04 + (S.lastConf || 0) * 0.3;
     return { tune: U.clamp(tune, 0.2, 0.85), conf: U.clamp(conf, 0.2, 0.85) };
   };
@@ -343,11 +433,27 @@
     S.parts.spareUse = S.parts.spares > 0 ? Math.max(0, (S.parts.spareUse || 0) - sp) : 0;
     return used;
   };
+  // Repairs at home use spare parts (one spare ≈ D.SPARE_COND_PER_UNIT condition points). Without spares the team
+  // can only patch a subsystem up to D.NO_SPARE_COND. Returns { used: spares used, short: condition points left unrepaired }.
   Robot.homeRepair = function (S) {
+    const R = S.robot; if (!R) return { used: 0, short: 0 };
+    const P = S.parts, per = D.SPARE_COND_PER_UNIT;
+    let short = 0;
+    Object.keys(R.subs).map(k => R.subs[k]).filter(s => s.ver && s.cond < 100).sort((a, b) => a.cond - b.cond).forEach(s => {
+      const credit = Math.max(0, P.spares - (P.spareUse || 0)) * per;
+      const fix = Math.min(100 - s.cond, credit);
+      s.cond += fix; P.spareUse = (P.spareUse || 0) + fix / per;
+      if (s.cond < 99.5) { if (s.cond < D.NO_SPARE_COND) s.cond = D.NO_SPARE_COND; short += 100 - s.cond; }
+      else s.cond = 100;
+    });
+    const used = Math.min(P.spares, Math.floor((P.spareUse || 0) + 1e-6));
+    P.spares -= used; P.spareUse = P.spares > 0 ? Math.max(0, (P.spareUse || 0) - used) : 0;
+    return { used, short: Math.round(short) };
+  };
+  // Spare parts needed to bring the robot back to 100% (for previews)
+  Robot.repairNeed = function (S) {
     const R = S.robot; if (!R) return 0;
-    let cost = 0;
-    Object.keys(R.subs).forEach(k => { const s = R.subs[k]; if (s.ver && s.cond < 100) { cost += (100 - s.cond) * 6; s.cond = 100; } });
-    return Math.round(cost);
+    return Object.keys(R.subs).reduce((t, k) => t + (R.subs[k].ver ? 100 - R.subs[k].cond : 0), 0) / D.SPARE_COND_PER_UNIT;
   };
   Robot.describe = function (S) {
     const R = S.robot, year = R.year;

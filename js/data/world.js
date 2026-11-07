@@ -98,29 +98,49 @@
   // Effects scale with level and with efficiency (40% at 0 condition → 100% at full condition).
   // fx values are per level. wear = condition lost per in-season week / offseason month / event attended.
   D.EQUIP = [
-    { id: 'printer', name: '3D Printing', upkeep: 150, wear: { season: 2.5, off: 3, event: 0 },
-      levels: [{ name: 'Desktop 3D printer', cost: 800 }, { name: 'Print farm', cost: 3000 }, { name: 'Industrial printer', cost: 7000 }],
-      fx: { hours: [0.08, 0.15, 0.2] }, desc: 'Faster prototypes and custom parts: fewer hours on hardware projects.' },
-    { id: 'cnc', name: 'CNC Machining', upkeep: 400, wear: { season: 2.5, off: 3, event: 0 },
-      levels: [{ name: 'CNC router', cost: 7500 }, { name: 'CNC router + vertical mill', cost: 14000 }],
-      fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3] }, desc: 'Precise parts: fewer hardware hours, stronger upgrades, more reliable new builds.' },
-    { id: 'lathe', name: 'Machine Shop', upkeep: 250, wear: { season: 2, off: 2, event: 0 },
-      levels: [{ name: 'Lathe & mill', cost: 5000 }, { name: 'CNC lathe', cost: 10000 }],
-      fx: { spare: [0.3, 0.45], rel: [3, 5] }, desc: 'Make your own spare parts (cheaper spares) and more reliable new builds.' },
-    { id: 'laptops', name: 'Programming Station', upkeep: 150, wear: { season: 1.5, off: 2, event: 0 },
-      levels: [{ name: 'Laptops + sim software', cost: 1500 }, { name: 'Dev workstations', cost: 4000 }, { name: 'Hardware-in-the-loop bench', cost: 7500 }],
-      fx: { soft: [0.2, 0.3, 0.38] }, desc: 'Fewer hours on software, auto and vision projects.' },
-    { id: 'charger', name: 'Battery Station', upkeep: 0, wear: { season: 0.5, off: 0.5, event: 4 },
-      levels: [{ name: 'Charger cart', cost: 400 }, { name: 'Smart charging station', cost: 1200 }],
+    { id: 'printer', name: '3D Printing', upkeep: 250, wear: { season: 2.5, off: 3, event: 0 },
+      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm', cost: 4500 }, { name: 'Industrial printer', cost: 10000 }],
+      fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: 'Faster prototypes and custom parts: fewer hours on hardware projects.' },
+    { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 3, event: 0 },
+      levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC router + vertical mill', cost: 20000 }],
+      fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Precise parts: fewer hardware hours, stronger upgrades, more reliable new builds.' },
+    { id: 'lathe', name: 'Machine Shop', upkeep: 450, wear: { season: 2, off: 2, event: 0 },
+      levels: [{ name: 'Lathe & mill', cost: 7500 }, { name: 'CNC lathe', cost: 15000 }],
+      fx: { spare: [0.3, 0.45], rel: [3, 5], slot: [0, 1] }, desc: 'Make your own spare parts (cheaper spares) and more reliable new builds.' },
+    { id: 'laptops', name: 'Programming Station', upkeep: 250, wear: { season: 1.5, off: 2, event: 0 },
+      levels: [{ name: 'Laptops + sim software', cost: 2000 }, { name: 'Dev workstations', cost: 6000 }, { name: 'Hardware-in-the-loop bench', cost: 11000 }],
+      fx: { soft: [0.2, 0.3, 0.38], slot: [0, 1, 1] }, desc: 'Fewer hours on software, auto and vision projects.' },
+    { id: 'charger', name: 'Battery Station', upkeep: 100, wear: { season: 0.5, off: 0.5, event: 4 },
+      levels: [{ name: 'Charger cart', cost: 500 }, { name: 'Smart charging station', cost: 1800 }],
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
-    { id: 'pitcart', name: 'Pit Setup', upkeep: 0, wear: { season: 0, off: 0.5, event: 6 },
-      levels: [{ name: 'Pit cart & tool kit', cost: 800 }, { name: 'Full pit setup', cost: 2500 }],
+    { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.5, event: 6 },
+      levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }],
       fx: { repair: [0.25, 0.45] }, desc: 'Faster pit repairs between matches.' },
-    { id: 'trailer', name: 'Team Trailer', upkeep: 800, wear: { season: 0, off: 0.5, event: 5 },
-      levels: [{ name: 'Team trailer', cost: 12000 }],
-      fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' }
+    { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.5, event: 5 },
+      levels: [{ name: 'Team trailer', cost: 18000 }],
+      fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
+    { id: 'pfield', name: 'Practice Field', upkeep: 300, wear: { season: 2, off: 1.5, event: 0 },
+      levels: [{ name: 'Basic practice area', cost: 2500 }, { name: 'Half field', cost: 6500 }, { name: 'Full field', cost: 12000 }],
+      fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Unlocks weekly testing hours for development testing and driver practice. Driver practice needs this season\'s game elements for full value.' }
   ];
-  D.FIELD = { name: 'Practice Field Elements', cost: 2500, desc: 'This season\'s field elements: weekly driver practice, +20 starting Tuning at events. Bought again each season because every game is new.' };
+  D.FIELD = { name: 'Game Elements', cost: 2500, desc: 'This season\'s scoring elements and game pieces for your practice field. Bought again each season because every game is new.' };
+  D.BATT_LIMIT = [10, 10, 20]; // max batteries by Battery Station level (0, 1, 2)
+  D.PROJ_CAP = 80;             // hours one project can absorb per week (×4 per offseason month, ±25% by priority)
+  // Testing hours (practice field time, like a wind tunnel): split between development testing and driver practice
+  D.TEST_BOT_HOURS = 4;     // a practice robot adds testing hours per week
+  D.TEST_COST = 40;         // $ per development-testing hour (prototype parts and materials)
+  D.TEST_PER_PROJ = 5;      // test hours one project can absorb per week (×4 per offseason month)
+  D.TEST_GAIN = 0.025;      // each test hour on a project adds 2.5% to that project's progress this week
+  D.TEST_SHARE = 0.06;      // a project can absorb test hours up to 6% of the build hours it gets that turn
+  D.TEST_Q = 0.05;          // test hours ≈ 5% of a project's hours fully validate it (best upgrade quality)
+  D.DRILL_PER = 6;          // driver-practice hours per point of practice (confidence); capped at D.DRILL_CAP
+  D.DRILL_CAP = 10;
+  D.DRILL_SPARES = 0.05;    // spare parts used per driver-practice hour
+  D.DRILL_WEAR = 0.8;       // robot condition lost per driver-practice hour when there are no spares
+  D.DRILL_BATT = 0.004;     // battery health used per driver-practice hour, shared across the fleet
+  D.NO_SPARE_COND = 75;     // without spare parts, home repairs can only patch a subsystem up to this condition
+  D.FUND_FATIGUE = 0.8;         // each repeat of the same fundraiser in a program year (June–May) pays ×0.8 (grants: chance ×0.8)
+  D.ACT_LIMIT = 3;             // team activities (outreach + fundraising) per week; each type once per week; offseason month ×4
   D.RENO_RATE = 0.35;  // renovation cost = level cost × RENO_RATE × (missing condition / 100) → ~17% of the price at 50% condition
   D.DEV_CATS = { fab: 'Fabrication', soft: 'Software', research: 'Research' };
 
@@ -143,13 +163,13 @@
 
   // ---------- Outreach & fundraising ----------
   D.ACTIVITIES = [
-    { id: 'demo', name: 'Community robot demo', kind: 'outreach', hours: 30, cost: 100, impact: 6, rep: 2, desc: 'Show the robot at a library or fair.' },
-    { id: 'camp', name: 'STEM summer camp', kind: 'outreach', hours: 80, cost: 300, impact: 14, rep: 4, recruits: 1, desc: 'Run a week-long camp for middle schoolers.' },
-    { id: 'fll', name: 'Mentor a junior robotics team', kind: 'outreach', hours: 50, cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
-    { id: 'bake', name: 'Bake sale', kind: 'fund', hours: 20, cost: 50, money: [500, 900], desc: 'Classic.' },
-    { id: 'carwash', name: 'Car wash', kind: 'fund', hours: 30, cost: 80, money: [700, 1400], desc: 'Weekend car wash.' },
-    { id: 'crowd', name: 'Crowdfunding campaign', kind: 'fund', hours: 40, cost: 0, money: [800, 3000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
-    { id: 'grant', name: 'Write a grant application', kind: 'fund', hours: 35, cost: 0, money: [0, 5000], grant: true, desc: 'Roughly 40% chance of a $2,000–$5,000 grant (better with Impact).' }
+    { id: 'demo', name: 'Community robot demo', kind: 'outreach', cost: 100, impact: 6, rep: 2, desc: 'Show the robot at a library or fair.' },
+    { id: 'camp', name: 'STEM summer camp', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, desc: 'Run a week-long camp for middle schoolers.' },
+    { id: 'fll', name: 'Mentor a junior robotics team', kind: 'outreach', cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
+    { id: 'bake', name: 'Bake sale', kind: 'fund', cost: 50, money: [300, 600], desc: 'Classic.' },
+    { id: 'carwash', name: 'Car wash', kind: 'fund', cost: 80, money: [400, 900], desc: 'Weekend car wash.' },
+    { id: 'crowd', name: 'Crowdfunding campaign', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
+    { id: 'grant', name: 'Write a grant application', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, desc: 'Roughly 35% chance of a $1,500–$4,000 grant (better with strong outreach).' }
   ];
 
   // ---------- Mentors ----------
@@ -258,7 +278,7 @@
       desc: 'Brand-new team. Small budget, no experience — but eligible for rookie awards.' },
     established: { name: 'Established', money: 45000, students: 25, mentors: [[2, 3], [2, 3], [2, 3], [2, 2]], know: 1, equip: ['printer'], parts: {}, rep: 45, support: 60, school: 14000,
       desc: 'A solid program with some experience and a 3D printer.' },
-    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field'], parts: { swerve: 1, motors: 1 }, rep: 75, support: 65, school: 22000,
+    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: { swerve: 1, motors: 1 }, rep: 75, support: 65, school: 22000,
       desc: 'A perennial contender with deep knowledge, a CNC router and swerve modules — and high expectations.' }
   };
 

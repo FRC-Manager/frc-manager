@@ -128,22 +128,41 @@
       const teams = match[a];
       const ens = teams.map(t => Ev.entryFor(ev, t, a, match.n, playoff));
       const hasPlayer = teams.includes(S.team.num);
-      const best = Math.max(...ens.map(e => e.isPlayer ? G.Cap.power(ev.year, e.cap) : e.power || 0), 1);
       ens.forEach(e => {
         if (e.isPlayer) return;
-        const pw = e.power || 0;
         if (hasPlayer && ev.suggest[e.team]) {
           const acc = 0.4 + 0.1 * G.Career.mentorStars(S, 'strat') + S.rep / 500;
           if (rng.chance(acc)) e.plan.role = ev.suggest[e.team];
           e.followed = e.plan.role === ev.suggest[e.team];
-          return;
+          e.suggested = true;
         }
-        if (e.plan.role === 'score' && e.cap.push >= 40 && pw < best * (playoff ? 0.55 : 0.4) && rng.chance(playoff ? 0.7 : 0.3)) e.plan.role = 'defend';
         if (playoff || rng.chance(0.5)) e.plan.rpHunt = !playoff;
       });
+      // AI alliance strategy: should the weakest robot play defense? Teams learn each game's meta over the season.
+      const already = ens.some(e => e.plan.role === 'defend');
+      const cands = ens.filter(e => !e.isPlayer && !e.suggested && e.plan.role === 'score' && (e.cap.push || 0) >= 30);
+      if (!already && cands.length) {
+        const pDef = Ev.defenseChance(ev, playoff);
+        const used = rng.chance(pDef);
+        if (used) cands.sort((p, q) => (p.power || 0) - (q.power || 0))[0].plan.role = 'defend';
+      }
+      ev.defStats = ev.defStats || { n: 0, d: 0 };
+      ev.defStats.n++; if (ens.some(e => e.plan.role === 'defend')) ev.defStats.d++;
       out[a] = ens;
     });
     return out;
+  };
+  // 0 at the start of the competition season → 1 by Week 6 / Championship / offseason
+  Ev.metaProgress = function (ev) {
+    if (ev.kind === 'champs' || ev.kind === 'einstein' || ev.kind === 'offseason') return 1;
+    if (ev.kind === 'scrimmage') return 0;
+    return U.clamp((ev.week - 1) / 5, 0, 1);
+  };
+  // Chance an AI alliance assigns one defender. Shooting games trend toward defense; placement games away from it.
+  Ev.defenseChance = function (ev, playoff) {
+    const meta = G.Seasons[ev.year].meta || {}, k = Ev.metaProgress(ev);
+    if (meta.defense) return playoff ? 0.35 + 0.55 * k : 0.12 + 0.5 * k;
+    return playoff ? 0.05 + 0.25 * (1 - k) : 0.04 + 0.2 * (1 - k);
   };
   Ev.buildEngine = function (ev, match, opts) {
     const S = G.S;
@@ -168,7 +187,49 @@
       });
     });
     ev.matchCount++;
+    observe(ev, res);
     if (Ev.hasPlayer(match)) G.Career.afterPlayerMatch(G.S, ev, match, res);
+  };
+  // ------------------------------------------------------------------
+  // Scouting observations: what each robot actually did in its qualification matches
+  // ------------------------------------------------------------------
+  function observe(ev, res) {
+    if (!res || !res.robots) return;
+    ev.obs = ev.obs || {};
+    res.robots.forEach(r => {
+      const o = ev.obs[r.team] || (ev.obs[r.team] = { n: 0, pts: 0, auto: 0, endTry: 0, endOK: 0, endLvl: 0, faultM: 0, faults: 0, comms: 0, dead: 0, fouls: 0, def: 0 });
+      const fl = (r.faults || []).filter(f => f !== 'Climb failed');
+      o.n++; o.pts += r.pts || 0; if (r.autoOK) o.auto++;
+      if (fl.length || r.dead) o.faultM++;
+      o.faults += fl.length; o.comms += fl.filter(f => /comms/i.test(f)).length; if (r.dead) o.dead++;
+      if (r.end && (r.end.lvl > 0 || r.end.failed)) { o.endTry++; if (r.end.lvl > 0 && r.end.eng !== false) { o.endOK++; o.endLvl += r.end.lvl; } } // 2023: only an Engaged dock counts as a success
+      o.fouls += r.fouls || 0;
+      if (r.role === 'defend') o.def++;
+    });
+  }
+  // Per-match averages and rates for one team (null before its first match)
+  Ev.obsOf = function (ev, t) {
+    const o = (ev.obs || {})[t];
+    if (!o || !o.n) return null;
+    return { n: o.n, pts: o.pts / o.n, auto: o.auto / o.n, climb: o.endTry ? o.endOK / o.endTry : null, climbTry: o.endTry, climbLvl: o.endOK ? o.endLvl / o.endOK : 0,
+      rel: 1 - o.faultM / o.n, faults: o.faults, comms: o.comms, dead: o.dead, fouls: o.fouls / o.n, def: o.def };
+  };
+  // How valuable a pick is to an alliance, from the scouting data (shared by AI captains and the player's recommendations).
+  // Small samples are shrunk toward a typical robot so one lucky or unlucky match doesn't dominate.
+  Ev.pickScore = function (ev, al, cand) {
+    const S = G.S, capOf = t => ev.caps[t] ? ev.caps[t].cap : G.Robot.matchEntry(S, ev).cap;
+    const cap = capOf(cand), o = Ev.obsOf(ev, cand), n = o ? o.n : 0, K = 3;
+    const shrink = (rate, cnt, prior) => ((rate == null ? 0 : rate * cnt) + prior * K) / (cnt + K);
+    const rel = shrink(o && o.rel, n, 0.8), auto = shrink(o && o.auto, n, 0.75);
+    const lvl = o && o.climbLvl ? o.climbLvl : (o && o.climbTry ? 0 : cap.endLevel || 0);
+    const climb = shrink(o && o.climb, o ? o.climbTry : 0, lvl ? 0.65 : 0);
+    let v = (Ev.opr(ev)[cand] || 0) * (0.55 + 0.45 * rel);          // unreliable robots lose a lot of their value in playoffs
+    v += (auto - 0.75) * 8 + climb * lvl * 2 - (o ? o.fouls * 1.5 + o.dead * 1.5 : 0);
+    const climbers = al.filter(t => { const ob = Ev.obsOf(ev, t); return ob ? (ob.climb || 0) >= 0.6 && ob.climbLvl >= 2 : (capOf(t).endLevel || 0) >= 2; }).length;
+    if (!climbers && lvl >= 2) v += 4 * climb;                         // complement: the alliance still needs a reliable climber
+    const meta = G.Seasons[ev.year].meta;
+    if (meta && meta.defense && al.length === 2) v += (cap.push || 0) / 20 + (o && o.def ? 2 : 0); // a second pick that can defend
+    return v;
   };
   // Simulate AI matches until the next player match (or end of quals). Returns the player's match or null.
   Ev.advanceQuals = function (ev) {
@@ -276,12 +337,7 @@
   };
   function inAlliance(ev, t) { return ev.sel.alliances.some(a => a.includes(t)); }
   function pickValue(ev, captainAlliance, cand, rng) {
-    const opr = Ev.opr(ev)[cand] || 0, e = ev.caps[cand];
-    const cap = e ? e.cap : G.Robot.matchEntry(G.S, ev).cap;
-    let v = opr + (cap.endLevel || 0) * 2 + cap.rel / 25;
-    const hasClimb = captainAlliance.some(t => { const c = ev.caps[t] ? ev.caps[t].cap : G.Robot.matchEntry(G.S, ev).cap; return (c.endLevel || 0) >= 2; });
-    if (!hasClimb && (cap.endLevel || 0) >= 2) v += 4;
-    return v + rng.norm(0, 3.5);
+    return Ev.pickScore(ev, captainAlliance, cand) + rng.norm(0, 3);
   }
   Ev.selStep = function (ev) {
     const sel = ev.sel, S = G.S, me = S.team.num;
@@ -498,7 +554,7 @@
             default: v = q * 0.9;
           }
         }
-        v += rng.norm(0, 9);
+        v += rng.norm(0, aw.id === 'impact' || aw.id === 'ei' || aw.id === 'ras' ? 6 : 9); // judged awards are steadier than the rest
         if (v > bv) { bv = v; best = t; }
       });
       if (best != null) { winners.add(best); list.push({ id: aw.id, name: aw.name, team: best }); }

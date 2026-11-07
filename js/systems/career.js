@@ -13,13 +13,14 @@
   C.spend = function (S, amt, desc) { amt = Math.round(amt); S.money -= amt; S.ledger.unshift({ d: C.dateLabel(S), desc, amt: -amt }); if (S.season) S.season.spent += amt; if (S.ledger.length > 300) S.ledger.length = 300; };
   C.earn = function (S, amt, desc) { amt = Math.round(amt); S.money += amt; S.ledger.unshift({ d: C.dateLabel(S), desc, amt }); if (S.season) S.season.earned += amt; if (S.ledger.length > 300) S.ledger.length = 300; };
   C.hasPerk = (S, id) => S.sponsors.some(s => s.perk === id);
+  C.allMentors = S => S.mentors.concat((S.guests || []).map(g => g.m)); // includes temporary guest mentors
   C.mentorSkill = function (S, role) {
-    const ms = S.mentors.filter(m => m.role === role);
+    const ms = C.allMentors(S).filter(m => m.role === role);
     let v = ms.length ? Math.max(...ms.map(m => m.skill)) : 0;
     if (role === 'design' && C.hasPerk(S, 'tempMentor')) v = Math.max(v, 55);
     return v;
   };
-  C.mentorStars = (S, role) => { const ms = S.mentors.filter(m => m.role === role); return ms.length ? Math.max(...ms.map(m => m.stars)) : 0; };
+  C.mentorStars = (S, role) => { const ms = C.allMentors(S).filter(m => m.role === role); return ms.length ? Math.max(...ms.map(m => m.stars)) : 0; };
   C.coachCalls = function (S, playoff) { const st = C.mentorStars(S, 'coach'); return 3 + (st >= 3 ? 1 : 0) + (st >= 5 ? 1 : 0) + (playoff ? 1 : 0); };
   C.coachSkill = function (S) { const dt = C.driveTeam(S); return Math.max(C.mentorSkill(S, 'coach'), dt.coachStrat); };
   C.driveTeam = function (S) {
@@ -56,7 +57,7 @@
       impactDone: false, impact: 0, outreach: 0, earned: 0, spent: 0, rpSum: 0, qualMatches: 0, matches: 0, faults: 0, legacy: 0 };
   }
   C.newGame = function (o) {
-    const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) & 0x7fffffff;
+    const seed = o.seed || ((Date.now() ^ Math.floor(Math.random() * 1e9)) & 0x7fffffff); // o.seed: dev tests only
     G.R = new G.Rng(seed);
     const rng = G.R, P = D.PROFILES[o.profile];
     let order = G.SEASON_YEARS.slice();
@@ -113,7 +114,6 @@
       [t].concat(ps).forEach(x => x && C.signSponsor(S, x.id, true));
       C.kickoff(S);
     }
-    if (o.profile === 'powerhouse' && S.equip.field === 'pending') S.equip.field = null;
     return S;
   };
   function autoDriveTeam(S) {
@@ -182,7 +182,7 @@
     const sp = S.sponsors.find(s => s.id === a.sponsorId);
     a.status = how === 'skip' ? 'skipped' : 'done';
     if (how === 'student') { S.lastConf = Math.max(0, S.lastConf - 0.1); S.morale = Math.max(0, S.morale - 1); if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
-    if (how === 'robot') { if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - 10); }); if (sp) sp.sat = Math.min(100, sp.sat + 10); S.rep = Math.min(100, S.rep + 1); S.season.impact += 3; }
+    if (how === 'robot') { if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - 10); }); if ((S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: 10 }; if (sp) sp.sat = Math.min(100, sp.sat + 10); S.rep = Math.min(100, S.rep + 1); S.season.impact += 3; }
     if (how === 'hours') { S.actHours += 30; if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
     if (how === 'skip') { if (sp) sp.sat = Math.max(0, sp.sat - 15); }
   };
@@ -273,15 +273,41 @@
       if (tc) C.spend(S, tc, 'Travel: ' + def.name);
     }
     if (def.kind === 'einstein') return C.startEinstein(S, def);
-    G.Shop.wear(S, 'event', { fly: def.kind === 'champs' || (def.kind === 'regional' && D.travelTier(S.team.region, def.region, def.local) === 'fly') });
+    const fly = def.kind === 'champs' || (def.kind === 'regional' && D.travelTier(S.team.region, def.region, def.local) === 'fly');
+    G.Shop.wear(S, 'event', { fly });
+    // The robot arrives at 100% unless: not enough spare parts for the repairs, a long trip (shipped by air),
+    // or a sponsor demo with the robot this same competition week. (Einstein follows the division too closely for any of this.)
+    const arrival = { notes: [] };
+    if (S.robot) {
+      const rep = G.Robot.homeRepair(S);
+      if (rep.used) arrival.notes.push('Repairs used ' + rep.used + ' spare part' + (rep.used > 1 ? 's' : '') + '.');
+      if (rep.short) arrival.notes.push('Not enough spare parts to finish the repairs (' + rep.short + ' condition points left).');
+      const hit = (amt, why) => { Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - amt()); }); arrival.notes.push(why); };
+      if (fly) hit(() => G.R.range(4, 9), 'The robot was shipped by air and took some knocks in transit.');
+      if (S.demoWear && S.demoWear.key === turnKey(S)) { hit(() => S.demoWear.amt, 'The sponsor demo earlier this week left wear the team had no time to fix.'); }
+      S.demoWear = null;
+      arrival.cond = Math.round(G.Robot.condAvg(S));
+    }
     const ev = G.Ev.start(Object.assign({ year: S.year }, def));
-    ev.batts = new Array(Math.max(2, S.parts.batteries)).fill(1);
+    ev.batts = S.parts.batts.map(() => 1);
+    ev.arrival = arrival;
     return ev;
+  };
+  // What the robot's condition will be when it arrives at an event (HQ / calendar preview)
+  C.arrivalPreview = function (S, def) {
+    if (!S.robot || !def || def.kind === 'einstein') return null;
+    const notes = [], need = G.Robot.repairNeed(S), have = Math.max(0, S.parts.spares - (S.parts.spareUse || 0));
+    let cond = 100;
+    if (need > have + 0.01) { notes.push('short on spare parts'); cond -= Math.min(25, (need - have) * D.SPARE_COND_PER_UNIT / Math.max(1, Object.values(S.robot.subs).filter(x => x.ver).length)); }
+    const fly = def.kind === 'champs' || (def.kind === 'regional' && D.travelTier(S.team.region, def.region, def.local) === 'fly');
+    if (fly) { notes.push('flying (−4–9%)'); cond -= 6.5; }
+    if (S.demoWear && S.demoWear.key === turnKey(S)) { notes.push('sponsor demo this week (−' + S.demoWear.amt + '%)'); cond -= S.demoWear.amt; }
+    return { cond: Math.round(cond), notes, spares: Math.max(0, Math.ceil(need - have)) };
   };
   C.startEinstein = function (S, def) {
     const div = S.lastDivision;
     const ev = G.Ev.start({ id: def.id, kind: 'einstein', name: def.name, size: 1, year: S.year, week: 8, str: 5 });
-    ev.batts = new Array(Math.max(2, S.parts.batteries)).fill(1);
+    ev.batts = S.parts.batts.map(() => 1);
     const rng = G.R;
     const myAll = div.alliance.slice();
     const exclude = new Set(div.teams);
@@ -309,16 +335,82 @@
   };
 
   // Hours available this turn
-  C.turnHours = function (S, eventWeek) {
-    let mult;
-    if (S.phase === 'off') mult = (['Jun', 'Jul', 'Aug'].includes(D.MONTHS[S.month]) ? 0.4 : 0.6) * 4;
-    else if (S.phase === 'build' || S.phase === 'kickoff') mult = S.overtime ? 1.3 : 1;
-    else if (S.phase === 'comp') mult = eventWeek ? 0.3 : 0.8;
-    else mult = 0.5;
-    const stud = S.studentsCount * (S.phase === 'off' ? 5 : 7), ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0);
-    const moraleM = 0.8 + 0.3 * S.morale / 100;
-    return Math.round((stud + ment) * mult * moraleM);
+  // Team hours for this turn. breakdown=true returns the pieces for the UI.
+  C.turnHours = function (S, eventWeek, breakdown) {
+    let mult, why;
+    if (S.phase === 'off') { const summer = ['Jun', 'Jul', 'Aug'].includes(D.MONTHS[S.month]); mult = (summer ? 0.4 : 0.6) * 4; why = (summer ? 'summer' : 'school-year') + ' month (×' + mult.toFixed(1) + ')'; }
+    else if (S.phase === 'build' || S.phase === 'kickoff') { mult = S.overtime ? 1.3 : 1; why = S.overtime ? 'overtime week (×1.3)' : 'build week'; }
+    else if (S.phase === 'comp') { mult = eventWeek ? 0.3 : 0.8; why = eventWeek ? 'event week (×0.3)' : 'competition week (×0.8)'; }
+    else { mult = 0.5; why = '×0.5'; }
+    const perStudent = S.phase === 'off' ? 5 : 7;
+    const stud = S.studentsCount * perStudent;
+    const ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0) + G.Shop.guestHours(S);
+    const moraleM = 0.8 + 0.3 * S.morale / 100, boost = 1 + G.Shop.boostHours(S);
+    const total = Math.round((stud + ment) * mult * moraleM * boost);
+    if (!breakdown) return total;
+    return { total, stud, ment, perStudent, students: S.studentsCount, mult, why, moraleM, boost };
   };
+  C.isEventTurn = S => S.lastEventTurn === turnKey(S) || !!(C.eventThisTurn(S) && S.phase !== 'off');
+  // Testing hours: limited practice-field time each week (like wind-tunnel time), split between development
+  // testing and driver practice. Unlocked by the Practice Field; a practice robot adds more.
+  C.TEST_SPLITS = [0, 0.25, 0.5, 0.75, 1];
+  C.testHours = function (S, eventWeek) {
+    const lvl = G.Shop.lvl(S, 'pfield');
+    if (!lvl || !['off', 'kickoff', 'build', 'comp'].includes(S.phase)) return { total: 0, drive: 0, dev: 0, unlocked: !!lvl };
+    if (eventWeek == null) eventWeek = C.isEventTurn(S);
+    let h = G.Shop.fx(S, 'pfield', 'test') + (S.robot && S.robot.practiceBot ? D.TEST_BOT_HOURS : 0);
+    if (S.phase === 'off') h *= 4;
+    if (eventWeek) h *= 0.5;
+    h = Math.round(h);
+    const canDrive = !!S.robot, split = canDrive ? (S.testSplit == null ? 0.5 : S.testSplit) : 0;
+    const drive = Math.round(h * split);
+    // driver practice on the real game needs this season's game elements (offseason: last season's game)
+    const elem = S.phase === 'off' ? 0.6 : S.equip.field === S.year ? 1 : 0.5;
+    return { total: h, drive, dev: h - drive, unlocked: true, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
+  };
+  C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
+  // Driver practice: drive-team skills and confidence; uses a few spare parts and a little battery life.
+  // Out of spares, the robot itself wears (unless a practice robot takes the beating).
+  function driverPractice(S, th) {
+    const h = th.drive;
+    if (!h || !S.robot) return null;
+    const eff = h * th.elem, out = { hours: h, spares: 0, wear: 0 };
+    S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + eff / D.DRILL_PER);
+    const dt = C.driveTeam(S), k = 0.15 * eff;
+    if (dt.driver.id) studentXP(S, dt.driver, ['drive', 'aware', 'comp'], k);
+    if (dt.operator.id) studentXP(S, dt.operator, ['mech', 'comp'], k);
+    if (dt.hp.id) studentXP(S, dt.hp, ['hp'], k * 0.6);
+    if (dt.coach && dt.coach.id) studentXP(S, dt.coach, ['strat'], k * 0.6);
+    const P = S.parts;
+    if (P.spares > 0) {
+      P.drillUse = (P.drillUse || 0) + h * D.DRILL_SPARES;
+      while (P.drillUse >= 1 && P.spares > 0) { P.spares--; P.drillUse--; out.spares++; }
+    } else {
+      // no spares: broken bits stay broken, and the robot itself wears (a practice robot takes the beating instead)
+      P.drillUse = 0;
+      if (!S.robot.practiceBot) {
+        const subs = Object.values(S.robot.subs).filter(x => x.ver && x !== S.robot.subs.soft);
+        out.wear = Math.round(h * D.DRILL_WEAR);
+        subs.forEach(x => x.cond = Math.max(0, x.cond - out.wear * G.R.range(0.6, 1.4)));
+      }
+    }
+    if (P.batts.length) P.batts.forEach(b => b.h = Math.max(0.3, b.h - D.DRILL_BATT * h / P.batts.length * G.R.range(0.5, 1.5)));
+    return out;
+  }
+  // Hours still free this turn after team activities
+  C.freeHours = S => Math.max(0, C.turnHours(S, C.isEventTurn(S)) - S.actHours);
+  // This turn's development plan: how free hours will be shared between projects
+  C.hoursPlan = function (S) {
+    const free = C.freeHours(S);
+    const mods = mergeMods(S.devMods ? S.devMods.mods : null, G.Shop.boostMods(S));
+    return Object.assign(G.Robot.alloc(S, free, mods), { free, mods });
+  };
+  function mergeMods(a, b) {
+    if (!a && !b) return null;
+    const m = Object.assign({}, a || {});
+    Object.keys(b || {}).forEach(k => { m[k] = (m[k] == null ? 1 : m[k]) * b[k]; });
+    return m;
+  }
   C.blockers = function (S) {
     const b = [];
     const ev = C.eventThisTurn(S);
@@ -332,17 +424,19 @@
     if (C.blockers(S).length) return C.blockers(S);
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
     const hours = Math.max(0, C.turnHours(S, thisWeekEvent) - S.actHours);
+    const th = C.testHours(S, thisWeekEvent);
     S.actHours = 0;
     switch (S.phase) {
-      case 'off': processWork(S, hours); offMonthEnd(S); break;
-      case 'kickoff': processWork(S, hours); S.phase = 'build'; S.week = 1; break;
-      case 'build': processWeek(S, hours); if (S.week >= 7) { S.phase = 'comp'; S.week = 1; } else S.week++; break;
-      case 'comp': processWeek(S, hours); if (S.week >= 6) C.toChamps(S); else S.week++; break;
+      case 'off': processWork(S, hours, th); offMonthEnd(S); break;
+      case 'kickoff': processWork(S, hours, th); S.phase = 'build'; S.week = 1; break;
+      case 'build': processWeek(S, hours, th); if (S.week >= 7) { S.phase = 'comp'; S.week = 1; } else S.week++; break;
+      case 'comp': processWeek(S, hours, th); if (S.week >= 6) C.toChamps(S); else S.week++; break;
       case 'champs': C.toReview(S); break;
       case 'review': C.endReview(S); break;
     }
-    // new turn: random news, team chatter and (rarely) a shop incident
-    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); }
+    // new turn: random news, team chatter, (rarely) a shop incident or a school/sponsor opportunity
+    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); G.Shop.rollBoost(S); }
+    if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
     G.Save.write('auto');
     return null;
@@ -350,36 +444,44 @@
   function turnKey(S) { return S.phase + ':' + S.week + ':' + S.month + ':' + S.year; }
   C.turnKey = turnKey;
   C.markEventTurn = S => { S.lastEventTurn = turnKey(S); };
-  function processWork(S, hours) {
-    const mods = G.Shop.turnMods(S); // shop incidents: one turn only
-    const r = G.Robot.work(S, hours, mods);
-    S.lastWork = { hours, done: r.done, mods: mods ? G.Shop.modsText(mods) : '' };
+  function processWork(S, hours, th) {
+    const inc = G.Shop.turnMods(S); // shop incidents: one turn only
+    const mods = mergeMods(inc, G.Shop.boostMods(S));
+    const r = G.Robot.work(S, hours, mods, th ? th.dev : 0);
+    S.lastWork = { hours, used: Math.round(r.used), idle: Math.round(r.spare), done: r.done, mods: inc ? G.Shop.modsText(inc) : '' };
+    if (th && th.total) {
+      if (r.testUsed > 0.05) C.spend(S, r.testUsed * D.TEST_COST, 'Development testing (' + Math.round(r.testUsed) + ' h)');
+      const dp = driverPractice(S, th);
+      S.lastTest = { total: th.total, dev: th.dev, devUsed: Math.round(r.testUsed), devIdle: Math.round(r.testIdle), bonus: Math.round(r.testBonus), drive: th.drive, spares: dp ? dp.spares : 0, wear: dp ? dp.wear : 0 };
+    } else S.lastTest = null;
     G.Shop.clearMods(S);
+    G.Shop.tickBoosts(S);
     return r;
   }
-  function processWeek(S, hours) {
-    const r = processWork(S, hours);
+  // Each in-season week the design lead suggests one upgrade (inbox + Design Office card)
+  C.weeklySuggestion = function (S) {
+    const sg = G.Robot.suggest(S);
+    if (!sg) return;
+    const lead = S.mentors.find(m => m.role === 'design') || S.mentors[0];
+    C.inbox(S, 'Design meeting: ' + sg.title, (lead ? lead.name + ' (design lead)' : 'The design captain') + ' suggests: ' + sg.title + '.\n\nWhy: ' + sg.reason + '\n\nCost: ' + sg.quote.hours + ' h · ' + U.money(sg.quote.cost) + '. Start it from the Design Office.', 'dev');
+  };
+  function processWeek(S, hours, th) {
+    const r = processWork(S, hours, th);
     if (S.overtime) { S.morale = Math.max(0, S.morale - 6); C.spend(S, 200, 'Overtime meals'); }
-    // driver practice
-    if (S.equip.field === S.year || (S.robot && S.robot.practiceBot)) {
-      S.practiceWeeks = Math.min(10, (S.practiceWeeks || 0) + 1);
-      const dt = C.driveTeam(S);
-      [dt.driver, dt.operator].forEach(s => s.attr && studentXP(S, s, ['drive', 'mech', 'comp'], 0.6));
-    }
-    // home repair
-    if (S.robot && !(S.lastEventTurn === turnKey(S))) {
-      const cost = G.Robot.homeRepair(S);
-      if (cost > 0) C.spend(S, cost, 'Robot repairs');
+    // home repair with spare parts (driver practice above may have used some)
+    if (S.robot && S.robot.year === S.year && !(S.lastEventTurn === turnKey(S))) {
+      const rp = G.Robot.homeRepair(S);
+      S.repairShort = rp.short;
     }
     // morale drift
     S.morale = Math.round(S.morale + (62 - S.morale) * 0.15);
     // battery aging
-    S.parts.battHealth = Math.min(1, S.parts.battHealth + 0.002);
     G.Shop.wear(S, 'season');
     return r;
   }
   function offMonthEnd(S) {
     G.Shop.wear(S, 'off');
+    G.Shop.ageBatteries(S, 0.004); // batteries slowly age on the shelf
     if (S.month >= 7) { C.kickoff(S); return; }
     S.month++;
     onMonthStart(S);
@@ -429,7 +531,7 @@
     S.phase = 'kickoff'; S.week = 0; S.preseason = false;
     if (!first) { G.AI.evolve(S.teams, rng); G.AI.addRookies(S.teams, rng, S.year, 10, S.team.num); }
     Object.values(S.teams).forEach(t => t.rb = null);
-    if (!S.season || S.season.year !== S.year) { const imp = S.season ? S.season.impact : 0, out = S.season ? S.season.outreach : 0; S.season = newSeasonState(S.year); S.season.impact = imp; S.season.outreach = out; }
+    if (!S.season || S.season.year !== S.year) { const imp = S.season ? S.season.impact : 0, out = S.season ? S.season.outreach : 0, done = !!(S.season && S.season.impactDone), fundN = (S.season && S.season.fundN) || {}; S.season = newSeasonState(S.year); S.season.impact = imp; S.season.outreach = out; S.season.impactDone = done; S.season.fundN = fundN; }
     S.season.year = S.year;
     G.Robot.newSeason(S, S.year);
     S.usedAreas = {}; S.practiceWeeks = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
@@ -504,11 +606,13 @@
       ev.lastRepair = sp;
     }
     // batteries
-    const rate = G.Shop.chargeRate(S);
-    ev.batts = (ev.batts || [1, 1]).map(b => Math.min(1, b + rate * Math.max(1, turn)));
-    let bi = 0; ev.batts.forEach((b, i) => { if (b > ev.batts[bi]) bi = i; });
+    const rate = G.Shop.chargeRate(S), fleet = S.parts.batts;
+    if (!ev.batts || ev.batts.length !== fleet.length) ev.batts = fleet.map(() => 1);
+    ev.batts = ev.batts.map(b => Math.min(1, b + rate * Math.max(1, turn)));
+    // pick the most charged battery; break ties with the healthiest
+    let bi = 0; ev.batts.forEach((b, i) => { if (b > ev.batts[bi] + 1e-9 || (Math.abs(b - ev.batts[bi]) < 1e-9 && fleet[i].h > fleet[bi].h)) bi = i; });
     ev.battIdx = bi;
-    ev.batt = ev.batts[bi] * S.parts.battHealth;
+    ev.batt = ev.batts[bi] * (fleet[bi] ? fleet[bi].h : 1);
   };
   C.afterPlayerMatch = function (S, ev, match, res) {
     const me = S.team.num;
@@ -516,7 +620,11 @@
     if (!rr) return;
     const a = rr.a, o = a === 'red' ? 'blue' : 'red';
     G.Robot.applyWear(S, rr, !!match.playoff);
-    if (ev.batts) { ev.batts[ev.battIdx || 0] = 0.15; S.parts.battHealth = Math.max(0.6, S.parts.battHealth - 0.004); }
+    if (ev.batts) {
+      const i = ev.battIdx || 0;
+      ev.batts[i] = 0.15;
+      if (S.parts.batts[i]) S.parts.batts[i].h = Math.max(0.4, S.parts.batts[i].h - 0.012); // only the battery used wears
+    }
     // XP
     const dt = C.driveTeam(S), mult = (match.playoff ? 1.5 : 1) * (ev.kind === 'champs' || ev.kind === 'einstein' ? 1.5 : 1) * (ev.kind === 'offseason' ? 2 : 1);
     if (dt.driver.attr && dt.driver.id) { studentXP(S, dt.driver, ['drive', 'aware', 'comp'], mult); dt.driver.matches++; }
@@ -536,16 +644,69 @@
     S.morale = U.clamp(S.morale + (res[a].win === 1 ? 0.6 : res[a].win === 0 ? -0.4 : 0), 0, 100);
     ev.playerResults.push({ id: match.id || ('Q' + match.n), our: res[a].score, their: res[o].score, rp: res[a].rp, win: res[a].win, faults: rr.faults, pts: rr.pts, a });
   };
+  // ======================= Impact Award =======================
+  // Judges weigh this season's outreach, a sustained track record (last three seasons), the presentation,
+  // feeder programs and reputation. A team without a track record can't realistically win, so Impact takes
+  // several seasons of steady work. A submission is required, and a team wins it at most once per season.
+  const IMPACT_BASE = { rookie: 0, established: 90, powerhouse: 220 }; // assumed outreach in seasons before the career
+  C.IMPACT_W = { outreach: 0.32, record: 0.25, pitch: 0.18, programs: 0.12, rep: 0.13 };
+  C.IMPACT_LABEL = { outreach: 'This season\'s outreach', record: 'Track record (3 seasons)', pitch: 'Presentation', programs: 'Feeder programs', rep: 'Reputation' };
+  const impSat = r => 100 * (1 - Math.exp(-Math.max(0, r) / 280));
+  C.impactRating = function (S) {
+    const raw = S.season ? S.season.impact : 0;
+    const past = S.history.slice(-3).map(x => x.impactRaw != null ? x.impactRaw : (x.awards || []).includes('impact') ? 400 : 120);
+    while (past.length < 3) past.unshift(IMPACT_BASE[S.profile] || 0);
+    const stu = S.students.map(s => (s.attr.strat + s.attr.aware) / 2).sort((a, b) => b - a).slice(0, 2);
+    const parts = {
+      outreach: impSat(raw), record: impSat(U.avg(past)),
+      pitch: U.clamp(C.mentorSkill(S, 'biz') * 0.6 + (stu.length ? U.avg(stu) : 25) * 0.6, 0, 100),
+      programs: S.feeders / 3 * 100, rep: S.rep
+    };
+    let score = 0;
+    Object.keys(C.IMPACT_W).forEach(k => score += parts[k] * C.IMPACT_W[k]);
+    const won = !!(S.season && (S.season.awards || []).some(a => a === 'impact' || (a && a.id === 'impact')));
+    return { score, parts, raw, submitted: !!(S.season && S.season.impactDone), won };
+  };
+  // Chance to win the Impact Award at a regional: Monte Carlo over likely fields (cached per event + AI pool state).
+  const impField = {};
+  C.impactOdds = function (S, r, ir) {
+    ir = ir || C.impactRating(S);
+    if (!S.teams) return 0;
+    let sum = 0;
+    Object.values(S.teams).forEach(t => sum += t.impact);
+    const key = r.id + '|' + sum;
+    if (!impField[key]) {
+      const rng = G.makeRng((sum * 31 + r.week * 977 + r.id.length * 131 + r.id.charCodeAt(r.id.length - 1)) >>> 0);
+      const tops = [];
+      for (let k = 0; k < 24; k++) {
+        const ai = G.AI.pickAttendees(S.teams, rng, (r.size || 40) - 1, r.region, r.str || 3, new Set([S.team.num]), false);
+        tops.push(ai.map(n => S.teams[n].impact).sort((a, b) => b - a).slice(0, 8));
+      }
+      impField[key] = tops;
+    }
+    const rng = G.makeRng(12345);
+    let win = 0, n = 0;
+    impField[key].forEach(top => {
+      for (let j = 0; j < 40; j++) {
+        const me = ir.score + rng.norm(0, 6);
+        let best = -1;
+        top.forEach(v => { const x = v + rng.norm(0, 6); if (x > best) best = x; });
+        if (me > best) win++;
+        n++;
+      }
+    });
+    return win / n;
+  };
   C.awardScores = function (S, ev) {
     const en = G.Robot.matchEntry(S, ev), c = en.cap;
-    const imp = U.clamp(S.season.impact + C.mentorSkill(S, 'biz') * 0.15 + S.feeders * 5, 0, 100);
+    const ir = C.impactRating(S), imp = ir.score, sub = ir.submitted ? 1 : 0.75;
     const design = U.avg([c.speed, c.intake, c.scoreSpd, c.accuracy, c.endgame || 30]);
     const vers = S.robot ? U.avg(Object.values(S.robot.subs).filter(s => s.ver).map(s => s.ver)) : 1;
     const maxCx = S.robot ? Math.max(...Object.keys(S.robot.subs).map(k => { const s = S.robot.subs[k]; const cc = s.ver ? G.Seasons.concept(S.robot.year, k, s.concept) : null; return cc ? cc.cx : 0; })) : 1;
     const faultsHere = ev.playerResults.reduce((s, r) => s + r.faults.length, 0);
     return {
       rookie: S.team.rookieYear === ev.year,
-      impact: imp, ei: 0.5 * imp + 0.5 * design, ras: 0.6 * imp + 0.4 * design,
+      impact: ir.submitted && !ir.won ? imp : -999, ei: 0.5 * imp * sub + 0.5 * design, ras: 0.6 * imp * sub + 0.4 * design,
       eie: design, id: design * 0.6 + vers * 6 + (G.Robot.WEIGHT_LIMIT - G.Robot.weight(S)) * 0.4 + C.mentorSkill(S, 'design') * 0.15,
       ic: c.vision * 0.5 + (c.visionLvl || 0) * 15 + c.auto * 0.3, quality: c.rel * 0.8 + (faultsHere === 0 ? 10 : -faultsHere * 3),
       creativity: maxCx * 12 + 10, auto: (c.autoTier || 0) * 18 + c.auto * 0.4,
@@ -633,6 +794,25 @@
     if (s.worldChamp) p += 400;
     return p;
   };
+  // Blue banners: official event wins and Impact Awards (offseason events don't earn banners).
+  C.eventBanners = function (e, year) {
+    const out = [];
+    if (e.kind === 'regional' && e.won) out.push({ award: 'Winner', year, event: e.name });
+    if (e.kind === 'champs' && e.won) out.push({ award: 'Division Winner', year, event: e.name.replace('Championship — ', '') + ' · FIRST Championship' });
+    if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true });
+    if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
+    return out;
+  };
+  C.banners = function (S) {
+    const out = [];
+    const add = (year, events, worldChamp) => {
+      events.forEach(e => out.push(...C.eventBanners(e, year)));
+      if (worldChamp) out.push(...C.eventBanners({ kind: 'einstein', won: true }, year));
+    };
+    S.history.forEach(h => add(h.year, h.events, h.worldChamp));
+    if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season.worldChamp);
+    return out;
+  };
   C.toReview = function (S) {
     if (S.phase === 'review') return;
     const s = S.season;
@@ -670,7 +850,7 @@
     S.history.push({
       year: S.year, events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
-      earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0
+      earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0, impactRaw: s.impact
     });
     S.phase = 'review';
     S.champsPaid = null;
@@ -698,23 +878,36 @@
   };
 
   // ======================= offseason activities & purchases =======================
+  // Weekly limits on non-development activities: D.ACT_LIMIT total and each type once (×4 for an offseason month)
+  C.actLimits = function (S) {
+    const key = turnKey(S);
+    if (!S.actLog || S.actLog.key !== key) S.actLog = { key, counts: {}, total: 0 };
+    const k = S.phase === 'off' ? 4 : 1;
+    return { max: D.ACT_LIMIT * k, perType: k, used: S.actLog.total, counts: S.actLog.counts, unit: S.phase === 'off' ? 'month' : 'week' };
+  };
+  C.fundFatigue = (S, id) => Math.pow(D.FUND_FATIGUE, (S.season && S.season.fundN && S.season.fundN[id]) || 0);
   C.doActivity = function (S, id) {
     const a = D.ACTIVITIES.find(x => x.id === id), rng = G.R;
-    const avail = C.turnHours(S, false) - S.actHours;
-    if (avail < a.hours) return 'Not enough team hours left this turn (' + Math.max(0, Math.round(avail)) + ' h)';
+    const lim = C.actLimits(S);
+    if (lim.used >= lim.max) return 'The team has already done ' + lim.max + ' activities this ' + lim.unit + '. Try again next ' + lim.unit + '.';
+    if ((lim.counts[id] || 0) >= lim.perType) return 'Already done this ' + lim.unit + (lim.perType > 1 ? ' (' + lim.perType + '×)' : '') + '.';
     if (S.money < a.cost) return 'Not enough money';
-    S.actHours += a.hours;
+    S.actLog.counts[id] = (S.actLog.counts[id] || 0) + 1; S.actLog.total++;
     if (a.cost) C.spend(S, a.cost, a.name);
     let msg = '';
     if (a.kind === 'outreach') {
       S.season.impact += a.impact; S.season.outreach++; S.rep = Math.min(100, S.rep + a.rep);
-      msg = '+' + a.impact + ' Impact, +' + a.rep + ' reputation';
+      msg = '+' + a.impact + ' outreach points, +' + a.rep + ' reputation';
     } else {
+      // donor fatigue: each repeat of the same fundraiser in this program year (June–May) pays less
+      const fat = C.fundFatigue(S, a.id);
+      S.season.fundN = S.season.fundN || {};
+      S.season.fundN[a.id] = (S.season.fundN[a.id] || 0) + 1;
       let g;
-      if (a.grant) { const p = 0.3 + S.season.impact / 200; g = rng.chance(p) ? rng.int(2000, 5000) : 0; }
-      else g = Math.round(rng.range(a.money[0], a.money[1]) * (a.repScale ? 0.5 + S.rep / 100 : 1) * (S.mentors.some(m => m.role === 'biz') ? 1.15 : 1));
+      if (a.grant) { const p = (0.25 + C.impactRating(S).parts.outreach / 300) * fat; g = rng.chance(p) ? rng.int(a.money[0], a.money[1]) : 0; }
+      else g = Math.round(rng.range(a.money[0], a.money[1]) * (a.repScale ? 0.5 + S.rep / 100 : 1) * (S.mentors.some(m => m.role === 'biz') ? 1.15 : 1) * fat);
       if (g) C.earn(S, g, a.name);
-      msg = g ? 'Raised ' + U.money(g) : 'The application was not funded this time.';
+      msg = g ? 'Raised ' + U.money(g) + (fat < 1 ? ' (repeat donors give less: ×' + fat.toFixed(2) + ')' : '') : 'The application was not funded this time.';
     }
     return { ok: true, msg };
   };
@@ -740,14 +933,7 @@
     S.parts[id] = tier;
     return null;
   };
-  C.buyBatteries = function (S, n) {
-    const cost = n * D.BATTERY_COST * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1);
-    if (S.money < cost) return 'Not enough money';
-    C.spend(S, cost, n + ' batteries');
-    S.parts.battHealth = (S.parts.battHealth * S.parts.batteries + n) / (S.parts.batteries + n);
-    S.parts.batteries += n;
-    return null;
-  };
+  C.buyBatteries = (S, n) => G.Shop.buyBatteries(S, n);
   // Spare parts cost more when bought at an event (rush delivery to the pits).
   C.spareUnitPrice = function (S, atEvent) {
     return Math.round(D.SPARES_COST * (atEvent ? D.SPARES_EVENT_MULT : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));

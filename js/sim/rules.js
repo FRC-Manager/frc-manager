@@ -262,7 +262,7 @@
           const avg = U.avg(docked.map(balOf));
           eng = m.rng.chance(U.clamp((0.25 + 0.68 * avg / 100) * [1, 0.88, 0.7][docked.length - 1], 0.05, 0.97));
         }
-        docked.forEach(r => { const v = eng ? 10 : 6; pts += v; r.stats.pts += v; });
+        docked.forEach(r => { const v = eng ? 10 : 6; pts += v; r.stats.pts += v; r.end.eng = eng; }); // eng: scouts record docks that ended Engaged
         ss.endCS = pts; ss.engaged = eng;
         rs.forEach(r => { if (!docked.includes(r) && !r.dead && inCommunity(m, r) && r.end) { pts += 2; r.stats.pts += 2; } });
         m.score[a].end += pts;
@@ -286,6 +286,13 @@
   // 2024 CRESCENDO
   // =====================================================================
   const canAmp = r => !!(r.cap.amp || r.cap.ampViaShooter);
+  // The amp specialist is the amp-capable robot that is not defending and has the weakest speaker game (re-picked live).
+  function ampBotOf(m, a) {
+    const rs = m.robots.filter(r => r.a === a && canAmp(r) && r.plan.role !== 'defend' && !r.dead && !r.perm.scorer);
+    if (!rs.length) return null;
+    const sp = r => (r.cap.speaker ? r.cap.accuracy + r.cap.scoreSpd + (r.cap.range || 0) : -50);
+    return rs.sort((p, q) => sp(p) - sp(q))[0].team;
+  }
   function useAmp24(m, r) {
     const ss = m.ss[r.a];
     if (!canAmp(r)) return false;
@@ -293,7 +300,7 @@
     if (r.plan.target === 'amp') return true;
     if (r.plan.target === 'speaker' || m.phase === 'auto') return false;
     if (ss.ampUntil > m.t || ss.bank >= 2) return false;
-    return ss.ampBot === r.team;
+    return ampBotOf(m, r.a) === r.team;
   }
   function speaker24(m, r) {
     const ss = m.ss[r.a], spk = m.spk[r.a];
@@ -355,7 +362,7 @@
       m.robots.forEach(r => { r.held = (r.cap.speaker || canAmp(r)) ? 1 : 0; });
     },
     start(m, r) { return E.P(m, r.a, 1.35, [4.4, 5.55, 6.7][r.slot]); },
-    guard(m, a) { return E.P(m, a, 6.6, 6.0); },
+    guard(m, a) { return E.P(m, a, 12.6, 2.2); }, // defenders camp the target alliance's Source lane
     autoDecide(m, r) {
       const tier = r.cap.autoTier || 0, max = m.S.autoPieces[tier];
       if (r.mem.got == null) r.mem.got = 1;
@@ -474,6 +481,11 @@
     }
     return best;
   }
+  // The algae specialist is the algae-capable robot that is not defending and has the least coral reach (re-picked live).
+  function algaeBotOf(m, a) {
+    const rs = m.robots.filter(r => r.a === a && canProcess(r) && r.plan.role !== 'defend' && !r.dead);
+    return rs.length ? rs.sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0))[0].team : null;
+  }
   const reefSpot = (m, r) => H.nearest(r, m.faces[r.a]);
   function placeCoral(m, r, L) {
     const spot = reefSpot(m, r);
@@ -579,7 +591,7 @@
       }
       const algaeLeft = ss.algaeLow + ss.algaeHigh > 0;
       const wantAlgae = canProcess(r) && algaeLeft && H.canScore(m, r) && (
-        r.plan.target === 'algae' || (r.plan.target === 'auto' && ss.algaeBot === r.team && (ss.proc < 2 || (c.reach || 0) <= 1 || c.net)) || !(c.reach > 0));
+        r.plan.target === 'algae' || (r.plan.target === 'auto' && algaeBotOf(m, r.a) === r.team && (ss.proc < 2 || (c.reach || 0) <= 1 || c.net)) || !(c.reach > 0));
       if (wantAlgae) return removeAlgae(m, r, true);
       if (!(c.reach > 0)) { r.label = 'Nothing to score'; return; }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
@@ -830,4 +842,36 @@
     },
     hud(m, a) { return [active26(m, a) ? 'HUB ACTIVE' : 'HUB INACTIVE']; }
   };
+})();
+
+// ---------------------------------------------------------------------
+// Season strategy profiles (real-world meta). eff scales how much a dedicated
+// defender slows and disrupts its target; foul scales contact penalty risk.
+// Shooting games (2022, 2024, 2026): one defender is the strongest strategy.
+// Placement games (2023, 2025): protected zones make defense weak; run three scorers.
+// ---------------------------------------------------------------------
+(function () {
+  const R = G.Rules, S = G.Seasons;
+  R[2022].defense = { eff: 2.2, foul: 0.8, range: 1.8, zone: 0.45 };
+  R[2023].defense = { eff: 0.5, foul: 1.7 };
+  R[2024].defense = { eff: 3.2, foul: 0.7, range: 2.0, zone: 0.7 };
+  R[2025].defense = { eff: 0.5, foul: 1.7 };
+  R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35 };
+  S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
+  S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
+  S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances.' };
+  S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers.' };
+  S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream.' };
+
+  // Season failure profiles: multipliers on brownouts, tip-overs and comms losses (engine faultRoll)
+  R[2022].faults = { brown: 1.2, tip: 1.0, tipAll: 0.1, comms: 1.05 };
+  R[2023].faults = { brown: 0.9, tip: 2.5, tipAll: 0.5, comms: 1.0 };
+  R[2024].faults = { brown: 1.2, tip: 1.0, tipAll: 0.05, comms: 1.1 };
+  R[2025].faults = { brown: 1.0, tip: 1.4, tipAll: 0.2, comms: 1.0 };
+  R[2026].faults = { brown: 2.8, tip: 0.8, tipAll: 0.1, comms: 1.1 };
+  S[2022].meta.faults = 'Common failures: comms drops from hard hits around the Hub and brownouts from big shooter flywheels.';
+  S[2023].meta.faults = 'Common failures: tip-overs. Tall arms and elevators reaching the high nodes, plus the Charge Station, put a lot of robots on their side.';
+  S[2024].meta.faults = 'Common failures: comms drops from heavy defense contact and brownouts from shooters and intakes running together.';
+  S[2025].meta.faults = 'Common failures: tip-overs from tall elevators reaching L4, especially when hit with the elevator up.';
+  S[2026].meta.faults = 'Common failures: brownouts. Multi-motor shooters and hoppers spinning at once pull huge current, so battery health matters more than ever.';
 })();

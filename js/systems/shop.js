@@ -32,6 +32,7 @@
 
   const FX_TEXT = {
     hours: v => '−' + Math.round(v * 100) + '% hardware project hours',
+    slot: v => v ? '+' + v + ' project slot' : '',
     gain: v => '+' + Math.round(v * 100) + '% upgrade gains',
     rel: v => '+' + v.toFixed(1) + ' reliability on new builds',
     stat: v => '+' + v.toFixed(1) + ' starting stats on new builds',
@@ -39,12 +40,18 @@
     soft: v => '−' + Math.round(v * 100) + '% software project hours',
     charge: v => 'batteries recharge ' + Math.round(v / 0.35 * 100) + '% faster',
     repair: v => '+' + Math.round(v * 100) + '% pit repair speed',
-    travel: v => '−' + Math.round(v * 100) + '% Local/Drive travel cost'
+    travel: v => '−' + Math.round(v * 100) + '% Local/Drive travel cost',
+    tune: v => '+' + Math.round(v * 100) + ' starting tuning at events',
+    test: v => Math.round(v) + ' testing h/week'
   };
   Shop.effectText = function (S, id, lvl, eff) {
     const it = Shop.item(id);
-    return Object.keys(it.fx).map(k => FX_TEXT[k](Shop.fx(S, id, k, lvl, eff))).join(' · ');
+    return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, eff))).filter(Boolean).join(' · ');
   };
+  // Project slots from facilities: whole slots, lost while a facility is below SLOT_COND condition (renovate to get it back)
+  Shop.SLOT_COND = 35;
+  Shop.slotOf = (S, id) => Shop.lvl(S, id) && Shop.cond(S, id) >= Shop.SLOT_COND ? Shop.fx(S, id, 'slot', null, 1) : 0;
+  Shop.facilitySlots = S => D.EQUIP.reduce((n, e) => n + (e.fx.slot ? Shop.slotOf(S, e.id) : 0), 0);
 
   Shop.migrate = function (S) {
     if (!S) return;
@@ -63,7 +70,44 @@
     if (S.devMods === undefined) S.devMods = null;
     if (S.pendingRisk === undefined) S.pendingRisk = null;
     if (S.incidentCool == null) S.incidentCool = 3;
+    // battery fleet: individual batteries instead of one averaged number
+    if (S.parts && !S.parts.batts) {
+      const n = U.clamp(S.parts.batteries || 4, 1, D.BATT_LIMIT[0]);
+      S.parts.batts = Array.from({ length: n }, () => ({ h: S.parts.battHealth || 1 }));
+    }
+    if (S.parts) { S.parts.batteries = S.parts.batts.length; delete S.parts.battHealth; }
+    if (!S.boosts) S.boosts = [];
+    if (!S.guests) S.guests = [];
+    if (!S.actLog) S.actLog = { key: '', counts: {}, total: 0 };
+    if (!S.regReminded) S.regReminded = {};
+    if (S.testSplit == null) S.testSplit = 0.5; // share of testing hours that goes to driver practice
+    // v2 Impact model: re-roll AI Impact strength once for older saves
+    if (S.impV !== 2) { if (S.teams) Object.values(S.teams).forEach(t => { if (!t.rookie) t.impact = G.AI.impactRoll(G.makeRng(t.num * 7919 + 13), t.str); }); S.impV = 2; }
   };
+
+  // =====================================================================
+  // Battery fleet
+  // =====================================================================
+  Shop.battLimit = S => D.BATT_LIMIT[Math.min(2, Shop.lvl(S, 'charger'))];
+  Shop.fleetHealth = S => (S.parts.batts.length ? U.avg(S.parts.batts.map(b => b.h)) : 0);
+  // How many batteries a purchase can add/replace right now (empty slots + worn ones)
+  Shop.battRoom = S => (Shop.battLimit(S) - S.parts.batts.length) + S.parts.batts.filter(b => b.h < 0.98).length;
+  // Buying fills empty slots first, then automatically replaces the most worn batteries.
+  Shop.buyBatteries = function (S, n) {
+    const room = Shop.battRoom(S);
+    if (room <= 0) return 'Every battery slot is full of healthy batteries';
+    n = Math.min(n, room);
+    const cost = n * D.BATTERY_COST * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1);
+    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    G.Career.spend(S, cost, n + ' new batteries');
+    for (let i = 0; i < n; i++) S.parts.batts.push({ h: 1 });
+    S.parts.batts.sort((a, b) => b.h - a.h);
+    const over = S.parts.batts.length - Shop.battLimit(S);
+    if (over > 0) S.parts.batts.length = Shop.battLimit(S); // drop the most worn
+    S.parts.batteries = S.parts.batts.length;
+    return null;
+  };
+  Shop.ageBatteries = function (S, amt) { S.parts.batts.forEach(b => { b.h = Math.max(0.4, b.h - amt); }); };
 
   Shop.upgradeCost = function (S, id) { const it = Shop.item(id), l = Shop.lvl(S, id); return l < it.levels.length ? it.levels[l].cost : null; };
   Shop.renoCost = function (S, id) {
@@ -144,7 +188,7 @@
         addMods(S, r.mods, r.title);
         if (r.dmg) Object.keys(r.dmg).forEach(k => Shop.damage(S, k, r.dmg[k]));
         if (r.robot && S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - r.robot); });
-        if (r.batt) S.parts.battHealth = Math.max(0.5, S.parts.battHealth - r.batt);
+        if (r.batt) G.R.shuffle(S.parts.batts.slice()).slice(0, 2).forEach(b => { b.h = Math.max(0.4, b.h - r.batt * 4); });
         G.Career.inbox(S, 'It happened: ' + r.title, r.hit + (r.mods ? ' (' + modsText(r.mods) + ' this turn.)' : ''), 'incident');
       } else G.Career.inbox(S, 'Dodged it: ' + r.title, r.miss, 'incident');
     }
@@ -200,7 +244,7 @@
     { id: 'charger_smell', w: 2, req: own('charger'), title: 'Burning smell from the battery charger',
       body: () => 'Something on the charger smells like a warm electronics store. The fan is not spinning.',
       opts: [
-        { label: 'Keep using it', desc: '40% chance: battery fleet health −6%, Battery Station condition −25',
+        { label: 'Keep using it', desc: '40% chance: two batteries lose 24% health, Battery Station condition −25',
           risk: { p: 0.4, batt: 0.06, dmg: { charger: 25 }, hit: 'One charging bay cooked two batteries before anyone noticed.', miss: 'The fan started again after a firm tap. Classic.' } },
         { label: 'Replace the fan and wiring', cost: () => 150, desc: 'No risk, Battery Station condition +15', fix: { charger: 15 } }
       ] },
@@ -282,5 +326,83 @@
     G.Career.inbox(S, 'Decision: ' + inc.title, 'You chose: ' + o.label + (cost ? ' (' + U.money(cost) + ')' : '') + '. ' + o.desc + '.', 'incident');
     S.incident = null;
     return null;
+  };
+
+  // =====================================================================
+  // Opportunities: school & sponsor events with positive, time-limited effects
+  // boost kinds: slots (+project slots), hours (+% team hours), cat (progress × per category)
+  // guests: temporary mentors in extra mentor slots
+  // =====================================================================
+  const turnsFor = (S, inSeason) => (S.phase === 'off' ? Math.max(1, Math.round(inSeason / 3)) : inSeason);
+  const sponsorName = S => (S.sponsors.length ? G.R.pick(S.sponsors).name : null);
+  function addBoost(S, b) { S.boosts.push(Object.assign({ id: U.uid('b') }, b)); }
+  Shop.boostSlots = S => (S.boosts || []).filter(b => b.kind === 'slots').reduce((s, b) => s + b.value, 0) + (S.guests || []).filter(g => g.m.role === 'design' || g.m.role === 'fab').length;
+  Shop.boostHours = S => (S.boosts || []).filter(b => b.kind === 'hours').reduce((s, b) => s + b.value, 0);
+  Shop.guestHours = S => (S.guests || []).reduce((s, g) => s + g.m.hours, 0);
+  Shop.boostMods = function (S) {
+    const m = {};
+    (S.boosts || []).filter(b => b.kind === 'cat').forEach(b => { m[b.cat] = (m[b.cat] || 1) * b.value; });
+    return Object.keys(m).length ? m : null;
+  };
+  Shop.boostText = function (b) {
+    if (b.kind === 'slots') return '+' + b.value + ' project slot' + (b.value > 1 ? 's' : '');
+    if (b.kind === 'hours') return '+' + Math.round(b.value * 100) + '% team hours';
+    return D.DEV_CATS[b.cat] + ' +' + Math.round((b.value - 1) * 100) + '%';
+  };
+  Shop.OPPS = [
+    { id: 'guest', w: 3, req: S => S.sponsors.length > 0, run: S => {
+      const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4));
+      m.cost = 0; m.guest = sp; const turns = turnsFor(S, 4);
+      S.guests.push({ m, turns });
+      const rn = D.MENTOR_ROLES.find(r => r.id === role).name;
+      return ['Guest mentor from ' + sp, sp + ' is lending one of its engineers, ' + m.name + ', as a guest ' + rn + ' (' + U.stars(m.stars) + ', ' + m.hours + ' h/week) for ' + turns + (S.phase === 'off' ? ' month' : ' week') + (turns > 1 ? 's' : '') + '. Guests take an extra mentor slot' + (role !== 'prog' ? ' and add a project slot' : '') + '.'];
+    } },
+    { id: 'room', w: 2, req: () => true, run: S => {
+      const t = turnsFor(S, 3); addBoost(S, { kind: 'slots', value: 1, turns: t, title: 'Borrowed classroom' });
+      return ['The school lends you a second room', 'The classroom next door is free after school, so a second build crew can work in parallel. +1 project slot for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
+    } },
+    { id: 'late', w: 3, req: () => true, run: S => {
+      const t = turnsFor(S, 2); addBoost(S, { kind: 'hours', value: 0.2, turns: t, title: 'Extended shop hours' });
+      return ['Extended shop hours', 'The principal approved late shop nights with a custodian on duty. +20% team hours for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
+    } },
+    { id: 'machine', w: 2, req: S => S.sponsors.length > 0, run: S => {
+      const sp = sponsorName(S), t = turnsFor(S, 2); addBoost(S, { kind: 'cat', cat: 'fab', value: 1.3, turns: t, title: sp + ' machine shop' });
+      return [sp + ' opens its machine shop', sp + ' is letting your fabrication crew use its machine shop on weekends. Fabrication +30% for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
+    } },
+    { id: 'lab', w: 2, req: () => true, run: S => {
+      const t = turnsFor(S, 2); addBoost(S, { kind: 'cat', cat: 'soft', value: 1.4, turns: t, title: 'University programming lab' });
+      return ['University lab access', 'A nearby university lent its robotics lab and a grad student to your programmers. Software +40% for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
+    } },
+    { id: 'innovate', w: 1, req: () => true, run: S => {
+      const t = turnsFor(S, 2); addBoost(S, { kind: 'cat', cat: 'research', value: 1.5, turns: t, title: 'District innovation days' });
+      return ['District innovation days', 'The school district gave your team two "innovation days" off regular classes. Research +50% for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
+    } },
+    { id: 'engday', w: 2, req: S => S.projects.length > 0 && S.sponsors.length > 0, run: S => {
+      const sp = sponsorName(S), p = S.projects.slice().sort((a, b) => (b.need - b.done) - (a.need - a.done))[0];
+      const h = Math.round(Math.min(p.need - p.done - 1, G.R.int(40, 80)));
+      if (h <= 0) return null;
+      p.done += h;
+      return [sp + ' engineering day', sp + ' sent a team of engineers for a day. They put ' + h + ' hours into "' + p.name + '" right away.'];
+    } }
+  ];
+  Shop.rollBoost = function (S) {
+    if (!['off', 'build', 'comp'].includes(S.phase)) return;
+    if ((S.boostCool || 0) > 0) { S.boostCool--; return; }
+    if (!G.R.chance(0.07)) return;
+    const pool = Shop.OPPS.filter(o => o.req(S));
+    const o = G.R.wpick(pool, x => x.w);
+    const res = o && o.run(S);
+    if (!res) return;
+    S.boostCool = 4;
+    G.Career.inbox(S, res[0], res[1], 'boost');
+  };
+  // Count down boosts and guest mentors after each turn's work
+  Shop.tickBoosts = function (S) {
+    S.boosts.forEach(b => b.turns--);
+    S.boosts.filter(b => b.turns <= 0).forEach(b => G.Career.inbox(S, 'Boost ended: ' + b.title, Shop.boostText(b) + ' is over.', 'boost'));
+    S.boosts = S.boosts.filter(b => b.turns > 0);
+    S.guests.forEach(g => g.turns--);
+    S.guests.filter(g => g.turns <= 0).forEach(g => G.Career.inbox(S, 'Guest mentor heads back', g.m.name + ' has returned to ' + g.m.guest + '. The students made a thank-you card with a CAD drawing on it.', 'boost'));
+    S.guests = S.guests.filter(g => g.turns > 0);
   };
 })();

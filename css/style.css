@@ -141,3 +141,44 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 .chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding-top: 6px; }
 .chart .c { flex: 1; display: flex; flex-direction: column-reverse; align-items: stretch; gap: 2px; min-width: 6px; }
 .chart .c i { display: block; border-radius: 3px 3px 0 0; }
+
+/* ---------- blue banners (event wins & Impact) ---------- */
+.banners { display: flex; flex-wrap: wrap; gap: 14px; }
+.banner { --fb: #0066b3; position: relative; width: 128px; min-height: 182px; padding: 14px 10px 34px; color: #fff; text-align: center;
+  background: linear-gradient(180deg, #0a74c7 0%, var(--fb) 60%, #00539a 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); display: flex; flex-direction: column; align-items: center; gap: 6px;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45)); }
+.banner .emb { width: 34px; height: 34px; border: 2px solid rgba(255,255,255,0.9); border-radius: 50%; display: grid; place-items: center; font-size: 17px; line-height: 1; }
+.banner .aw { font-weight: 900; text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; line-height: 1.15; }
+.banner .yr { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.banner .ev { font-size: 11px; line-height: 1.25; opacity: .92; }
+.banner.gold { border-top: 0; background: linear-gradient(180deg, #0a74c7 0%, #0066b3 60%, #00539a 100%); }
+.banner.gold .emb { border-color: #f5c542; color: #f5c542; }
+.banner.gold .aw { color: #ffe08a; }
+.banner.new { animation: bannerDrop .7s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes bannerDrop { from { transform: translateY(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .banner.new { animation: none; } }
+
+/* ---------- team hours ---------- */
+.hbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: #0c0f13; border: 1px solid var(--line); }
+.hbar > span { display: block; height: 100%; min-width: 2px; }
+.hbar > span.idle { background: repeating-linear-gradient(45deg, #222a33, #222a33 6px, #1a2027 6px, #1a2027 12px); }
+.hbar > span.act { background: #6c7884; }
+.hlegend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.hlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.hnum { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.hnums { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 10px; }
+.hnums .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.batt { display: inline-block; width: 16px; height: 26px; border: 2px solid #8a96a3; border-radius: 3px; position: relative; margin: 0 2px; vertical-align: middle; }
+.batt::before { content: ""; position: absolute; top: -5px; left: 4px; width: 4px; height: 3px; background: #8a96a3; border-radius: 1px 1px 0 0; }
+.batt i { position: absolute; left: 1px; right: 1px; bottom: 1px; border-radius: 1px; }
+/* Impact odds + rating */
+.statrow.wide { grid-template-columns: 175px 1fr 38px; }
+.imp { display: grid; grid-template-columns: 46px 1fr 34px; gap: 8px; align-items: center; margin: 3px 0 10px; }
+.imp > b { text-align: right; font-variant-numeric: tabular-nums; }
+.imp:not(:has(.bar)) { display: block; }
+.nowrap { white-space: nowrap; }
+.g12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+@media (max-width: 1100px) { .g12 { grid-template-columns: 1fr; } }
+table.t.tight th, table.t.tight td { padding: 5px 5px; }
+.acc { color: var(--accent2); }
