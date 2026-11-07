@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FRC Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script src="js/core.js"></script>
+  <script src="js/data/seasons.js"></script>
+  <script src="js/data/world.js"></script>
+  <script src="js/sim/engine.js"></script>
+  <script src="js/sim/rules.js"></script>
+  <script src="js/sim/ai.js"></script>
+  <script src="js/sim/event.js"></script>
+  <script src="js/systems/robot.js"></script>
+  <script src="js/systems/career.js"></script>
+  <script src="js/systems/shop.js"></script>
+  <script src="js/systems/news.js"></script>
+  <script src="js/render/draw.js"></script>
+  <script src="js/ui/ui.js"></script>
+  <script src="js/ui/screens-event.js"></script>
+  <script src="js/ui/screens-menu.js"></script>
+  <script src="js/dev.js"></script>
+  <script src="js/local.js"></script>
+  <script>
+    window.addEventListener('error', e => { try { G.UI.toast('Error: ' + e.message, 'bad'); } catch (_) {} });
+    G.UI.go('menu');
+  </script>
+</body>
+</html>
