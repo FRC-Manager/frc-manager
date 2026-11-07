@@ -2,11 +2,13 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2022–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
+**▶ [Play in your browser](https://txtaylor2997.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
+
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1® or Frontier Developments. Sponsors, regionals, offseason events and opponent teams are fictional or randomly generated.
 
 ## How to play
 
-1. Open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and it works offline.
+1. Play [online](https://txtaylor2997.github.io/frc-manager/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
 2. Pick **New Career** (5 seasons, real or random order) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
