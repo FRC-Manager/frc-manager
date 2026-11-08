@@ -59,6 +59,9 @@ window.G = window.G || {};
   U.ord = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
+  // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
+  G.VERSION = '1.4';
+
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
   const Save = G.Save = {};

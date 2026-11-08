@@ -7,7 +7,7 @@
 
   // ---------------- core ----------------
   // While an event is open, only event screens (and the full-screen menus) are reachable.
-  UI.EVENT_SCREENS = ['event', 'prematch', 'live', 'mresult', 'menu', 'help', 'settings', 'load', 'newgame'];
+  UI.EVENT_SCREENS = ['event', 'prematch', 'live', 'mresult', 'menu', 'help', 'notes', 'settings', 'load', 'newgame'];
   UI.go = function (screen, p) {
     if (G.S && G.S.event && UI.EVENT_SCREENS.indexOf(screen) < 0) screen = 'event';
     UI.stopLive && UI.stopLive(); UI.screen = screen; UI.p = p || {}; UI.render();
@@ -24,6 +24,7 @@
     else app.innerHTML = topbar() + '<div class="shell">' + sidebar(scr.nav || UI.screen) + '<div class="main" id="main">' + body + '</div></div>';
     UI.jobs.forEach(f => { try { f(); } catch (e) { console.error(e); } });
     if (scr.after) scr.after();
+    if (!UI.verChecked && UI.versionCheck) { UI.verChecked = true; setTimeout(UI.versionCheck, 350); } // "Updated to vX" once per new version
   };
   UI.job = f => UI.jobs.push(f);
   UI.modal = function (html, opts) {
@@ -202,7 +203,7 @@
   UI.A.closeAndGo = a => { UI.closeModal(); UI.go(a); };
   UI.A.menuModal = function () {
     const slots = ['1', '2', '3'].map(s => { const m = G.Save.meta(s); return '<button class="btn" data-act="saveSlot" data-arg="' + s + '">Save slot ' + s + (m ? ' <span class="xs muted">(' + h(m.team.num + ' · ' + m.year) + ')</span>' : '') + '</button>'; }).join('');
-    UI.modal('<h2>Menu</h2><div class="col">' + slots + '<button class="btn" data-act="exportSave">Export save</button><button class="btn" data-act="nav2" data-arg="settings">Settings</button><button class="btn" data-act="nav2" data-arg="help">How to play</button><button class="btn bad" data-act="quitMenu">Quit to main menu</button></div>');
+    UI.modal('<h2>Menu</h2><div class="col">' + slots + '<button class="btn" data-act="exportSave">Export save</button><button class="btn" data-act="nav2" data-arg="settings">Settings</button><button class="btn" data-act="nav2" data-arg="help">How to play</button><button class="btn" data-act="nav2" data-arg="notes">What\'s new (v' + h(G.VERSION) + ')</button><button class="btn bad" data-act="quitMenu">Quit to main menu</button></div>');
   };
   UI.A.saveSlot = s => { if (G.Save.write(s)) UI.toast('Saved to slot ' + s, 'good'); UI.closeModal(); };
   UI.A.exportSave = () => {

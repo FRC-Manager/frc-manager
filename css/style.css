@@ -182,3 +182,6 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 @media (max-width: 1100px) { .g12 { grid-template-columns: 1fr; } }
 table.t.tight th, table.t.tight td { padding: 5px 5px; }
 .acc { color: var(--accent2); }
+/* version notes */
+.vnotes { margin: 8px 0 2px; padding-left: 20px; line-height: 1.55; color: var(--muted); font-size: 14px; }
+.vnotes li { margin: 4px 0; }

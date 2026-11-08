@@ -27,7 +27,8 @@
       year: o.year, S, R, sym: S.sym, rng: G.makeRng(o.seed || 1), t: 0, phase: 'auto', done: false, inEnd: false,
       T: S.timing, total: S.timing.auto + S.timing.tele, robots: [], score: {}, ss: {}, log: [], fx: [], obs: [],
       headless: !!o.headless, playoff: !!o.playoff, calls: o.calls == null ? 3 : o.calls, callsUsed: 0, pending: [],
-      diff: o.diff || 1, coachSkill: o.coachSkill || 50, playerTeam: o.playerTeam || null
+      diff: o.diff || 1, coachSkill: o.coachSkill || 50, playerTeam: o.playerTeam || null,
+      feedIQ: Object.assign({ red: 0, blue: 0 }, o.feedIQ || {}) // how well each alliance runs alternative strategies (2024 note feeding)
     };
     ['red', 'blue'].forEach(a => {
       m.score[a] = { auto: 0, tele: 0, end: 0, foul: 0, total: 0 };
@@ -225,6 +226,7 @@
   function startDefend(m, r) {
     let t = null;
     if (r.plan.defTarget) t = m.robots.find(x => x.team === r.plan.defTarget && x.a !== r.a && !x.dead);
+    if (!t && m.R.defTarget) t = m.R.defTarget(m, r); // season-specific target (e.g. 2024: shut down the feeder)
     if (!t) {
       const os = m.robots.filter(x => x.a !== r.a && !x.dead);
       t = os.sort((p, q) => (q.stats.pts + power(q)) - (p.stats.pts + power(p)))[0];
@@ -359,7 +361,16 @@
         act(r, climbTime(m, r, lvl), () => {
           const p = climbChance(m, r, lvl);
           if (m.rng.chance(p)) { r.end = { lvl }; r.label = nm; log(m, r.a, r.team + ' — ' + nm + '!', 'end'); }
-          else { r.end = { lvl: 0, failed: true, park: true }; r.label = 'Climb failed'; r.stats.faults.push('Climb failed'); log(m, r.a, r.team + ' failed the climb', 'fault'); }
+          else {
+            // a failed high climb can end in a fall from height: the robot is out and badly damaged
+            const L = m.R.endgame.levels[lvl - 1];
+            if (L.drop && m.rng.chance(L.drop * (1.15 - (r.cap.endgame || 40) / 200))) {
+              r.end = { lvl: 0, failed: true, drop: true }; r.dead = true; r.climbing = false;
+              r.label = 'FELL FROM ' + nm.toUpperCase(); r.stats.faults.push('Fell from ' + nm);
+              log(m, r.a, r.team + ' FELL from ' + nm + '!', 'fault');
+              if (!m.headless) m.fx.push({ k: 'pop', x: r.x, y: r.y, text: 'FALL!', t: m.t, a: r.a });
+            } else { r.end = { lvl: 0, failed: true, park: true }; r.label = 'Climb failed'; r.stats.faults.push('Climb failed'); log(m, r.a, r.team + ' failed the climb', 'fault'); }
+          }
           r.st = 'done';
         }, 'Climbing ' + nm);
       };
@@ -370,7 +381,7 @@
   function climbChance(m, r, lvl) {
     if (m.R.endgame.levels[lvl - 1].sure) return 1;
     return U.clamp(0.62 + 0.36 * (r.cap.endgame || 40) / 100 - 0.05 * (lvl - 1) + 0.06 * (r.drv.comp - 50) / 50 + 0.1 * r.confK
-      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0), 0.25, 0.985);
+      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0) - (m.R.endgame.levels[lvl - 1].risk || 0), 0.2, 0.985);
   }
 
   // ---------- calls ----------
@@ -451,13 +462,13 @@
     endDue: (m, r) => m.phase !== 'auto' && !r.end && !r.endBusy && endgameDue(m, r),
     aimTime(m, r) {
       const c = r.cap;
-      return (c.turret ? 0.3 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100);
+      return (c.turret ? 0.3 : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
     },
     hit(m, r, mult, distPen, stat) {
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.55 : 1);
       p *= 0.95 + 0.05 * r.opF;
       p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;
@@ -490,6 +501,7 @@
       const c = r.cap, d = dist(r, goal), span = Math.max(0.5, (c.rangeM || 1.5) - (c.rmin || 1));
       return 0.12 * U.clamp((d - (c.rmin || 1)) / span, 0, 1) * (1 - 0.25 * (c.visionLvl || 0));
     },
+    climbTime: (m, r, lvl) => climbTime(m, r, lvl), climbChance: (m, r, lvl) => climbChance(m, r, lvl),
     nearest(r, pts) { let best = null, bd = 1e9; for (const p of pts) { const d = dist(r, p); if (d < bd) { bd = d; best = p; } } return best; },
     travelEst(m, r, pt) { return dist(r, pt) / speedOf(m, r); },
     alliance: (m, a) => m.robots.filter(x => x.a === a)

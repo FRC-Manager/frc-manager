@@ -150,7 +150,7 @@
   // =====================================================================
   S[2024] = {
     year: 2024, name: 'CRESCENDO', pieceName: 'Notes', sym: 'mirror',
-    tagline: 'Score notes in the Speaker and Amp, then get onstage.',
+    tagline: 'Score notes in the Speaker and Amp, then get onstage. Top alliances learn to feed notes across the field.',
     brief: [
       'Robots collect Notes (foam rings) and score them in the SPEAKER (2 pts, 5 when AMPLIFIED) or the AMP (1 pt).',
       'Two Amp notes let the human player amplify the Speaker for 10 seconds. In the last 20 seconds robots climb the STAGE chains (3), share a chain for Harmony (+2) and score in the Trap (5).',
@@ -207,7 +207,7 @@
 
   // =====================================================================
   S[2025] = {
-    year: 2025, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'mirror',
+    year: 2025, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'rotate', // rotationally symmetric: cages on your left, processor on your right
     tagline: 'Fill the Reef with coral, process algae and climb the Barge cages.',
     brief: [
       'Robots place Coral (PVC tubes) on the REEF: L1 trough (2), L2 (3), L3 (4) and L4 (5), worth more in auto. Algae (balls) sit on the reef blocking branches.',
@@ -269,7 +269,7 @@
     tagline: 'Shoot fuel into your Hub while it is active, then climb the Tower.',
     brief: [
       'Robots collect Fuel (foam balls) — lots of it — and shoot it into their HUB for 1 point each, but only while the hub is ACTIVE.',
-      'After a 10 s transition, hubs alternate in four 25 s SHIFTS (the alliance that won auto goes inactive first), then both are active for the last 30 s. Robots climb the TOWER: L1 (10, or 15 in auto), L2 (20), L3 (30).',
+      'After a 10 s transition, hubs alternate in four 25 s SHIFTS (the alliance that won auto goes inactive first), then both are active for the last 30 s. Robots can climb the TOWER: L1 (10, or 15 in auto), L2 (20), L3 (30) — but climbs are slow and risky, and both hubs are active in the endgame, so strong teams usually keep shooting instead.',
       'Crossing to the neutral zone means driving over a BUMP or, for low-profile robots, under a TRENCH. Win = 3 RP. Bonus RPs: Energized (100 fuel), Supercharged (360 fuel), Traversal (50 tower points).'
     ],
     timing: { auto: 20, tele: 140, end: 30 }, rpWin: 3, foul: { minor: 5, major: 15 },
@@ -306,8 +306,10 @@
           base: { scoreSpd: 42, accuracy: 50, range: 0 }, ceil: { scoreSpd: 80, accuracy: 90, range: 30 }, caps: { rmin: 1.2, rmax: 2.0 }, look: { shooter: 'fixed' } },
         { id: 'hood', name: 'Adjustable hood shooter', desc: 'Shoots from anywhere in your alliance zone.', cost: 1300, hours: 180, w: 16, cx: 3, areas: ['shooter', 'vision'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { rmin: 1.2, rmax: 4.0 }, look: { shooter: 'hood' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims independently of the drivetrain. With vision it shoots on the move.', cost: 2000, hours: 250, w: 21, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true }, look: { shooter: 'turret' } }
+        { id: 'turret', name: 'Turret shooter', desc: 'Aims independently of the drivetrain. With vision it shoots on the move and is very hard to defend.', cost: 2000, hours: 250, w: 21, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true }, look: { shooter: 'turret' } },
+        { id: 'dumper', name: 'Wide dumper', desc: 'A full-width bank of fixed flywheels that empties the hopper in seconds. Huge throughput and simpler than a turret, but it must line up close to the hub and suffers more under defense.', cost: 1500, hours: 190, w: 19, cx: 3, areas: ['shooter', 'index'],
+          base: { scoreSpd: 50, accuracy: 46, range: 0 }, ceil: { scoreSpd: 99, accuracy: 91, range: 25 }, caps: { rmin: 1.0, rmax: 2.4, dumper: true }, look: { shooter: 'dump' } }
       ] },
       { id: 'endgame', name: 'Tower Climber', concepts: [
         NONE_END,
@@ -321,7 +323,8 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret + big hopper + L3', min: 76, pick: { drive: 'swerve', frame: ['low', 'std'], intake: 'wide', hopper: 'large', scorer: 'turret', endgame: ['l3', 'l2'] } },
+      { name: 'Turret + big hopper', min: 76, pick: { drive: 'swerve', frame: ['low', 'std'], intake: 'wide', hopper: 'large', scorer: 'turret', endgame: ['l1', 'l3', 'none'] } },
+      { name: 'Big dumper', min: 66, pick: { drive: 'swerve', frame: 'std', intake: 'wide', hopper: 'large', scorer: 'dumper', endgame: ['none', 'l1'] } },
       { name: 'Hood shooter + L2', min: 56, pick: { drive: 'swerve', frame: 'std', intake: ['ground', 'wide'], hopper: ['large', 'med'], scorer: 'hood', endgame: 'l2' } },
       { name: 'Hood shooter', min: 36, pick: { drive: ['wcd', 'swerve'], frame: 'std', intake: 'ground', hopper: 'med', scorer: ['hood', 'fixed'], endgame: ['l1', 'l2'] } },
       { name: 'Fixed shooter', min: 14, pick: { drive: ['kit', 'wcd'], frame: 'std', intake: ['ground', 'outpost'], hopper: ['small', 'med'], scorer: 'fixed', endgame: ['l1', 'none'] } },

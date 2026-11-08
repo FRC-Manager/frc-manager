@@ -620,6 +620,11 @@
     if (!rr) return;
     const a = rr.a, o = a === 'red' ? 'blue' : 'red';
     G.Robot.applyWear(S, rr, !!match.playoff);
+    if (rr.faults.some(f => /^Fell from/.test(f))) {
+      const msg = 'Your robot fell from the ' + rr.faults.find(f => /^Fell from/.test(f)).replace('Fell from ', '') + ' — heavy damage everywhere' + (rr.scrapped ? ', ' + rr.scrapped + ' spare part' + (rr.scrapped > 1 ? 's' : '') + ' scrapped' : '') + '. The pit crew will need spares to rebuild it.';
+      ev.log.push(msg);
+      G.Career.inbox(S, 'Hard fall at ' + ev.name, msg, 'event');
+    }
     if (ev.batts) {
       const i = ev.battIdx || 0;
       ev.batts[i] = 0.15;
@@ -715,8 +720,21 @@
   };
 
   // ======================= event done =======================
+  // Strategy read (0..1): how well the team spots and runs a season's alternative strategies (2024 note feeding).
+  // Built by management: a Strategy mentor, a drive coach with strategy skill, driver practice, and events played and scouted.
+  C.metaInsight = function (S) {
+    if (!S.season) return 0;
+    const dt = C.driveTeam(S);
+    return U.clamp(0.05 + 0.3 * C.mentorSkill(S, 'strat') / 100 + 0.2 * (dt.coachStrat || 30) / 100
+      + 0.3 * Math.min(1, S.season.metaSeen || 0) + 0.15 * Math.min(1, (S.practiceWeeks || 0) / D.DRILL_CAP), 0, 1);
+  };
   C.onEventDone = function (S, ev) {
     const r = ev.result;
+    // watching other alliances teaches the meta (more when it is common at the event, and with scouting focus)
+    if (S.season && ev.year === S.year && ev.kind !== 'einstein') {
+      const fs = ev.feedStats, share = fs && fs.n ? fs.f / fs.n : 0;
+      S.season.metaSeen = (S.season.metaSeen || 0) + 0.12 + 0.6 * share + 0.08 * (ev.scoutBonus || 0);
+    }
     S.lastTune = ev.tune; S.lastConf = ev.conf;
     if (ev.kind === 'offseason') {
       S.offResults.push(r); S.rep = Math.min(100, S.rep + 2 + (r.won ? 3 : 0));

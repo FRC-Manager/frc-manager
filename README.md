@@ -12,6 +12,8 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (5 seasons, real or random order) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
+Current version: **1.4**. The main menu's **What's new** page has the version notes.
+
 The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). The in-game **How to play** page (main menu) has a short guide.
 
 ### The loop
@@ -33,6 +35,8 @@ The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). The in-game **How to pla
 - **Matches.** You can watch at 1×–8×, skip to the end, or simulate instantly.
 - **Strategy follows the real games.** In the shooting games (2022, 2024, 2026) one defender is the strongest alliance strategy; in 2023 and 2025 three scorers win. AI teams catch on as the season goes. In playoffs, an alliance captain can call partners to score or defend.
 - **Team hours.** The Design Office shows exactly where each week's hours go. A project can absorb up to 80 h a week, so run several in parallel or hours go idle.
+- **Season strategies.** 2022 cargo bounces out of the Hub across the whole field. 2024 alliances learn to feed notes across the field and stockpile them for Amplify (a Source defender cancels it); your alliance picks it up through its strategy read (Strategy mentor, drive coach, driver practice, events scouted), never by a button. 2025 alliances split two Coral Stations. 2026 adds a wide dumper shooter (out-scores most turrets, worse under defense), and climbs are slow and risky, so strong teams rarely bother.
+- **Falls.** A failed high climb can drop the robot (most often 2022 High/Traversal and 2026 L2/L3): it is out for the match, badly damaged, and scraps spare parts.
 - **Testing hours.** A Practice Field unlocks weekly testing hours (8/12/16 h by level, +4 with a practice robot), like wind-tunnel time. Split them in the Design Office between development testing ($40/h: projects finish faster and come out better) and driver practice (cheap: a few spare parts; builds drive-team skills and confidence). Small teams get the most from driving; big programs should split once their drivers are fully practiced.
 - **Robot condition at events.** Repairs use spare parts, so the robot arrives at 100% unless you're short on spares, the event is a flight away, or you did a sponsor demo with the robot that week. HQ previews the arrival condition.
 - **Blue banners.** Event wins and Impact Awards hang on your banner wall (History).
@@ -73,6 +77,8 @@ js/systems/career.js  calendar, finance, sponsors, staff, offseason, reviews, qu
 js/render/draw.js     2D fields, robots (top-down and side profile), effects
 js/ui/*.js            screens
 js/dev.js             balance tools (see below)
+tools/build-single-file.ps1   builds dist/FRC-Manager.html
+tools/trailer/        60-second reveal trailer generator (open index.html, press Render MP4; index.html?vertical for 9:16)
 ```
 
 ## Tuning

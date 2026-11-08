@@ -21,20 +21,33 @@
   // 2022 RAPID REACT
   // =====================================================================
   function fender22(m, r) { const h = m.hub, d = E.dist(r, h) || 1; return { x: h.x + (r.x - h.x) / d * 1.8, y: h.y + (r.y - h.y) / d * 1.8 }; }
+  // Cargo is tracked: it starts spread around the field, and every ball that is shot comes back out of the Hub
+  // (scored cargo drops out of the four exits, misses bounce off) and rolls somewhere across the whole field.
+  // Robots chase their own alliance's cargo wherever it ends up.
+  function spawnCargo22(m, c, hit) {
+    const g = m.rng.range(0, Math.PI * 2), d = hit ? m.rng.range(2.2, 6.5) : m.rng.range(1.9, 4.5);
+    const p = { x: U.clamp(m.hub.x + Math.cos(g) * d * 1.25, 0.6, FW - 0.6), y: U.clamp(m.hub.y + Math.sin(g) * d * 0.75, 0.45, FH - 0.45), c, t: m.t + (hit ? 1.2 : 0.6) };
+    const dh = E.dist(p, m.hub); if (dh < 2.0) { const k = 2.0 / (dh || 1); p.x = m.hub.x + (p.x - m.hub.x) * k; p.y = U.clamp(m.hub.y + (p.y - m.hub.y) * k, 0.45, FH - 0.45); }
+    m.cargo.push(p);
+  }
   function ground22(m, r) {
-    let best = null, bd = 1e9;
-    for (let i = 0; i < 4; i++) {
-      const p = E.P(m, r.a, m.rng.range(1.4, 7.0), m.rng.range(0.7, 7.5));
-      if (E.dist(p, m.hub) < 2.2) continue;
-      const d = E.dist(r, p); if (d < bd) { bd = d; best = p; }
+    let best = null, bv = 1e9;
+    for (const p of m.cargo) {
+      if (p.c !== r.a || p.t > m.t || (p.claim && p.claim !== r.team && p.claimT > m.t)) continue;
+      const v = E.dist(r, p) + (E.dist(p, m.hub) < 1.9 ? 3 : 0);
+      if (v < bv) { bv = v; best = p; }
     }
-    return best || E.P(m, r.a, 3.0, 2.0);
+    return best;
   }
   function collect22(m, r, pt, kind) {
+    if (kind === 'ground' && pt.c) { pt.claim = r.team; pt.claimT = m.t + 6; }
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, kind, kind === 'ground' ? 1.15 : 2.0), () => { r.held++; if (m.phase === 'auto') r.mem.got = (r.mem.got || 1) + 1; },
-        kind === 'ground' ? 'Intaking cargo' : 'Loading at terminal');
+      if (kind === 'ground' && pt.c && !m.cargo.includes(pt)) return; // someone else got there first
+      H.act(r, H.collectTime(m, r, kind, kind === 'ground' ? 1.15 : 2.0), () => {
+        if (kind === 'ground' && pt.c) { const i = m.cargo.indexOf(pt); if (i < 0) return; m.cargo.splice(i, 1); }
+        r.held++; if (m.phase === 'auto') r.mem.got = (r.mem.got || 1) + 1;
+      }, kind === 'ground' ? 'Intaking cargo' : 'Loading at terminal');
     }, kind === 'ground' ? 'To cargo' : 'To terminal');
   }
   function score22(m, r) {
@@ -56,6 +69,7 @@
         for (let i = 0; i < n; i++) {
           const hit = m.rng.chance(H.hit(m, r, upper ? 0.84 : 1.12, pen));
           r.stats.shots++; H.shotFx(m, r, hub, hit);
+          spawnCargo22(m, r.a, hit);
           if (hit) {
             r.stats.hits++;
             pts += m.phase === 'auto' ? (upper ? 4 : 2) : (upper ? 2 : 1);
@@ -70,15 +84,17 @@
   }
   Rules[2022] = {
     leavePts: 2, tempo: { c: 3.3, s: 2.1 },
-    endgame: { levels: [{ name: 'Low', pts: 4, time: 3 }, { name: 'Mid', pts: 6, time: 5 }, { name: 'High', pts: 10, time: 9 }, { name: 'Traversal', pts: 15, time: 13 }], park: 0 },
+    endgame: { levels: [{ name: 'Low', pts: 4, time: 3 }, { name: 'Mid', pts: 6, time: 5, drop: 0.12 }, { name: 'High', pts: 10, time: 9, drop: 0.3 }, { name: 'Traversal', pts: 15, time: 13, drop: 0.45 }], park: 0 },
     init(m) {
       setHp(m);
       m.hub = { x: FW / 2, y: FH / 2 };
       m.obs = [{ x: m.hub.x, y: m.hub.y, r: 1.65 }];
+      m.cargo = [];
       ['red', 'blue'].forEach(a => {
-        const staged = [125, 155, 205, 235].map(deg => { const g = deg * Math.PI / 180; return E.P(m, a, m.hub.x + Math.cos(g) * 3.4, m.hub.y + Math.sin(g) * 3.4); });
-        staged.push(E.P(m, a, 1.0, 7.2));
-        m.ss[a] = { cargo: 0, autoCargo: 0, upper: 0, lower: 0, staged };
+        // staged cargo ring around the tarmac edge (each alliance's balls sit on both sides of the field), plus the terminal
+        [125, 155, 205, 235].forEach(deg => { const g = deg * Math.PI / 180, p = E.P(m, a, m.hub.x + Math.cos(g) * 3.4, m.hub.y + Math.sin(g) * 3.4); m.cargo.push({ x: p.x, y: p.y, c: a, t: 0 }); });
+        [35, 325].forEach(deg => { const g = deg * Math.PI / 180, p = E.P(m, a, m.hub.x + Math.cos(g) * 3.4, m.hub.y + Math.sin(g) * 3.4); m.cargo.push({ x: p.x, y: p.y, c: a, t: 0 }); });
+        m.ss[a] = { cargo: 0, autoCargo: 0, upper: 0, lower: 0, terminal: 5 };
       });
       m.robots.forEach(r => { r.held = (r.cap.upper || r.cap.lower) ? 1 : 0; });
     },
@@ -90,8 +106,8 @@
       if (!r.autoOK) { if (!r.left && !r.mem.tx) { r.mem.tx = 1; H.moveTo(m, r, leavePt(r, -1.8), null, 'Auto (struggling)'); } else r.label = 'Auto stalled'; return; }
       if (r.held > 0 && H.canScore(m, r) && (r.held >= (r.cap.storage || 1) || r.mem.got >= max || !r.cap.ground)) return score22(m, r);
       if (r.mem.got < max && r.cap.ground && H.canCollect(m, r) && m.T.auto - m.t > 2.5) {
-        const p = claimNearest(r, m.ss[r.a].staged);
-        if (p) return collect22(m, r, p, 'ground');
+        const p = ground22(m, r);
+        if (p && E.dist(r, p) < 5.5) return collect22(m, r, p, 'ground');
       }
       if (r.held > 0 && H.canScore(m, r)) return score22(m, r);
       if (!r.left) H.moveTo(m, r, leavePt(r, -1.8), null, 'Taxi');
@@ -102,12 +118,13 @@
       if (!c.upper && !c.lower) { r.label = 'No scorer'; return; }
       if (r.held >= cap && H.canScore(m, r)) return score22(m, r);
       if (r.held < cap && H.canCollect(m, r)) {
+        const gp = c.ground ? ground22(m, r) : null;
         if (r.held > 0) {
-          const gp = c.ground ? ground22(m, r) : null;
           if (gp && E.dist(r, gp) < 3.5) return collect22(m, r, gp, 'ground');
           if (H.canScore(m, r)) return score22(m, r);
         }
-        if (c.ground) return collect22(m, r, ground22(m, r), 'ground');
+        if (gp) return collect22(m, r, gp, 'ground');
+        // no loose cargo of our colour (or no ground intake): the human player feeds from the terminal
         return collect22(m, r, E.P(m, r.a, 1.0, 7.2), 'station');
       }
       if (r.held > 0 && H.canScore(m, r)) return score22(m, r);
@@ -314,7 +331,7 @@
           r.stats.hits++; r.stats.cycles++;
           let pts = 2;
           if (m.phase === 'auto') pts = 5;
-          else if (ss.ampUntil > m.t && ss.ampLeft > 0) { pts = 5; ss.ampLeft--; if (ss.ampLeft <= 0) ss.ampUntil = 0; }
+          else if (ss.ampUntil > m.t && ss.ampLeft > 0) { pts = 5; ss.ampLeft--; ss.ampScored++; if (ss.ampLeft <= 0) ss.ampUntil = 0; }
           ss.notes++; if (m.phase === 'auto') ss.autoNotes++;
           H.addPts(m, r, pts, '+' + pts, spk);
         }
@@ -338,6 +355,68 @@
       }, 'Scoring amp');
     }, 'To amp');
   }
+  // ---- Note feeding (real 2024 meta) ----
+  // A robot can only hold one note, so strong alliances lob notes from the Source end into their own wing ("feeding").
+  // The pile near the Speaker lets scorers cycle in seconds and stockpiles notes for AMPLIFY (5-point notes for 10 s).
+  // A defender camping the Source smothers the feeder and cancels most of the gain. feedIQ (0..1) is the alliance's
+  // grasp of the strategy: pass accuracy, pickup speed and self-passing.
+  const canPass24 = r => !!r.cap.speaker && (r.cap.range || 0) >= 30 && !r.perm.scorer;
+  const iq24 = (m, a) => m.feedIQ[a] || 0;
+  function source24(m, r) {
+    const ground = r.cap.ground;
+    const pt = ground ? E.P(m, r.a, m.rng.range(13.4, 15.0), m.rng.range(0.9, 2.5)) : E.P(m, r.a, 15.45, 0.95);
+    H.moveTo(m, r, pt, () => {
+      if (!H.canCollect(m, r)) return;
+      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
+    }, 'To source');
+  }
+  function pass24(m, r) {
+    const ss = m.ss[r.a], tgt = m.pileSpot[r.a], iq = iq24(m, r.a);
+    H.act(r, H.aimTime(m, r) * 0.7 + H.scoreTime(m, r, 0.45), () => {
+      if (!r.held) return;
+      r.held = 0; r.stats.passes = (r.stats.passes || 0) + 1;
+      // lobs are forgiving: accuracy comes from shooter range, the drive team and strategy read; a defender in contact spoils them
+      const p = U.clamp(0.4 + 0.3 * (r.cap.range || 0) / 100 + 0.15 * r.cap.accuracy / 100 + 0.15 * iq + 0.1 * r.confK - (r.defBy ? 0.2 : 0), 0.2, 0.97);
+      const ok = m.rng.chance(p), jit = ok ? 0.55 : 2.0;
+      const land = { x: U.clamp(tgt.x + m.rng.range(-jit, jit), 0.7, 9.0), y: U.clamp(tgt.y + m.rng.range(-jit, jit), 0.7, FH - 0.7), t: m.t + 1.3 };
+      if (r.a === 'red') land.x = U.clamp(tgt.x + m.rng.range(-jit, jit), FW - 9.0, FW - 0.7);
+      ss.pile.push(land); ss.fed++;
+      H.shotFx(m, r, land, ok);
+    }, 'Feeding a note');
+  }
+  // hoard discipline (the real "amp cycle"): the amp robot charges the Amp straight from the pile, and the
+  // scorers keep a 4-note buffer for the 10-second AMPLIFY burst instead of spending it at 2 points a note
+  function pileOpen24(m, r) {
+    const ss = m.ss[r.a], ready = ss.pile.filter(n => n.t <= m.t).length;
+    if (!ready) return false;
+    if (!ss.hoard) return true;
+    if (ss.ampUntil > m.t || m.total - m.t < 22 || !H.alliance(m, r.a).some(x => canAmp(x) && !x.dead)) return true;
+    if (ampBotOf(m, r.a) === r.team && ss.bank < 2) return true;
+    if (ss.bank >= 1) return ready > 4; // Amplify is one amp note away: save a burst
+    return true;
+  }
+  function pilePick24(m, r) {
+    const ss = m.ss[r.a];
+    let best = null, bd = 1e9;
+    for (const n of ss.pile) { if (n.t > m.t || (n.claim && n.claim !== r.team && n.claimT > m.t)) continue; const d = E.dist(r, n); if (d < bd) { bd = d; best = n; } }
+    if (!best) return false;
+    best.claim = r.team; best.claimT = m.t + 5;
+    H.moveTo(m, r, best, () => {
+      const i = ss.pile.indexOf(best); if (i < 0 || !H.canCollect(m, r)) return;
+      H.act(r, H.collectTime(m, r, 'ground', 0.7) * (1 - 0.25 * iq24(m, r.a)), () => { const j = ss.pile.indexOf(best); if (j < 0) return; ss.pile.splice(j, 1); r.held = 1; }, 'Grabbing fed note');
+    }, 'To fed notes');
+    return true;
+  }
+  function feeder24(m, r) {
+    if (r.held) { if (!H.canScore(m, r)) { r.label = 'Shooter jammed'; return; } return pass24(m, r); }
+    if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
+    // stay at the Source: the human player keeps dropping notes and the feeder lobs each one home
+    const home = E.P(m, r.a, 14.3, 1.5), pt = E.dist(r, home) < 1.6 ? { x: r.x + m.rng.range(-0.4, 0.4), y: U.clamp(r.y + m.rng.range(-0.4, 0.4), 0.6, FH - 0.6) } : home;
+    H.moveTo(m, r, pt, () => {
+      if (!H.canCollect(m, r)) return;
+      H.act(r, H.collectTime(m, r, 'ground', 0.75), () => { r.held = 1; }, 'Taking a note from the Source'); // notes the human player drops are scooped off the floor
+    }, 'To source');
+  }
   function chainPt(m, a, k, off) {
     const g = [0, 120, 240][k] * Math.PI / 180, cx = 4.9, cy = 4.1;
     const tx = -Math.sin(g), ty = Math.cos(g);
@@ -345,24 +424,31 @@
   }
   Rules[2024] = {
     leavePts: 2, tempo: { c: 2.7, s: 1.9 },
-    endgame: { levels: [{ name: 'Onstage', pts: 3, time: 5 }], park: 1 },
+    endgame: { levels: [{ name: 'Onstage', pts: 3, time: 5, drop: 0.05 }], park: 1 },
     init(m) {
       setHp(m);
       m.obs = [{ x: 4.9, y: 4.1, r: 1.05 }, { x: FW - 4.9, y: 4.1, r: 1.05 }];
-      m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false;
+      m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {};
       m.center = [0.75, 2.4, 4.1, 5.8, 7.45].map(y => ({ x: FW / 2, y }));
       ['red', 'blue'].forEach(a => {
         m.spk[a] = E.P(m, a, 0.2, 5.55);
         m.ampSpot[a] = E.P(m, a, 1.84, 7.6);
         m.zone[a] = zoneOf(m, a, 0.9, 5.9, 0.6, 7.7);
+        m.pileSpot[a] = E.P(m, a, 3.3, 6.1);
         const rs = H.alliance(m, a).filter(canAmp).sort((p, q) => (p.cap.speaker ? p.cap.accuracy + p.cap.scoreSpd + (p.cap.range || 0) : -50) - (q.cap.speaker ? q.cap.accuracy + q.cap.scoreSpd + (q.cap.range || 0) : -50));
+        const iq = m.feedIQ[a] || 0, feeding = H.alliance(m, a).some(x => x.plan.role === 'feed');
         m.ss[a] = { notes: 0, autoNotes: 0, ampNotes: 0, bank: 0, ampUntil: 0, ampLeft: 0, coopPressed: false, stage: 0, onstage: 0, chains: [0, 0, 0],
+          // the wing pile is the hoard: notes stockpiled near the Speaker get dumped fast when AMPLIFIED
+          pile: [], fed: 0, ampScored: 0, feeding, hoard: false, selfPass: iq >= 0.55,
           wing: [4.1, 5.55, 7.0].map(y => E.P(m, a, 2.9, y)), ampBot: rs.length ? rs[0].team : null };
       });
       m.robots.forEach(r => { r.held = (r.cap.speaker || canAmp(r)) ? 1 : 0; });
     },
     start(m, r) { return E.P(m, r.a, 1.35, [4.4, 5.55, 6.7][r.slot]); },
-    guard(m, a) { return E.P(m, a, 12.6, 2.2); }, // defenders camp the target alliance's Source lane
+    // defenders camp the target alliance's Source lane — which is exactly where a feeder works, so Source defense
+    // cancels most of the feeding advantage (as it did in the real game)
+    guard(m, a) { return E.P(m, a, 12.6, 2.2); },
+    defTarget(m, r) { return m.robots.find(x => x.a !== r.a && x.plan.role === 'feed' && !x.dead) || null; },
     autoDecide(m, r) {
       const tier = r.cap.autoTier || 0, max = m.S.autoPieces[tier];
       if (r.mem.got == null) r.mem.got = 1;
@@ -376,20 +462,24 @@
       if (!r.left) H.moveTo(m, r, leavePt(r, 1.9), null, 'Leave');
       else r.label = 'Auto done';
     },
-    decide(m, r) {
-      const c = r.cap;
+    decide(m, r, H2, role) {
+      const c = r.cap, ss = m.ss[r.a];
       if (!c.speaker && !canAmp(r)) { r.label = 'No scorer'; return; }
+      if (role === 'feed' && canPass24(r)) return feeder24(m, r);
       if (r.held) {
         if (!H.canScore(m, r)) { r.label = 'Scorer jammed'; return; }
+        // self-pass: a scorer that understands the meta lobs a note home from the Source end, then grabs another
+        const atSource = (r.a === 'blue' ? r.x : FW - r.x) > 11.5;
+        if (atSource && ss.selfPass && canPass24(r) && c.ground && !(ss.ampUntil > m.t) && ss.pile.length < 4 && (r.mem.sp || 0) < 2 && m.total - m.t > 30) {
+          r.mem.sp = (r.mem.sp || 0) + 1;
+          return pass24(m, r);
+        }
+        r.mem.sp = 0;
         return useAmp24(m, r) ? amp24(m, r) : speaker24(m, r);
       }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
-      const ground = c.ground;
-      const pt = ground ? E.P(m, r.a, m.rng.range(13.4, 15.0), m.rng.range(0.9, 2.5)) : E.P(m, r.a, 15.45, 0.95);
-      H.moveTo(m, r, pt, () => {
-        if (!H.canCollect(m, r)) return;
-        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
-      }, 'To source');
+      if (c.ground && pileOpen24(m, r) && pilePick24(m, r)) return;
+      source24(m, r);
     },
     tick(m) {
       if (m.phase !== 'tele') return;
@@ -458,6 +548,10 @@
   // 2025 REEFSCAPE
   // =====================================================================
   const PT25 = { auto: [3, 4, 6, 7], tele: [2, 3, 4, 5] };
+  const CAGE_Y = [0.95, 2.05, 3.15]; // blue's cages (its left half of the Barge); red's are rotated onto the other half
+  const coralPower = r => (r.cap.reach || 0) * 12 + (r.cap.scoreSpd || 0) + (r.cap.intake || 0) * 0.5;
+  // position in the alliance's own (blue-equivalent) frame, to test zones
+  const own25 = (a, p) => a === 'blue' ? { x: p.x, y: p.y } : { x: FW - p.x, y: FH - p.y };
   const canProcess = r => !!(r.cap.processor || r.cap.net);
   const canRemove = r => !!(r.cap.algaeRemove);
   function avail25(ss, L) {
@@ -526,7 +620,7 @@
       H.act(r, (useNet ? H.aimTime(m, r) : 0) + H.scoreTime(m, r, useNet ? 0.8 : 1.0, r.cap.algaeSkill || 50), () => {
         r.stats.shots++;
         const p = H.hit(m, r, useNet ? 0.92 : 1.15, 0, r.cap.algaeSkill || 50);
-        if (useNet) H.shotFx(m, r, E.P(m, r.a, 8.27, spot.y), true);
+        if (useNet) H.shotFx(m, r, { x: FW / 2, y: spot.y }, true);
         if (m.rng.chance(p)) {
           r.stats.hits++; r.stats.cycles++;
           if (useNet) { ss.net++; H.addPts(m, r, 4, 'Net +4', spot); }
@@ -539,35 +633,55 @@
       }, useNet ? 'Shooting net' : 'Processing algae');
     }, useNet ? 'To net' : 'To processor');
   }
+  // Each alliance has two Coral Stations. The two best coral scorers take one each and the third shares;
+  // a human player feeds one coral at a time down each chute, so robots sharing a station queue up.
+  function stationOf(m, r) {
+    const asg = m.ss[r.a].stAssign;
+    let k = asg[r.team];
+    if (k == null) k = m.stations[r.a].indexOf(H.nearest(r, m.stations[r.a]));
+    return k;
+  }
   function collectCoral(m, r) {
-    const c = r.cap, ground = c.ground;
-    const st = H.nearest(r, m.stations[r.a]);
-    const pt = ground ? { x: U.clamp(st.x + (r.a === 'blue' ? 1 : -1) * m.rng.range(0.6, 1.6), 0.5, FW - 0.5), y: U.clamp(st.y + (st.y < FH / 2 ? 1 : -1) * m.rng.range(0.4, 1.2), 0.5, FH - 0.5) } : st;
+    const c = r.cap, ground = c.ground, ss = m.ss[r.a];
+    const k = stationOf(m, r), st = m.stations[r.a][k];
+    const pt = ground ? { x: U.clamp(st.x + (st.x < FW / 2 ? 1 : -1) * m.rng.range(0.5, 1.1), 0.5, FW - 0.5), y: U.clamp(st.y + (st.y < FH / 2 ? 1 : -1) * m.rng.range(0.3, 0.8), 0.5, FH - 0.5) } : st;
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7), () => { r.held = 1; r.heldType = 'coral'; }, ground ? 'Intaking coral' : 'At coral station');
-    }, 'To coral station');
+      const take = () => {
+        const ct = H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7);
+        ss.stFree[k] = m.t + ct * 0.6 + 0.5; // the human player needs a moment before the next coral drops
+        H.act(r, ct, () => { r.held = 1; r.heldType = 'coral'; }, ground ? 'Intaking coral' : 'At coral station');
+      };
+      if (m.t < ss.stFree[k]) H.waitUntil(r, () => m.t >= ss.stFree[k], take, 'Waiting at coral station', 6);
+      else take();
+    }, 'To coral station ' + (k + 1));
   }
   Rules[2025] = {
     leavePts: 3, tempo: { c: 3.4, s: 2.6 },
-    endgame: { levels: [{ name: 'Shallow', pts: 6, time: 5 }, { name: 'Deep', pts: 12, time: 8 }], park: 2 },
+    endgame: { levels: [{ name: 'Shallow', pts: 6, time: 5 }, { name: 'Deep', pts: 12, time: 8, drop: 0.1 }], park: 2 },
     init(m) {
       setHp(m);
-      m.coop = false; m.reef = {}; m.faces = {}; m.stations = {}; m.procSpot = {}; m.netSpot = {};
-      m.obs = [{ x: 4.49, y: 4.03, r: 1.0 }, { x: FW - 4.49, y: 4.03, r: 1.0 },
-        { x: FW / 2, y: 4.9, r: 0.55 }, { x: FW / 2, y: 6.0, r: 0.55 }, { x: FW / 2, y: 7.1, r: 0.55 }, { x: FW / 2, y: 7.9, r: 0.45 }];
+      m.coop = false; m.reef = {}; m.faces = {}; m.stations = {}; m.procSpot = {}; m.netSpot = {}; m.cages = {};
+      // the Barge spans the whole midline; robots pass under its truss but not through the centre leg or the hanging cages
+      m.obs = [{ x: 4.49, y: 4.03, r: 1.0 }, { x: FW - 4.49, y: 4.03, r: 1.0 }, { x: FW / 2, y: FH / 2, r: 0.3 }];
       ['red', 'blue'].forEach(a => {
         m.reef[a] = E.P(m, a, 4.49, 4.03);
         m.faces[a] = [0, 60, 120, 180, 240, 300].map(d => { const g = d * Math.PI / 180; return E.P(m, a, 4.49 + Math.cos(g) * 1.45, 4.03 + Math.sin(g) * 1.45); });
         m.stations[a] = [E.P(m, a, 0.85, 0.75), E.P(m, a, 0.85, 7.45)];
-        m.procSpot[a] = E.P(m, a, 6.0, 0.7);
-        m.netSpot[a] = E.P(m, a, 7.15, 6.6);
+        m.procSpot[a] = E.P(m, a, 6.0, FH - 0.7);           // processor: on the alliance's right-hand side wall
+        m.netSpot[a] = E.P(m, a, FW / 2 - 1.15, 2.1);       // shoot algae into the net above the alliance's half of the Barge
+        m.cages[a] = CAGE_Y.map(y => E.P(m, a, FW / 2, y)); // three cages on the alliance's half (its left)
+        m.cages[a].forEach(c => m.obs.push({ x: c.x, y: c.y, r: 0.24 }));
         const algae = H.alliance(m, a).filter(canProcess).sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0));
-        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null };
+        // station assignment: best two coral scorers get a station each, the third shares with the weaker of them
+        const coral = H.alliance(m, a).filter(r => (r.cap.reach || 0) > 0).sort((p, q) => coralPower(q) - coralPower(p));
+        const stAssign = {};
+        coral.forEach((r, i) => { stAssign[r.team] = i === 0 ? 0 : 1; });
+        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null, stAssign, stFree: [0, 0] };
       });
       m.robots.forEach(r => { r.held = (r.cap.reach || 0) > 0 ? 1 : 0; r.heldType = r.held ? 'coral' : null; });
     },
-    start(m, r) { return E.P(m, r.a, 7.1, [1.0, 2.4, 3.8][r.slot]); },
+    start(m, r) { return E.P(m, r.a, 6.85, [1.4, 4.03, 6.6][r.slot]); },
     guard(m, a) { return E.P(m, a, 6.4, 3.0); },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0];
@@ -597,7 +711,7 @@
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
       collectCoral(m, r);
     },
-    endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, 7.6, 5.0 + r.slot * 1.1) : E.P(m, r.a, 7.2, 4.7 + r.slot * 1.05); },
+    endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, FW / 2 - 0.42, CAGE_Y[r.slot]) : E.P(m, r.a, FW / 2 - 0.7, CAGE_Y[r.slot] + 0.45); },
     finishEnd(m) {
       ['red', 'blue'].forEach(a => {
         const ss = m.ss[a]; let pts = 0;
@@ -605,7 +719,7 @@
           if (r.dead || !r.end) return;
           let v = 0;
           if (r.end.lvl === 1) v = 6; else if (r.end.lvl === 2) v = 12;
-          else if (r.end.park && (r.a === 'blue' ? r.x > 6.5 && r.x < FW / 2 : r.x < FW - 6.5 && r.x > FW / 2) && r.y > 4.2) v = 2;
+          else if (r.end.park) { const q = own25(a, r); if (q.x > FW / 2 - 1.3 && q.x < FW / 2 + 0.7 && q.y < FH / 2 + 0.2) v = 2; } // Barge Zone around the alliance's half
           pts += v; r.stats.pts += v;
         });
         ss.barge = pts; m.score[a].end += pts;
@@ -647,7 +761,7 @@
   }
   function activeSoon(m, a, secs) { if (active26(m, a)) return true; const save = m.t; m.t += secs; const v = active26(m, a); m.t = save; return v; }
   const T26 = () => G.Rules[2026].tempo;
-  function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) / E.PACE[r.plan.pace].cyc / T26().s; }
+  function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) * (r.cap.dumper ? 1.9 : 1) / E.PACE[r.plan.pace].cyc / T26().s; } // a dumper empties the hopper about twice as fast
   function irate26(r) { return (0.6 + 5.4 * r.cap.intake / 100) * (r.cap.wide || 1) / T26().c; }
   function shoot26(m, r) {
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
@@ -722,8 +836,27 @@
   }
   Rules[2026] = {
     leavePts: 0, tempo: { c: 2.0, s: 1.4 },
-    endgame: { levels: [{ name: 'L1', pts: 10, time: 3 }, { name: 'L2', pts: 20, time: 6 }, { name: 'L3', pts: 30, time: 9 }], park: 0 },
+    // climbs are slow and risky (falls from L2/L3 happen), and both hubs are active in the endgame
+    endgame: { levels: [{ name: 'L1', pts: 10, time: 4, risk: 0.04 }, { name: 'L2', pts: 20, time: 9, risk: 0.16, drop: 0.35 }, { name: 'L3', pts: 30, time: 14, risk: 0.3, drop: 0.55 }], park: 0 },
     active: active26, shiftInfo,
+    // Most teams found the Tower not worth it: compare the climb's expected points with the fuel the robot would score
+    // in the same time (plus a margin for the risk and chaos). An explicit coach call ("Go now" or a set level) is respected.
+    endLevel(m, r) {
+      const capL = r.cap.endLevel || 0;
+      if (!capL || r.plan.endLevel !== 9 || r.plan.endTiming === 'now') return capL;
+      if (r.mem.endPick != null) return r.mem.endPick;
+      const n = cap26(r), hitP = H.hit(m, r, 1.0, 0.03);
+      const sRate = n * hitP / (n / irate26(r) + n / rate26(r) + 3.5); // fuel per second while cycling
+      // about 1 team in 8 is a "climbing team" that goes for the Tower anyway
+      const fan = ((r.team * 2654435761) >>> 0) % 100 < 12;
+      let best = 0, bv = fan ? -6 : 6;
+      for (let L = 1; L <= capL; L++) {
+        const ev = [10, 20, 30][L - 1] * H.climbChance(m, r, L) - sRate * (H.climbTime(m, r, L) + 3);
+        if (ev > bv) { bv = ev; best = L; }
+      }
+      r.mem.endPick = best;
+      return best;
+    },
     init(m) {
       setHp(m);
       m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = '';
@@ -859,7 +992,7 @@
   R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35 };
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
-  S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances.' };
+  S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes across the field and hoard them for Amplify.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers.' };
   S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream.' };
 

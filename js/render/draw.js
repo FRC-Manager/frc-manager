@@ -38,7 +38,7 @@
     ctx.strokeStyle = col; ctx.lineWidth = lw || 1.5; if (dash) ctx.setLineDash(dash); ctx.stroke(); if (dash) ctx.setLineDash([]);
   }
   function text(ctx, s, str, x, y, col, size, align) {
-    ctx.fillStyle = col; ctx.font = '600 ' + (size || 11) + 'px system-ui, sans-serif'; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = col; ctx.font = '600 ' + Math.round((size || 11) * Math.max(0.85, Math.min(2.6, s / 62))) + 'px system-ui, sans-serif'; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(str, x * s, y * s);
   }
   function seeded(n) { const r = G.makeRng(n); return () => r.next(); }
@@ -46,13 +46,29 @@
   // ------------------------------------------------------------------
   // Field
   // ------------------------------------------------------------------
+  // polygon given in blue coordinates, converted for alliance a
+  function apoly(ctx, s, sym, a, pts, fill, stroke, lw) { poly(ctx, s, pts.map(p => P(sym, a, p[0], p[1])), fill, stroke, lw); }
+  function aline(ctx, s, sym, a, x0, y0, x1, y1, col, lw, dash) { const p = P(sym, a, x0, y0), q = P(sym, a, x1, y1); line(ctx, s, p.x, p.y, q.x, q.y, col, lw, dash); }
+  function atext(ctx, s, sym, a, str, x, y, col, size) { const p = P(sym, a, x, y); text(ctx, s, str, p.x, p.y, col, size); }
+  // a ball with a soft highlight (cargo, algae, fuel)
+  function ball(ctx, s, x, y, r, col) {
+    circ(ctx, s, x, y, r, col, 'rgba(0,0,0,0.35)', 1);
+    circ(ctx, s, x - r * 0.3, y - r * 0.3, r * 0.35, 'rgba(255,255,255,0.35)');
+  }
+  function ring(ctx, s, x, y, r, col, alpha) { ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha; circ(ctx, s, x, y, r, null, col, Math.max(2, r * s * 0.55)); ctx.restore(); }
+  const METAL = '#aab4be', DARKM = '#2c3238', TAPE = 'rgba(240,244,248,0.7)';
   Rd.field = function (ctx, year, s, m) {
     const S = G.Seasons[year], sym = S.sym;
-    // carpet
+    // carpet with subtle seams
     ctx.fillStyle = COL.carpet; ctx.fillRect(0, 0, FW * s, FH * s);
     for (let i = 0; i < 16; i++) { ctx.fillStyle = i % 2 ? COL.carpet : COL.carpet2; ctx.fillRect(i * FW / 16 * s, 0, FW / 16 * s + 1, FH * s); }
-    rect(ctx, s, 0.05, 0.05, FW - 0.1, FH - 0.1, null, 'rgba(255,255,255,0.25)', 2);
-    line(ctx, s, FW / 2, 0, FW / 2, FH, 'rgba(255,255,255,0.18)', 2);
+    // guardrail and alliance walls with driver stations
+    rect(ctx, s, 0.03, 0.03, FW - 0.06, FH - 0.06, null, '#59626c', Math.max(2, s * 0.06));
+    [['blue', 0.0], ['red', FW - 0.1]].forEach(([a, x]) => {
+      rect(ctx, s, x, 0.03, 0.1, FH - 0.06, alc(a));
+      for (let i = 0; i < 3; i++) rect(ctx, s, x + (a === 'blue' ? 0.1 : -0.06), 1.4 + i * 2.05, 0.06, 1.2, 'rgba(255,255,255,0.18)');
+    });
+    line(ctx, s, FW / 2, 0.05, FW / 2, FH - 0.05, 'rgba(255,255,255,0.22)', 2);
     const fn = FIELD[year];
     if (fn) fn(ctx, s, sym, m);
   };
@@ -60,130 +76,187 @@
   const FIELD = {};
   FIELD[2022] = function (ctx, s, sym, m) {
     const cx = FW / 2, cy = FH / 2;
-    // tarmacs
     ['blue', 'red'].forEach(a => {
-      const pts = [];
-      for (let d = 112; d <= 248; d += 8) { const g = d * Math.PI / 180; const p = P(sym, a, cx + Math.cos(g) * 3.3, cy + Math.sin(g) * 3.3); pts.push(p); }
-      for (let d = 248; d >= 112; d -= 8) { const g = d * Math.PI / 180; pts.push(P(sym, a, cx + Math.cos(g) * 1.4, cy + Math.sin(g) * 1.4)); }
-      poly(ctx, s, pts, als(a), alc(a), 1.5);
-      // hangar
-      arect(ctx, s, sym, a, 0.1, 0.1, 3.0, 2.6, 'rgba(0,0,0,0.25)', alc(a), 2);
-      for (let i = 0; i < 4; i++) { const p = P(sym, a, 0.5 + i * 0.75, 0.25), q = P(sym, a, 0.5 + i * 0.75, 2.55); line(ctx, s, p.x, p.y, q.x, q.y, COL.metal, 3); }
-      const lbl = P(sym, a, 1.6, 2.85); text(ctx, s, 'HANGAR', lbl.x, lbl.y, alc(a), 10);
-      // terminal
-      const t1 = P(sym, a, 0.1, 6.6), t2 = P(sym, a, 1.6, 8.1), t3 = P(sym, a, 0.1, 8.1);
-      poly(ctx, s, [t1, t2, t3], als(a), alc(a), 1.5);
+      // two tarmac sections per alliance around the hub
+      [[112, 174], [186, 248]].forEach(([d0, d1]) => {
+        const pts = [];
+        for (let d = d0; d <= d1; d += 6) { const g = d * Math.PI / 180; pts.push([cx + Math.cos(g) * 3.1, cy + Math.sin(g) * 3.1]); }
+        for (let d = d1; d >= d0; d -= 6) { const g = d * Math.PI / 180; pts.push([cx + Math.cos(g) * 1.55, cy + Math.sin(g) * 1.55]); }
+        apoly(ctx, s, sym, a, pts, als(a), alc(a), 2);
+      });
+      // hangar: low / mid / high / traversal rungs between four posts
+      arect(ctx, s, sym, a, 0.12, 0.12, 3.05, 2.65, 'rgba(0,0,0,0.28)', alc(a), 2);
+      [[0.22, 0.22], [3.07, 0.22], [0.22, 2.67], [3.07, 2.67]].forEach(p => { const q = P(sym, a, p[0], p[1]); rect(ctx, s, q.x - 0.09, q.y - 0.09, 0.18, 0.18, '#5d6670', METAL, 1); });
+      ['LOW', 'MID', 'HIGH', 'TRAV'].forEach((nm, i) => {
+        const x = 0.62 + i * 0.75;
+        aline(ctx, s, sym, a, x, 0.3, x, 2.6, i >= 2 ? '#d7dde3' : METAL, 2 + i);
+        atext(ctx, s, sym, a, nm, x, 2.9, alc(a), 8);
+      });
+      // terminal with the human player chute
+      apoly(ctx, s, sym, a, [[0.08, 6.5], [1.7, 8.13], [0.08, 8.13]], als(a), alc(a), 2);
+      aline(ctx, s, sym, a, 0.3, 7.45, 0.9, 8.05, '#e8edf2', 3);
+      atext(ctx, s, sym, a, 'TERMINAL', 0.75, 7.75, alc(a), 7);
     });
-    // hub
-    circ(ctx, s, cx, cy, 1.36, '#3a4048', '#c8d0d8', 2);
-    circ(ctx, s, cx, cy, 0.67, '#4b525b', '#e8edf2', 2);
-    text(ctx, s, 'HUB', cx, cy, '#e8edf2', 11);
-    // cargo dots
-    const r = seeded(2022);
-    for (let i = 0; i < 22; i++) { const x = 1.3 + r() * (FW - 2.6), y = 0.5 + r() * (FH - 1); if (Math.hypot(x - cx, y - cy) < 2) continue; circ(ctx, s, x, y, 0.12, i % 2 ? COL.cargoR : COL.cargoB); }
+    // hub: fender octagon, upper-hub net ring and the four lower exits
+    const oct = []; for (let i = 0; i < 8; i++) { const g = (i * 45 + 22.5) * Math.PI / 180; oct.push({ x: cx + Math.cos(g) * 1.42, y: cy + Math.sin(g) * 1.42 }); }
+    [45, 135, 225, 315].forEach(d => { const g = d * Math.PI / 180, ex = cx + Math.cos(g) * 1.62, ey = cy + Math.sin(g) * 1.62; circ(ctx, s, ex, ey, 0.22, '#3d454e', METAL, 1.5); });
+    poly(ctx, s, oct, '#353c44', '#c8d0d8', 2.5);
+    circ(ctx, s, cx, cy, 0.95, '#2b3138', '#8d97a1', 1.5);
+    ctx.save(); ctx.setLineDash([3, 3]); circ(ctx, s, cx, cy, 0.68, '#3f4750', '#e8edf2', 2); ctx.restore();
+    circ(ctx, s, cx, cy, 0.25, '#1d2227', METAL, 1);
+    text(ctx, s, 'HUB', cx, cy + 0.42, '#e8edf2', 9);
+    // cargo: live positions during a match, a typical spread otherwise
+    if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, 0.12, c.c === 'red' ? COL.cargoR : COL.cargoB); });
+    else { const r = seeded(2022); for (let i = 0; i < 18; i++) { const x = 1.2 + r() * (FW - 2.4), y = 0.6 + r() * (FH - 1.2); if (Math.hypot(x - cx, y - cy) < 2.1) continue; ball(ctx, s, x, y, 0.12, i % 2 ? COL.cargoR : COL.cargoB); } }
   };
   FIELD[2023] = function (ctx, s, sym, m) {
     ['blue', 'red'].forEach(a => {
-      // community
-      arect(ctx, s, sym, a, 0.05, 0.05, 4.85, 5.45, als(a), null);
-      // grid
-      arect(ctx, s, sym, a, 0.05, 0.1, 1.38, 5.3, 'rgba(0,0,0,0.35)', alc(a), 2);
+      // community and loading zone tape
+      apoly(ctx, s, sym, a, [[0.05, 0.05], [4.9, 0.05], [4.9, 5.5], [3.4, 5.5], [3.4, 5.55], [0.05, 5.55]], als(a), alc(a), 1.5);
+      arect(ctx, s, sym, a, 13.2, 5.5, 3.3, 2.66, als(a), alc(a), 1.5);
+      // grid: 3 rows x 9 columns; co-op grid in the middle
+      arect(ctx, s, sym, a, 0.05, 0.12, 1.42, 5.28, '#23282e', alc(a), 2);
+      arect(ctx, s, sym, a, 0.08, 1.87, 1.36, 1.76, null, 'rgba(255,255,255,0.35)', 1);
       const g = m && m.ss[a] ? m.ss[a].grid : null;
       for (let row = 0; row < 3; row++) for (let col = 0; col < 9; col++) {
         const x = 1.2 - row * 0.42, y = 0.5 + col * 0.56, p = P(sym, a, x, y);
         const type = row === 0 ? 'any' : ([1, 4, 7].includes(col) ? 'cube' : 'cone');
         const v = g ? g[row * 9 + col] : 0;
-        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - 0.17 }, { x: p.x + 0.15, y: p.y + 0.13 }, { x: p.x - 0.15, y: p.y + 0.13 }], COL.cone);
-        else if (v === 2) rect(ctx, s, p.x - 0.14, p.y - 0.14, 0.28, 0.28, COL.cube);
-        else circ(ctx, s, p.x, p.y, 0.07, null, type === 'cube' ? COL.cube : type === 'cone' ? COL.cone : '#aaa', 1.5);
+        if (type === 'cone') { circ(ctx, s, p.x, p.y, 0.09, '#1a1e23', METAL, 1.5); circ(ctx, s, p.x, p.y, 0.03, METAL); }
+        else rect(ctx, s, p.x - 0.15, p.y - 0.15, 0.3, 0.3, type === 'cube' ? 'rgba(155,107,255,0.12)' : 'rgba(255,255,255,0.05)', type === 'cube' ? 'rgba(155,107,255,0.7)' : '#7d8791', 1.2);
+        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - 0.18 }, { x: p.x + 0.16, y: p.y + 0.14 }, { x: p.x - 0.16, y: p.y + 0.14 }], COL.cone, 'rgba(0,0,0,0.4)', 1);
+        else if (v === 2) rect(ctx, s, p.x - 0.14, p.y - 0.14, 0.28, 0.28, COL.cube, 'rgba(0,0,0,0.35)', 1);
       }
-      // charge station
-      arect(ctx, s, sym, a, 2.95, 1.55, 1.93, 2.45, 'rgba(0,0,0,0.3)', alc(a), 2);
-      const c = P(sym, a, 3.9, 2.78); text(ctx, s, 'CHARGE', c.x, c.y, alc(a), 10);
-      // loading zone
-      arect(ctx, s, sym, a, 13.2, 5.5, 3.3, 2.66, als(a), alc(a), 1);
-      const ss = P(sym, a, 15.9, 7.1); text(ctx, s, 'SUBSTATION', ss.x, ss.y - 0.55, alc(a), 9);
-      arect(ctx, s, sym, a, 16.2, 6.2, 0.3, 1.9, alc(a));
+      // charge station: platform, hinge and ramps (glows when an alliance engages)
+      const eng = m && m.ss[a] && m.ss[a].engaged;
+      arect(ctx, s, sym, a, 2.95, 1.55, 0.35, 2.45, '#3a4249', null);
+      arect(ctx, s, sym, a, 4.53, 1.55, 0.35, 2.45, '#3a4249', null);
+      arect(ctx, s, sym, a, 3.3, 1.55, 1.23, 2.45, eng ? 'rgba(62,207,142,0.35)' : '#2f363d', eng ? '#3ecf8e' : alc(a), 2);
+      aline(ctx, s, sym, a, 3.915, 1.6, 3.915, 3.95, METAL, 1.5, [4, 3]);
+      for (let i = 0; i < 4; i++) { aline(ctx, s, sym, a, 3.0 + 0.05, 1.8 + i * 0.6, 3.25, 1.95 + i * 0.6, '#7d8791', 1.5); aline(ctx, s, sym, a, 4.83, 1.8 + i * 0.6, 4.58, 1.95 + i * 0.6, '#7d8791', 1.5); }
+      atext(ctx, s, sym, a, 'CHARGE STATION', 3.915, 1.3, alc(a), 8);
+      // double substation shelves on the wall and the single substation chute on the side wall
+      arect(ctx, s, sym, a, 16.25, 6.15, 0.25, 1.95, alc(a));
+      [6.55, 7.2, 7.85].forEach(y => aline(ctx, s, sym, a, 16.0, y, 16.25, y, '#e8edf2', 2));
+      arect(ctx, s, sym, a, 14.0, 7.95, 0.6, 0.2, '#e8edf2', alc(a), 1);
+      atext(ctx, s, sym, a, 'SUBSTATION', 15.0, 5.85, alc(a), 8);
     });
-    // staged pieces (decor)
-    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { if (i % 2) rect(ctx, s, x - 0.12, y - 0.12, 0.24, 0.24, 'rgba(155,107,255,0.5)'); else circ(ctx, s, x, y, 0.12, 'rgba(255,210,63,0.5)'); }); });
+    // staged game pieces at mid-field
+    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { ctx.save(); ctx.globalAlpha = 0.55; if (i % 2) rect(ctx, s, x - 0.13, y - 0.13, 0.26, 0.26, COL.cube); else poly(ctx, s, [{ x, y: y - 0.17 }, { x: x + 0.15, y: y + 0.13 }, { x: x - 0.15, y: y + 0.13 }], COL.cone); ctx.restore(); }); });
   };
   FIELD[2024] = function (ctx, s, sym, m) {
     ['blue', 'red'].forEach(a => {
-      // wing line
-      const w1 = P(sym, a, 5.87, 0), w2 = P(sym, a, 5.87, FH); line(ctx, s, w1.x, w1.y, w2.x, w2.y, alc(a), 1.5, [6, 6]);
+      const ss = m && m.ss[a], amped = ss && ss.ampUntil > m.t;
+      // wing and starting lines
+      aline(ctx, s, sym, a, 5.87, 0.05, 5.87, FH - 0.05, alc(a), 1.5, [6, 6]);
+      aline(ctx, s, sym, a, 1.93, 0.05, 1.93, FH - 0.05, 'rgba(255,255,255,0.35)', 1);
       // speaker + subwoofer
-      arect(ctx, s, sym, a, 0.0, 4.6, 0.95, 1.9, als(a), alc(a), 2);
-      const sp = P(sym, a, 0.45, 5.55); text(ctx, s, m && m.ss[a] && m.ss[a].ampUntil > m.t ? '★' : 'SPK', sp.x, sp.y, '#fff', 10);
-      // amp
-      arect(ctx, s, sym, a, 1.45, 7.75, 0.8, 0.45, alc(a));
-      const ap = P(sym, a, 1.85, 7.45); text(ctx, s, 'AMP', ap.x, ap.y, alc(a), 9);
-      // source
-      const t1 = P(sym, a, 14.8, 0.0), t2 = P(sym, a, 16.54, 0.0), t3 = P(sym, a, 16.54, 1.7);
-      poly(ctx, s, [t1, t2, t3], als(a), alc(a), 1.5);
-      // stage triangle
-      const pts = [0, 120, 240].map(d => { const g = d * Math.PI / 180; return P(sym, a, 4.9 + Math.cos(g) * 1.25, 4.1 + Math.sin(g) * 1.25); });
-      poly(ctx, s, pts, 'rgba(0,0,0,0.3)', alc(a), 2);
-      [0, 120, 240].forEach(d => { const g = (d + 60) * Math.PI / 180; const p = P(sym, a, 4.9 + Math.cos(g) * 0.62, 4.1 + Math.sin(g) * 0.62); circ(ctx, s, p.x, p.y, 0.06, COL.metal); });
-      pts.forEach(p => circ(ctx, s, p.x, p.y, 0.12, COL.metal));
-      // staged wing notes
-      if (m && m.ss[a] && m.ss[a].wing) m.ss[a].wing.forEach(n => { if (!n.claimed) circ(ctx, s, n.x, n.y, 0.16, null, COL.note, 3); });
+      if (amped) { const c = P(sym, a, 0.35, 5.55); circ(ctx, s, c.x, c.y, 1.25, 'rgba(255,210,77,0.18)'); }
+      apoly(ctx, s, sym, a, [[0.05, 4.55], [0.62, 4.75], [0.95, 5.2], [0.95, 5.9], [0.62, 6.35], [0.05, 6.55]], '#30373e', alc(a), 2);
+      aline(ctx, s, sym, a, 0.12, 5.05, 0.12, 6.05, amped ? COL.acc || '#ffd24d' : '#e8edf2', 5);
+      atext(ctx, s, sym, a, amped ? 'AMPLIFIED' : 'SPEAKER', 0.55, 5.55, amped ? '#ffd24d' : '#e8edf2', 8);
+      // amp with its two-note bank lights
+      arect(ctx, s, sym, a, 1.45, 7.8, 0.8, 0.38, '#30373e', alc(a), 2);
+      for (let i = 0; i < 2; i++) { const p = P(sym, a, 1.65 + i * 0.4, 7.62); circ(ctx, s, p.x, p.y, 0.08, ss && (amped || ss.bank > i) ? '#ffd24d' : '#4a525b', '#1a1e23', 1); }
+      atext(ctx, s, sym, a, 'AMP', 1.85, 7.4, alc(a), 8);
+      // source: human player slots
+      apoly(ctx, s, sym, a, [[14.75, 0.05], [16.48, 0.05], [16.48, 1.75]], als(a), alc(a), 2);
+      [0.35, 0.8, 1.25].forEach(t => aline(ctx, s, sym, a, 16.48 - t * 0.7, 0.05 + t * 0.7, 16.2 - t * 0.7, 0.33 + t * 0.7, '#e8edf2', 2));
+      atext(ctx, s, sym, a, 'SOURCE', 15.6, 1.25, alc(a), 8);
+      // stage: three legs, chains between them, trap slots and the centre podium
+      const legs = [0, 120, 240].map(d => { const g = d * Math.PI / 180; return P(sym, a, 4.9 + Math.cos(g) * 1.3, 4.1 + Math.sin(g) * 1.3); });
+      poly(ctx, s, legs, 'rgba(0,0,0,0.28)', 'rgba(255,255,255,0.12)', 1);
+      for (let i = 0; i < 3; i++) {
+        const p = legs[i], q = legs[(i + 1) % 3];
+        line(ctx, s, p.x, p.y, q.x, q.y, '#c3cad1', 2.5, [3, 2]);
+        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2; rect(ctx, s, mx - 0.12, my - 0.12, 0.24, 0.24, '#30373e', alc(a), 1.5);
+      }
+      legs.forEach(p => circ(ctx, s, p.x, p.y, 0.14, '#5d6670', METAL, 2));
+      const c = P(sym, a, 4.9, 4.1); circ(ctx, s, c.x, c.y, 0.3, '#30373e', alc(a), 1.5);
+      // notes: staged wing notes and the fed pile near the speaker
+      if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
+      if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35));
     });
-    if (m && m.center) m.center.forEach(n => { if (!n.claimed) circ(ctx, s, n.x, n.y, 0.16, null, COL.note, 3); });
-    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => circ(ctx, s, FW / 2, y, 0.16, null, COL.note, 3));
+    if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
+    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, 0.16, COL.note));
   };
   FIELD[2025] = function (ctx, s, sym, m) {
-    // barge
-    rect(ctx, s, FW / 2 - 0.25, 4.35, 0.5, 3.8, '#3a4048', '#c8d0d8', 2);
-    text(ctx, s, 'BARGE', FW / 2, 4.15, '#c8d0d8', 9);
+    const CY = [0.95, 2.05, 3.15];
     ['blue', 'red'].forEach(a => {
-      // reef hexagon
-      const c = P(sym, a, 4.49, 4.03);
-      const pts = [0, 60, 120, 180, 240, 300].map(d => { const g = (d + 30) * Math.PI / 180; return { x: c.x + Math.cos(g) * 0.95, y: c.y + Math.sin(g) * 0.95 }; });
-      poly(ctx, s, pts, 'rgba(0,0,0,0.35)', alc(a), 2.5);
+      // starting line and the barge zone tape around the alliance's half of the Barge
+      aline(ctx, s, sym, a, 6.85, 0.05, 6.85, FH - 0.05, 'rgba(0,0,0,0.55)', 2);
+      arect(ctx, s, sym, a, FW / 2 - 0.6, 0.05, 1.2, 3.72, als(a), alc(a), 2);
+      // reef zone and reef: six faces, two branch pipes per face (12), algae resting on the reef
+      const c = P(sym, a, 4.49, 4.03), hex = r => [0, 60, 120, 180, 240, 300].map(d => { const g = (d + 30) * Math.PI / 180; return { x: c.x + Math.cos(g) * r, y: c.y + Math.sin(g) * r }; });
+      poly(ctx, s, hex(1.38), als(a), alc(a), 1.5);
+      poly(ctx, s, hex(0.95), '#2c3238', alc(a), 3);
+      poly(ctx, s, hex(0.55), '#3a4249', 'rgba(255,255,255,0.25)', 1);
+      for (let f = 0; f < 6; f++) {
+        const g = f * 60 * Math.PI / 180, tx = -Math.sin(g), ty = Math.cos(g), bx = c.x + Math.cos(g) * 0.82, by = c.y + Math.sin(g) * 0.82;
+        [-0.17, 0.17].forEach(o => circ(ctx, s, bx + tx * o, by + ty * o, 0.06, '#d7c9f5', '#7f6bb3', 1));
+      }
       const ss = m && m.ss[a];
       if (ss) {
-        text(ctx, s, ss.lv[3] + '/' + ss.lv[2] + '/' + ss.lv[1] + '/' + ss.lv[0], c.x, c.y - 0.12, '#fff', 10);
-        for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = i * Math.PI / 3; circ(ctx, s, c.x + Math.cos(g) * 0.62, c.y + Math.sin(g) * 0.62, 0.13, COL.algae); }
-        text(ctx, s, 'L4/L3/L2/L1', c.x, c.y + 0.22, 'rgba(255,255,255,0.6)', 8);
-      } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 10);
-      // coral stations
-      [[0.0, 0.0, 1.7, 0.0, 0.0, 1.3], [0.0, FH, 1.7, FH, 0.0, FH - 1.3]].forEach(t => {
-        poly(ctx, s, [P(sym, a, t[0], t[1]), P(sym, a, t[2], t[3]), P(sym, a, t[4], t[5])], als(a), alc(a), 1.5);
+        for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
+        text(ctx, s, ss.lv[3] + '·' + ss.lv[2] + '·' + ss.lv[1] + '·' + ss.lv[0], c.x, c.y, '#fff', 9);
+      } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 9);
+      // coral stations in the two corners of the alliance wall
+      [[0.05, 0.05, 1.75, 0.05, 0.05, 1.35], [0.05, FH - 0.05, 1.75, FH - 0.05, 0.05, FH - 1.35]].forEach(t => {
+        apoly(ctx, s, sym, a, [[t[0], t[1]], [t[2], t[3]], [t[4], t[5]]], als(a), alc(a), 2);
+        aline(ctx, s, sym, a, (t[0] + t[2]) / 2, t[1], (t[0] + t[4]) / 2, (t[1] + t[5]) / 2, '#f3efe6', 3);
       });
-      // processor
-      arect(ctx, s, sym, a, 5.6, 0.0, 0.8, 0.35, alc(a));
-      // cages
-      for (let i = 0; i < 3; i++) { const p = P(sym, a, 7.6, 5.0 + i * 1.1); rect(ctx, s, p.x - 0.18, p.y - 0.18, 0.36, 0.36, null, alc(a), 2); }
-      // start line
-      const l1 = P(sym, a, 7.4, 0.2), l2 = P(sym, a, 7.4, 4.2); line(ctx, s, l1.x, l1.y, l2.x, l2.y, alc(a), 1.2, [4, 4]);
+      // processor on the alliance's right-hand side wall
+      arect(ctx, s, sym, a, 5.6, FH - 0.32, 0.8, 0.28, '#30373e', alc(a), 2);
+      atext(ctx, s, sym, a, 'PROCESSOR', 6.0, FH - 0.55, alc(a), 7);
+      // net above the alliance's half of the Barge, and its three cages hanging from the truss
+      arect(ctx, s, sym, a, FW / 2 - 0.12, 0.25, 0.24, 3.45, 'rgba(255,255,255,0.08)', alc(a), 1.5);
+      CY.forEach(y => { const p = P(sym, a, FW / 2, y); line(ctx, s, p.x - 0.0, p.y - 0.35, p.x, p.y - 0.2, METAL, 1.5); rect(ctx, s, p.x - 0.2, p.y - 0.2, 0.4, 0.4, 'rgba(0,0,0,0.35)', alc(a), 2.5); circ(ctx, s, p.x, p.y, 0.06, METAL); });
     });
+    // the Barge truss spans the whole midline (with a centre support)
+    ctx.save(); ctx.globalAlpha = 0.85;
+    rect(ctx, s, FW / 2 - 0.56, 0.0, 1.12, FH, null, '#c8d0d8', 2);
+    for (let y = 0.2; y < FH; y += 0.55) line(ctx, s, FW / 2 - 0.56, y, FW / 2 + 0.56, y + 0.4, 'rgba(200,208,216,0.35)', 1);
+    ctx.restore();
+    circ(ctx, s, FW / 2, FH / 2, 0.22, '#5d6670', METAL, 2);
+    text(ctx, s, 'BARGE', FW / 2, FH / 2 + 0.45, '#c8d0d8', 8);
   };
   FIELD[2026] = function (ctx, s, sym, m) {
     const XB = 4.63;
     ['blue', 'red'].forEach(a => {
-      arect(ctx, s, sym, a, 0.05, 0.05, 3.98, FH - 0.1, als(a), null);
-      const l1 = P(sym, a, 4.03, 0), l2 = P(sym, a, 4.03, FH); line(ctx, s, l1.x, l1.y, l2.x, l2.y, alc(a), 2);
-      // trenches & bumps
-      arect(ctx, s, sym, a, XB - 0.6, 0.05, 1.2, 1.2, '#15181c', '#555', 1);
-      arect(ctx, s, sym, a, XB - 0.6, FH - 1.25, 1.2, 1.2, '#15181c', '#555', 1);
-      arect(ctx, s, sym, a, XB - 0.55, 1.65, 1.1, 1.85, 'rgba(160,160,160,0.25)', '#888', 1);
-      arect(ctx, s, sym, a, XB - 0.55, 4.6, 1.1, 1.95, 'rgba(160,160,160,0.25)', '#888', 1);
-      // hub
-      const h = P(sym, a, XB, 4.03);
-      const on = m && G.Rules[2026].active(m, a);
-      circ(ctx, s, h.x, h.y, 0.62, on ? alc(a) : '#3a4048', on ? '#fff' : '#777', 2.5);
-      text(ctx, s, 'HUB', h.x, h.y, '#fff', 9);
-      // tower
-      const t = P(sym, a, 1.1, 4.03); rect(ctx, s, t.x - 0.35, t.y - 1.1, 0.7, 2.2, 'rgba(0,0,0,0.35)', alc(a), 2);
-      for (let i = 0; i < 3; i++) line(ctx, s, t.x - 0.35, t.y - 0.7 + i * 0.7, t.x + 0.35, t.y - 0.7 + i * 0.7, COL.metal, 2);
-      // depot & outpost
-      arect(ctx, s, sym, a, 0.1, 5.8, 0.9, 1.3, 'rgba(255,216,74,0.12)', COL.fuel, 1);
-      const o1 = P(sym, a, 0.0, 0.0), o2 = P(sym, a, 1.4, 0.0), o3 = P(sym, a, 0.0, 1.6); poly(ctx, s, [o1, o2, o3], als(a), alc(a), 1.5);
-      if (m && m.ss[a] && m.ss[a].pool > 0) { const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 9); }
+      arect(ctx, s, sym, a, 0.1, 0.05, 3.93, FH - 0.1, als(a), null);
+      aline(ctx, s, sym, a, 4.03, 0.05, 4.03, FH - 0.05, alc(a), 2.5);
+      // trenches (low tunnel under a crossbar) at both walls, bumps (ramps) in between
+      [[0.05, 1.2], [FH - 1.25, 1.2]].forEach(([y, h]) => {
+        arect(ctx, s, sym, a, XB - 0.6, y, 1.2, h, '#14171b', '#666', 1);
+        aline(ctx, s, sym, a, XB, y, XB, y + h, METAL, 4);
+        atext(ctx, s, sym, a, 'TRENCH', XB, y + h / 2, '#8d97a1', 7);
+      });
+      [[1.65, 1.85], [4.6, 1.95]].forEach(([y, h]) => {
+        arect(ctx, s, sym, a, XB - 0.55, y, 1.1, h, 'rgba(160,168,176,0.28)', '#8d97a1', 1);
+        for (let i = 0; i < 4; i++) { const yy = y + 0.25 + i * (h - 0.5) / 3; aline(ctx, s, sym, a, XB - 0.4, yy, XB, yy + 0.15, '#9aa4ae', 1.5); aline(ctx, s, sym, a, XB, yy + 0.15, XB + 0.4, yy, '#9aa4ae', 1.5); }
+      });
+      // hub: hexagonal funnel that lights up while active
+      const h = P(sym, a, XB, 4.03), on = m && G.Rules[2026].active(m, a);
+      if (on) circ(ctx, s, h.x, h.y, 0.95, a === 'red' ? 'rgba(229,72,77,0.25)' : 'rgba(62,140,255,0.25)');
+      const hx = r => [0, 60, 120, 180, 240, 300].map(d => { const g = d * Math.PI / 180; return { x: h.x + Math.cos(g) * r, y: h.y + Math.sin(g) * r }; });
+      poly(ctx, s, hx(0.66), on ? alc(a) : '#3a4048', on ? '#fff' : '#7d8791', 2.5);
+      poly(ctx, s, hx(0.4), '#1d2227', '#9aa4ae', 1.5);
+      text(ctx, s, 'HUB', h.x, h.y, '#fff', 8);
+      // tower: base, two uprights and three rungs (L1-L3)
+      const t = P(sym, a, 1.1, 4.03);
+      rect(ctx, s, t.x - 0.42, t.y - 1.15, 0.84, 2.3, 'rgba(0,0,0,0.35)', alc(a), 2);
+      line(ctx, s, t.x - 0.32, t.y - 1.05, t.x - 0.32, t.y + 1.05, METAL, 3); line(ctx, s, t.x + 0.32, t.y - 1.05, t.x + 0.32, t.y + 1.05, METAL, 3);
+      ['L1', 'L2', 'L3'].forEach((nm, i) => { const yy = t.y - 0.7 + i * 0.7; line(ctx, s, t.x - 0.36, yy, t.x + 0.36, yy, i === 2 ? '#e8edf2' : METAL, 2 + i); text(ctx, s, nm, t.x + 0.58, yy, alc(a), 7); });
+      // depot (fuel bin) and outpost (human player chute)
+      arect(ctx, s, sym, a, 0.12, 5.8, 0.9, 1.3, 'rgba(255,216,74,0.12)', COL.fuel, 1.5);
+      const dr = seeded(a === 'red' ? 61 : 62), dep = m && m.ss[a] ? Math.min(14, Math.ceil(m.ss[a].depot / 2)) : 12;
+      for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+      apoly(ctx, s, sym, a, [[0.05, 0.05], [1.45, 0.05], [0.05, 1.65]], als(a), alc(a), 2);
+      atext(ctx, s, sym, a, 'OUTPOST', 0.5, 0.45, alc(a), 7);
+      if (m && m.ss[a] && m.ss[a].pool > 0) { const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8); }
     });
     const r = seeded(2026);
-    for (let i = 0; i < 70; i++) circ(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.07, 'rgba(255,216,74,0.65)');
+    for (let i = 0; i < 80; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
   };
 
   // ------------------------------------------------------------------
@@ -213,18 +286,31 @@
         });
       }
     }
-    // bumper + frame
-    ctx.fillStyle = ac; ctx.fillRect(-h, -h, sz, sz);
+    // bumper (with a darker seam) + frame
+    ctx.fillStyle = ac; ctx.beginPath(); ctx.roundRect(-h, -h, sz, sz, sz * 0.08); ctx.fill();
+    ctx.strokeStyle = shade(ac, -0.22); ctx.lineWidth = Math.max(1, sz * 0.025); ctx.strokeRect(-h + sz * 0.055, -h + sz * 0.055, sz * 0.89, sz * 0.89);
     const ver = lk.ver || 1;
     ctx.fillStyle = ver >= 2 ? shade(lk.c1 || '#7a8591', -0.15) : '#77808a';
     if (!r.isPlayer && ver >= 2) ctx.fillStyle = '#5d6670';
     ctx.fillRect(-h + sz * 0.11, -h + sz * 0.11, sz * 0.78, sz * 0.78);
+    // frame rails, battery and electronics (only drawn when there is room)
+    if (sz > 26) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = Math.max(1, sz * 0.02);
+      ctx.beginPath(); ctx.moveTo(-h + sz * 0.11, -h * 0.35); ctx.lineTo(h - sz * 0.11, -h * 0.35); ctx.moveTo(-h + sz * 0.11, h * 0.35); ctx.lineTo(h - sz * 0.11, h * 0.35); ctx.stroke();
+      ctx.fillStyle = '#16191c'; ctx.fillRect(-h * 0.78, h * 0.42, sz * 0.2, sz * 0.12);
+      ctx.fillStyle = '#d33'; ctx.fillRect(-h * 0.78 + sz * 0.02, h * 0.42 + sz * 0.02, sz * 0.03, sz * 0.03);
+      ctx.fillStyle = '#2f6b3a'; ctx.fillRect(-h * 0.78, -h * 0.66, sz * 0.14, sz * 0.1);
+      ctx.fillStyle = '#e8862e'; ctx.fillRect(-h * 0.78 + sz * 0.15, -h * 0.66, sz * 0.05, sz * 0.05);
+    }
+    // team number on the rear bumper
+    if (sz > 34) { ctx.save(); ctx.rotate(Math.PI / 2); ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '800 ' + Math.round(sz * 0.085) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(r.team), 0, h - sz * 0.028); ctx.restore(); }
     if (ver >= 3) { ctx.strokeStyle = r.held ? '#4cff8a' : (lk.c2 || '#fff'); ctx.lineWidth = 1.5; ctx.strokeRect(-h + sz * 0.14, -h + sz * 0.14, sz * 0.72, sz * 0.72); }
     // intake (front = +x)
     const it = lk.intake;
     ctx.fillStyle = '#d9dee3';
-    if (it === 'over') ctx.fillRect(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5);
-    else if (it === 'wide') ctx.fillRect(h - sz * 0.02, -h * 0.98, sz * 0.13, h * 1.96);
+    const stripes = (x0, y0, w, hh) => { if (sz < 26) return; ctx.save(); ctx.strokeStyle = 'rgba(40,46,52,0.6)'; ctx.lineWidth = 1; for (let yy = y0 + hh * 0.12; yy < y0 + hh; yy += hh / 6) { ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + w, yy); ctx.stroke(); } ctx.restore(); };
+    if (it === 'over') { ctx.fillRect(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); stripes(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); }
+    else if (it === 'wide') { ctx.fillRect(h - sz * 0.02, -h * 0.98, sz * 0.13, h * 1.96); stripes(h - sz * 0.02, -h * 0.98, sz * 0.13, h * 1.96); }
     else if (it === 'under') ctx.fillRect(h - sz * 0.13, -h * 0.7, sz * 0.06, h * 1.4);
     else if (it === 'dual') { ctx.fillRect(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); ctx.fillRect(-h - sz * 0.1, -h * 0.75, sz * 0.12, h * 1.5); }
     else if (it === 'claw') { ctx.fillRect(h - sz * 0.05, -h * 0.4, sz * 0.12, sz * 0.06); ctx.fillRect(h - sz * 0.05, h * 0.4 - sz * 0.06, sz * 0.12, sz * 0.06); }
@@ -259,7 +345,11 @@
       ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.6, -h * 0.4, h * 0.8, h * 0.8);
       ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-h * 0.2, 0, h * 0.35, -1.2, 1.2); ctx.stroke();
     } else if (sh === 'fixed') { ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.55, -h * 0.35, h * 0.7, h * 0.7); ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.55, -h * 0.08, h * 0.7, h * 0.16); }
-    else if (sh === 'dump') { ctx.fillStyle = '#3b424a'; ctx.fillRect(-h * 0.5, -h * 0.45, h * 0.6, h * 0.9); }
+    else if (sh === 'dump') {
+      ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.2, -h * 0.86, h * 0.42, h * 1.72);
+      ctx.fillStyle = lk.c2 || '#ffcf4a';
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(h * 0.41, -h * 0.68 + i * h * 0.34, sz * 0.055, 0, 7); ctx.fill(); }
+    }
     // algae mech
     if (lk.algae === 'net') { ctx.beginPath(); ctx.arc(-h * 0.55, h * 0.45, sz * 0.12, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
     else if (lk.algae === 'proc') { ctx.fillStyle = COL.algae; ctx.fillRect(-h * 0.8, h * 0.35, h * 0.3, h * 0.3); }
@@ -322,7 +412,7 @@
     // wheels
     const wr = 0.075 * s;
     const nW = lk.drive === 'swerve' ? 2 : 3;
-    for (let i = 0; i < nW; i++) { const wx = x0 + wr + 4 + i * ((fw - 2 * wr - 8) / (nW - 1)); ctx.beginPath(); ctx.arc(wx, gy - wr, wr, 0, 7); ctx.fillStyle = '#151515'; ctx.fill(); ctx.strokeStyle = '#666'; ctx.lineWidth = 2; ctx.stroke(); }
+    for (let i = 0; i < nW; i++) { const wx = x0 + wr + 4 + i * ((fw - 2 * wr - 8) / (nW - 1)); ctx.beginPath(); ctx.arc(wx, gy - wr, wr, 0, 7); ctx.fillStyle = '#151515'; ctx.fill(); ctx.strokeStyle = '#666'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(wx, gy - wr, wr * 0.35, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill(); }
     // frame + bumper
     const fy = gy - 2 * wr - 0.06 * s;
     ctx.fillStyle = frame; ctx.fillRect(x0, fy - 0.05 * s, fw, 0.07 * s);
@@ -357,7 +447,7 @@
       if (sh === 'turret') { ctx.fillRect(sx - 0.18 * s, sy + 0.04 * s, 0.36 * s, 0.06 * s); ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke(); }
       else if (sh === 'hood' || sh === 'pivot') { ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, 0, 7); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.15 * s, Math.PI * 1.15, Math.PI * 1.75); ctx.stroke(); }
       else if (sh === 'fixed') { ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.9); ctx.fillRect(-0.05 * s, -0.05 * s, 0.32 * s, 0.1 * s); ctx.restore(); }
-      else if (sh === 'dump') { ctx.fillRect(sx - 0.15 * s, sy, 0.3 * s, 0.15 * s); }
+      else if (sh === 'dump') { ctx.fillRect(sx - 0.05 * s, sy - 0.12 * s, 0.42 * s, 0.24 * s); ctx.fillStyle = lk.c2 || '#ffcf4a'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sx + 0.05 * s + i * 0.12 * s, sy, 0.045 * s, 0, 7); ctx.fill(); } ctx.fillStyle = '#2f353c'; }
       ctx.fillStyle = '#2f353c'; ctx.fillRect(sx - 0.03 * s, sy, 0.06 * s, top - sy);
     }
     // hopper

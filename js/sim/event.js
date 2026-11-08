@@ -138,11 +138,28 @@
         }
         if (playoff || rng.chance(0.5)) e.plan.rpHunt = !playoff;
       });
+      // 2024 note feeding: an alliance needs a robot that can lob notes (ranged shooter + ground intake) and another scorer.
+      // AI alliances pick it up over the season; your alliance's grasp comes from your team's strategy read.
+      let iq = 0, feeding = false;
+      if (ev.year === 2024) {
+        const ai = Ev.feedChance(ev, playoff), mine = hasPlayer ? G.Career.metaInsight(S) : 0;
+        const cands = ens.filter(e => !e.isPlayer && !e.suggested && e.plan.role === 'score' && e.cap.speaker && (e.cap.range || 0) >= 30 && e.cap.ground);
+        const scorers = ens.filter(e => e.cap.speaker || e.cap.amp || e.cap.ampViaShooter).length;
+        if (cands.length && scorers >= 2 && rng.chance(hasPlayer ? Math.max(ai, mine * 0.9) : ai)) {
+          cands.sort((p, q) => (p.power || 0) - (q.power || 0))[0].plan.role = 'feed';
+          feeding = true;
+        }
+        const k = Ev.metaProgress(ev);
+        iq = hasPlayer ? Math.max(mine, feeding ? 0.35 + 0.45 * k : ai * 0.6) : (feeding ? 0.4 + 0.5 * k : ai * 0.6);
+        ev.feedStats = ev.feedStats || { n: 0, f: 0 };
+        ev.feedStats.n++; if (feeding) ev.feedStats.f++;
+      }
+      out.feedIQ = out.feedIQ || {}; out.feedIQ[a] = iq;
       // AI alliance strategy: should the weakest robot play defense? Teams learn each game's meta over the season.
       const already = ens.some(e => e.plan.role === 'defend');
       const cands = ens.filter(e => !e.isPlayer && !e.suggested && e.plan.role === 'score' && (e.cap.push || 0) >= 30);
       if (!already && cands.length) {
-        const pDef = Ev.defenseChance(ev, playoff);
+        const pDef = Ev.defenseChance(ev, playoff) * (feeding ? 0.5 : 1); // a feeding alliance rarely has a spare robot to defend
         const used = rng.chance(pDef);
         if (used) cands.sort((p, q) => (p.power || 0) - (q.power || 0))[0].plan.role = 'defend';
       }
@@ -158,6 +175,12 @@
     if (ev.kind === 'scrimmage') return 0;
     return U.clamp((ev.week - 1) / 5, 0, 1);
   };
+  // 2024: chance an AI alliance runs a note feeder. Feeding spread through the real season and dominated late events.
+  Ev.feedChance = function (ev, playoff) {
+    if (ev.year !== 2024) return 0;
+    const k = Ev.metaProgress(ev);
+    return playoff ? 0.15 + 0.6 * k : 0.05 + 0.45 * k;
+  };
   // Chance an AI alliance assigns one defender. Shooting games trend toward defense; placement games away from it.
   Ev.defenseChance = function (ev, playoff) {
     const meta = G.Seasons[ev.year].meta || {}, k = Ev.metaProgress(ev);
@@ -171,7 +194,7 @@
     return G.Engine.create({
       year: ev.year, red: ens.red, blue: ens.blue, seed: hash(ev.seed, (match.key || match.n) * 7919 + (match.game || 0)),
       headless: !!(opts && opts.headless), playoff, diff: { easy: 0.6, normal: 1, hard: 1.3 }[S.diff] || 1,
-      calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num
+      calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num, feedIQ: ens.feedIQ
     });
   };
   Ev.runHeadless = function (ev, match) { const m = Ev.buildEngine(ev, match, { headless: true }); G.Engine.run(m); return m.result; };

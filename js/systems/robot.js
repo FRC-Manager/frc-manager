@@ -410,6 +410,18 @@
       s.cond = Math.max(0, s.cond - w);
     });
     rr.faults.forEach(f => {
+      if (/^Fell from/.test(f)) {
+        // a fall from height: everything takes a beating, the climber worst; some bent parts go straight in the scrap bin
+        Object.keys(R.subs).forEach(k => {
+          const s = R.subs[k]; if (!s.ver || k === 'soft') return;
+          s.cond = Math.max(0, s.cond - (k === 'endgame' ? G.R.range(45, 65) : k === 'drive' ? G.R.range(25, 40) : G.R.range(15, 30)));
+        });
+        if (G.R.chance(0.45)) { const ks = Object.keys(R.subs).filter(k => R.subs[k].ver && k !== 'soft'); if (ks.length) R.subs[G.R.pick(ks)].hidden++; }
+        const bent = Math.min(S.parts.spares, G.R.int(1, 3));
+        S.parts.spares -= bent;
+        rr.scrapped = (rr.scrapped || 0) + bent;
+        return;
+      }
       const map = { 'Intake broke': 'intake', 'Scorer broke': 'scorer', 'Climber broke': 'endgame', 'TIPPED OVER': 'scorer' };
       const k = map[f];
       if (k && R.subs[k] && R.subs[k].ver) R.subs[k].cond = Math.max(0, R.subs[k].cond - 25);
