@@ -65,8 +65,8 @@
   D.KOP_CATS = ['motor', 'enc', 'ctrl', 'gearbox'];
   D.KOP_MIX_HOURS = 1.05; // KOP electronics next to vendor electronics: 5% more hardware and software hours
   // Kit of parts: limited and basic, free at every Kickoff (rookies get a bigger kit in their first season)
-  D.KOP = { motor: 4, gearbox: 2, ctrl: 1 };
-  D.KOP_ROOKIE = { motor: 8, gearbox: 2, ctrl: 1 };
+  D.KOP = { motor: 4, enc: 2, gearbox: 2 }; // veterans: no control hub (like FRC, only rookies get the control system)
+  D.KOP_ROOKIE = { motor: 8, enc: 4, gearbox: 4, ctrl: 1 };
 
   // How likely an item is in stock in a given week during the season (the offseason is almost always fine)
   D.STOCK = { elec: 0.42, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, diff: { easy: 0.15, normal: 0, hard: -0.1 } };
@@ -83,8 +83,13 @@
   // Starting inventories by team level: [category, vendor, count, health]
   D.START_PARTS = {
     rookie: [],
-    established: [['motor', 'B', 10, 0.75], ['enc', 'B', 3, 0.75], ['ctrl', 'B', 1, 0.8], ['gearbox', 'C', 2, 0.8], ['camera', 'C', 1, 0.85]],
-    powerhouse: [['motor', 'A', 20, 0.8], ['enc', 'A', 6, 0.8], ['ctrl', 'A', 2, 0.85], ['swerve', 'A', 4, 0.8], ['gearbox', 'C', 2, 0.8], ['camera', 'C', 2, 0.85], ['kShoot', 'C', 1, 0.85], ['kIntake', 'C', 1, 0.85]]
+    // established: last few seasons' parts at different wear levels (enough for a test chassis once the competition robot
+    // takes the best ones), plus leftovers from earlier kits
+    established: [['motor', 'B', 10, 0.75], ['motor', 'B', 4, 0.55], ['motor', 'B', 2, 0.4], ['enc', 'B', 3, 0.75], ['enc', 'B', 2, 0.5],
+      ['ctrl', 'B', 1, 0.8], ['gearbox', 'C', 2, 0.8], ['gearbox', 'C', 2, 0.55], ['camera', 'C', 1, 0.85],
+      ['ctrl', 'K', 1, 0.7], ['motor', 'K', 4, 0.6], ['gearbox', 'K', 2, 0.7]],
+    powerhouse: [['motor', 'A', 20, 0.8], ['enc', 'A', 6, 0.8], ['ctrl', 'A', 2, 0.85], ['swerve', 'A', 4, 0.8], ['gearbox', 'C', 2, 0.8], ['camera', 'C', 2, 0.85], ['kShoot', 'C', 1, 0.85], ['kIntake', 'C', 1, 0.85],
+      ['ctrl', 'K', 1, 0.7], ['motor', 'K', 4, 0.6]]
   };
 
   // ---------- Game elements: practice-field sets for one season's game ----------

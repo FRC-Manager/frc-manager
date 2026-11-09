@@ -110,19 +110,23 @@
   function prodCard(S, x) {
     const p = x.prod, owned = P().items(S, p.cat).filter(i => i.p === p.id).length, price = P().price(S, p), ok = P().inStock(S, p.id) || !P().inSeason(S);
     const qty = p.cat === 'motor' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' ? [1, 2] : [1];
-    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[p.v].color + '"><div class="row"><b>' + h(p.name) + '</b>' + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (p.v === 'K' ? UI.tag('always in stock', 'good') : '') + '<span class="sp"></span>' + vtag(p.v) + '</div>' +
+    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[p.v].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + '<span class="sp"></span>' + vtag(p.v) + '</div>' +
       '<div class="statrow"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, D.VENDORS[p.v].color) + '<span class="v">' + Math.round(p.perf * 100) + '</span></div>' +
-      '<div class="row sm"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? '' : stockTag(S, p.id)) + '</div>' +
+      '<div class="row sm wrap"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? UI.tag('always in stock', 'good') : stockTag(S, p.id)) + '</div>' +
       '<div class="row wrap gap4 mt">' + qty.map(n => '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|' + n + '" ' + (ok ? '' : 'disabled') + '>+' + n + ' · ' + U.money(n * price) + '</button>').join('') + '</div></div>';
   }
   function elecTab(S) {
     const sale = P().forSale(S);
-    let o = '<div class="grid g3 mb">' + ['A', 'B', 'K'].map(v => '<div class="card flat vendor" style="--vc:' + D.VENDORS[v].color + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(D.VENDORS[v].name) + '</b>' + UI.tag(D.VENDORS[v].tag) + '</div><div class="sm muted">' + h(D.VENDORS[v].desc) + '</div></div>').join('') + '</div>';
+    let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => '<div class="card flat vendor" style="--vc:' + D.VENDORS[v].color + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(D.VENDORS[v].name) + '</b>' + UI.tag(D.VENDORS[v].tag) + '</div><div class="sm muted">' + h(D.VENDORS[v].desc) + '</div></div>').join('') + '</div>';
     o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing Apex and Lumen electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to Apex or Lumen parts costs 5% more hours and a little performance. Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season, and no product line goes past version III.</div>';
+    // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
     D.ELEC_CATS.forEach(cat => {
       const c = D.PART_CAT[cat];
-      o += '<h2 class="mt">' + UI.it(c.icon, h(c.name)) + ' <span class="xs muted">' + h(c.desc) + ' · you have ' + P().count(S, cat) + '/' + c.max + '</span></h2>';
-      o += '<div class="grid g3">' + sale.filter(x => x.prod.cat === cat).sort((a, b) => (a.prod.v > b.prod.v ? 1 : a.prod.v < b.prod.v ? -1 : 0) || (a.ending ? 1 : -1)).map(x => prodCard(S, x)).join('') + '</div>';
+      o += '<h2 class="sect">' + UI.it(c.icon, h(c.name)) + ' <span class="xs muted">' + h(c.desc) + ' · you have ' + P().count(S, cat) + '/' + c.max + '</span></h2>';
+      o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
+        const list = sale.filter(x => x.prod.cat === cat && x.prod.v === v).sort((a, b) => (a.ending ? 1 : 0) - (b.ending ? 1 : 0));
+        return '<div class="col">' + (list.length ? list.map(x => prodCard(S, x)).join('') : '<div class="pcard empty xs muted">No ' + h(D.VENDORS[v].name) + ' version of this part.</div>') + '</div>';
+      }).join('') + '</div>';
     });
     return o;
   }
@@ -185,7 +189,7 @@
     let o = UI.card(UI.it('spare', 'Spare parts ' + UI.tag(S.parts.spares + ' on hand', S.parts.spares ? '' : 'warn')),
       '<div class="sm muted mb">Spare parts are specific to this season\'s robot: repairs at home and in the pits use them, and they are cleared out at each Kickoff (none before your first season). One spare restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. ' + U.money(up) + ' each here, ' + U.money(C.spareUnitPrice(S, true)) + ' at events.</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySpares" data-arg="' + n + '">+' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
-      '<label class="row sm mt"><input type="checkbox" data-chg="autoSpares" ' + (S.autoSpares ? 'checked' : '') + '> Auto-restock before each event' + (est != null ? ' <span class="muted">(next event: about ' + est + ' needed, you have ' + S.parts.spares + ')</span>' : '') + '</label>');
+      '<label class="row sm mt"><input type="checkbox" data-chg="autoSpares" ' + (S.autoSpares ? 'checked' : '') + '> Auto-restock</label><div class="xs muted">Every ' + (S.phase === 'off' ? 'month' : 'week') + ' it keeps enough spares for driver practice and home repairs on both robots (cash only), and before each event it buys what the event needs' + (est != null ? ' (next event: about ' + est + ', you have ' + S.parts.spares + ')' : '') + '.' + (S.lastRestock && S.lastRestock.bought ? ' Last turn: bought ' + S.lastRestock.bought + '.' : '') + (S.lastRestock && S.lastRestock.short ? ' <span class="warn">Not enough cash for all ' + S.lastRestock.want + ' last turn.</span>' : '') + '</div>');
     o += '<div class="mt">' + UI.card(UI.it('battery', 'Batteries'), UI.batteryRow(S)) + '</div>';
     return o;
   }

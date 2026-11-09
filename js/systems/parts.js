@@ -211,6 +211,7 @@
       if (p.type === 'build' && p.sub === k && bi === ci) cid = p.concept;
       else if (p.type === 'copy' && p.sub === k && p.bot === bi) cid = p.concept;
       else if (p.type === 'practiceBot' && p.bot === bi && (p.subs || []).includes(k) && R.design[k]) cid = R.design[k].concept;
+      else if (p.type === 'testChassis' && p.bot === bi && k === 'drive') cid = p.concept;
       if (cid) b = maxB(b, P.bom(year, k, G.Seasons.concept(year, k, cid)));
     });
     return b;
@@ -384,14 +385,21 @@
     });
   };
 
+  P.kopText = kit => [kit.motor ? kit.motor + ' brushed motors' : '', kit.enc ? kit.enc + ' low-profile encoders' : '', kit.gearbox ? kit.gearbox + ' kitbot gearboxes' : '', kit.ctrl ? (kit.ctrl > 1 ? kit.ctrl + ' control hubs' : 'a basic control hub') : ''].filter(Boolean).join(', ');
   // ======================= season hooks =======================
   P.kickoff = function (S, first) {
-    const kit = S.profile === 'rookie' && first ? D.KOP_ROOKIE : D.KOP;
-    Object.keys(kit).forEach(cat => P.add(S, cat, cat + 'K', kit[cat], 1));
+    const rookie = S.profile === 'rookie' && first, kit = rookie ? D.KOP_ROOKIE : D.KOP, full = [];
+    Object.keys(kit).forEach(cat => {
+      // the kit is always handed out; only if a shelf is already full does the weakest part (often the kit one) get recycled
+      const drop = P.add(S, cat, cat + 'K', kit[cat], 1);
+      if (drop) full.push(drop + ' ' + D.PART_CAT[cat].short.toLowerCase());
+    });
+    S.lastKop = { kit, rookie, full, year: S.year };
     S.elemKop = S.elemKop || {}; S.elemKop[S.year] = true;
     const pre = S.elemPre && S.elemPre[S.year];
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
-    G.Career.inbox(S, 'Kit of Parts', 'This season\'s kit is in: ' + kit.motor + ' brushed motors, ' + kit.gearbox + ' kitbot gearboxes, a basic control hub and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
+    G.Career.inbox(S, rookie ? 'Rookie Kit of Parts' : 'Kit of Parts', 'This season\'s ' + (rookie ? 'rookie kit (bigger than the yearly kit every team gets)' : 'kit') + ' is in: ' + P.kopText(kit) + ' and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
+      (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
       (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Shop, and in season it often sells out.', 'dev');
   };
   // ======================= product launch events =======================
@@ -490,7 +498,7 @@
   // ======================= setup & migration =======================
   P.setup = function (S, rng) {
     S.inv = {}; D.PART_CATS.forEach(c => S.inv[c.id] = []);
-    (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' ? cat + 'C' : cat + v + 1, n, h));
+    (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' || v === 'K' ? cat + v : cat + v + 1, n, h));
     S.elem = {}; S.elemPre = {}; S.elemKop = {}; S.vendorPref = null;
     P.planReleases(S, rng);
     P.rollStock(S);

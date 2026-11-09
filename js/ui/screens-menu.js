@@ -100,6 +100,18 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.3', title: 'Layout polish, smarter spare parts and a bigger Kickoff kit', notes: [
+      'Shop → Electronics: products line up in three columns under their vendor (Apex Motion, Lumen Robotics, Kit of Parts), newest version first. A vendor without a version of a part shows an empty slot instead of shifting the others.',
+      'Calendar: every month card is the same size and scrolls inside, empty months say so, and the Week 0 scrimmage card now sits above Week 1 in Regional registration.',
+      'Auto-restock for spare parts now works all year. Every week (every month in the offseason) it keeps enough spares for driver practice and home repairs on both robots, using cash on hand. Before each event it buys what the event needs with a safety margin (falls and breakages can double the usual need). If money runs short it buys what it can and says so, instead of buying nothing.',
+      'Every team gets a Kit of Parts at every Kickoff: 4 brushed motors, 2 low-profile encoders and 2 kitbot gearboxes. As in FRC, only rookies get a control hub, in a bigger first-season kit (8 motors, 4 encoders, 4 gearboxes and the hub). Established and powerhouse teams start with one leftover kit hub on the shelf (a powerhouse fills its third hub slot with it). The Kickoff pop-up lists the kit, and the inbox says if a full shelf recycled anything.',
+      'The Alumni fundraising dinner is available from the first season for established and powerhouse teams (rookie teams still wait a season).',
+      'Test chassis (Garage → Robot 2): a simple Kitbot Tank, Mecanum or West Coast Drive built from parts on the shelf early in the season, with no project slot (about 20–45 team hours). Even without a Practice Field it gives 6 testing hours a week: development testing for robot code, autos, vision and drivetrain projects at half the cost, and driver practice. With a Practice Field it counts as half a second robot. Driving a different drivetrain only partly carries over to the competition robot\'s familiarity.',
+      'Winning the World Championship now opens a celebration: an animated trophy, rotating gold rays, shimmering "YOU ARE THE 20XX WORLD CHAMPIONS" (or "2023–2024 BACK-TO-BACK…", THREE-PEAT…), your new gold banner, your alliance, the story of the final, and what people are saying. There is an easter egg at the bottom too: the alliance that won that game\'s real Einstein, with the game named.',
+      'Random-order careers now have their own timeline: seasons count up from 2022 in career order (2022, 2023, …) while the games are shuffled, so dates, banners, season titles and back-to-back headlines read in order. The real game\'s year only appears where it identifies the game (the easter egg).',
+      'Established teams start with more older parts at different wear levels (extra Lumen motors, encoders and gearboxes): enough for a test chassis once the competition robot takes the best ones.',
+      'More breathing room: section titles sit further from the cards above them, labels no longer touch their bars, and a few cards and pop-ups got more padding.'
+    ] },
     { v: '2.2', title: 'Feeder programs, vendor launch events and FRC playoff tiebreakers', notes: [
       'Feeder programs have their own card on the Team page, under the Impact Award. Run up to 6 (FLL, FTC, camps, clubs), each with a focus: Balanced, Drive team, Technical, Strategy or Outreach. Programs grow over three school years (60% → 85% → 100% strength). Every September they add students to the team, and core recruits who come from a program bring the skills its focus trains (the roster shows where each one came from). Outreach programs add the most students and count most for Impact. Changing a focus costs a year of growth, except while a program is new. Older saves keep their programs as established, balanced ones.',
       'Finance shows title, partner and grant slots (for example Title 0/1, Partners 2/4, Grant 0/1). A deal signed this turn has an Undo button until you press Continue, and "Auto-pick best" fills every open slot with the best-value offers. Offers whose slot is full say so instead of showing Sign.',
@@ -221,7 +233,7 @@
   UI.S.review = { nav: 'hq', html() {
     const S = G.S, hs = S.history[S.history.length - 1];
     if (!hs) return '<p>No review.</p>';
-    let o = '<div class="xs muted">SEASON REVIEW</div><h1>' + hs.year + ' ' + h(G.Seasons[hs.year].name) + '</h1>';
+    let o = '<div class="xs muted">SEASON REVIEW</div><h1>' + h(G.Career.seasonName(G.S, hs.year)) + '</h1>';
     const head = hs.worldChamp ? 'WORLD CHAMPIONS' : hs.divWin ? 'Championship division winners' : hs.champs ? 'Championship qualifiers' : hs.events.some(e => e.won) ? 'Regional winners' : hs.events.some(e => e.playoffs) ? 'Playoff team' : 'Building season';
     o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
@@ -253,7 +265,7 @@
     }
     o += '<div class="card"><table class="t"><tr><th>Season</th><th>Events</th><th>Best result</th><th>Awards</th><th>Champs</th><th class="num">Legacy</th></tr>' + S.history.map(hs => {
       const best = hs.worldChamp ? 'World Champion' : hs.divWin ? 'Division winner' : hs.events.some(e => e.won) ? 'Regional winner' : hs.events.some(e => e.finalist) ? 'Finalist' : hs.events.some(e => e.playoffs) ? 'Playoffs' : '—';
-      return '<tr><td>' + hs.year + ' ' + h(G.Seasons[hs.year].name) + '</td><td>' + hs.events.length + '</td><td>' + best + '</td><td>' + hs.awards.length + '</td><td>' + (hs.champs ? '✔' : '') + '</td><td class="num">' + hs.legacy + '</td></tr>';
+      return '<tr><td>' + h(G.Career.seasonName(G.S, hs.year)) + '</td><td>' + hs.events.length + '</td><td>' + best + '</td><td>' + hs.awards.length + '</td><td>' + (hs.champs ? '✔' : '') + '</td><td class="num">' + hs.legacy + '</td></tr>';
     }).join('') + '</table></div>';
     const bn = G.Career.banners(S);
     if (bn.length) o += '<div class="card mt"><div class="ct">Banner wall ' + UI.tag(bn.length + ' banner' + (bn.length > 1 ? 's' : ''), 'acc') + '</div>' + UI.bannerWall(bn) + '</div>';

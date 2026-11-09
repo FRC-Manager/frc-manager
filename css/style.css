@@ -286,3 +286,67 @@ table.t.slots td:first-child { width: 48%; }
 .copyrow { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); }
 .grid.top { align-items: start; }
 .grid.tight { gap: 8px; }
+
+/* v2.3 layout pass */
+.main h2.sect, .main h2.mt { margin-top: 24px; }
+.grid.vcols { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+@media (max-width: 760px) { .grid.vcols { grid-template-columns: 1fr; } }
+.pcard.empty { display: flex; align-items: center; justify-content: center; min-height: 70px; text-align: center; background: transparent; border-style: dashed; border-left-width: 1px; }
+.calmonth { height: 250px; max-height: none; }
+.calempty { padding: 4px 2px; }
+.grid.vcols.vhead { align-items: stretch; }
+.calmonth { padding: 10px 12px; }
+.calmh { top: -10px; margin-top: 0; padding: 2px 0 6px; }
+.pcard { padding: 12px 14px; }
+.modal h3.mt, .modal h2.mt { margin-top: 18px; }
+/* narrow screens: wide tables scroll inside their card instead of spilling out; titles and tag rows wrap */
+.card { overflow-x: auto; }
+.card .ct { flex-wrap: wrap; row-gap: 6px; }
+@media (max-width: 1000px) { .grid.vcols { grid-template-columns: 1fr; } }
+.pcard .statrow { grid-template-columns: 90px 1fr 36px; }
+.vendor .row, .pcard .row { flex-wrap: wrap; }
+table.t.slots select.inp { max-width: 100%; }
+
+/* World Champions celebration */
+.modal.wcm { position: relative; overflow-x: hidden; text-align: center; padding: 26px 26px 18px; border: 1px solid #b8901f;
+  background: radial-gradient(ellipse at 50% -10%, #4a3608 0%, #1c160a 45%, #0d0f12 100%); box-shadow: 0 0 0 1px rgba(245,197,66,.25), 0 0 70px rgba(245,197,66,.35); }
+.wc { position: relative; }
+.wc > div { position: relative; z-index: 1; }
+.wc-rays { position: absolute !important; z-index: 0 !important; left: 50%; top: 70px; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 214, 90, .16) 0deg 6deg, transparent 6deg 15deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, rgba(0,0,0,.6) 25%, transparent 55%); mask: radial-gradient(circle, #000 0%, rgba(0,0,0,.6) 25%, transparent 55%); animation: wcspin 30s linear infinite; }
+@keyframes wcspin { to { transform: rotate(360deg); } }
+.wc-star { position: absolute; z-index: 0; width: 10px; height: 10px; background: #ffe08a; pointer-events: none;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); animation: wctw 2.2s ease-in-out infinite; }
+@keyframes wctw { 0%, 100% { opacity: .15; transform: scale(.5) rotate(0); } 50% { opacity: 1; transform: scale(1.25) rotate(45deg); } }
+.wc-trophy { width: 128px; height: 128px; filter: drop-shadow(0 8px 22px rgba(245,197,66,.6)); animation: wcpop .9s cubic-bezier(.2,1.5,.4,1) both, wcfloat 3.4s ease-in-out .9s infinite; }
+.wc-glint { animation: wcglint 3.2s ease-in-out 1s infinite; }
+@keyframes wcglint { 0% { transform: skewX(-20deg) translateX(0); } 60%, 100% { transform: skewX(-20deg) translateX(170px); } }
+@keyframes wcpop { from { transform: scale(.2) rotate(-14deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes wcfloat { 50% { transform: translateY(-7px); } }
+.wc-in { animation: wcup .65s ease both; }
+@keyframes wcup { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.wc-kicker { font-size: 12px; font-weight: 800; letter-spacing: .22em; color: #e6c46a; margin-top: 6px; }
+.wc-team { font-size: 22px; font-weight: 900; letter-spacing: .06em; color: #fff; margin-top: 8px; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+.wc-you { font-size: 14px; font-weight: 800; letter-spacing: .3em; color: #f3dfa6; margin-top: 10px; }
+.wc-title { position: relative; z-index: 1; font-size: clamp(26px, 5vw, 44px); line-height: 1.05; font-weight: 900; letter-spacing: .03em; margin: 6px auto 4px; max-width: 760px;
+  background: linear-gradient(100deg, #b8860b 0%, #ffe9a8 22%, #f5c542 40%, #fff7d6 50%, #d4a017 62%, #ffe9a8 80%, #b8860b 100%); background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  animation: wcup .7s ease .8s both, wcshine 4s linear 1.2s infinite; filter: drop-shadow(0 3px 10px rgba(245,197,66,.35)); }
+@keyframes wcshine { from { background-position: 100% 0; } to { background-position: -160% 0; } }
+.wc-bn { display: flex; justify-content: center; margin: 22px 0 6px; }
+.wc-bn .banner { width: 150px; }
+.wc-msg { color: #e9e2cf; font-size: 14px; line-height: 1.55; max-width: 640px; margin: 10px auto 0; }
+.wc-al { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 14px 0 4px; }
+.wc-chip { display: inline-flex; flex-direction: column; align-items: center; min-width: 110px; padding: 7px 12px; border-radius: 10px; background: rgba(0,0,0,.3); border: 1px solid rgba(245,197,66,.35); color: #f3e7c4; font-size: 12px; }
+.wc-chip b { font-size: 16px; color: #ffe08a; }
+.wc-chip small { color: #b9a77a; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.wc-chip.me { border-color: #f5c542; box-shadow: 0 0 14px rgba(245,197,66,.35); }
+.wc-qs { max-width: 640px; margin: 14px auto 0; text-align: left; display: flex; flex-direction: column; gap: 8px; }
+.wc-h { font-size: 11px; font-weight: 800; letter-spacing: .18em; color: #c9b27a; text-align: center; margin-bottom: 2px; }
+.wc-q { background: rgba(0,0,0,.28); border-left: 3px solid #f5c542; border-radius: 6px; padding: 9px 12px; color: #f1ead6; font-size: 13.5px; line-height: 1.45; }
+.wc-q span { display: block; margin-top: 3px; color: #b9a77a; font-size: 12px; }
+.wc-btn { margin-top: 16px; padding: 10px 26px; box-shadow: 0 0 22px rgba(245,197,66,.4); }
+.wc-egg { margin-top: 16px; padding-top: 10px; border-top: 1px dashed rgba(245,197,66,.35); font-size: 12px; line-height: 1.5; color: #bda36a; max-width: 680px; margin-left: auto; margin-right: auto; }
+@media (prefers-reduced-motion: reduce) { .wc-rays, .wc-star, .wc-trophy, .wc-glint, .wc-title, .wc-in { animation: none !important; } }
+.wc-btn .ico { vertical-align: -3px; margin-right: 4px; }

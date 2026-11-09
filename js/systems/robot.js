@@ -206,9 +206,16 @@
   Robot.famDrive = function (S, bi, g) {
     const R = S.robot; if (!R || !R.bots || bi == null || bi < 0) return;
     R.fam = R.fam || {};
-    const s = R.bots[bi].subs;
+    const s = R.bots[bi].subs, ci = R.comp || 0;
     Object.keys(s).forEach(k => {
       const f = Robot.famOf(R, k, s[k]); if (f == null) return;
+      const cu = bi !== ci ? R.bots[ci].subs[k] : null;
+      if (cu && cu.ver && cu.concept !== 'none' && cu.concept !== s[k].concept) {
+        // driving a different mechanism (a test chassis): general skills carry over partly to the competition robot's one
+        const fc = Robot.famOf(R, k, cu);
+        if (fc != null) R.fam[k] = { c: cu.concept, ver: cu.ver, f: Math.min(1, fc + (1 - fc) * (g || 0) * 0.4) };
+        return;
+      }
       R.fam[k] = { c: s[k].concept, ver: s[k].ver, f: Math.min(1, f + (1 - f) * (g || 0)) };
     });
   };
@@ -410,6 +417,18 @@
         name = 'Build ' + R.bots[o].name + ' (copy of every subsystem)';
         break;
       }
+      case 'testChassis': {
+        // a simple drivetrain for the second robot, from parts on the shelf: no design work, no project slot
+        const o = Robot.other(R), c = G.Seasons.concept(year, 'drive', spec.concept), cur = R.bots[o].subs.drive;
+        if (!c || !D.CHASSIS_CONCEPTS.includes(c.id)) { err = 'Pick a simple drivetrain (Kitbot Tank, Mecanum or West Coast Drive)'; break; }
+        if (cur && cur.ver) err = R.bots[o].name + ' already has a drivetrain';
+        else err = Robot.buildShort(S, 'drive', c, o);
+        hours = c.hours * D.CHASSIS_HOURS_MULT * (1 - 0.06 * Robot.lvl(S, c)) * hwMult(S, 'drive');
+        cost = (0.55 * c.cost + 150 * c.cx) * D.COPY_COST;
+        fields = { bot: o, concept: c.id };
+        name = 'Test chassis (' + c.name + ') for ' + R.bots[o].name;
+        break;
+      }
       case 'kb': { if (S.equip.kb) err = 'Already built'; hours = 60; cost = 0; name = 'Knowledge Base (wiki + CAD library)'; break; }
       case 'impact': { if (S.season && S.season.impactDone) err = 'Already submitted this season'; hours = 40; cost = 100; name = 'Impact Award submission'; break; }
       case 'research': {
@@ -420,7 +439,8 @@
     }
     // one design project per subsystem at a time (copies run alongside, one at a time)
     if (spec.sub && S.projects.some(p => p.sub === spec.sub && (spec.type === 'copy') === (p.type === 'copy'))) err = err || (spec.type === 'copy' ? 'A copy of this subsystem is already being built' : 'A project on this subsystem is already running');
-    if (['auto', 'vision', 'practiceBot', 'impact'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (['auto', 'vision', 'practiceBot', 'impact', 'testChassis'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (spec.type === 'testChassis' && S.projects.some(p => p.type === 'practiceBot')) err = err || 'A full copy is already being built for the second robot';
     if (spec.type === 'research' && S.projects.some(p => p.rid === spec.rid)) err = err || 'Already in progress';
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
     // storage limit: a unit this build pushes off a robot (or a spare) goes to storage; if that is full, the oldest is taken apart
@@ -438,7 +458,7 @@
   Robot.permSlots = S => { const p = Robot.slotParts(S); return Math.min(Robot.MAX_SLOTS, p.base + p.mentors + p.perk + p.facilities); };
   Robot.slots = S => Robot.permSlots(S) + G.Shop.boostSlots(S);
   // Fabrication (copies of finished designs, a full second robot) uses team hours but no project slot
-  Robot.isFab = p => p.type === 'copy' || p.type === 'practiceBot';
+  Robot.isFab = p => p.type === 'copy' || p.type === 'practiceBot' || p.type === 'testChassis';
   Robot.slotUsed = S => S.projects.filter(p => !Robot.isFab(p)).length;
   Robot.slotText = S => { const p = Robot.slotParts(S), raw = p.base + p.mentors + p.perk + p.facilities; return p.base + ' base + ' + p.mentors + ' mentors' + (p.perk ? ' + 1 sponsor' : '') + ' + ' + p.facilities + ' facilities' + (raw > Robot.MAX_SLOTS ? ' (capped at ' + Robot.MAX_SLOTS + ')' : ' (max ' + Robot.MAX_SLOTS + ')') + (p.temp ? ' + ' + p.temp + ' temporary' : ''); };
   Robot.startProject = function (S, spec) {
@@ -503,17 +523,19 @@
   // ---------------- Development testing ----------------
   // Projects that can use practice-field testing time (everything except the Impact submission)
   Robot.testable = p => p.type !== 'impact' && p.type !== 'kb' && !Robot.isFab(p);
+  // what a bare test chassis can test without a Practice Field: robot code, autos, vision and the drivetrain itself
+  Robot.chassisTestable = p => Robot.testable(p) && (p.sub === 'soft' || p.sub === 'drive' || p.type === 'auto' || p.type === 'vision');
   Robot.testCap = S => D.TEST_PER_PROJ * (S.phase === 'off' ? 4 : 1);
   // How validated a project is: 0 (untested) … 1 (fully tested) → better upgrade quality on completion
   Robot.testQ = p => Math.min(1, (p.test || 0) / Math.max(1, p.need * D.TEST_Q));
   // Share development-testing hours between projects that are getting work this turn (each can absorb testCap).
-  Robot.testPlan = function (S, devH, give) {
+  Robot.testPlan = function (S, devH, give, limited) {
     const out = {}, cap = Robot.testCap(S);
     let left = Math.max(0, devH);
     for (let pass = 0; pass < 4 && left > 0.05; pass++) {
       // a project can only absorb testing in proportion to the build work going into it this turn
       const capOf = p => Math.min(cap, D.TEST_SHARE * (give[p.id] || 0));
-      const act = S.projects.filter(p => Robot.testable(p) && capOf(p) - (out[p.id] || 0) > 0.01);
+      const act = S.projects.filter(p => (limited ? Robot.chassisTestable(p) : Robot.testable(p)) && capOf(p) - (out[p.id] || 0) > 0.01);
       if (!act.length) break;
       const each = left / act.length;
       act.forEach(p => { const t = Math.min(each, capOf(p) - (out[p.id] || 0)); out[p.id] = (out[p.id] || 0) + t; left -= t; });
@@ -521,9 +543,9 @@
     return { give: out, idle: left };
   };
   // Apply this turn's hours (and development-testing hours); returns completed project names and testing use
-  Robot.work = function (S, hours, mods, devH) {
+  Robot.work = function (S, hours, mods, devH, limited) {
     const a = Robot.alloc(S, hours, mods), done = [];
-    const tp = Robot.testPlan(S, devH || 0, a.give), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
+    const tp = Robot.testPlan(S, devH || 0, a.give, limited), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
     let bonus = 0;
     let polished = 0;
     S.projects.forEach(p => {
@@ -643,6 +665,17 @@
         });
         G.Career.inbox(S, R.bots[bi].name + ' is built', 'New on ' + R.bots[bi].name + ': ' + (put.join(', ') || 'nothing') + '.' + (stored.length ? ' In storage (not enough electronics): ' + stored.join(', ') + '.' : '') +
           ' The closer it matches the competition robot, the more it gives: up to +' + D.TEST_BOT_HOURS + ' testing hours a week (with a Practice Field), driver practice on it up to ' + Math.round((D.BOT2_PRACTICE - 1) * 100) + '% more effective without wearing the competition robot, better tuning at events, and its identical subsystems are spares at events. Pick which robot the drivers practice on in the Garage.', 'dev');
+        break;
+      }
+      case 'testChassis': {
+        if (!R || R.year !== year) return;
+        const c = G.Seasons.concept(year, 'drive', p.concept), bi = p.bot != null ? p.bot : Robot.other(R);
+        const stats = {}; Object.keys(c.base).forEach(k => { stats[k] = c.base[k]; });
+        const u = makeUnit('drive', { concept: c.id, ver: 1, stats, rel: Math.round(U.clamp(74 - 5 * c.cx + G.Shop.buildRel(S), 40, 90)), w: c.w }, { chassis: true });
+        const cur = R.bots[bi].subs.drive, at = cur && cur.ver ? (R.store.push(u), -1) : tryInstall(S, bi, 'drive', u);
+        G.Career.inbox(S, 'Test chassis ready', 'A ' + c.name + ' test chassis is ' + (at >= 0 ? 'running as ' + where(at) : 'in storage (no free electronics or drivetrain slot for it)') + '. ' +
+          (G.Shop.lvl(S, 'pfield') ? 'It adds testing hours on your Practice Field' : 'Without a Practice Field it still gives ' + D.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot: code, autos, vision and drivetrain projects, and driver practice') +
+          '. Programmers and drivers can start before the competition robot drives. Practising on a different drivetrain only partly carries over to the competition robot\'s.', 'dev');
         break;
       }
       case 'upgrade': {

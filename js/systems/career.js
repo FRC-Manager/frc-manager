@@ -45,11 +45,20 @@
     const coachStrat = coachSt ? coachSt.attr.strat : Math.max(C.mentorSkill(S, 'coach'), C.mentorSkill(S, 'strat') * 0.8, 30);
     return { driver, operator, hp, coach: coachSt, coachStrat: Math.round(coachStrat) };
   };
-  C.seasonName = (S, year) => { const s = G.Seasons[year || S.year]; return year || S.year ? s.year + ' ' + s.name : ''; };
+  C.seasonName = (S, year) => { const gy = year || S.year, s = G.Seasons[gy]; return gy ? C.calYear(S, gy) + ' ' + s.name : ''; };
   C.monthName = S => D.MONTHS[S.month];
+  // Calendar year of a season. Real order: the game's own year. Random order: a fictional timeline that counts up from the
+  // earliest game year in career order (season 1 = 2022, season 2 = 2023, …) while the games themselves are shuffled.
+  C.calYear = function (S, gy) {
+    if (gy == null) gy = S && S.year;
+    if (!S || S.orderMode !== 'random' || !S.order || !S.order.length) return gy;
+    const i = S.order.indexOf(gy);
+    return i < 0 ? gy : Math.min.apply(null, S.order) + i;
+  };
+  C.isFictional = S => !!(S && S.orderMode === 'random' && S.order && S.order.length > 1);
   C.dateLabel = function (S) {
     if (!S) return '';
-    const yr = S.year || '';
+    const yr = C.calYear(S) || '';
     switch (S.phase) {
       case 'off': return (S.preseason ? 'Pre-season' : 'Offseason') + ' · ' + D.MONTHS[S.month] + (S.preseason ? '' : ' ' + yr);
       case 'kickoff': return 'Kickoff · Jan ' + yr;
@@ -429,8 +438,9 @@
     // or a sponsor demo with the robot this same competition week. (Einstein follows the division too closely for any of this.)
     const arrival = { notes: [] };
     if (S.robot && S.autoSpares && def.kind !== 'einstein') {
-      const n = C.spareEstimate(S, def.kind) - S.parts.spares;
-      if (n > 0 && !C.afford(S, n * C.spareUnitPrice(S, false))) { C.buySpares(S, n); arrival.notes.push('Auto-restock bought ' + n + ' spare part' + (n > 1 ? 's' : '') + ' for this event.'); }
+      const want = C.spareEstimate(S, def.kind) - S.parts.spares, r = C.autoBuySpares(S, want, 'for ' + def.name);
+      if (r.bought) arrival.notes.push('Auto-restock bought ' + r.bought + ' spare part' + (r.bought > 1 ? 's' : '') + ' for this event.');
+      if (r.short) arrival.notes.push('Auto-restock could only afford ' + r.bought + ' of the ' + want + ' spare parts this event needs.');
     }
     if (C.travelMode(S, def) === 'trailer') arrival.notes.push('The robot travelled in the team trailer: no air-freight knocks.');
     if (S.robot) {
@@ -453,8 +463,10 @@
   C.spareEstimate = function (S, kind) {
     if (!S.robot) return 0;
     const subs = Object.keys(S.robot.subs).filter(k => k !== 'soft' && S.robot.subs[k].ver).length;
-    const matches = { champs: 13, offseason: 8, scrimmage: 5 }[kind] || 12;
-    return Math.max(0, Math.ceil(G.Robot.repairNeed(S) + matches * subs * 4 / D.SPARE_COND_PER_UNIT - 0.3));
+    // about 4 condition points per subsystem per match on average, but falls and breakages vary a lot: +25% and two extra
+    // (running out mid-event caps pit repairs at 60%; leftovers carry over to the next event)
+    const matches = { champs: 13, offseason: 10, scrimmage: 5 }[kind] || 12;
+    return Math.max(0, Math.ceil(G.Robot.repairNeed(S) + 1.25 * matches * subs * 4 / D.SPARE_COND_PER_UNIT + 2));
   };
   // What the robot's condition will be when it arrives at an event (HQ / calendar preview)
   C.arrivalPreview = function (S, def) {
@@ -520,18 +532,20 @@
   // testing and driver practice. Unlocked by the Practice Field; a practice robot adds more.
   C.TEST_SPLITS = [0, 0.25, 0.5, 0.75, 1];
   C.testHours = function (S, eventWeek) {
-    const lvl = G.Shop.lvl(S, 'pfield');
-    if (!lvl || !['off', 'kickoff', 'build', 'comp'].includes(S.phase)) return { total: 0, drive: 0, dev: 0, unlocked: !!lvl };
+    const lvl = G.Shop.lvl(S, 'pfield'), R = S.robot;
+    // a runnable second robot this season (a test chassis counts)
+    const chassis = !!(R && R.bots && R.year === S.year && S.phase !== 'off' && G.Robot.runnable(R, G.Robot.other(R)));
+    if ((!lvl && !chassis) || !['off', 'kickoff', 'build', 'comp'].includes(S.phase)) return { total: 0, drive: 0, dev: 0, unlocked: !!lvl };
     if (eventWeek == null) eventWeek = C.isEventTurn(S);
-    let h = G.Shop.fx(S, 'pfield', 'test') + D.TEST_BOT_HOURS * G.Robot.secondShare(S);
+    let h = lvl ? G.Shop.fx(S, 'pfield', 'test') + D.TEST_BOT_HOURS * Math.max(G.Robot.secondShare(S), chassis ? D.CHASSIS_SHARE : 0) : D.CHASSIS_TEST_HOURS;
     if (S.phase === 'off') h *= 4;
     if (eventWeek) h *= 0.5;
     h = Math.round(h);
     const canDrive = G.Robot.driveBot(S) >= 0, split = canDrive ? (S.testSplit == null ? 0.5 : S.testSplit) : 0;
     const drive = Math.round(h * split);
     // driver practice on the real game needs this season's game elements (offseason: last season's game)
-    const elem = G.Parts.elemQ(S, G.Parts.elemYear(S));
-    return { total: h, drive, dev: h - drive, unlocked: true, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
+    const elem = lvl ? G.Parts.elemQ(S, G.Parts.elemYear(S)) : D.CHASSIS_ELEM;
+    return { total: h, drive, dev: h - drive, unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
   };
   C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
   // Driver practice: drive-team skills, confidence and familiarity with the robot they drive; uses a few spare parts
@@ -616,12 +630,17 @@
   function processWork(S, hours, th) {
     const inc = G.Shop.turnMods(S); // shop incidents: one turn only
     const mods = mergeMods(inc, G.Shop.boostMods(S));
-    const r = G.Robot.work(S, hours, mods, th ? th.dev : 0);
+    const r = G.Robot.work(S, hours, mods, th ? th.dev : 0, !!(th && th.limited));
     // the drive team drives the robot around the shop every week (practice-field time comes on top)
     if (S.robot && S.robot.bots && S.lastEventTurn !== turnKey(S)) G.Robot.famDrive(S, G.Robot.driveBot(S), S.phase === 'off' ? D.FAM.OFF : D.FAM.WEEK);
     S.lastWork = { hours, used: Math.round(r.used), idle: Math.round(r.spare), polished: Math.round(r.polished || 0), done: r.done, mods: inc ? G.Shop.modsText(inc) : '' };
+    S.lastRestock = null;
+    if (S.autoSpares && S.robot && (S.phase === 'off' ? th && th.drive > 0 : true)) {
+      const want = C.spareBuffer(S, th) - S.parts.spares;
+      if (want > 0) S.lastRestock = Object.assign({ want }, C.autoBuySpares(S, want, 'weekly', true));
+    }
     if (th && th.total) {
-      if (r.testUsed > 0.05) C.spend(S, r.testUsed * D.TEST_COST, 'Development testing (' + Math.round(r.testUsed) + ' h)');
+      if (r.testUsed > 0.05) C.spend(S, r.testUsed * D.TEST_COST * (th.limited ? D.CHASSIS_TEST_COST : 1), (th.limited ? 'Test chassis testing (' : 'Development testing (') + Math.round(r.testUsed) + ' h)');
       const dp = driverPractice(S, th);
       S.lastTest = { total: th.total, dev: th.dev, devUsed: Math.round(r.testUsed), devIdle: Math.round(r.testIdle), bonus: Math.round(r.testBonus), drive: th.drive, spares: dp ? dp.spares : 0, wear: dp ? dp.wear : 0, bot: dp ? dp.bot : null };
     } else S.lastTest = null;
@@ -1072,6 +1091,7 @@
   // Blue banners: official event wins and Impact Awards (offseason events don't earn banners).
   C.eventBanners = function (e, year) {
     const out = [];
+    year = C.calYear(G.S, year); // random career order: the fictional timeline
     if (e.kind === 'regional' && e.won) out.push({ award: 'Winner', year, event: e.name });
     if (e.kind === 'champs' && e.won) out.push({ award: 'Division Winner', year, event: e.name.replace('Championship — ', '') + ' · FIRST Championship' });
     if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true });
@@ -1228,6 +1248,27 @@
   // Spare parts cost more when bought at an event (rush delivery to the pits).
   C.spareUnitPrice = function (S, atEvent) {
     return Math.round(D.SPARES_COST * (atEvent ? D.SPARES_EVENT_MULT : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
+  };
+  // Auto-restock: buy up to n spares at shop prices. Before events it may use the in-season overdraft like any purchase;
+  // the weekly top-up only spends cash on hand. Returns { bought, short }.
+  C.autoBuySpares = function (S, n, why, cashOnly) {
+    n = Math.max(0, Math.ceil(n));
+    if (!n) return { bought: 0, short: false };
+    const price = C.spareUnitPrice(S, false);
+    let k = n;
+    if (cashOnly) k = Math.min(k, Math.floor(Math.max(0, S.money) / price));
+    while (k > 0 && C.afford(S, k * price)) k--;
+    if (k > 0) { C.spend(S, k * price, k + ' spare part' + (k > 1 ? 's' : '') + ' (auto-restock' + (why ? ' ' + why : '') + ')'); S.parts.spares += k; }
+    return { bought: k, short: k < n };
+  };
+  // Spares the team should keep on hand between events: home repairs on both robots, this turn's driver practice, plus one
+  C.spareBuffer = function (S, th) {
+    const R = S.robot; if (!R || !R.bots) return 0;
+    let need = 0;
+    R.bots.forEach(b => Object.keys(b.subs).forEach(k => { const u = b.subs[k]; if (k !== 'soft' && u && u.ver) need += (100 - u.cond) / D.SPARE_COND_PER_UNIT; }));
+    const drive = th ? th.drive || 0 : 0;
+    need += drive * D.DRILL_SPARES + (S.parts.drillUse || 0);
+    return Math.ceil(need + (drive > 0 || need > 0 ? 1 : 0));
   };
   C.buySpares = function (S, n, atEvent) {
     const cost = n * C.spareUnitPrice(S, atEvent);

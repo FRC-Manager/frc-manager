@@ -121,6 +121,15 @@
   D.PROJ_CAP = 80;             // hours one project can absorb per week (×4 per offseason month, ±25% by priority)
   // Testing hours (practice field time, like a wind tunnel): split between development testing and driver practice
   D.TEST_BOT_HOURS = 6;     // a second runnable robot adds testing hours per week
+  // Test chassis: a simple drivetrain on the second robot, built early in the season so programmers and drivers can start
+  // before the competition robot drives. Without a Practice Field it gives "parking-lot" testing hours: code and drivetrain
+  // projects only, plus driver practice (no real field: lower quality). With a field it counts as half a second robot.
+  D.CHASSIS_CONCEPTS = ['kit', 'mec', 'wcd'];
+  D.CHASSIS_HOURS_MULT = 0.4; // build hours vs a full design build of that drivetrain (no design work)
+  D.CHASSIS_TEST_HOURS = 6;   // testing hours a week from a test chassis without a Practice Field
+  D.CHASSIS_SHARE = 0.5;      // with a Practice Field, any runnable second robot counts as at least half a copy
+  D.CHASSIS_ELEM = 0.6;       // driver-practice quality in the shop or parking lot (no field)
+  D.CHASSIS_TEST_COST = 0.5;  // chassis testing costs half as much per hour as field testing
   D.BOT2_PRACTICE = 1.25;   // driver practice on the second robot is 25% more effective (no waiting while the competition robot is worked on)
   // Driver familiarity (0–1) with each subsystem the drive team has driven. A new mechanism starts at NEW; a new
   // version of the same one costs VER per step; a different concept costs 0.2–0.65 (more for very different ones).
@@ -180,7 +189,7 @@
     { id: 'crowd', name: 'Crowdfunding campaign', icon: 'money', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
     { id: 'grant', name: 'Write a grant application', icon: 'design', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, desc: 'Roughly 35% chance of a $1,500–$4,000 grant (better with strong outreach).' },
     { id: 'showcase', name: 'Sponsor showcase night', icon: 'sponsor', kind: 'fund', cost: 200, money: [600, 1600], sponsorSat: 4, req: S => S.sponsors.length >= 2, reqText: 'Needs two or more sponsors', desc: 'Show sponsors the robot; satisfaction +4 for every sponsor.' },
-    { id: 'gala', name: 'Alumni fundraising dinner', icon: 'trophy', kind: 'fund', cost: 400, money: [1500, 3800], req: S => S.history.length > 0, reqText: 'After your first season', desc: 'Former members and parents, one big night.' },
+    { id: 'gala', name: 'Alumni fundraising dinner', icon: 'trophy', kind: 'fund', cost: 400, money: [1500, 3800], req: S => S.history.length > 0 || S.profile !== 'rookie', reqText: 'Rookie teams have no alumni yet: after your first season', desc: 'Former members and parents, one big night.' },
     { id: 'parts', name: 'Sell old parts and stock', icon: 'parts', kind: 'fund', cost: 0, money: [300, 900], req: S => lvl(S, 'lathe') > 0, reqText: 'Needs a Machine Shop', desc: 'Machine and sell spare stock to rookie teams.' }
   ];
 
@@ -217,6 +226,16 @@
       pot: Math.round(G.U.clamp(rng.norm(62 + talent * 0.5, 15), 25, 100)),
       attr: { drive: a(), aware: a(), comp: a(), mech: a(), hp: a(), strat: a() }, matches: 0
     };
+  };
+
+  // ---------- Real-world World Champions (easter egg in the World Championship pop-up) ----------
+  // The alliance that won Einstein each season, from each game's Wikipedia article (Champions section).
+  D.REAL_CHAMPS = {
+    2022: { div: 'Galileo', teams: [[1619, 'Up-A-Creek Robotics'], [254, 'The Cheesy Poofs'], [3175, 'Knight Vision'], [6672, 'Fusion Corps']] },
+    2023: { div: 'Hopper', teams: [[1323, 'MadTown Robotics'], [4414, 'HighTide'], [4096, 'Ctrl-Z'], [2609, 'BeaverworX']] },
+    2024: { div: 'Daly', teams: [[1690, 'Orbit'], [4522, 'Team SCREAM'], [9432, 'Team 8-Bit'], [321, 'RoboLancers']] },
+    2025: { div: 'Newton', teams: [[1323, 'MadTown Robotics'], [2910, 'Jack in the Bot'], [4272, 'Maverick Robotics'], [5026, 'Iron Panthers']] },
+    2026: { div: 'Daly', teams: [[4414, 'HighTide'], [1323, 'MadTown Robotics'], [4065, 'Nerds of Prey'], [1538, 'The Holy Cows']] }
   };
 
   // ---------- Feeder programs ----------

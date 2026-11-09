@@ -10,11 +10,11 @@
   // =====================================================================
   // EVENT HUB
   // =====================================================================
-  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (ev && ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
+  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (ev && ev.stage === 'done' && ev.result && ev.result.won && ev.kind === 'einstein' && !ev.wcShown) return UI.worldChampModal(ev); if (ev && ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
-    let o = '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + ev.year + ' ' + h(G.Seasons[ev.year].name) + '</div></div><span class="sp"></span>' +
+    let o = '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' +
       (rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '') + '</div>';
     const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
     o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
@@ -73,7 +73,7 @@
         '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="endPractice">Continue to ' + (ev.stage === 'playoffs' ? 'playoffs' : 'qualifications') + '</button></div></div>';
     } else {
     o += '<div class="col">' + (mustLighten ? '<button class="btn primary" data-act="practice" data-arg="lighten">Emergency lightening (required to pass inspection)</button>' :
-      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left"><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + S.robot.pending.length + ' pending)' : '') + '</span></button>').join('')) + '</div>';
+      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + S.robot.pending.length + ' pending)' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
     }
     o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + UI.stat('Auto bonus', ev.tuneAuto * 500) +
@@ -523,7 +523,7 @@
   // =====================================================================
   // MATCH RESULT
   // =====================================================================
-  UI.S.mresult = { nav: 'event', html() {
+  UI.S.mresult = { nav: 'event', after() { const ev = Ev(), R = UI.st.lastResult; if (ev && ev.kind === 'einstein' && UI.wonEvent(ev, R) && !ev.wcShown) UI.worldChampModal(ev); }, html() {
     const R = UI.st.lastResult; if (!R) return '<button class="btn" data-act="nav" data-arg="event">Back</button>';
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
@@ -540,5 +540,76 @@
     return o;
   }, after() { const R = UI.st.lastResult, ev = Ev(); if (R && !R.party && UI.wonEvent(ev, R)) { R.party = true; UI.confetti(); } } };
   // This result is the match that won the event for the player's alliance
+  // ---------------- World Champions celebration ----------------
+  const TROPHY = '<svg class="wc-trophy" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="wcg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#9c700c"/><stop offset=".42" stop-color="#ffe9a0"/><stop offset=".58" stop-color="#f5c542"/><stop offset="1" stop-color="#8a6209"/></linearGradient>' +
+    '<linearGradient id="wcs" x1="0" x2="1"><stop offset="0" stop-color="rgba(255,255,255,0)"/><stop offset=".5" stop-color="rgba(255,255,255,.75)"/><stop offset="1" stop-color="rgba(255,255,255,0)"/></linearGradient><clipPath id="wcc"><path d="M34 16h52v20c0 21-11 35-26 37-15-2-26-16-26-37z"/></clipPath></defs>' +
+    '<path d="M35 23H19c0 17 8 26 19 28M85 23h16c0 17-8 26-19 28" fill="none" stroke="url(#wcg)" stroke-width="6" stroke-linecap="round"/>' +
+    '<path d="M34 16h52v20c0 21-11 35-26 37-15-2-26-16-26-37z" fill="url(#wcg)"/><g clip-path="url(#wcc)"><rect class="wc-glint" x="-40" y="0" width="30" height="80" fill="url(#wcs)" transform="skewX(-20)"/></g>' +
+    '<path d="M60 27l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L60 45.6l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff6d1"/>' +
+    '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
+  const WC_PICK = (arr, n) => { const a = arr.slice(), out = []; while (a.length && out.length < n) out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]); return out; };
+  UI.worldChampModal = function (ev) {
+    const S = G.S, r = ev.result || {}; ev.wcShown = true; ev.party = true;
+    const gyear = ev.year, Sz = G.Seasons[gyear] || {}, pa = G.Ev.playerAlliance(ev), al = pa >= 0 ? ev.alliances[pa] : [me()];
+    const fict = G.Career.isFictional(S), year = G.Career.calYear(S, gyear); // random career order: the career's own timeline
+    // streak: consecutive earlier seasons that also ended in a world title (this one is already counted in S.worldChamps)
+    let streak = 1; for (let i = S.history.length - 1; i >= 0 && S.history[i].worldChamp; i--) streak++;
+    // the streak's game years for the headline: "2023–2024" when they follow each other, else "2025 & 2023" (random game order)
+    const syears = S.history.slice(S.history.length - (streak - 1)).map(x => G.Career.calYear(S, x.year)).concat([year]);
+    const consec = syears.every((y, i) => !i || y === syears[i - 1] + 1);
+    const yearTxt = streak < 2 ? String(year) : consec ? syears[0] + '–' + syears[syears.length - 1] : syears.slice(0, -1).join(', ') + ' & ' + syears[syears.length - 1];
+    const titles = Math.max(1, S.worldChamps || 1);
+    const label = streak === 2 ? 'BACK-TO-BACK WORLD CHAMPIONS' : streak === 3 ? 'THREE-PEAT WORLD CHAMPIONS' : streak > 3 ? streak + '-IN-A-ROW WORLD CHAMPIONS' : 'WORLD CHAMPIONS';
+    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'red' : 'blue', opp = F ? (side === 'red' ? F.blue : F.red) : null;
+    const fw = F ? F.games.filter(g => !g.replay && g.winner === side).length : 0, fl = F ? F.games.filter(g => !g.replay && g.winner && g.winner !== side && g.winner !== 'tie').length : 0;
+    const oppCap = opp != null && ev.alliances[opp] ? ev.alliances[opp][0] : null;
+    const dt = G.Career.driveTeam(S), drv = dt.driver && dt.driver.name, op = dt.operator && dt.operator.name, coach = dt.coach && dt.coach.name;
+    const partners = al.filter(t => t !== me()), sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name;
+    const role = ['captain', 'first pick', 'second pick', 'backup'][al.indexOf(me())] || 'alliance member';
+    // the story
+    const first = titles === 1, rookieYear = S.team.rookieYear && S.team.rookieYear === year;
+    const story = [
+      (streak === 2 ? 'Last season\'s champions did it again: back-to-back world titles are rarer than a perfect auto.' : streak > 2 ? streak + ' world titles in a row. People will be telling this story at Kickoff for years.' : first ? 'From the game reveal in January to the last buzzer on Einstein, this is the season every team dreams about.' : 'Title number ' + titles + '. The trophy case needs more room.'),
+      rookieYear ? 'In your rookie season, no less: the whole pit area is talking about it.' : '',
+      'As ' + role + ' of the ' + (S.champsDiv || 'division') + ' champions, your alliance won the Einstein finals ' + fw + '–' + fl + ' in ' + h(Sz.name || 'this game') + '.',
+      drv ? h(drv) + ' at the controls' + (op ? ', ' + h(op) + ' on the mechanisms' : '') + (coach ? ', ' + h(coach) + ' calling the plays' : '') + ', and a whole team in the stands that can barely speak.' : ''
+    ].filter(Boolean).join(' ');
+    // what people are saying
+    const pool = [
+      ['Ladies and gentlemen, your ' + year + ' FIRST World Champions' + (streak === 2 ? '… for the second year in a row' : streak > 2 ? '… for the ' + U.ord(streak) + ' year in a row' : '') + '!', 'the Einstein emcee'],
+      drv ? ['I can\'t feel my hands. Did we actually just win that?', h(drv) + ', driver'] : null,
+      op ? ['Every cycle in that final, we had practised a hundred times. It still felt like a dream.', h(op) + ', operator'] : null,
+      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', 'your lead mentor'],
+      partners[0] ? ['Best alliance we have ever been part of. Thank you for picking us.', 'Team ' + partners[0] + ' ' + h((S.teams[partners[0]] || {}).name || '')] : null,
+      partners[1] ? ['We are going to need a bigger trailer for the ride home.', 'Team ' + partners[1] + ' ' + h((S.teams[partners[1]] || {}).name || '')] : null,
+      oppCap ? ['Hardest finals we have ever played. Congratulations, you earned every point.', 'Team ' + oppCap + ' ' + h((S.teams[oppCap] || {}).name || '') + ', Einstein finalists'] : null,
+      sponsor ? ['We are hanging the banner photo in our lobby. Next season is on us.', h(sponsor)] : null,
+      ['We are adding a trophy case. A bigger one.', 'your school principal'],
+      ['A rookie team asked for a photo with your robot. Then twenty more did.', 'the pit announcer'],
+      streak >= 2 ? ['Back-to-back? Somebody check their code for a cheat mode.', 'a forum comment with 1,200 upvotes'] : ['Who ARE these people? Bookmarking their team page right now.', 'a forum comment'],
+      ['The robot is fine. The drive team is not fine. Nobody is fine. It is wonderful.', 'your pit crew']
+    ].filter(Boolean);
+    const quotes = [pool[0]].concat(WC_PICK(pool.slice(1), 3));
+    const egg = D.REAL_CHAMPS[gyear];
+    const eggTxt = egg ? 'In the real ' + gyear + ' season (' + (Sz.name || 'that game') + '), Einstein was won by the ' + egg.div + ' division alliance: ' + egg.teams.map(t => t[0] + ' ' + t[1]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' + (egg.teams.some(t => t[0] === S.team.num) ? ' Your team number is on that list too. Coincidence?' : '') : '';
+    // twinkling stars around the trophy and title only (never behind the text further down)
+    const stars = Array.from({ length: 14 }, (_, i) => { const left = i % 2 ? 4 + (i * 7) % 22 : 74 + (i * 5) % 22; return '<i class="wc-star" style="left:' + left + '%;top:' + (14 + (i * 37) % 190) + 'px;animation-delay:' + (i * 0.23).toFixed(2) + 's"></i>'; }).join('');
+    const d = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
+      d(0.05) + TROPHY + '</div>' +
+      d(0.35, 'wc-kicker') + 'EINSTEIN · ' + (fict ? '' : h(String(gyear)) + ' ') + h((Sz.name || '').toUpperCase()) + (titles > 1 && streak < 2 ? ' · ' + titles + '-TIME CHAMPIONS' : '') + '</div>' +
+      d(0.5, 'wc-team') + S.team.num + ' · ' + h(String(S.team.name).toUpperCase()) + '</div>' +
+      d(0.65, 'wc-you') + 'YOU ARE THE</div>' +
+      '<div class="wc-title">' + yearTxt + ' ' + label + '</div>' +
+      d(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (S.champsDiv || '') }, true) + '</div>' +
+      d(1.2, 'wc-msg') + story + '</div>' +
+      d(1.4, 'wc-al') + al.map((t, i) => '<span class="wc-chip' + (t === me() ? ' me' : '') + '"><b>' + t + '</b> ' + h(t === me() ? S.team.name : ((S.teams[t] || {}).name || '')) + '<small>' + ['Captain', '1st pick', '2nd pick', 'Backup'][i] + '</small></span>').join('') + '</div>' +
+      d(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + quotes.map(q => '<div class="wc-q">“' + q[0] + '”<span>— ' + q[1] + '</span></div>').join('') + '</div>' +
+      d(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + ' Celebrate!</button></div>' +
+      (eggTxt ? d(2.0, 'wc-egg') + '<b>Easter egg</b> · ' + h(eggTxt) + '</div>' : '') +
+      '</div>', { wide: true, lock: true, cls: 'wcm' });
+    UI.confetti(7000); setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200);
+  };
+  UI.A.wcClose = () => UI.closeModal();
   UI.wonEvent = (ev, R) => !!(ev && R && R.kind !== 'qual' && ev.result && ev.result.won && R.obj && R.obj.id === 'F');
 })();

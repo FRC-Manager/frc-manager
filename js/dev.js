@@ -133,6 +133,7 @@
       tries.push(() => { Rb.startProject(S, { type: 'copy', sub: pick(subs) }); });
       tries.push(() => { Rb.startProject(S, { type: pick(['harden', 'light']), sub: pick(subs) }); });
       tries.push(() => { Rb.startProject(S, { type: pick(['practiceBot', 'auto', 'vision']) }); });
+      tries.push(() => { Rb.startProject(S, { type: 'testChassis', concept: pick(D2.CHASSIS_CONCEPTS) }); });
       tries.push(() => { const p = pick(S.projects); if (p && rnd() < 0.3) Rb.cancelProject(S, p.id); });
       tries.push(() => { const p = pick(S.projects); if (p && !Rb.isFab(p)) p.extra = Math.round(rnd() * p.need); });
       // garage
@@ -248,6 +249,14 @@
       if ((S.phase === 'build' || S.phase === 'comp') && S.robot) {
         const R = S.robot, subs = G.Seasons[R.year].subs.map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
         subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
+        // chassis: build a test chassis ('kit', 'mec' or 'wcd') on the second robot in build week 1-2 (log.chassis records when)
+        if (opts.chassis && S.phase === 'build' && S.week <= 3 && !S.projects.some(p => p.type === 'testChassis')) {
+          const o = G.Robot.other(R), d2 = R.bots[o].subs.drive;
+          if (!(d2 && d2.ver) && !(log.chassisY || {})[S.year]) {
+            const e = G.Robot.startProject(S, { type: 'testChassis', concept: opts.chassis });
+            if (!e) { (log.chassisY = log.chassisY || {})[S.year] = S.week; } else if (S.week === 3) log.push('  chassis fail ' + S.year + ': ' + e);
+          }
+        }
         // robot2: build a second robot from build week `robot2` (a number, default 3) and keep it current with copies
         if (opts.robot2 && S.phase === 'build' && S.week >= (typeof opts.robot2 === 'number' ? opts.robot2 : 3)) {
           const nc = G.Parts.need(S).comp, dbl = {};
