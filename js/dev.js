@@ -110,19 +110,97 @@
     return out;
   };
 
+  // ---------------- fuzz testing: random player actions + invariant checks ----------------
+  // G.Dev.autoplay({ fuzz: true, seed: 3 }) → log.problems lists every broken invariant (empty = all good)
+  const pick = a => a[Math.floor(G.R.next() * a.length)];
+  Dev.fuzzTurn = function (S, log) {
+    const P = G.Parts, Rb = G.Robot, R = S.robot, D2 = G.Data, rnd = () => G.R.next();
+    const tries = [];
+    // shopping
+    tries.push(() => { const x = pick(P.forSale(S)); if (x) P.buy(S, x.prod.id, pick([1, 2, 4, 8])); });
+    tries.push(() => { const c = pick(D2.PART_CATS); const it = pick(P.items(S, c.id)); if (it) P.sell(S, c.id, it.id); });
+    tries.push(() => { P.buyElem(S, pick(['q', 'h', 'f']), rnd() < 0.5); });
+    tries.push(() => { S.vendorPref = pick([null, 'A', 'B']); });
+    tries.push(() => { S.testSplit = pick([0, 0.25, 0.5, 0.75, 1]); S.overtime = (S.phase === 'build' || S.phase === 'kickoff') && rnd() < 0.3; });
+    if (R && R.bots) {
+      const year = R.year, subs = G.Seasons[year].subs.map(sd => sd.id).filter(k => k !== 'soft');
+      // design office
+      tries.push(() => { const k = pick(subs), sd = G.Seasons.sub(year, k), c = pick(sd.concepts); if (c.id === 'none') Rb.setNone(S, k); else Rb.startProject(S, { type: 'build', sub: k, concept: c.id, effort: pick(['rush', 'std', 'thorough']) }); });
+      tries.push(() => { const k = pick(subs.concat(['soft'])), d = Rb.des(R, k); if (d && d.ver) { const c = G.Seasons.concept(year, k, d.concept); Rb.startProject(S, { type: 'upgrade', sub: k, focus: pick(Object.keys(c.ceil)), effort: 'std', forConcept: d.concept }); } });
+      tries.push(() => { Rb.startProject(S, { type: 'copy', sub: pick(subs) }); });
+      tries.push(() => { Rb.startProject(S, { type: pick(['harden', 'light']), sub: pick(subs) }); });
+      tries.push(() => { Rb.startProject(S, { type: pick(['practiceBot', 'auto', 'vision']) }); });
+      tries.push(() => { const p = pick(S.projects); if (p && rnd() < 0.3) Rb.cancelProject(S, p.id); });
+      tries.push(() => { const p = pick(S.projects); if (p && !Rb.isFab(p)) p.extra = Math.round(rnd() * p.need); });
+      // garage
+      tries.push(() => { const u = pick(Rb.allUnits(R)); if (u) Rb.place(S, u.uid, pick([0, 1])); });
+      tries.push(() => { Rb.unmount(S, pick([0, 1]), pick(subs)); });
+      tries.push(() => { const u = pick(R.store); if (u && rnd() < 0.4) Rb.harvest(S, u.uid); });
+      tries.push(() => { Rb.setComp(S, pick([0, 1])); });
+      tries.push(() => { Rb.setDrive(S, pick([0, 1])); });
+    }
+    const n = 1 + Math.floor(rnd() * 5);
+    for (let i = 0; i < n; i++) { const f = pick(tries); try { f(); } catch (e) { log.problems = log.problems || []; log.problems.push('CRASH in action: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join(' / ')); } }
+  };
+  Dev.fuzzEvent = function (S, log) {
+    const R = S.robot; if (!R) return;
+    try {
+      Object.keys(R.subs).forEach(k => { const u = R.subs[k]; if (u && u.ver && k !== 'soft') u.cond = Math.max(0, u.cond - G.R.next() * 60); });
+      Object.keys(R.subs).forEach(k => { if (G.Robot.spareFor(S, k)) G.Robot.swapSpare(S, k); });
+      if (G.R.next() < 0.3) { const u = R.store[0]; if (u) G.Robot.harvest(S, u.uid); }
+      // the garage must stay locked during the event
+      if (!G.Robot.garageLock(S)) (log.problems = log.problems || []).push('garage not locked during an event');
+    } catch (e) { (log.problems = log.problems || []).push('CRASH at event: ' + e.message); }
+    Dev.check(S, log);
+  };
+  Dev.check = function (S, log) {
+    const bad = m => { log.problems = log.problems || []; if (log.problems.length < 60) log.problems.push(G.Career.dateLabel(S) + ': ' + m); };
+    const fin = v => typeof v === 'number' && isFinite(v);
+    try {
+      if (!fin(S.money)) bad('money is ' + S.money);
+      if (!fin(S.fatigue) || S.fatigue < 0 || S.fatigue > 100) bad('fatigue ' + S.fatigue);
+      if (!fin(S.parts.spares) || S.parts.spares < 0) bad('spares ' + S.parts.spares);
+      G.Data.PART_CATS.forEach(c => {
+        const n = G.Parts.count(S, c.id);
+        if (n > c.max) bad(c.id + ' over max: ' + n);
+        G.Parts.items(S, c.id).forEach(it => { if (!fin(it.h) || it.h < 0 || it.h > 1) bad(c.id + ' health ' + it.h); if (!G.Parts.prod(it.p)) bad('unknown product ' + it.p); });
+        if (c.kit && G.Parts.kitsUsed(S, c.id) > n) bad(c.id + ' kits used ' + G.Parts.kitsUsed(S, c.id) + ' > owned ' + n);
+      });
+      Object.keys(S.elem || {}).forEach(y => (S.elem[y] || []).forEach(e => { if (!(e.s > 0) || !fin(e.h)) bad('element set ' + JSON.stringify(e)); }));
+      Object.keys(S.elemPre || {}).forEach(y => (S.elemPre[y] || []).forEach(e => { if (!(e.s > 0)) bad('preorder ' + JSON.stringify(e)); }));
+      S.projects.forEach(p => { if (!fin(p.need) || p.need <= 0 || !fin(p.done) || !fin(p.cost)) bad('project ' + p.name + ' ' + p.need + '/' + p.done); });
+      const R = S.robot;
+      if (R) {
+        if (R.subs !== R.bots[R.comp || 0].subs) bad('R.subs not linked to the competition robot');
+        R.bots.forEach((b, i) => { if (b.subs.soft !== R.soft) bad('robot ' + (i + 1) + ' code not linked'); });
+        const seen = {};
+        R.bots.forEach((b, i) => Object.keys(b.subs).forEach(k => { const u = b.subs[k]; if (k === 'soft' || !u) return; if (u.sub !== k) bad('unit in wrong slot ' + k + ' (' + u.sub + ')'); if (u.ver) { if (seen[u.uid]) bad('unit in two places ' + u.uid); seen[u.uid] = 1; } }));
+        (R.store || []).forEach(u => { if (!u.ver) bad('empty unit in storage'); if (seen[u.uid]) bad('stored unit also elsewhere ' + u.uid); seen[u.uid] = 1; });
+        Object.keys(R.design).forEach(k => { if (G.Robot.storeCount(R, k) > G.Data.STORE_MAX) bad('storage over limit for ' + k); });
+        G.Robot.allUnits(R).concat([R.soft]).forEach(u => { if (!fin(u.cond) || u.cond < 0 || u.cond > 100.01) bad('cond ' + u.cond); Object.keys(u.stats || {}).forEach(st => { if (!fin(u.stats[st])) bad('stat ' + st + ' ' + u.stats[st]); }); if (!fin(u.w)) bad('weight ' + u.w); });
+        Object.keys(R.fam || {}).forEach(k => { const f = R.fam[k].f; if (!fin(f) || f < 0 || f > 1.0001) bad('familiarity ' + k + ' ' + f); });
+        [0, 1].forEach(bi => { const cap = G.Robot.capOf(S, bi); ['speed', 'scoreSpd', 'accuracy', 'intake', 'rel', 'brown'].forEach(st => { if (!fin(cap[st])) bad('robot ' + (bi + 1) + ' cap.' + st + ' ' + cap[st]); }); });
+        ['comp', 'prac'].forEach(w => { const pp = G.Parts.profile(S, w); ['motor', 'enc', 'health'].forEach(k => { if (!fin(pp[k])) bad('profile ' + w + '.' + k + ' ' + pp[k]); }); });
+        const th = G.Career.testHours(S); if (!fin(th.total)) bad('test hours ' + th.total);
+      }
+    } catch (e) { bad('CRASH in check: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join(' / ')); }
+  };
+
   // Plays a whole career automatically (no UI). Returns a log of key facts. G.Dev.autoplay({profile:'established'})
   Dev.autoplay = function (opts) {
     opts = opts || {};
     const log = [];
     const C = G.Career, S0 = C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: 'Midwest' },
-      profile: opts.profile || 'established', diff: 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed });
+      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed });
     const S = G.S;
     let guard = 0;
     log.probes = []; log.testSpend = 0;
     const playEvent = () => {
       const ev = S.event;
+      if (opts.fuzz) Dev.fuzzEvent(S, log);
       G.Ev.skipPractice(ev);
-      if (opts.probe && ev.kind === 'regional') { const p = Dev.probe(S, ev); log.probes.push(p); log.push('  probe ' + ev.name + ': alliance avg ' + p.toFixed(1) + ' · conf ' + ev.conf.toFixed(2) + ' tune ' + ev.tune.toFixed(2) + ' cond ' + Math.round(G.Robot.condAvg(S)) + ' arrival ' + (ev.arrival ? ev.arrival.cond : '-')); }
+      if (S.robot) { const f = G.Robot.famAvg(S.robot, S.robot.comp || 0); log.famSum = (log.famSum || 0) + (f || 0); log.famN = (log.famN || 0) + 1; }
+      if (opts.probe && ev.kind === 'regional') { const p = Dev.probe(S, ev); log.probes.push(p); log.push('  probe ' + ev.name + ': alliance avg ' + p.toFixed(1) + ' · conf ' + ev.conf.toFixed(2) + ' tune ' + ev.tune.toFixed(2) + ' cond ' + Math.round(G.Robot.condAvg(S)) + ' arrival ' + (ev.arrival ? ev.arrival.cond : '-') + ' fam ' + Math.round(100 * (G.Robot.famAvg(S.robot, S.robot.comp || 0) || 0))); }
       if (ev.stage === 'quals') G.Ev.simRestQuals(ev);
       let g2 = 0;
       while (ev.stage === 'selection' && g2++ < 50) {
@@ -136,6 +214,8 @@
       C.leaveEvent(S);
     };
     while (S.phase !== 'end' && guard++ < 400) {
+      if (opts.fuzz) { Dev.fuzzTurn(S, log); Dev.check(S, log); }
+      if (opts.until && opts.until(S)) break; // stop early, e.g. to inspect a mid-season state in the UI
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
         S.offers.filter(o => o.slot === 'title').slice(0, 1).forEach(o => C.signSponsor(S, o.id, true));
@@ -146,6 +226,8 @@
       }
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
+      // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player
+      if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, gearbox: 2 }, opts.vendor || 'B');
       if (S.phase === 'kickoff') {
         G.Seasons[S.year].subs.forEach(sd => {
           if (sd.id === 'soft') return;
@@ -156,8 +238,19 @@
         });
       }
       if ((S.phase === 'build' || S.phase === 'comp') && S.robot) {
-        const subs = Object.keys(S.robot.subs).filter(k => S.robot.subs[k].ver && !S.projects.some(p => p.sub === k));
-        subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(S.robot.year, k, S.robot.subs[k].concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
+        const R = S.robot, subs = G.Seasons[R.year].subs.map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
+        subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
+        // robot2: build a second robot from build week `robot2` (a number, default 3) and keep it current with copies
+        if (opts.robot2 && S.phase === 'build' && S.week >= (typeof opts.robot2 === 'number' ? opts.robot2 : 3)) {
+          const nc = G.Parts.need(S).comp, dbl = {};
+          Object.keys(nc).forEach(k => { if (k !== 'camera') dbl[k] = nc[k] * 2 + (k === 'ctrl' ? 0 : 1); });
+          if (!G.Robot.twoBots(S) && !S.projects.some(p => p.type === 'practiceBot') && G.Robot.fullCopySubs(R).length && R.design.drive.ver) {
+            log.r2spend = (log.r2spend || 0) + G.Parts.stockUp(S, dbl, opts.vendor || 'B');
+            const e = G.Robot.startProject(S, { type: 'practiceBot' }); if (e) log.push('  robot2 fail: ' + e); else log.push('  robot2 started ' + S.year + ' wk ' + S.week);
+          }
+          if (opts.copies && G.Robot.twoBots(S)) Object.keys(R.design).forEach(k => { if (!G.Robot.isLatest(R, k, R.bots[G.Robot.other(R)].subs[k]) && R.design[k].ver) G.Robot.startProject(S, { type: 'copy', sub: k }); });
+          if (opts.drive2 && G.Robot.twoBots(S)) R.drive = G.Robot.other(R);
+        }
         if (S.robot.autoTier < 2) G.Robot.startProject(S, { type: 'auto' });
       }
       if (S.phase === 'review' && !log['rv' + S.year]) {
@@ -181,8 +274,8 @@
       // split: test the testing-hours split (free practice field + game elements, spares kept stocked)
       if (opts.split != null) {
         if (G.Shop.lvl(S, 'pfield') < (opts.field || 1)) { S.shop.pfield.lvl = opts.field || 1; S.shop.pfield.cond = 100; }
-        if (S.phase !== 'off' && S.equip.field !== S.year) S.equip.field = S.year;
-        if (opts.practiceBot && S.robot) S.robot.practiceBot = true;
+        if (S.phase !== 'off' && !G.Parts.elemCov(S, S.year)) S.elem[S.year] = [{ id: 'dev', s: 1, h: 1 }];
+        if (opts.practiceBot && S.robot && S.robot.year === S.year && !G.Robot.twoBots(S) && S.robot.design.drive.ver) G.Robot.complete(S, { type: 'practiceBot', bot: G.Robot.other(S.robot), subs: G.Robot.fullCopySubs(S.robot), need: 1 });
         S.shop.pfield.cond = 100;
         S.testSplit = opts.split;
         if (S.parts.spares < 4 && S.money > 2000) C.buySpares(S, 4);
@@ -196,9 +289,12 @@
         C.startEvent(S, ev.def); playEvent(); continue;
       }
       const before = C.dateLabel(S);
-      const err = C.advance(S);
+      let err;
+      try { err = C.advance(S); } catch (e) { log.push('CRASH in advance at ' + before + ': ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join(' / ')); log.crash = true; break; }
+      if (opts.fuzz) Dev.check(S, log);
       if (err) { log.push('blocked at ' + before + ': ' + err.join(' ')); break; }
     }
+    if (log.famN) log.push('avg familiarity at events ' + Math.round(100 * log.famSum / log.famN) + '%' + (log.r2spend ? ' · robot2 parts $' + Math.round(log.r2spend) : ''));
     log.push('END phase=' + S.phase + ' money=' + S.money + ' legacy=' + S.legacy + ' support=' + S.support + ' turns=' + guard);
     S.history.forEach(hs => log.push(hs.year + ': legacy ' + hs.legacy + ', money ' + hs.money + ', earned ' + hs.earned + ', spent ' + hs.spent + ', champs ' + hs.champs + ', avgRP ' + hs.avgRP.toFixed(2) + ', outreach ' + hs.impactRaw + ', awards ' + hs.awards.join('/')));
     log.push('facilities ' + D.EQUIP.map(e => e.id + ' ' + G.Shop.lvl(S, e.id) + '/' + e.levels.length).join(', ') + ' · slots ' + G.Robot.slotText(S));

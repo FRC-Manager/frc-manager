@@ -83,6 +83,10 @@
     if (S.testSplit == null) S.testSplit = 0.5; // share of testing hours that goes to driver practice
     // v2 Impact model: re-roll AI Impact strength once for older saves
     if (S.impV !== 2) { if (S.teams) Object.values(S.teams).forEach(t => { if (!t.rookie) t.impact = G.AI.impactRoll(G.makeRng(t.num * 7919 + 13), t.str); }); S.impV = 2; }
+    if (G.Robot) G.Robot.migrate(S); // v2.1 two robots (before parts: they read both robots)
+    if (G.Parts) G.Parts.migrate(S); // v2.0 parts inventory and game elements
+    if (S.fatigue == null) S.fatigue = D.FATIGUE_BASE;
+    if (S.autoSpares == null) S.autoSpares = true;
   };
 
   // =====================================================================
@@ -98,7 +102,7 @@
     if (room <= 0) return 'Every battery slot is full of healthy batteries';
     n = Math.min(n, room);
     const cost = n * D.BATTERY_COST * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1);
-    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, n + ' new batteries');
     for (let i = 0; i < n; i++) S.parts.batts.push({ h: 1 });
     S.parts.batts.sort((a, b) => b.h - a.h);
@@ -120,7 +124,7 @@
   Shop.upgrade = function (S, id) {
     const cost = Shop.upgradeCost(S, id), it = Shop.item(id), f = S.shop[id];
     if (cost == null) return 'Already at the top level';
-    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
     f.lvl++; f.cond = 100; f.warned = 0;
     S.morale = Math.min(100, S.morale + 3);
@@ -130,7 +134,7 @@
     const cost = Shop.renoCost(S, id), it = Shop.item(id), f = S.shop[id];
     if (cost == null) return 'You don\'t own this yet';
     if (cost === 0) return 'Already in perfect condition';
-    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, 'Renovate: ' + it.levels[f.lvl - 1].name);
     f.cond = 100; f.warned = 0;
     S.morale = Math.min(100, S.morale + 1);
@@ -318,7 +322,7 @@
     if (!cur) return null;
     const inc = Shop.INCIDENTS.find(i => i.id === cur.id), o = inc.opts[idx];
     const cost = cur.opts[idx].cost;
-    if (cost && S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    { const e = G.Career.afford(S, cost); if (e) return e; }
     if (cost) G.Career.spend(S, cost, 'Incident: ' + inc.title);
     addMods(S, o.mods, inc.title);
     if (o.fix) Object.keys(o.fix).forEach(k => Shop.damage(S, k, -o.fix[k]));
@@ -354,6 +358,7 @@
       const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4));
       m.cost = 0; m.guest = sp; const turns = turnsFor(S, 4);
       S.guests.push({ m, turns });
+      if (G.Career.inSeason(S)) S.fatigue = Math.max(5, S.fatigue - 3); // an extra pair of hands takes some load off
       const rn = D.MENTOR_ROLES.find(r => r.id === role).name;
       return ['Guest mentor from ' + sp, sp + ' is lending one of its engineers, ' + m.name + ', as a guest ' + rn + ' (' + U.stars(m.stars) + ', ' + m.hours + ' h/week) for ' + turns + (S.phase === 'off' ? ' month' : ' week') + (turns > 1 ? 's' : '') + '. Guests take an extra mentor slot' + (role !== 'prog' ? ' and add a project slot' : '') + '.'];
     } },

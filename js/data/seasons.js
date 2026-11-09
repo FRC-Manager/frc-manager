@@ -309,7 +309,7 @@
         { id: 'turret', name: 'Turret shooter', desc: 'Aims independently of the drivetrain. With vision it shoots on the move and is very hard to defend.', cost: 2000, hours: 250, w: 21, cx: 5, areas: ['turret', 'shooter', 'vision'],
           base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true }, look: { shooter: 'turret' } },
         { id: 'dumper', name: 'Wide dumper', desc: 'A full-width bank of fixed flywheels that empties the hopper in seconds. Huge throughput and simpler than a turret, but it must line up close to the hub and suffers more under defense.', cost: 1500, hours: 190, w: 19, cx: 3, areas: ['shooter', 'index'],
-          base: { scoreSpd: 50, accuracy: 46, range: 0 }, ceil: { scoreSpd: 99, accuracy: 91, range: 25 }, caps: { rmin: 1.0, rmax: 2.4, dumper: true }, look: { shooter: 'dump' } }
+          base: { scoreSpd: 50, accuracy: 46, range: 0 }, ceil: { scoreSpd: 99, accuracy: 91, range: 25 }, caps: { rmin: 1.0, rmax: 2.4, dumper: true }, look: { shooter: 'wide' } }
       ] },
       { id: 'endgame', name: 'Tower Climber', concepts: [
         NONE_END,

@@ -24,7 +24,7 @@
   // =====================================================================
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: rng.int(1000, 9999), name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: '#f5b800', c2: '#111111', region: 'Midwest',
+    UI.st.ng = { mode, num: rng.int(1000, 9999), name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom' };
     UI.go('newgame');
   };
@@ -39,7 +39,12 @@
     }
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
       '<label class="f">Home region<select class="inp" data-chg="ng" data-k="region">' + D.REGIONS.map(r => '<option ' + (n.region === r ? 'selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
-      '<label class="f">Primary colour<input class="inp" type="color" value="' + h(n.c1) + '" data-chg="ng" data-k="c1"></label><label class="f">Secondary colour<input class="inp" type="color" value="' + h(n.c2) + '" data-chg="ng" data-k="c2"></label></div>';
+      '</div>';
+    // avatar and colours (the whole UI picks up the primary colour)
+    o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
+      '<div class="sm muted mb mt">Second colour</div><div class="swatches">' + UI.TEAM_COLORS2.map(c => '<button class="swatch ' + (n.c2 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c2|' + c.hex + '"></button>').join('') + '</div></div>' +
+      '<div class="span2"><div class="sm muted mb">Team emblem</div><div class="avpick">' + UI.AVATARS.map(a => '<button class="' + (n.avatar === a ? 'on' : '') + '" data-act="ngSet" data-arg="avatar|' + a + '" title="' + a + '">' + UI.avatar({ avatar: a, c1: n.c1, c2: n.c2 }, 40) + '</button>').join('') + '</div>' +
+      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted">' + h(n.school) + ' · ' + h(n.region) + '</div></div></div></div></div>';
     if (n.mode === 'career' || n.scenario === 'custom') {
       o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
     }
@@ -49,17 +54,17 @@
     return o;
   } };
   UI.A.ng = (v, el) => { UI.st.ng[el.dataset.k] = el.dataset.k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v; };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' ? Number(v) : v; if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } UI.render(); };
   UI.A.startGame = function () {
     const n = UI.st.ng;
     if (!String(n.name).trim()) return UI.toast('Give your team a name', 'bad');
     const scen = n.mode === 'single' ? D.SCENARIOS.find(s => s.id === n.scenario) : null;
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, region: n.region },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, scenario: scen ? scen.id : null });
     G.Save.write('auto');
     UI.go('hq');
     if (G.S.phase === 'kickoff') UI.kickoffModal();
-    else UI.modal('<h2>Welcome, Lead Mentor</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January.</p><ol class="muted"><li><b>Finance</b> — sign a title sponsor and partners.</li><li><b>Mentors</b> — hire the people you need.</li><li><b>Calendar</b> — register for 1–4 regionals (weeks 1–6).</li><li><b>Design Office</b> — start pre-season research to build Tech Knowledge.</li><li>Press <b>Continue</b> to advance a month.</li></ol><div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
+    else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, Lead Mentor</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, stock up on parts, register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p><div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
   };
 
   // =====================================================================
@@ -95,6 +100,47 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.1', title: 'Two robots, driver familiarity and mechanism kits', notes: [
+      'Robot 1 and Robot 2 in the Garage. Either can be the competition robot (it gets the best electronics and goes to events); choose which one the drivers practice on each week. The practice robot project became "Build a full copy" in the Garage. A second robot adds up to 6 testing hours a week, makes practice on it up to 25% more effective and helps event tuning (more the closer it matches the competition robot), but a second set of electronics and copies is expensive.',
+      'Build copy: make more of a finished subsystem design for the second robot or as a spare. Copies take about a quarter of the first build\'s hours, use team hours but no project slot (they sit under Fabrication), and need their own electronics and kits. The first one of a new concept or version is a prototype and costs 10% more.',
+      'Driver familiarity for each subsystem: new mechanisms start low, new versions cost a little, very different concepts (a dumper to a turret, tank to swerve) cost a lot. Shop driving, practice and matches win it back; in matches a subsystem gives 85–100% of its stats.',
+      'Storage holds up to 2 built units of each subsystem. Take old ones apart for spare parts and to get their mechanism kits back. At events, a spare identical to the competition robot\'s (in storage or on the other robot) can be swapped in to restore that subsystem to 100%.',
+      'Mechanism kits per concept: a turret shooter uses a turret kit and a shooter kit, a traversal climber up to 4 climber kits. Partial sets help partly. New indexer & hopper kit; kit prices and slot limits adjusted, and motor and encoder slots raised for two robots.',
+      'Kit of Parts electronics can now be bought any time (brushed motors, low-profile encoders, a basic control hub, kitbot gearboxes): very cheap and always in stock, for rookies and for teams caught short in season. They are much slower than Apex or Lumen parts, and mixing them with vendor electronics costs 5% more project hours and a little performance. A full shelf no longer accepts parts that would be thrown straight out.',
+      'A turret shooter builds on fixed-shooter know-how: concepts now need knowledge in all their core areas (marked ★).',
+      'Game elements: fixed preordered and bought sets showing 0% (they now count), preorders show as pending right away, and the practice field card shows element status. Without a Practice Field the kit game pieces are enough; Level 1 fits a quarter set, Level 2 a half, Level 3 a full set.',
+      'Loophole fixes: taking a subsystem apart returns at most half its materials in spare parts, a bare second chassis no longer unlocks the second-robot bonuses, a Practice Field without game elements is never worse than none, copies can\'t soak up testing or extra hours, worn mechanism kits help less, and overdrafts in consecutive seasons cost more each time.',
+      'Parts is now the Shop. Overtime weeks never lower fatigue, and fatigue is shown as a bar. Calendar months scroll on their own. The Team page is tidier, with the Impact Award under the drive team.'
+    ] },
+    { v: '2.0', title: 'Parts, fatigue and a new look', notes: [
+      'New Parts screen with a real parts library: motors, encoders, control hubs and swerve modules from two electronics vendors (Apex Motion: premium; Lumen Robotics: value), plus drive gearboxes, cameras, pneumatics and optional mechanism kits.',
+      'Sell parts you no longer need (Shop → Sell) for part of their price: the better their condition, the more you get. Only parts above 60% condition can be sold.',
+      'Every build, including the practice robot, now uses parts. Parts are reusable but wear in matches and practice (slightly slower, more failures). The newest parts go on the competition robot, the rest on the practice robot. Each part type has slot limits; new parts replace the most worn.',
+      'Mixing Apex and Lumen electronics costs 10% more hours on hardware and software projects and a little performance. Vendors release 2–3 new generations over a career; the old one stays on sale for a year.',
+      'A free Kit of Parts at every Kickoff (bigger for rookies). In season, parts and field elements often sell out, so stock up before Kickoff. Mechanism kits make builds faster and remove first-build penalties.',
+      'Game elements: quarter, half and full-field sets that wear down, only help up to your practice field\'s size, and can be preordered for next season.',
+      'Extra hours: put spare hours into any project (in 1-hour steps) to raise its quality, with diminishing returns.',
+      'Fatigue: leaving about 10% of a week\'s hours idle keeps it steady; overtime and competitions raise it. At events it causes incidents (wrong auto, flat battery, mixed-up scouting) and lowers scouting credibility. New Incidents tab at events, and a Week 7 rest week before the Championship.',
+      'Skip any event on its week, and withdraw from any event in the Calendar (half refund only a month or more ahead). Fixed: the game could get stuck in the offseason with a negative balance.',
+      'Outreach and fundraising: repeats within a month pay less (resets monthly). New activities unlocked by facilities, sponsors, mentors and the trailer, plus a team night that lowers fatigue.',
+      'Team trailer: drive to far events instead of flying (cheaper, no air-freight damage), gentler sponsor demos and +20% robot outreach.',
+      'Spare parts reset every season (none before the first), with an auto-restock toggle that buys what the next event needs.',
+      'Sponsors: offers sit at a similar level for each difficulty, title sponsors pay about three times a partner, and offers grow a little with reputation and results. Top programs face sponsors who expect wins.',
+      'STEM support fund when the balance is under $1,000: emergency money at a cost in reputation.',
+      'Team emblem and team colours: the whole interface takes on your team colour. New icons throughout.',
+      'Guided tours each season and at your first event and match (switch them off any time), "?" help on every screen, and a new How to play guide organized by topic.'
+    ] },
+    { v: '1.5', title: 'Debt, calendar & inbox update', notes: [
+      'In-season debt: from Kickoff to the Championship you can spend into the red (down to −$50,000). The school clears it at the season review, with a hit to Program Support and reputation that grows with the debt, and the school board writes to you about it. Offseason spending still needs cash, and fundraisers now work even when the balance is negative.',
+      'New program calendar: every turn from May to the season review, with events and results, project finish dates, sponsor duties, program milestones and money dates. Filter by category.',
+      'Inbox: at least one news item and one to three chatter posts every turn, many about your own team (results, awards, mentors, school, reputation), with far fewer repeats.',
+      'Inbox replies: some messages (rookie teams asking for help, interviews, scrimmage invitations, pit requests, school board meetings) let you reply for a small effect. Optional, no popups.',
+      'Defense follows the real rules: pin limits (5 s in 2022–2024, 3 s in 2025–2026, then back off six feet) and each game\'s protected zones. No more robots stuck for long stretches.',
+      'Turret shooters are much harder to defend: they aim and shoot on the move.',
+      'Robots no longer overlap each other or drive through hubs, the Reef, Stage legs, the Barge leg, cages or Towers; stuck robots now steer around traffic.',
+      'Systems Shakedown at an event now also rebuilds worn parts, bringing robot condition back to 100%.',
+      'Graphics: 2022 shots use red and blue cargo, and 2022 low-goal robots show a bucket instead of the 2026 dumper.'
+    ] },
     { v: '1.4', title: 'Season realism update', notes: [
       'REEFSCAPE (2025): the Barge now spans the whole midline, with each alliance\'s three cages and Net on its own half; Processors sit on each alliance\'s right.',
       'REEFSCAPE: alliances share two Coral Stations — the best scorer takes one and the others share the second, queueing at the chute.',
@@ -149,23 +195,7 @@
     UI.modal('<h2>Updated to v' + h(r.v) + '</h2><div class="sub">' + h(r.title) + '</div><ul class="vnotes">' + r.notes.slice(0, 5).map(n => '<li>' + h(n) + '</li>').join('') + '</ul>' +
       '<div class="row mt"><button class="btn primary" data-act="nav2" data-arg="notes">See all version notes</button><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };
-  UI.S.help = { full: true, html() {
-    const sec = (t, b) => '<div class="card mb"><div class="ct">' + t + '</div><div class="muted" style="line-height:1.55">' + b + '</div></div>';
-    return '<div class="menu-wrap"><div class="menu-box" style="max-width:900px"><div class="row"><div class="logo" style="font-size:28px">How to play</div><span class="tag" style="margin-left:10px">v' + h(G.VERSION) + '</span><span class="sp"></span><button class="btn" data-act="back">Back</button></div><div class="mt">' +
-      sec('The loop', 'You are the Lead Mentor. Each turn (a month in the offseason, a week in season) you make decisions, then press <b>Continue</b>. Offseason → Kickoff (game reveal) → 7 build weeks → Competition weeks 1–6 → Championship → Season review.') +
-      sec('Building the robot', 'In the <b>Design Office</b> choose a <b>concept</b> (development direction) for each subsystem, then run <b>upgrade projects</b> with a focus stat and an effort level. Weekly team hours are shared between active projects by priority. Watch the <b>125 lb</b> weight limit. Buy parts (motors, swerve modules, cameras) in the Workshop — they carry over between seasons.') +
-      sec('Tech Knowledge', 'Every concept uses knowledge areas. Building and competing with a concept earns XP; research projects earn XP directly. Higher levels raise ceilings, cut hours and improve reliability — so a turret in one shooting game helps the next. Unused areas decay as students graduate; specialist mentors and a Knowledge Base prevent that.') +
-      sec('Money', 'Sponsors pay at Kickoff; goal bonuses pay when met. Sponsor obligations show up as activities during build season. Regionals cost $6,000 (first) / $4,000 (more) plus travel. School funding arrives in September and depends on Program Support. Fundraisers pay less each time you repeat one in the same program year (June–May), and facilities cost upkeep every season, so plan upgrades over several seasons.') +
-      sec('Events', 'Practice day: pick practice programs (tuning, driver reps, auto, shakedown, scouting). Qualifications: plan each match, then watch or simulate. Top 8 seeds pick alliances; playoffs are double elimination. Win a regional or an Impact / Engineering Inspiration award — or earn enough Regional Pool points — to reach the Championship.') +
-      sec('Season strategies', 'Each game plays differently. 2022: cargo bounces out of the Hub all over the field, so robots roam everywhere. 2024: top alliances learn to <b>feed</b> notes across the field into their wing and stockpile them for Amplify; a defender camping the Source cancels most of that gain. You can\'t pick the strategy directly — your alliance finds it through your <b>strategy read</b> (Strategy mentor, a drive coach with strategy skill, driver practice and events scouted). 2025: each alliance has two Coral Stations; the best scorer takes one and the others share the second. 2026: a wide <b>dumper</b> out-scores most turrets at regional level, but turrets shoot on the move and shrug off defense; climbs are slow and risky, so strong teams usually keep shooting instead.') +
-      sec('Testing hours', 'A <b>Practice Field</b> (Workshop) unlocks weekly testing hours, like wind-tunnel time: 8, 12 or 16 h a week by level (less when worn, half in an event week, ×4 per offseason month), +4 with a practice robot. Split them in the Design Office. <b>Development testing</b> ($30 an hour) makes projects finish faster and come out better: bigger upgrade gains and more reliability. <b>Driver practice</b> is cheap (a few spare parts) and builds drive-team skills and confidence, which means faster cycles, quicker alignment, fewer fouls and surer climbs. Small teams get the most from driver practice; once the drive team is fully practiced, extra hours are better spent testing upgrades.') +
-      sec('Robot condition at events', 'The team repairs the robot with spare parts before every event, so it arrives at 100% unless you are short on spare parts, the event is a flight away (shipping knocks), or you took the robot to a sponsor demo that same competition week. Without spares, repairs only patch a subsystem up to 75%.') +
-      sec('Impact Award', 'The Impact Award is the hardest award to win. You need an <b>Impact submission</b> (Design Office) and a strong <b>Impact rating</b>: this season\x27s outreach (with diminishing returns), a track record over the last three seasons, the presentation (Business mentor and your best communicators), feeder programs and reputation. Typical winners rate 80+, so it usually takes a few seasons of steady outreach. A team can win it once per season. HQ shows your odds at each registered regional, and the Team page breaks down your rating.') +
-      sec('Coach Calls', 'During a match you have 3–6 calls: change pace (push/conserve), switch role (score/defend/feed), set target priority, send the robot to the endgame, chase bonus RPs, avoid contact, or try to reset a faulted robot. Calls take a second or two and drivers with low composure sometimes misread them.') +
-      sec('Facilities & shop incidents', 'Workshop facilities (3D printing, CNC, machine shop, programming station, battery station, pit setup, trailer) have levels and a condition that wears down with use. Worn facilities work at lower efficiency. Higher levels of 3D Printing, CNC, the Machine Shop and the Programming Station each add a project slot (up to 6 permanent slots, counting mentors); a facility below 35% condition loses its slot until renovated. <b>Renovate</b> to restore condition cheaply, or <b>upgrade</b> to the next level. Now and then a shop incident happens — a broken machine, a leaky roof, a snow day. Some ask you to choose (pay to fix it, or take the risk or the delay); others just happen. Either way, the impact lasts one week at most.') +
-      sec('Faults & wear', 'Every match wears the robot. Low condition, low reliability, rushed projects and hidden faults raise the chance of brownouts, jams and broken mechanisms. A failed high climb can end in a fall (most often from the 2022 High/Traversal bars and the 2026 L2/L3 rungs): the robot is out for the match, badly damaged, and some spare parts are scrapped. Brief comms drops are common for every robot; poor electronics and heavy contact make them more frequent, longer and sometimes match-ending. Each game has its own weak spot: tip-overs in 2023 (and 2025), brownouts in 2026. Pit repairs use spare parts; Systems Shakedown and Hardening find hidden faults.') +
-      '</div></div></div>';
-  } };
+  // How to play: see tutorial.js (guide by topic)
   UI.A.back = () => UI.go(G.S && G.S.team ? 'hq' : 'menu');
   UI.S.settings = { full: true, html() {
     const S = G.S;
@@ -187,8 +217,9 @@
     o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
     o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(D.PROGRAM_GOALS[g.id].text) + '</span></div>').join('') +
-      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + S.support + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + S.rep + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
-    o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span></div>');
+      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
+    o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
+      (S.season && S.season.debt ? '<span class="k">Debt covered by school</span><span class="bad">' + U.money(S.season.debt) + ' (support −' + S.season.debtPen.support + ', reputation −' + S.season.debtPen.rep + ')</span>' : '') + '</div>');
     o += '</div>';
     const last = S.upcoming >= S.order.length || S.mode === 'single';
     o += '<div class="hint mt">' + (last ? 'This was your final season.' : S.support <= 0 && !S.settings.noFail ? 'Program Support has collapsed — the school is ending the program.' : 'Next: the offseason. Graduation in June, recruiting in September, sponsors and registration in October, Kickoff in January.') + '</div>';

@@ -24,8 +24,10 @@
       id: def.id || U.uid('ev'), name: def.name, kind: def.kind, year, week: def.week || 0, region: def.region || S.team.region,
       star: def.str || 3, seed: rng.int(1, 2e9), stage: 'practice', teams: [], caps: {}, rank: {}, quals: [], qi: 0,
       practice: { blocks: K.blocks, used: [] }, tune: 0.3, conf: 0.3, tuneAuto: 0, shake: 0, plan: { pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false },
-      suggest: {}, sel: null, alliances: null, po: null, awards: [], log: [], lastPlayerMatch: -1, timeouts: {}, matchCount: 0, playerResults: []
+      suggest: {}, sel: null, alliances: null, po: null, awards: [], log: [], lastPlayerMatch: -1, timeouts: {}, matchCount: 0, playerResults: [],
+      incidents: [], fatigue: S.fatigue == null ? D.FATIGUE_BASE : S.fatigue
     };
+    ev.scoutCred = Ev.credibility(S, ev);
     const player = S.team.num;
     const weekMult = def.kind === 'champs' || def.kind === 'einstein' ? 1.08 : def.kind === 'offseason' ? 1.04 : def.kind === 'scrimmage' ? 0.8 : 0.85 + 0.03 * (ev.week - 1);
     const diffMult = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1;
@@ -79,7 +81,7 @@
     { id: 'driver', name: 'Driver Reps', desc: '+Driver Confidence (faster, cleaner cycles).' },
     { id: 'calib', name: 'Mechanism Calibration', desc: '+Robot Tuning (accuracy).' },
     { id: 'auto', name: 'Auto Validation', desc: '+Autonomous success rate.' },
-    { id: 'shake', name: 'Systems Shakedown', desc: 'Find hidden faults, lower fault chance.' },
+    { id: 'shake', name: 'Systems Shakedown', desc: 'Find hidden faults, lower fault chance and rebuild worn parts: robot condition back to 100%.' },
     { id: 'scout', name: 'Scouting Focus', desc: 'Sharper scouting data on other teams.' },
     { id: 'install', name: 'Install Upgrade', desc: 'Install finished upgrades in the pits.' }
   ];
@@ -87,16 +89,29 @@
     const S = G.S, rng = G.R, out = [];
     const coach = G.Career.mentorSkill(S, 'coach'), strat = G.Career.mentorSkill(S, 'strat'), prog2 = G.Career.mentorSkill(S, 'prog'), fab = G.Career.mentorSkill(S, 'fab');
     switch (prog) {
-      case 'driver': { const d = 0.22 + 0.12 * coach / 100; ev.conf = U.clamp(ev.conf + d, 0, 1); out.push('Driver confidence +' + Math.round(d * 100) + '%'); break; }
+      case 'driver': {
+        const d = 0.22 + 0.12 * coach / 100, f0 = S.robot ? G.Robot.famAvg(S.robot, S.robot.comp || 0) : null;
+        ev.conf = U.clamp(ev.conf + d, 0, 1); out.push('Driver confidence +' + Math.round(d * 100) + '%');
+        if (f0 != null) { G.Robot.famDrive(S, S.robot.comp || 0, D.FAM.BLOCK); out.push('Robot familiarity ' + Math.round(f0 * 100) + '% → ' + Math.round(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100) + '%'); }
+        break;
+      }
       case 'calib': { const d = 0.22 + 0.1 * G.Career.mentorSkill(S, 'design') / 100; ev.tune = U.clamp(ev.tune + d, 0, 1); out.push('Robot tuning +' + Math.round(d * 100) + '%'); break; }
       case 'auto': { const d = 0.06 + 0.05 * prog2 / 100; ev.tuneAuto = U.clamp(ev.tuneAuto + d, 0, 0.2); out.push('Auto success +' + Math.round(d * 100) + '%'); break; }
       case 'shake': {
         ev.shake = Math.min(2, ev.shake + 1);
         const found = G.Robot.shakedown(S, 0.55 + 0.3 * fab / 100);
         out.push(found ? 'Found and fixed ' + found + ' hidden fault' + (found > 1 ? 's' : '') + '.' : 'No hidden faults found. Systems look healthy.');
+        // a full teardown: every worn part is rebuilt, using spares first and borrowing from other pits for the rest
+        const before = Math.round(G.Robot.condAvg(S));
+        if (before < 100) {
+          const rep = G.Robot.homeRepair(S, true);
+          let borrowed = false;
+          Object.values(S.robot.subs).forEach(sb => { if (sb.ver && sb.cond < 100) { sb.cond = 100; borrowed = true; } });
+          out.push('Rebuilt worn parts: condition ' + before + '% → 100%' + (rep.used ? ' (' + rep.used + ' spare part' + (rep.used > 1 ? 's' : '') + ')' : '') + (borrowed ? ', finished with parts borrowed from other teams\' pits' : '') + '.');
+        } else out.push('Robot condition already 100%.');
         break;
       }
-      case 'scout': { ev.scoutBonus = (ev.scoutBonus || 0) + 1; out.push('Scouting data sharpened (strategy mentor ' + Math.round(strat) + ').'); break; }
+      case 'scout': { ev.scoutBonus = (ev.scoutBonus || 0) + 1; ev.scoutCred = Math.min(0.99, ev.scoutCred + 0.03); out.push('Scouting data sharpened (strategy mentor ' + Math.round(strat) + '). Scouting credibility ' + Math.round(ev.scoutCred * 100) + '%.'); break; }
       case 'install': { const n = G.Robot.installPending(S); out.push(n ? 'Installed ' + n + ' upgrade' + (n > 1 ? 's' : '') + '.' : 'No pending upgrades to install.'); break; }
       case 'lighten': { out.push(G.Robot.emergencyLighten(S)); break; }
     }
@@ -231,6 +246,46 @@
     });
   }
   // Per-match averages and rates for one team (null before its first match)
+  // ------------------------------------------------------------------
+  // Fatigue at events: scouting credibility and drive-team / pit-crew incidents
+  // ------------------------------------------------------------------
+  // How much of the scouting data is right: tired scouts mix teams up; a strategy mentor and experience help
+  Ev.credibility = function (S, ev) {
+    const f = ev.fatigue, strat = G.Career.mentorSkill(S, 'strat');
+    const exp = S.history.reduce((n, h) => n + (h.events || []).length, 0) + ((S.season && S.season.events) || []).length;
+    return U.clamp(0.95 - Math.max(0, f - D.FATIGUE_BASE) * 0.0065 + 0.035 * strat / 100 + Math.min(0.03, exp * 0.005) - (ev.kind === 'champs' ? 0.01 : 0), 0.5, 0.99);
+  };
+  const frac = (a, b) => hash(a, b) / 4294967296;
+  // The scouting data you see: mostly true, but now and then a tired scout logged a different team's robot
+  Ev.obsShown = function (ev, t) {
+    const o = Ev.obsOf(ev, t);
+    if (!o || t === G.S.team.num || frac(ev.seed, t * 7 + 3) < (ev.scoutCred == null ? 1 : ev.scoutCred)) return o;
+    const others = ev.teams.filter(x => x !== t && x !== G.S.team.num && Ev.obsOf(ev, x));
+    if (!others.length) return o;
+    return Ev.obsOf(ev, others[hash(ev.seed, t) % others.length]);
+  };
+  // Expected incidents per event: about 0.5 at normal fatigue (never more than one), rising fast for a tired team
+  Ev.incidentRate = f => f <= D.FATIGUE_BASE ? 0.5 * f / D.FATIGUE_BASE : 0.5 + (f - D.FATIGUE_BASE) * 0.065;
+  const INCIDENTS = [
+    { id: 'batt', w: 3, title: 'Battery not swapped', text: 'The pit crew sent the robot out on the battery from the last match.', apply: ev => { ev.batt = (ev.batt || 1) * 0.45; } },
+    { id: 'auto', w: 3, title: 'Wrong auto selected', text: 'The drive team picked the wrong autonomous routine from the dashboard.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
+    { id: 'bumper', w: 2, title: 'Bumper swap ran late', text: 'Wrong bumper colour on the cart: the swap at the field edge cost the whole autonomous period.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
+    { id: 'wire', w: 3, title: 'Loose connector missed', text: 'A loose CAN connector slipped through the pit checklist.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { hidden: 1 }); } },
+    { id: 'repair', w: 2, title: 'Repairs unfinished', text: 'The pit crew ran out of time before queuing and left a repair half-done.', apply: (ev, S) => { if (S.robot) Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - 8); }); } },
+    { id: 'scouts', w: 2, title: 'Scouting sheets mixed up', text: 'Two scouts swapped team numbers for a whole round of matches.', apply: ev => { ev.scoutCred = Math.max(0.5, (ev.scoutCred || 0.95) - 0.05); } }
+  ];
+  Ev.rollIncident = function (S, ev) {
+    if (ev.kind === 'scrimmage') return;
+    const f = ev.fatigue == null ? D.FATIGUE_BASE : ev.fatigue, n = ev.incidents.length;
+    if (f <= D.INCIDENT_FREE && n >= 1) return;
+    const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12);
+    if (!G.R.chance(perMatch)) return;
+    const inc = G.R.wpick(INCIDENTS, x => x.w);
+    inc.apply(ev, S);
+    const at = ev.stage === 'playoffs' ? 'Playoffs' : 'Qual ' + ((ev.quals[ev.qi] || {}).n || '');
+    ev.incidents.push({ at, title: inc.title, text: inc.text, f: Math.round(f) });
+    ev.log.push('Incident: ' + inc.title + '. ' + inc.text);
+  };
   Ev.obsOf = function (ev, t) {
     const o = (ev.obs || {})[t];
     if (!o || !o.n) return null;
@@ -239,16 +294,17 @@
   };
   // How valuable a pick is to an alliance, from the scouting data (shared by AI captains and the player's recommendations).
   // Small samples are shrunk toward a typical robot so one lucky or unlucky match doesn't dominate.
-  Ev.pickScore = function (ev, al, cand) {
-    const S = G.S, capOf = t => ev.caps[t] ? ev.caps[t].cap : G.Robot.matchEntry(S, ev).cap;
-    const cap = capOf(cand), o = Ev.obsOf(ev, cand), n = o ? o.n : 0, K = 3;
+  // shown: use the data the player's scouts recorded (possibly mixed up) instead of the truth
+  Ev.pickScore = function (ev, al, cand, shown) {
+    const S = G.S, capOf = t => ev.caps[t] ? ev.caps[t].cap : G.Robot.matchEntry(S, ev).cap, obs = shown ? Ev.obsShown : Ev.obsOf;
+    const cap = capOf(cand), o = obs(ev, cand), n = o ? o.n : 0, K = 3;
     const shrink = (rate, cnt, prior) => ((rate == null ? 0 : rate * cnt) + prior * K) / (cnt + K);
     const rel = shrink(o && o.rel, n, 0.8), auto = shrink(o && o.auto, n, 0.75);
     const lvl = o && o.climbLvl ? o.climbLvl : (o && o.climbTry ? 0 : cap.endLevel || 0);
     const climb = shrink(o && o.climb, o ? o.climbTry : 0, lvl ? 0.65 : 0);
     let v = (Ev.opr(ev)[cand] || 0) * (0.55 + 0.45 * rel);          // unreliable robots lose a lot of their value in playoffs
     v += (auto - 0.75) * 8 + climb * lvl * 2 - (o ? o.fouls * 1.5 + o.dead * 1.5 : 0);
-    const climbers = al.filter(t => { const ob = Ev.obsOf(ev, t); return ob ? (ob.climb || 0) >= 0.6 && ob.climbLvl >= 2 : (capOf(t).endLevel || 0) >= 2; }).length;
+    const climbers = al.filter(t => { const ob = obs(ev, t); return ob ? (ob.climb || 0) >= 0.6 && ob.climbLvl >= 2 : (capOf(t).endLevel || 0) >= 2; }).length;
     if (!climbers && lvl >= 2) v += 4 * climb;                         // complement: the alliance still needs a reliable climber
     const meta = G.Seasons[ev.year].meta;
     if (meta && meta.defense && al.length === 2) v += (cap.push || 0) / 20 + (o && o.def ? 2 : 0); // a second pick that can defend
@@ -532,6 +588,13 @@
       Ev.applyPlayoff(ev, m, Ev.runHeadless(ev, Ev.poMatchObj(ev, m)));
     }
     return null;
+  };
+  // Losses so far in the double-elimination bracket (finals games count separately)
+  Ev.playerLosses = function (ev) {
+    const pa = Ev.playerAlliance(ev);
+    if (pa < 0 || !ev.po) return { losses: 0, finals: 0 };
+    const F = ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'blue' : 'red';
+    return { losses: ev.po.matches.filter(m => m.loser === pa && !m.bo3).length, finals: F && (F.red === pa || F.blue === pa) ? F.games.filter(g => g.winner === side).length : 0, inFinals: !!(F && (F.red === pa || F.blue === pa)) };
   };
   Ev.playoffStatus = function (ev) {
     const pa = Ev.playerAlliance(ev);

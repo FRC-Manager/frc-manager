@@ -17,6 +17,7 @@
     const app = document.getElementById('app');
     const scr = UI.S[UI.screen] || UI.S.menu;
     UI.jobs = [];
+    if (UI.applyTheme) UI.applyTheme(G.S && G.S.team && UI.screen !== 'menu' && UI.screen !== 'newgame' ? G.S.team : UI.screen === 'newgame' && UI.st.ng ? UI.st.ng : null);
     let body;
     try { body = scr.html(); }
     catch (e) { console.error(e); body = '<div class="card"><b>Something went wrong rendering this screen.</b><pre class="sm muted">' + h(e.stack || e) + '</pre><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button></div>'; }
@@ -93,24 +94,30 @@
     const t = S.team;
     const contLbl = S.phase === 'end' ? 'Summary' : 'Continue ▶';
     return '<div class="topbar">' +
-      '<div class="teamchip"><div class="sw" style="background:' + h(t.c1) + ';color:' + h(t.c2) + '">' + h(String(t.num).slice(0, 5)) + '</div><div><div>' + h(t.name) + '</div><div class="xs muted">' + (S.si < 0 ? 'Pre-season' : h(G.Career.seasonName(S))) + (S.mode === 'career' ? ' · Season ' + (Math.max(0, S.si) + 1) + '/' + S.order.length : ' · Single Season') + '</div></div></div>' +
+      '<div class="teamchip">' + UI.avatar(t, 34) + '<div><div><b>' + h(String(t.num)) + '</b> ' + h(t.name) + '</div><div class="xs muted">' + (S.si < 0 ? 'Pre-season' : h(G.Career.seasonName(S))) + (S.mode === 'career' ? ' · Season ' + (Math.max(0, S.si) + 1) + '/' + S.order.length : ' · Single Season') + '</div></div></div>' +
       '<div class="sp"></div><div class="datelbl">' + h(G.Career.dateLabel(S)) + '</div><div class="sp"></div>' +
       kpi(U.money(S.money), 'Budget', S.money < 0 ? 'bad' : '') + kpi(Math.round(S.morale), 'Morale', S.morale < 40 ? 'bad' : '') + kpi(Math.round(S.support), 'Support', S.support < 30 ? 'bad' : '') + kpi(Math.round(S.rep), 'Reputation') +
+      (G.Career.inSeason(S) ? '<div class="kpi" title="Team fatigue ' + Math.round(S.fatigue) + ' (' + G.Career.fatigueLabel(S.fatigue) + ')"><span class="v">' + UI.fatigueBar(S.fatigue) + '</span><span class="l">Fatigue ' + Math.round(S.fatigue) + '</span></div>' : '') +
       '<button class="btn ghost" data-act="menuModal">☰</button>' +
       (S.event ? '<span class="tag acc">Event in progress</span>' : '<button class="btn primary" data-act="continue">' + contLbl + '</button>') + '</div>';
   }
+  // Fatigue as a bar (0–100) with a tick at the normal level
+  UI.fatigueBar = function (f, wide) {
+    const col = f > 60 ? 'var(--bad)' : f > 40 ? 'var(--warn)' : f < 22 ? 'var(--good)' : 'var(--info)';
+    return '<span class="fbar' + (wide ? ' wide' : '') + '"><i style="width:' + U.clamp(Math.round(f), 0, 100) + '%;background:' + col + '"></i><em style="left:' + D.FATIGUE_BASE + '%"></em></span>';
+  };
   function kpi(v, l, cls) { return '<div class="kpi"><span class="v ' + (cls || '') + '">' + h(v) + '</span><span class="l">' + l + '</span></div>'; }
   function sidebar(cur) {
     const S = G.S;
     if (S.event) {
-      return '<div class="side"><div class="nav on" data-act="nav" data-arg="event"><span class="ic">⚑</span><span class="t">Event</span></div>' +
+      return '<div class="side"><div class="nav on" data-act="nav" data-arg="event"><span class="ic">' + UI.icon('event', 18) + '</span><span class="t">Event</span></div>' +
         '<div class="xs muted" style="padding:8px 10px"><span class="t">Other screens open again after you leave the event from its results page.</span></div></div>';
     }
     const unread = S.inbox.filter(m => !m.read).length;
-    const items = [['hq', '⌂', 'Headquarters'], ['inbox', '✉', 'Inbox', unread], ['garage', '⚙', 'Garage'], ['design', '✎', 'Design Office'], ['know', '◆', 'Tech Knowledge'],
-      ['team', '☺', 'Team'], ['mentors', '★', 'Mentors'], ['workshop', '⚒', 'Workshop'], ['finance', '$', 'Finance'], ['calendar', '▦', 'Calendar']];
-    if (S.history.length || G.Career.banners(S).length) items.push(['history', '☰', 'History']);
-    return '<div class="side">' + items.map(i => '<div class="nav ' + (cur === i[0] ? 'on' : '') + '" data-act="nav" data-arg="' + i[0] + '"><span class="ic">' + i[1] + '</span><span class="t">' + i[2] + '</span>' + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>').join('') + '</div>';
+    const items = [['hq', 'hq', 'Headquarters'], ['inbox', 'inbox', 'Inbox', unread], ['garage', 'garage', 'Garage'], ['design', 'design', 'Design Office'], ['parts', 'parts', 'Shop'], ['know', 'know', 'Tech Knowledge'],
+      ['team', 'team', 'Team'], ['mentors', 'mentors', 'Mentors'], ['workshop', 'workshop', 'Workshop'], ['finance', 'finance', 'Finance'], ['calendar', 'calendar', 'Calendar']];
+    if (S.history.length || G.Career.banners(S).length) items.push(['history', 'history', 'History']);
+    return '<div class="side">' + items.map(i => '<div class="nav ' + (cur === i[0] ? 'on' : '') + '" data-act="nav" data-arg="' + i[0] + '"><span class="ic">' + UI.icon(i[1], 18) + '</span><span class="t">' + i[2] + '</span>' + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>').join('') + '</div>';
   }
   UI.A.nav = a => UI.go(a);
   UI.A.continue = function () {
@@ -122,7 +129,7 @@
       const ev = G.Career.eventThisTurn(S);
       let btns = '';
       if (ev && ev.active) btns += '<button class="btn primary" data-act="nav" data-arg="event">Return to event</button>';
-      else if (ev && ev.def) btns += '<button class="btn primary" data-act="goEvent">Go to ' + h(ev.def.name) + '</button>' + (ev.def.kind === 'champs' ? '<button class="btn" data-act="skipChamps">Skip Championship</button>' : '');
+      else if (ev && ev.def) btns += '<button class="btn primary" data-act="goEvent">Go to ' + h(ev.def.name) + '</button>' + (ev.def.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip this event</button>' : '');
       if (G.Career.dueActivities(S).length) btns += '<button class="btn" data-act="activities">Resolve sponsor activities</button>';
       if (S.incident) btns += '<button class="btn" data-act="incident">Resolve shop incident</button>';
       UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
@@ -174,6 +181,10 @@
     return o;
   };
   UI.A.skipChamps = () => { G.S.champsDeclined = true; UI.closeModal(); UI.toast('Championship skipped.'); UI.render(); };
+  UI.A.skipEvent = () => {
+    const ev = G.Career.eventThisTurn(G.S); if (!ev || !ev.def) return;
+    UI.confirm('Skip ' + ev.def.name + '?', 'The team stays home. Fees for an event this close are not refunded (you get half back only if you withdraw at least a month ahead, in the Calendar).', 'Skip it', () => { if (!UI.err(G.Career.skipEvent(G.S))) { UI.toast('Skipped ' + ev.def.name); UI.render(); } });
+  };
   UI.A.goEvent = function () {
     const S = G.S, ev = G.Career.eventThisTurn(S);
     UI.closeModal();
@@ -183,7 +194,7 @@
     if (def.kind === 'champs') { const e = G.Career.registerChamps(S); if (UI.err(e)) return; }
     if (def.kind !== 'einstein') {
       const tc = G.Career.travelCost(S, def);
-      if (S.money < tc - 20000) return UI.toast('You cannot afford the trip.', 'bad');
+      { const e = G.Career.afford(S, tc); if (e) return UI.toast(e + ' You can skip this event instead.', 'bad'); }
     }
     G.Career.startEvent(S, def);
     G.Save.write('auto');
@@ -198,7 +209,7 @@
       (Sz.meta ? '<div class="hint">' + h(Sz.meta.note) + ' Opponents figure this out over the season, so expect it more in later weeks and in playoffs.</div>' : '') +
       '<h3 class="mt">Your knowledge vs this game</h3><table class="t"><tr><th>Area</th><th>Relevance</th><th>Your level</th></tr>' +
       rel.map(k => '<tr><td>' + h(D.AREA[k].name) + '</td><td class="acc">' + '★'.repeat(Sz.relevance[k]) + '</td><td>Lv ' + G.Robot.know(S, k) + '</td></tr>').join('') + '</table>' +
-      '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="closeAndGo" data-arg="design">Open Design Office</button></div>', { wide: true, after: () => { const c = document.getElementById('kfield'); G.Render.preview(c, S.year); } });
+      '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="kickoffDone">Start the season ▶</button></div>', { wide: true, after: () => { const c = document.getElementById('kfield'); G.Render.preview(c, S.year); } });
   };
   UI.A.closeAndGo = a => { UI.closeModal(); UI.go(a); };
   UI.A.menuModal = function () {
@@ -240,7 +251,7 @@
   // =====================================================================
   UI.S.hq = { html() {
     const S = G.S, C = G.Career;
-    let o = '<h1>Headquarters</h1><div class="sub">' + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : '') + '</div>';
+    let o = UI.head('Headquarters', 'hq', h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics');
     o += cta(S);
     const banner = UI.devBanner(S);
     if (banner) o += '<div class="mt">' + banner + '</div>';
@@ -254,7 +265,7 @@
     } else o += UI.card('Robot', '<p class="muted">No robot yet. The game is revealed at Kickoff in January. Until then, start pre-season research in the Design Office to build knowledge.</p>', '<button class="btn sm" data-act="nav" data-arg="design">Design Office</button>');
     // projects
     const hplan = C.hoursPlan(S);
-    o += UI.card('Projects ' + UI.tag(S.projects.length + '/' + G.Robot.slots(S) + ' slots'), UI.hoursPanel(S, true) + UI.testPanel(S, true) + '<div class="hr"></div>' + (S.projects.length ? S.projects.map(p => '<div class="mb"><div class="row sm"><span>' + h(p.name) + '</span><span class="sp"></span><span class="muted">' + Math.round(p.done) + '/' + p.need + ' h · +' + Math.round(hplan.give[p.id] || 0) + ' h now</span></div>' + UI.bar(p.done, p.need) + '</div>').join('') : '<p class="muted">No active projects. Idle hours are wasted!</p>') +
+    o += UI.card(UI.it('design', 'Projects ') + UI.tag(G.Robot.slotUsed(S) + '/' + G.Robot.slots(S) + ' slots'), UI.hoursPanel(S, true) + UI.fatigueLine(S) + UI.testPanel(S, true) + '<div class="hr"></div>' + (S.projects.length ? S.projects.map(p => '<div class="mb"><div class="row sm"><span>' + h(p.name) + '</span><span class="sp"></span><span class="muted">' + Math.round(p.done) + '/' + p.need + ' h · +' + Math.round(hplan.give[p.id] || 0) + ' h now</span></div>' + UI.bar(p.done, p.need) + '</div>').join('') : '<p class="muted">No active projects. Idle hours are wasted!</p>') +
       (function () { const sg = G.Robot.suggest(S); return sg ? '<div class="sm"><span class="muted">Suggested:</span> ' + h(sg.title) + ' <button class="btn sm" data-act="startSuggest">Start</button></div>' : ''; })(), '<button class="btn sm" data-act="nav" data-arg="design">Design</button>');
     // money
     const s = S.season;
@@ -290,13 +301,14 @@
       const cost = d.kind === 'champs' ? 'Registration ' + U.money(D.FEES.champs) + ' + travel ' + U.money(C.travelCost(S, d)) : d.kind === 'einstein' ? '' : 'Travel ' + U.money(C.travelCost(S, d));
       const ap = C.arrivalPreview(S, d);
       const arr = ap ? ' · Robot arrives at ' + (ap.notes.length ? '<span class="warn">about ' + ap.cond + '%</span> (' + h(ap.notes.join(', ')) + ')' + (ap.spares > 0 ? ' — buy ' + ap.spares + ' spare part' + (ap.spares > 1 ? 's' : '') + ' in the Workshop first' : '') : '<span class="good">100%</span>') : '';
-      return box('This week: ' + h(d.name), cost + arr, '<button class="btn primary lg" data-act="goEvent">Go to event ▶</button>' + (d.kind === 'champs' ? '<button class="btn" data-act="skipChamps">Skip</button>' : ''));
+      const fat = d.kind !== 'einstein' && C.inSeason(S) ? ' · Team fatigue <b class="' + (S.fatigue > 40 ? 'warn' : '') + '">' + Math.round(S.fatigue) + ' (' + C.fatigueLabel(S.fatigue) + ')</b>' : '';
+      return box('This week: ' + h(d.name), cost + arr + fat, '<button class="btn primary lg" data-act="goEvent">Go to event ▶</button>' + (d.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip</button>' : ''));
     }
     const tips = {
       off: S.preseason ? 'Pre-season: sign sponsors (Finance), hire mentors, register regionals (Calendar), start research (Design Office).' : 'Offseason: research, offseason events (Calendar), outreach (Team) and sponsors in October.',
       kickoff: 'Kickoff! Choose a concept for every subsystem in the Design Office, then press Continue.',
       build: S.week === 7 ? 'Week 0 — last week before competitions start.' : 'Build season: keep project slots busy. Consider overtime in the Design Office.',
-      comp: 'Competition season — no event this week. Keep upgrading between events.',
+      comp: S.week === 7 ? 'Week 7 — no regionals. Lighten the load and let the team recover before the Championship.' : 'Competition season — no event this week. Keep upgrading between events.',
       champs: 'The season is wrapping up.'
     };
     return '<div class="hint">' + h(tips[S.phase] || '') + '</div>';
@@ -309,11 +321,25 @@
     const S = G.S;
     const KIND = { boost: ['Opportunity', 'good'], incident: ['Shop incident', 'warn'], shop: ['Facilities', 'warn'], fun: ['Team chatter', 'info'], news: ['News', ''], money: ['Finance', 'good'], event: ['Event', 'acc'], dev: ['Development', ''], know: ['Knowledge', ''], staff: ['Team', ''], kickoff: ['Kickoff', 'acc'], goal: ['Goals', ''] };
     const kt = m => KIND[m.kind] ? UI.tag(KIND[m.kind][0], KIND[m.kind][1]) + ' ' : '';
-    const list = S.inbox.map(m => '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span><span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + (UI.st.openMsg === m.id ? '<div class="mb">' + h(m.body) + '</div>' : '') + '</div>').join('');
+    // messages can carry optional replies with small effects: shown inline when the message is open, never as a popup
+    let openReplies = 0;
+    const list = S.inbox.map(m => {
+      const opts = G.News.replyOptions(S, m), open = UI.st.openMsg === m.id;
+      if (opts.length) openReplies++;
+      const rt = opts.length ? ' ' + UI.tag('reply', 'acc') : m.replied != null ? ' ' + UI.tag('replied', 'good') : '';
+      let body = '';
+      if (open) {
+        body = '<div class="mb">' + h(m.body) + '</div>';
+        if (opts.length) body += '<div class="row wrap gap4 mt">' + opts.map(o => '<button class="btn sm' + (o.i === 0 ? ' primary' : '') + '" data-act="replyMsg" data-arg="' + m.id + '|' + o.i + '"' + (o.ok ? '' : ' disabled') + '>' + h(o.text) + '</button>').join('') + '</div><div class="xs muted mt">Optional. Reply now or ignore it; the offer lapses ' + (m.until != null && m.until <= (S.newsTurn || 0) ? 'after this turn' : 'soon') + '.</div>';
+        if (m.outcome) body += '<div class="mb good">↳ ' + h(m.outcome) + '</div>';
+      }
+      return '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
+    }).join('');
     const due = G.Career.dueActivities(S);
-    return '<h1>Inbox</h1><div class="sub">News, results and decisions.</div><div class="row mb"><button class="btn sm" data-act="readAll">Mark all read</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
+    return UI.head('Inbox', 'inbox', 'News, results and decisions.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row mb"><button class="btn sm" data-act="readAll">Mark all read</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
   } };
   UI.A.readMsg = id => { const m = G.S.inbox.find(x => x.id === id); if (m) m.read = true; UI.st.openMsg = UI.st.openMsg === id ? null : id; UI.render(); };
+  UI.A.replyMsg = arg => { const [id, i] = String(arg).split('|'); if (G.News.reply(G.S, id, Number(i)) == null) return; UI.st.openMsg = id; UI.render(); };
   UI.A.readAll = () => { G.S.inbox.forEach(m => m.read = true); UI.render(); };
 
   // =====================================================================
@@ -321,60 +347,134 @@
   // =====================================================================
   UI.S.garage = { html() {
     const S = G.S;
-    if (!S.robot) return '<h1>Garage</h1><p class="muted">No robot yet — wait for Kickoff.</p>';
-    const R = S.robot, year = R.year, cap = G.Robot.cap(S), look = G.Robot.look(S), w = G.Robot.weight(S);
-    let o = '<h1>Garage</h1><div class="sub">' + year + ' ' + h(G.Seasons[year].name) + (S.phase === 'off' ? ' — last season\'s robot (used at offseason events)' : '') + '</div>';
-    o += '<div class="grid g3"><div class="card span2"><div class="row" style="align-items:stretch">' + '<div style="flex:2">' + UI.sideCanvas(look, 'blue', S.team.num, 560, 300) + '</div><div style="flex:1;display:flex;align-items:center;justify-content:center">' + UI.topCanvas(look, 'blue', S.team.num, 0, year, 200) + '</div></div></div>';
+    if (!S.robot) return UI.head('Garage', 'garage', '', 'garage') + '<p class="muted">No robot yet — wait for Kickoff.</p>';
+    const R = S.robot, year = R.year, ci = R.comp || 0, lock = G.Robot.garageLock(S);
+    let o = UI.head('Garage', 'garage', year + ' ' + h(G.Seasons[year].name) + (S.phase === 'off' ? ' — last season\'s robots (used at offseason events)' : '') + '. Two robots: choose which one competes and which one the drivers practice on.', 'garage');
+    if (lock) o += '<div class="warnbox mb">' + h(lock) + ' Spares identical to the competition robot\'s subsystems can still be swapped in from the event screen.</div>';
+    o += '<div class="grid g2 mb">' + [0, 1].map(bi => botCard(S, bi, lock)).join('') + '</div>';
+    o += storageCard(S, lock);
+    // the competition robot in detail
+    const cap = G.Robot.cap(S), w = G.Robot.weight(S);
+    o += '<h2 class="mt">' + h(R.bots[ci].name) + ' (competition robot)</h2><div class="grid g3">';
     o += UI.card('Overall', UI.stat('Speed', cap.speed) + UI.stat('Agility', cap.agility) + UI.stat('Pushing', cap.push) + UI.stat('Intake', cap.intake) + UI.stat('Scoring speed', cap.scoreSpd) + UI.stat('Accuracy', cap.accuracy) +
       (cap.rmax ? UI.stat('Range', cap.range) : '') + UI.stat('Endgame', cap.endgame) + UI.stat('Autonomous', cap.auto) + UI.stat('Vision', cap.vision) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) +
-      '<div class="hr"></div><div class="kv"><span class="k">Weight</span><span class="' + (w > 125 ? 'bad b' : '') + '">' + w + ' / 125 lb</span><span class="k">Auto</span><span>' + h(G.Seasons[year].autoTiers[R.autoTier]) + '</span><span class="k">Vision</span><span>Level ' + R.visionLvl + '</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condAvg(S)) + '%</span><span class="k">Practice robot</span><span>' + (R.practiceBot ? 'Yes' : 'No') + '</span><span class="k">Power rating</span><span>' + G.Cap.power(year, cap) + '</span></div>');
-    o += '</div><h2 class="mt">Subsystems</h2><div class="grid g3">';
+      '<div class="hr"></div><div class="kv"><span class="k">Weight</span><span class="' + (w > 125 ? 'bad b' : '') + '">' + w + ' / 125 lb</span><span class="k">Auto</span><span>' + h(G.Seasons[year].autoTiers[R.autoTier]) + '</span><span class="k">Vision</span><span>Level ' + R.visionLvl + '</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condAvg(S)) + '%</span><span class="k">Power rating</span><span>' + G.Cap.power(year, cap) + '</span></div>');
     G.Robot.describe(S).forEach(d => {
-      const s = d.sub, c = d.concept;
-      if (!s.ver) { o += UI.card(h(d.name), '<p class="muted">Not built.</p>', '<button class="btn sm" data-act="nav" data-arg="design">Design</button>'); return; }
+      const s = d.sub, c = s && s.ver ? G.Seasons.concept(year, d.id, s.concept) : null;
+      if (!c) return;
       o += UI.card(h(d.name) + ' ' + UI.tag('v' + s.ver, 'acc'), '<div class="b mb">' + h(c.name) + '</div>' + Object.keys(s.stats).map(k => UI.stat(D.STAT[k] || k, s.stats[k], G.Robot.ceil(S, year, d.id, c, k))).join('') +
-        (d.id !== 'soft' ? UI.stat('Reliability', s.rel, null, UI.colorFor(s.rel)) + UI.stat('Condition', s.cond, null, UI.colorFor(s.cond)) + '<div class="sm muted">' + s.w.toFixed(1) + ' lb · complexity ' + c.cx + (S.robot.pending.includes(d.id) ? ' · <span class="warn">upgrade waiting for install</span>' : '') + '</div>' : ''));
+        (d.id !== 'soft' ? UI.stat('Reliability', s.rel, null, UI.colorFor(s.rel)) + UI.stat('Condition', s.cond, null, UI.colorFor(s.cond)) + '<div class="sm muted">' + s.w.toFixed(1) + ' lb · complexity ' + c.cx + (R.pending.includes(d.id) ? ' · <span class="warn">upgrade waiting for install</span>' : '') + '</div>' : ''));
     });
     o += '</div><p class="sm muted mt">White marks show each stat\'s current ceiling (concept + knowledge + parts). Upgrades close part of the gap each time.</p>';
+    o += '<div class="hint mt">' + UI.icon('team', 14) + ' <b>Driver familiarity</b>: the drive team knows each subsystem they have driven. A brand-new mechanism starts around ' + Math.round(D.FAM.NEW * 100) + '%, a new version of the same one costs about ' + Math.round(D.FAM.VER * 100) + '% per version, and switching concept costs 20–65% (a dumper to a turret, or tank to swerve, is a big change). Weekly shop driving, driver practice, practice blocks at events and every match win it back. In matches each subsystem delivers ' + Math.round(100 - D.FAM.EFFECT * 100) + '–100% of its stats depending on familiarity, so let the drivers practice on the robot they will compete with.</div>';
     return o;
   } };
+  // One robot: its subsystems (installed units), familiarity, and the actions to change them
+  function botCard(S, bi, lock) {
+    const R = S.robot, year = R.year, b = R.bots[bi], ci = R.comp || 0, di = G.Robot.driveBot(S), run = G.Robot.runnable(R, bi);
+    const any = Object.keys(b.subs).some(k => k !== 'soft' && b.subs[k] && b.subs[k].ver);
+    let o = '<div class="card botcard' + (bi === ci ? ' comp' : '') + '"><div class="ct">' + UI.icon('garage', 18) + '<b class="lg">' + h(b.name) + '</b>' + (bi === ci ? UI.tag('Competition robot', 'acc') : '') + (bi === di ? UI.tag('Drivers practice here', 'info') : '') + '</div>';
+    if (any) {
+      const cap = G.Robot.capOf(S, bi), fam = G.Robot.famAvg(R, bi), w = G.Robot.weightOf(R, bi), pp = G.Parts.profile(S, bi === ci ? 'comp' : 'prac');
+      o += '<div class="botimg">' + UI.sideCanvas(G.Robot.lookOf(S, bi), 'blue', S.team.num, 340, 160) + '</div>' +
+        '<div class="kv"><span class="k">Power</span><span>' + G.Cap.power(year, cap) + '</span><span class="k">Weight</span><span class="' + (w > 125 ? 'bad b' : '') + '">' + w + ' / 125 lb</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condOf(R, bi)) + '%</span></div>' +
+        (fam != null ? '<div class="statrow wide mt"><span class="n">Driver familiarity</span>' + UI.bar(fam * 100, 100, UI.colorFor(fam * 100)) + '<span class="v">' + Math.round(fam * 100) + '%</span></div>' : '') +
+        (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Shop).</div>' : '');
+    } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build subsystems (Design Office: Build copy) or fit stored ones.</div></div>';
+    o += '<table class="t slots mt">' + G.Seasons[year].subs.filter(sd => sd.id !== 'soft').map(sd => {
+      const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u);
+      const tag = !c || G.Robot.isLatest(R, k, u) ? '' : u.concept === d.concept ? UI.tag('v' + d.ver + ' designed', 'warn') : UI.tag('old concept', 'warn');
+      const other = R.bots[1 - bi].subs[k], opts = R.store.filter(x => x.sub === k).map(x => ['s', x]).concat(other && other.ver ? [['o', other]] : []);
+      const optHtml = opts.map(([wh, x]) => { const xc = G.Seasons.concept(year, k, x.concept); return '<option value="' + x.uid + '">' + (wh === 'o' ? 'Swap with ' + h(R.bots[1 - bi].name) + ': ' : 'From storage: ') + h(xc ? xc.name : String(x.concept)) + ' v' + x.ver + ' (' + Math.round(x.cond) + '%)</option>'; }).join('');
+      const act = lock || (!opts.length && !c) ? '' : '<select class="inp sm" data-chg="garagePlace" data-bot="' + bi + '" data-sub="' + k + '"><option value="">' + (c ? 'Change…' : 'Fit…') + '</option>' + optHtml + (c ? '<option value="off">Take it off (to storage)</option>' : '') + '</select>';
+      return '<tr><td><div class="b sm">' + h(sd.name) + '</div><div class="xs">' + (c ? h(c.name) + ' <span class="acc">v' + u.ver + '</span> ' + tag : '<span class="dim">empty</span>') + '</div></td>' +
+        '<td class="xs">' + (c ? '<div class="row gap4" title="Condition ' + Math.round(u.cond) + '%"><span class="muted">cond</span><span class="mini">' + UI.bar(u.cond, 100, UI.colorFor(u.cond)) + '</span></div>' +
+          (f != null ? '<div title="Driver familiarity"><span class="muted">fam</span> <b class="' + (f < 0.6 ? 'warn' : f >= 0.85 ? 'good' : '') + '">' + Math.round(f * 100) + '%</b></div>' : '') : '') + '</td>' +
+        '<td class="num">' + act + '</td></tr>';
+    }).join('') + '</table>';
+    o += '<div class="row wrap gap4 mt">' + (bi !== ci ? '<button class="btn sm" data-act="setComp" data-arg="' + bi + '" ' + (run && !lock ? '' : 'disabled') + '>Make it the competition robot</button>' : '') +
+      (bi !== di ? '<button class="btn sm" data-act="setDrive" data-arg="' + bi + '" ' + (run ? '' : 'disabled title="Needs a drivetrain"') + '>Drivers practice on it</button>' : '') + '</div>';
+    // the second robot: build every missing subsystem in one batch (the old practice robot project)
+    if (bi !== ci && R.year === S.year && S.phase !== 'off') {
+      const run2 = S.projects.find(p => p.type === 'practiceBot');
+      if (run2) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Full copy being built: ' + Math.round(run2.done) + '/' + run2.need + ' h</span></div>';
+      else if (G.Robot.fullCopySubs(R).length) {
+        const q = G.Robot.quote(S, { type: 'practiceBot' });
+        o += '<div class="copyrow mt"><div class="sp"><b class="sm">Build a full copy</b><div class="xs muted">Every finished subsystem this robot lacks, in one batch. Needs a second set of electronics. The more of the competition robot it copies, the more it gives: up to +' + D.TEST_BOT_HOURS + ' testing hours a week (Practice Field), driver practice on it up to ' + Math.round((D.BOT2_PRACTICE - 1) * 100) + '% more effective, better tuning at events, and its identical subsystems are spares at events.</div></div><span class="xs muted">' + q.hours + ' h · ' + U.money(q.cost) + '</span><button class="btn sm" data-act="startSimple" data-arg="practiceBot" ' + (q.err ? 'disabled' : '') + '>Start</button></div>' + (q.err ? '<div class="xs bad">' + h(q.err) + '</div>' : '');
+      }
+    }
+    return o + '</div>';
+  }
+  // Built subsystems not on a robot: event spares, old versions, old concepts
+  function storageCard(S, lock) {
+    const R = S.robot, year = R.year, order = G.Seasons[year].subs.map(sd => sd.id);
+    const list = R.store.slice().sort((a, b) => order.indexOf(a.sub) - order.indexOf(b.sub) || b.ver - a.ver);
+    let body = '<div class="sm muted mb">Built subsystems that are not on a robot: up to ' + D.STORE_MAX + ' of each kind. A spare identical to the competition robot\'s (same concept and version) goes to events: swap it in between matches to bring that subsystem back to 100%. Take old ones apart for spare parts; their mechanism kits go back on the shelf.</div>';
+    if (!list.length) body += '<p class="muted">Empty. Build copies in the Design Office.</p>';
+    else body += '<table class="t"><tr><th>Subsystem</th><th>Unit</th><th>Condition</th><th></th></tr>' + list.map(u => {
+      const c = G.Seasons.concept(year, u.sub, u.concept), cu = R.subs[u.sub], spare = cu && cu.ver && cu.concept === u.concept && cu.ver === u.ver, n = G.Robot.harvestValue(R, u);
+      return '<tr><td class="sm b">' + h(G.Seasons.sub(year, u.sub).name) + '</td><td class="sm">' + h(c ? c.name : String(u.concept)) + ' <span class="acc">v' + u.ver + '</span> ' + (spare ? UI.tag('event spare', 'good') : '') + (u.kits ? ' ' + UI.tag('COTS kits', 'info') : '') + '</td>' +
+        '<td><span class="mini">' + UI.bar(u.cond, 100, UI.colorFor(u.cond)) + '</span> <span class="xs muted">' + Math.round(u.cond) + '%</span></td><td class="num">' +
+        [0, 1].map(bi => '<button class="btn sm" data-act="garageFit" data-arg="' + u.uid + '|' + bi + '" ' + (lock ? 'disabled' : '') + '>Fit to ' + h(R.bots[bi].name) + '</button>').join(' ') +
+        ' <button class="btn sm bad" data-act="garageHarvest" data-arg="' + u.uid + '">Take apart' + (n ? ' · +' + n + ' spare' + (n > 1 ? 's' : '') : u.kits ? ' · kits back' : '') + '</button></td></tr>';
+    }).join('') + '</table>';
+    return UI.card(UI.it('box', 'Storage ') + UI.tag(R.store.length + ' unit' + (R.store.length === 1 ? '' : 's')), body);
+  }
+  UI.A.garagePlace = (v, el) => {
+    if (!v) return;
+    if (v === 'off') { UI.err(G.Robot.unmount(G.S, Number(el.dataset.bot), el.dataset.sub)); return UI.render(); }
+    if (!UI.err(G.Robot.place(G.S, v, Number(el.dataset.bot)))) UI.toast('Fitted', 'good');
+    UI.render();
+  };
+  UI.A.garageFit = arg => { const [uid, bi] = arg.split('|'); if (!UI.err(G.Robot.place(G.S, uid, Number(bi)))) { UI.toast('Fitted to ' + G.S.robot.bots[Number(bi)].name, 'good'); UI.render(); } };
+  UI.A.garageOff = arg => { const [bi, k] = arg.split('|'); if (!UI.err(G.Robot.unmount(G.S, Number(bi), k))) UI.render(); };
+  UI.A.garageHarvest = uid => {
+    const S = G.S, u = S.robot.store.find(x => x.uid === uid); if (!u) return;
+    const n = G.Robot.harvestValue(S.robot, u);
+    UI.confirm('Take it apart?', (n ? 'You get ' + n + ' spare part' + (n > 1 ? 's' : '') : 'It is too simple to yield spare parts') + (u.kits ? ', and its mechanism kits go back on the shelf' : '') + '. The unit is gone for good.', 'Take apart', () => {
+      const r = G.Robot.harvest(S, uid); if (typeof r === 'string') return UI.err(r);
+      UI.toast(r.spares ? '+' + r.spares + ' spare part' + (r.spares > 1 ? 's' : '') : 'Taken apart' + (r.kits ? ': kits back on the shelf' : ''), 'good'); UI.render();
+    });
+  };
+  UI.A.setComp = bi => { if (!UI.err(G.Robot.setComp(G.S, Number(bi)))) { UI.toast(G.S.robot.bots[Number(bi)].name + ' is now the competition robot. The best electronics move to it.', 'good'); UI.render(); } };
+  UI.A.setDrive = bi => { if (!UI.err(G.Robot.setDrive(G.S, Number(bi)))) { UI.toast('The drivers will practice on ' + G.S.robot.bots[Number(bi)].name, 'good'); UI.render(); } };
 
   // =====================================================================
   // DESIGN OFFICE
   // =====================================================================
   UI.S.design = { html() {
     const S = G.S, R = S.robot, C = G.Career, inSeason = R && R.year === S.year && S.phase !== 'off';
-    let o = '<h1>Design Office</h1><div class="sub">Choose development directions, run projects, research for the future.</div>';
+    let o = UI.head('Design Office', 'design', 'Choose development directions, run projects, research for the future.', 'design');
     o += UI.devBanner(S);
-    o += '<div class="row wrap mb"><span class="tag">' + S.projects.length + '/' + G.Robot.slots(S) + ' project slots</span><span class="xs muted">' + h(G.Robot.slotText(S)) + '</span>' +
+    o += '<div class="row wrap mb"><span class="tag">' + G.Robot.slotUsed(S) + '/' + G.Robot.slots(S) + ' project slots</span><span class="xs muted">' + h(G.Robot.slotText(S)) + '</span>' +
       (S.phase === 'build' || S.phase === 'kickoff' ? '<label class="row sm"><input type="checkbox" data-chg="overtime" ' + (S.overtime ? 'checked' : '') + '> Overtime this week (+30% hours, −6 morale, $200)</label>' : '') + '</div>';
-    o += UI.card('Team hours this ' + (S.phase === 'off' ? 'month' : 'week'), UI.hoursPanel(S));
+    o += UI.card(UI.it('clock', 'Team hours this ' + (S.phase === 'off' ? 'month' : 'week')), UI.hoursPanel(S) + UI.fatigueLine(S));
     o += '<div class="mt">' + UI.card('Testing hours ' + UI.tag('practice field', 'info'), UI.testPanel(S)) + '</div>';
     // weekly suggestion
     const sg = G.Robot.suggest(S);
     if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row mt"><button class="btn sm primary" data-act="startSuggest">Start it</button></div></div>';
     // active projects
     const plan = C.hoursPlan(S);
-    o += '<div class="mt">' + UI.card('Active projects', S.projects.length ? '<table class="t"><tr><th>Project</th><th style="width:26%">Progress</th><th>This ' + (S.phase === 'off' ? 'month' : 'week') + '</th><th>Priority</th><th></th></tr>' + S.projects.map(p => '<tr><td>' + h(p.name) + (G.Robot.testable(p) && p.test ? ' <span class="xs info" title="Validated on the practice field: better upgrade quality">tested ' + Math.round(G.Robot.testQ(p) * 100) + '%</span>' : '') + (p.effort && p.effort !== 'std' ? ' ' + UI.tag(G.Robot.EFFORT[p.effort].name) : '') + '</td><td>' + UI.bar(p.done, p.need) + '<span class="xs muted">' + Math.round(p.done) + '/' + p.need + ' h</span></td><td class="sm">' + UI.projEta(S, p, plan) + '</td><td><select class="inp" data-chg="prio" data-id="' + p.id + '">' + ['high', 'normal', 'low'].map(x => '<option ' + (p.prio === x ? 'selected' : '') + '>' + x + '</option>').join('') + '</select></td><td><button class="btn sm bad" data-act="cancelProj" data-arg="' + p.id + '">Cancel</button></td></tr>').join('') + '</table>' : '<p class="muted">Nothing running — all team hours this turn would be wasted.</p>') + '</div>';
+    o += '<div class="mt">' + UI.card('Active projects', S.projects.length ? '<table class="t"><tr><th>Project</th><th style="width:24%">Progress</th><th>This ' + (S.phase === 'off' ? 'month' : 'week') + '</th><th title="Extra hours beyond the plan raise the result\'s quality, with diminishing returns">Extra hours</th><th>Priority</th><th></th></tr>' + S.projects.slice().sort((a, b) => G.Robot.isFab(a) - G.Robot.isFab(b)).map((p, i, arr) => (G.Robot.isFab(p) && (i === 0 || !G.Robot.isFab(arr[i - 1])) ? '<tr><td colspan="6" class="xs muted b">' + UI.icon('garage', 12) + ' FABRICATION · copies of finished designs: team hours, but no project slot</td></tr>' : '') + '<tr><td>' + h(p.name) + (p.kits ? ' ' + UI.tag('COTS kits', 'info') : '') + (G.Robot.testable(p) && p.test ? ' <span class="xs info" title="Validated on the practice field: better upgrade quality">tested ' + Math.round(G.Robot.testQ(p) * 100) + '%</span>' : '') + (p.effort && p.effort !== 'std' ? ' ' + UI.tag(G.Robot.EFFORT[p.effort].name) : '') + '</td><td>' + UI.bar(p.done + (p.polish || 0), p.need + (p.extra || 0), null, p.extra ? p.need : null) + '<span class="xs muted">' + Math.round(p.done) + '/' + p.need + ' h' + (p.extra ? ' + ' + Math.round(p.polish || 0) + '/' + p.extra + ' extra' : '') + '</span></td><td class="sm">' + UI.projEta(S, p, plan) + '</td><td>' + (G.Robot.isFab(p) ? '<span class="xs dim" title="Copies follow the design: extra hours would change nothing">—</span>' : '<input class="inp num" type="number" min="0" step="1" max="' + p.need + '" value="' + (p.extra || 0) + '" data-chg="projExtra" data-id="' + p.id + '" style="width:64px"><div class="xs muted">' + (p.extra ? 'quality +' + Math.round(G.Robot.polishQFor(p, p.extra) * 100) + '%' : 'none') + '</div>') + '</td><td><select class="inp" data-chg="prio" data-id="' + p.id + '">' + ['high', 'normal', 'low'].map(x => '<option ' + (p.prio === x ? 'selected' : '') + '>' + x + '</option>').join('') + '</select></td><td><button class="btn sm bad" data-act="cancelProj" data-arg="' + p.id + '">Cancel</button></td></tr>').join('') + '</table>' : '<p class="muted">Nothing running — all team hours this turn would be wasted.</p>') + '</div>';
     if (inSeason) {
       const year = R.year;
       o += '<h2 class="mt">' + year + ' ' + h(G.Seasons[year].name) + ' robot</h2><div class="grid g3">';
       G.Robot.describe(S).forEach(d => {
-        const s = d.sub, c = d.concept;
-        const busy = S.projects.some(p => p.sub === d.id);
-        let body = s.ver ? '<div class="b">' + h(c.name) + ' ' + UI.tag('v' + s.ver, 'acc') + '</div><div class="sm muted mb">' + Object.keys(s.stats).map(k => (D.STAT[k] || k) + ' ' + s.stats[k]).join(' · ') + (d.id !== 'soft' ? ' · Rel ' + s.rel : '') + '</div>' : '<div class="warn mb">Not built yet</div>';
+        const s = d.design, c = d.concept;
+        const busy = S.projects.some(p => p.sub === d.id && p.type !== 'copy'), copying = S.projects.some(p => p.sub === d.id && p.type === 'copy');
+        let body = s.ver ? '<div class="b">' + h(c.name) + ' ' + UI.tag('v' + s.ver, 'acc') + '</div><div class="sm muted">' + Object.keys(s.stats).map(k => (D.STAT[k] || k) + ' ' + s.stats[k]).join(' · ') + (d.id !== 'soft' ? ' · Rel ' + s.rel : '') + '</div>' + (d.id !== 'soft' ? copiesLine(S, d.id) : '<div class="mb"></div>') : s.concept === 'none' ? '<div class="muted mb">No mechanism</div>' : '<div class="warn mb">Not built yet</div>';
         let btns = '';
         if (d.id === 'soft') {
           btns = '<button class="btn sm" data-act="upgradeModal" data-arg="soft" ' + (busy ? 'disabled' : '') + '>Upgrade code</button><button class="btn sm" data-act="startSimple" data-arg="auto">New auto routine</button><button class="btn sm" data-act="startSimple" data-arg="vision">Vision upgrade</button>';
           body += '<div class="sm">Auto: <b>' + h(G.Seasons[year].autoTiers[R.autoTier]) + '</b> · Vision Lv <b>' + R.visionLvl + '</b></div>';
         } else {
           btns = '<button class="btn sm ' + (s.ver ? '' : 'primary') + '" data-act="conceptModal" data-arg="' + d.id + '" ' + (busy ? 'disabled' : '') + '>' + (s.ver ? 'Switch concept' : 'Choose concept') + '</button>' +
-            (s.ver ? '<button class="btn sm" data-act="upgradeModal" data-arg="' + d.id + '" ' + (busy ? 'disabled' : '') + '>Upgrade</button><button class="btn sm" data-act="startSimpleSub" data-arg="harden|' + d.id + '" ' + (busy ? 'disabled' : '') + '>Harden</button><button class="btn sm" data-act="startSimpleSub" data-arg="light|' + d.id + '" ' + (busy ? 'disabled' : '') + '>Lighten</button>' : '');
+            (s.ver ? '<button class="btn sm" data-act="upgradeModal" data-arg="' + d.id + '" ' + (busy ? 'disabled' : '') + '>Upgrade</button>' + copyBtn(S, d.id, copying) + '<button class="btn sm" data-act="startSimpleSub" data-arg="harden|' + d.id + '" ' + (busy ? 'disabled' : '') + '>Harden</button><button class="btn sm" data-act="startSimpleSub" data-arg="light|' + d.id + '" ' + (busy ? 'disabled' : '') + '>Lighten</button>' : '');
         }
-        o += UI.card(h(d.name) + (busy ? ' ' + UI.tag('in progress', 'info') : ''), body + '<div class="row wrap gap4 mt">' + btns + '</div>');
+        o += UI.card(h(d.name) + (busy ? ' ' + UI.tag('in progress', 'info') : '') + (copying ? ' ' + UI.tag('copy being built', 'info') : ''), body + '<div class="row wrap gap4 mt">' + btns + '</div>');
       });
       o += UI.card('Program projects', '<div class="col">' +
-        simpleRow('practiceBot', 'Practice robot', '+' + D.TEST_BOT_HOURS + ' testing hours a week (with a practice field); out of spares, practice wears it instead of the competition robot; +tuning, +6 spares.') +
+        '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">Build copies of subsystems here ("Build copy"), or a full copy of the robot in the Garage. Pick which robot competes and which one the drivers practice on there.</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
         simpleRow('impact', 'Impact Award submission', 'Write your Impact story. Required to compete for the Impact Award this season (see HQ for your odds).') +
         (S.equip.kb ? '' : simpleRow('kb', 'Knowledge Base', 'Team wiki + CAD library: halves knowledge decay between seasons.')) + '</div>');
       o += '</div>';
@@ -392,6 +492,18 @@
     }).join('') + '</table>';
     return o;
   } };
+  // Where the built copies of a subsystem are: on each robot, and how many in storage
+  function copiesLine(S, k) {
+    const R = S.robot, d = R.design[k];
+    const where = R.bots.map(b => { const u = b.subs[k]; return h(b.name) + ' ' + (u && u.ver ? (u.concept === d.concept ? '<b class="' + (u.ver >= d.ver ? 'good' : 'warn') + '">v' + u.ver + '</b>' : '<span class="warn">old concept</span>') : '<span class="dim">—</span>'); });
+    const st = G.Robot.storeCount(R, k);
+    return '<div class="xs muted mb">' + UI.icon('garage', 12) + ' ' + where.join(' · ') + (st ? ' · ' + st + ' in storage' : '') + '</div>';
+  }
+  function copyBtn(S, k, copying) {
+    const q = G.Robot.quote(S, { type: 'copy', sub: k });
+    const tip = q.err ? q.err : q.name + ': ' + q.hours + ' h · ' + U.money(q.cost) + (q.note ? '. ' + q.note : '');
+    return '<button class="btn sm" data-act="startSimpleSub" data-arg="copy|' + k + '" ' + (q.err || copying ? 'disabled ' : '') + 'title="' + h(tip) + '">Build copy</button>';
+  }
   function simpleRow(type, name, desc) {
     const q = G.Robot.quote(G.S, { type });
     return '<div class="row"><div class="sp"><b>' + h(name) + '</b><div class="xs muted">' + h(desc) + '</div></div><span class="xs muted">' + q.hours + ' h · ' + U.money(q.cost) + '</span><button class="btn sm" data-act="startSimple" data-arg="' + type + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></div>';
@@ -401,15 +513,15 @@
   // ---------------- team hours: where this turn's hours go ----------------
   const PCOL = ['#f5b800', '#3ecf8e', '#4aa3ff', '#c77dff', '#ff8a5c', '#5ce1e6', '#ffd24d', '#9be15d'];
   UI.projEta = function (S, p, plan) {
-    const hrs = plan.give[p.id] || 0, k = plan.mult(p), rate = hrs * k;
-    if (rate < 0.5) return '<span class="warn">no hours</span>';
-    const turns = Math.ceil((p.need - p.done) / rate - 1e-6), unit = S.phase === 'off' ? 'month' : 'week';
-    return '<b>+' + Math.round(hrs) + ' h</b>' + (k !== 1 ? ' <span class="xs warn">×' + k.toFixed(2) + '</span>' : '') + '<div class="xs muted">' + (turns <= 1 ? 'finishes this ' + unit : '~' + turns + ' ' + unit + 's left') + '</div>';
+    const hrs = (plan.give[p.id] || 0) + ((plan.pol && plan.pol[p.id]) || 0), k = plan.mult(p), rate = hrs * k;
+    if (rate < 0.5) return p.done >= p.need - 0.01 ? '<span class="xs muted">waiting for spare hours to polish</span>' : '<span class="warn">no hours</span>';
+    const turns = Math.ceil((p.need + (p.extra || 0) - p.done - (p.polish || 0)) / rate - 1e-6), unit = S.phase === 'off' ? 'month' : 'week';
+    return '<b>+' + Math.round(hrs) + ' h</b>' + (plan.pol && plan.pol[p.id] > 0.5 ? ' <span class="xs info" title="Extra hours on quality">(' + Math.round(plan.pol[p.id]) + ' extra)</span>' : '') + (k !== 1 ? ' <span class="xs warn">×' + k.toFixed(2) + '</span>' : '') + '<div class="xs muted">' + (turns <= 1 ? 'finishes this ' + unit : '~' + turns + ' ' + unit + 's left') + '</div>';
   };
   // Testing hours (practice-field time, like wind-tunnel hours): split between development testing and driver practice
   UI.testPanel = function (S, compact) {
     const C = G.Career, th = C.testHours(S);
-    if (!th.unlocked) return compact ? '' : '<div class="sm muted">No practice field yet. Buy one in the Workshop to unlock weekly <b>testing hours</b>, like wind-tunnel time: test upgrades on the field or let the drive team practice.</div><div class="row mt"><button class="btn sm" data-act="nav" data-arg="workshop">Workshop</button></div>';
+    if (!th.unlocked) return compact ? '' : '<div class="sm muted">No practice field yet. Buy one in the Workshop to unlock weekly <b>testing hours</b>: test upgrades on the field or let the drive team practice.</div><div class="row mt"><button class="btn sm" data-act="nav" data-arg="workshop">Workshop</button></div>';
     if (!th.total) return compact ? '' : '<div class="sm muted">No testing time this turn.</div>';
     const unit = th.unit, conf = G.Robot.eventStart(S, { year: S.year }).conf, pw = S.practiceWeeks || 0;
     const devN = S.projects.filter(G.Robot.testable).length, cap = G.Robot.testCap(S), devUse = Math.round(th.dev - G.Robot.testPlan(S, th.dev, C.hoursPlan(S).give).idle);
@@ -429,8 +541,10 @@
     if (!th.canDrive) dr += '<div class="xs warn mt">No robot to drive yet. All testing time goes to development.</div>';
     else {
       dr += '<div class="statrow wide mt"><span class="n">Practice ' + pw.toFixed(1) + '/' + D.DRILL_CAP + '</span>' + UI.bar(pw, D.DRILL_CAP, 'var(--accent)') + '<span class="v">' + Math.round(conf * 100) + '%</span></div><div class="xs muted">Event-start confidence ' + Math.round(conf * 100) + '% (resets at Kickoff; a typical team sits around 60%).' + (pw >= D.DRILL_CAP - 0.05 ? ' <span class="good">Fully practiced: extra hours now only build skills.</span>' : '') + '</div>';
-      if (th.elem < 1) dr += '<div class="xs warn">' + (S.phase === 'off' ? 'Offseason practice uses last season\'s game: 60% effective.' : 'No game elements this season: driver practice is only 50% effective (Workshop).') + '</div>';
-      if (th.drive && S.parts.spares <= 0) dr += '<div class="xs bad">Out of spare parts: practice will wear the ' + (S.robot.practiceBot ? 'practice robot' : 'competition robot') + '.</div>';
+      if (th.elem < 0.99) dr += '<div class="xs warn">Game elements fill ' + Math.round(G.Parts.elemFill(S, G.Parts.elemYear(S)) * 100) + '% of your practice field: driver practice is ' + Math.round(th.elem * 100) + '% effective (<a href="#" data-act="partsElem">Shop → Game elements</a>).</div>';
+      { const bi = G.Robot.driveBot(S), R = S.robot, fam = bi >= 0 ? G.Robot.famAvg(R, bi) : null;
+        if (bi >= 0) dr += '<div class="xs mt">Drivers practice on <b>' + h(R.bots[bi].name) + '</b>' + (bi === (R.comp || 0) ? ' (the competition robot)' : ' <span class="warn">(not the competition robot)</span>') + (fam != null ? ' · familiarity ' + Math.round(fam * 100) + '%' : '') + ' · <a href="#" data-act="nav" data-arg="garage">Garage</a></div>';
+        if (th.drive && S.parts.spares <= 0 && bi >= 0) dr += '<div class="xs bad">Out of spare parts: practice will wear ' + h(R.bots[bi].name) + '.</div>'; }
     }
     o += '<div class="grid g2 mt">' + '<div>' + dv + '</div><div>' + dr + '</div></div>';
     const lt = S.lastTest;
@@ -438,12 +552,13 @@
     o += '<div class="hint mt">Small teams: driver practice is the cheapest performance you can buy. Once the drive team is fully practiced, extra hours do more as development testing, especially with many projects running.</div>';
     return o;
   };
+  UI.A.partsElem = () => { UI.st.partsTab = 'elem'; UI.go('parts'); };
   UI.A.testSplit = v => { G.Career.setTestSplit(G.S, v); UI.render(); };
   UI.hoursPanel = function (S, compact) {
     const C = G.Career, plan = C.hoursPlan(S), bd = C.turnHours(S, C.isEventTurn(S), true);
-    const total = bd.total, act = Math.min(S.actHours, total), used = U.sum(Object.values(plan.give)), idle = plan.idle;
+    const total = bd.total, act = Math.min(S.actHours, total), used = U.sum(Object.values(plan.give)) + U.sum(Object.values(plan.pol || {})), idle = plan.idle;
     const unit = S.phase === 'off' ? 'month' : 'week', pct = v => (total > 0 ? 100 * v / total : 0);
-    const segs = S.projects.map((p, i) => ({ p, h: plan.give[p.id] || 0, c: PCOL[i % PCOL.length] }));
+    const segs = S.projects.map((p, i) => ({ p, h: (plan.give[p.id] || 0) + ((plan.pol && plan.pol[p.id]) || 0), c: PCOL[i % PCOL.length] }));
     const bar = '<div class="hbar">' + segs.filter(s => s.h > 0.5).map(s => '<span style="width:' + pct(s.h) + '%;background:' + s.c + '" title="' + h(s.p.name) + ': ' + Math.round(s.h) + ' h"></span>').join('') +
       (act ? '<span class="act" style="width:' + pct(act) + '%" title="Sponsor obligations: ' + act + ' h"></span>' : '') + (idle > 0.5 ? '<span class="idle" style="width:' + pct(idle) + '%" title="Idle: ' + Math.round(idle) + ' h"></span>' : '') + '</div>';
     let o = '<div class="hnums"><div><div class="hnum">' + total + ' h</div><div class="l">Team hours</div></div><div><div class="hnum good">' + Math.round(used) + ' h</div><div class="l">On projects</div></div>' +
@@ -453,11 +568,19 @@
     o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
       '. One project can absorb up to ' + Math.round(G.Robot.capFor(S, { prio: 'normal' })) + ' h per ' + unit + ' (high priority +25%, low −25%). Hours are spent when you press Continue.</div>';
     if (idle > 10) {
-      const free = G.Robot.slots(S) - S.projects.length;
-      o += '<div class="warnbox mt">' + Math.round(idle) + ' h will go unused this ' + unit + '. ' + (free > 0 ? 'Start another project (' + free + ' free slot' + (free > 1 ? 's' : '') + ').' : 'All slots are busy — each project is at its weekly limit. More Design/Fabrication mentors add slots.') + '</div>';
+      const free = G.Robot.slots(S) - G.Robot.slotUsed(S);
+      const inSeason = ['kickoff', 'build', 'comp'].includes(S.phase), share = total ? idle / total : 0;
+      o += '<div class="' + (inSeason && share <= 0.2 ? 'hint' : 'warnbox') + ' mt">' + Math.round(idle) + ' h idle this ' + unit + '. ' + (inSeason && share <= 0.2 ? 'Some idle time is good: about 10% keeps the team\'s fatigue steady. ' : '') + (free > 0 ? 'Start another project (' + free + ' free slot' + (free > 1 ? 's' : '') + ')' : 'All slots are busy') + ', or give a project <b>extra hours</b> to raise its quality.</div>';
     }
     return o;
   };
+  UI.fatigueLine = function (S) {
+    const fp = G.Career.fatiguePreview(S);
+    if (!fp) return '';
+    const d = fp.next - fp.now, col = fp.next > 60 ? 'bad' : fp.next > 40 ? 'warn' : 'good';
+    return '<div class="row sm mt">' + UI.icon('fatigue', 15) + '<span>Fatigue</span>' + UI.fatigueBar(fp.now, true) + '<span><b>' + fp.now + '</b> → <b class="' + col + '">' + fp.next + '</b> (' + G.Career.fatigueLabel(fp.next) + ')' + (S.overtime ? ' <span class="warn">overtime: no recovery</span>' : '') + '</span><span class="sp"></span><span class="xs muted">' + fp.idlePct + '% idle' + (d > 0 ? ' · keep about 10% idle to hold steady' : '') + '</span></div>';
+  };
+  UI.A.projExtra = (v, el) => { const p = G.S.projects.find(x => x.id === el.dataset.id); if (p && !G.Robot.isFab(p)) { p.extra = U.clamp(Math.round(Number(v) || 0), 0, p.need); UI.render(); } };
   UI.A.prio = (v, el) => { const p = G.S.projects.find(x => x.id === el.dataset.id); if (p) p.prio = v; };
   UI.A.cancelProj = id => UI.confirm('Cancel project?', 'Progress is lost; you get a partial refund of materials.', 'Cancel project', () => { G.Robot.cancelProject(G.S, id); UI.render(); });
   UI.A.startSimple = type => { if (!UI.err(G.Robot.startProject(G.S, { type }))) { UI.toast('Project started', 'good'); UI.render(); } };
@@ -469,25 +592,29 @@
   }
   UI.A.setEffort = k => { UI.st.effort = k; if (UI.st.modalFn) UI.st.modalFn(); };
   UI.A.conceptModal = function (subId) {
-    const S = G.S, year = S.robot.year, sd = G.Seasons.sub(year, subId), cur = S.robot.subs[subId];
+    const S = G.S, year = S.robot.year, sd = G.Seasons.sub(year, subId), cur = G.Robot.des(S.robot, subId);
     UI.st.modalFn = () => UI.A.conceptModal(subId);
     let o = '<div class="xs muted">DEVELOPMENT DIRECTION</div><h2>' + h(sd.name) + '</h2>' + effortPicker();
-    if (cur.ver) o += '<div class="warnbox mb">Switching concept restarts this subsystem at v0 (25% of the old work turns into knowledge XP).</div>';
+    if (cur.ver) o += '<div class="warnbox mb">Switching concept restarts this subsystem at v1 on the competition robot (25% of the old work turns into knowledge XP). The old one goes to storage, and the drivers will need time to get used to the new one.</div>';
+    o += '<div class="xs muted mb">The first one of any concept or version is a prototype (+' + Math.round((D.PROTO_COST - 1) * 100) + '% materials). More copies are cheaper: use Build copy afterwards.</div>';
     o += '<div class="col">' + sd.concepts.map(c => {
       if (c.id === cur.concept && cur.ver) return '';
       if (c.id === 'none') return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b><span class="sp"></span><button class="btn sm" data-act="noneConcept" data-arg="' + subId + '">Choose</button></div><div class="sm muted">' + h(c.desc) + '</div></div>';
       const q = G.Robot.quote(S, { type: 'build', sub: subId, concept: c.id, effort: UI.st.effort });
-      const first = G.Robot.firstTime(S, c);
+      const first = G.Robot.firstTime(S, c), core = G.Robot.coreAreas(c);
       const ceil = Object.keys(c.ceil).map(k => (D.STAT[k] || k) + ' ' + c.base[k] + '→<b>' + G.Robot.ceil(S, year, subId, c, k) + '</b>').join(' · ');
-      const areas = c.areas.map((a, i) => '<span class="tag ' + (G.Robot.know(S, a) > 0 ? 'good' : '') + '">' + h(D.AREA[a].name) + ' Lv' + G.Robot.know(S, a) + (i === 0 ? ' ★' : '') + '</span>').join(' ');
-      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (first ? UI.tag('first time!', 'warn') : '') + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button></div>' +
-        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div><div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + '</div>' : '') + '</div>';
+      const areas = c.areas.map(a => '<span class="tag ' + (G.Robot.know(S, a) > 0 ? 'good' : core.includes(a) ? 'warn' : '') + '" title="' + (core.includes(a) ? 'Core area: needed for the first-time penalty, build hours and ceilings' : 'Supporting area') + '">' + h(D.AREA[a].name) + ' Lv' + G.Robot.know(S, a) + (core.includes(a) ? ' ★' : '') + '</span>').join(' ');
+      const bom = G.Parts.bom(year, subId, c), bomTxt = Object.keys(bom).map(k => bom[k] + ' ' + D.PART_CAT[k].short.toLowerCase()).join(' · ');
+      const want = G.Parts.kits(year, subId, c), wantTxt = Object.keys(want).map(k => want[k] + ' ' + D.PART_CAT[k].short.toLowerCase().replace(/s$/, want[k] > 1 ? 's' : '') + ' (' + Math.min(want[k], G.Parts.kitsFree(S, k)) + ' free)').join(' + ');
+      const kitTag = Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '';
+      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button></div>' +
+        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Shop</a></div>' : '') + '</div>';
     }).join('') + '</div>';
     UI.modal(o, { wide: true });
   };
   UI.A.noneConcept = function (subId) {
-    const S = G.S, s = S.robot.subs[subId];
-    Object.assign(s, { concept: 'none', ver: 0, stats: {}, rel: 0, w: 0, hidden: 0 });
+    const S = G.S;
+    G.Robot.setNone(S, subId);
     UI.closeModal(); UI.toast('No mechanism for this subsystem.'); UI.render();
   };
   UI.A.buildConcept = function (arg) {
@@ -495,9 +622,9 @@
     if (!UI.err(G.Robot.startProject(G.S, { type: 'build', sub, concept, effort: UI.st.effort }))) { UI.closeModal(); UI.toast('Build project started', 'good'); UI.render(); }
   };
   UI.A.upgradeModal = function (subId) {
-    const S = G.S, year = S.robot.year, sd = G.Seasons.sub(year, subId), s = S.robot.subs[subId], c = G.Seasons.concept(year, subId, s.concept);
+    const S = G.S, year = S.robot.year, sd = G.Seasons.sub(year, subId), s = G.Robot.des(S.robot, subId), c = G.Seasons.concept(year, subId, s.concept);
     UI.st.modalFn = () => UI.A.upgradeModal(subId);
-    let o = '<div class="xs muted">UPGRADE</div><h2>' + h(sd.name) + ' — ' + h(c.name) + ' v' + s.ver + '</h2>' + effortPicker() + '<p class="sm muted">Pick a focus. The focus stat closes ~25% of its gap to the ceiling; other stats improve a little.</p><div class="col">';
+    let o = '<div class="xs muted">UPGRADE</div><h2>' + h(sd.name) + ' — ' + h(c.name) + ' v' + s.ver + '</h2>' + effortPicker() + '<p class="sm muted">Pick a focus. The focus stat closes about 25% of its gap to the ceiling; other stats improve a little. The upgraded part goes on the competition robot (the first of a new version is a prototype: +' + Math.round((D.PROTO_COST - 1) * 100) + '% materials). The second robot keeps its version until you build it a copy.</p><div class="col">';
     Object.keys(c.ceil).forEach(k => {
       const q = G.Robot.quote(S, { type: 'upgrade', sub: subId, focus: k, effort: UI.st.effort });
       const cl = G.Robot.ceil(S, year, subId, c, k);
@@ -509,7 +636,7 @@
   UI.A.startUpgrade = function (arg) {
     const [sub, focus] = arg.split('|');
     const S = G.S;
-    if (!UI.err(G.Robot.startProject(S, { type: 'upgrade', sub, focus, effort: UI.st.effort, forConcept: S.robot.subs[sub].concept }))) { UI.closeModal(); UI.toast('Upgrade started', 'good'); UI.render(); }
+    if (!UI.err(G.Robot.startProject(S, { type: 'upgrade', sub, focus, effort: UI.st.effort, forConcept: G.Robot.des(S.robot, sub).concept }))) { UI.closeModal(); UI.toast('Upgrade started', 'good'); UI.render(); }
   };
 
   // =====================================================================
@@ -517,7 +644,7 @@
   // =====================================================================
   UI.S.know = { html() {
     const S = G.S, rel = S.year && S.phase !== 'off' ? G.Seasons[S.year].relevance : null;
-    let o = '<h1>Tech Knowledge</h1><div class="sub">What your program knows how to build. It carries over between seasons — a turret built for one shooting game makes the next one easier.</div>';
+    let o = UI.head('Tech Knowledge', 'know', 'What your program knows how to build. It carries over between seasons — a turret built for one shooting game makes the next one easier.', 'design');
     o += '<div class="hint mb">Each level: +3 to stat ceilings, −6% build hours, +4 starting reliability, +5% upgrade quality for concepts that use the area. Level 0 on a complex concept means a first-time penalty. Areas not used during a season lose 20% XP (students graduate) unless a mentor specializes in it' + (S.equip.kb ? ' — your Knowledge Base halves this' : '') + '.</div>';
     o += '<table class="t"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + S.year + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
     D.AREAS.forEach(a => {
@@ -534,28 +661,29 @@
   // =====================================================================
   UI.S.team = { html() {
     const S = G.S, dt = G.Career.driveTeam(S);
-    let o = '<h1>Team</h1><div class="sub">' + S.studentsCount + ' students · morale ' + Math.round(S.morale) + ' · ' + S.feeders + ' feeder program(s)</div>';
+    let o = UI.head('Team', 'team', S.studentsCount + ' students · morale ' + Math.round(S.morale) + (G.Career.inSeason(S) ? ' · fatigue ' + UI.fatigueBar(S.fatigue) + ' ' + Math.round(S.fatigue) + ' (' + G.Career.fatigueLabel(S.fatigue) + ')' : '') + ' · ' + S.feeders + ' feeder program(s)', 'team');
     const opts = (sel, inclMentor) => (inclMentor ? '<option value="mentor" ' + (sel === 'mentor' ? 'selected' : '') + '>Drive Coach mentor</option>' : '') + S.students.map(s => '<option value="' + s.id + '" ' + (sel === s.id ? 'selected' : '') + '>' + h(s.name) + ' (gr ' + s.grade + ')</option>').join('');
-    o += '<div class="grid g2">' + UI.card('Drive team', '<div class="grid g2">' +
+    o += '<div class="grid g2 top"><div class="col">' + UI.card(UI.it('team', 'Drive team'), '<div class="grid g2 tight">' +
       '<label class="f">Driver<select class="inp" data-chg="dt" data-k="driver">' + opts(S.driveTeam.driver) + '</select></label>' +
       '<label class="f">Operator<select class="inp" data-chg="dt" data-k="operator">' + opts(S.driveTeam.operator) + '</select></label>' +
       '<label class="f">Human player<select class="inp" data-chg="dt" data-k="hp">' + opts(S.driveTeam.hp) + '</select></label>' +
       '<label class="f">Coach<select class="inp" data-chg="dt" data-k="coach">' + opts(S.driveTeam.coach, true) + '</select></label></div>' +
-      '<p class="sm muted mt">Driver uses Driving/Awareness/Composure, Operator uses Mechanism/Composure, Human Player uses HP skill, Coach uses Strategy. Coach Calls per match: ' + G.Career.coachCalls(S, false) + ' (playoffs +1).</p><button class="btn sm" data-act="autoDT">Auto-pick best</button>');
+      '<div class="row mt"><span class="xs muted sp">Driver: Driving, Awareness, Composure · Operator: Mechanism, Composure · HP: HP skill · Coach: Strategy · ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1)</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
     // activities
     const lim = G.Career.actLimits(S), C = G.Career, ir = C.impactRating(S);
-    o += UI.card('Outreach & fundraising ' + UI.tag(lim.used + '/' + lim.max + ' this ' + lim.unit, lim.used >= lim.max ? 'warn' : ''), '<div class="sm muted mb">Up to ' + lim.max + ' activities per ' + lim.unit + ', each type ' + (lim.perType > 1 ? 'up to ' + lim.perType + ' times' : 'once') + '. Repeating a fundraiser in the same program year (June–May) pays less. Outreach this season: <b>' + Math.round(S.season.impact) + '</b> points from ' + S.season.outreach + ' events.</div><div class="col">' +
-      D.ACTIVITIES.map(a => {
-        const n = lim.counts[a.id] || 0, blocked = n >= lim.perType || lim.used >= lim.max;
-        const why = n >= lim.perType ? 'Done' + (lim.perType > 1 ? ' ' + n + '×' : '') : lim.used >= lim.max ? 'Limit reached' : 'Do it' + (lim.perType > 1 && n ? ' (' + n + '/' + lim.perType + ')' : '');
-        return '<div class="row"><div class="sp"><b>' + h(a.name) + '</b> <span class="xs muted">' + h(a.desc) + '</span></div><span class="xs muted">' + (a.kind === 'outreach' ? '+' + a.impact + ' outreach · ' : C.fundFatigue(S, a.id) < 1 ? '<span class="warn">pays ×' + C.fundFatigue(S, a.id).toFixed(2) + '</span> · ' : '') + (a.cost ? U.money(a.cost) : 'free') + '</span><button class="btn sm" data-act="doAct" data-arg="' + a.id + '" ' + (blocked ? 'disabled' : '') + '>' + why + '</button></div>';
-      }).join('') +
-      '<div class="hr"></div><div class="row"><div class="sp"><b>Feeder programs</b> <span class="xs muted">$1,000/yr each (paid in September): +recruits, better recruits, +Impact</span></div><button class="btn sm" data-act="feeder" data-arg="-1">−</button><b>' + S.feeders + '</b><button class="btn sm" data-act="feeder" data-arg="1">+</button></div></div>') +
-      UI.card('Impact Award ' + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),
+    o += UI.card(UI.it('trophy', 'Impact Award ') + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),
         '<div class="sm muted mb">Judges reward sustained, multi-season impact: a one-season push rarely beats long-running Impact programs, and a team can win it once per season. ' +
         (ir.submitted ? '<span class="good">Submission done.</span>' : '<span class="warn">No submission yet: start "Impact Award submission" in the Design Office or you can\'t win it.</span>') + '</div>' +
         Object.keys(C.IMPACT_W).map(k => '<div class="statrow wide"><span class="n">' + h(C.IMPACT_LABEL[k]) + ' <span class="dim">' + Math.round(C.IMPACT_W[k] * 100) + '%</span></span>' + UI.bar(ir.parts[k], 100, UI.colorFor(ir.parts[k])) + '<span class="v">' + Math.round(ir.parts[k]) + '</span></div>').join('') +
         '<div class="xs muted mt">Outreach has diminishing returns. Track record averages your last three seasons. Presentation comes from your Business mentor and your best communicators (Strategy + Awareness). Typical regional winners rate 80+. Per-event odds are on HQ.</div>') + '</div>';
+    o += UI.card(UI.it('outreach', 'Outreach & fundraising ') + UI.tag(lim.used + '/' + lim.max + ' this ' + lim.unit, lim.used >= lim.max ? 'warn' : ''), '<div class="sm muted mb">Up to ' + lim.max + ' activities per ' + lim.unit + ', each type ' + (lim.perType > 1 ? 'up to ' + lim.perType + ' times' : 'once') + '. Repeating an activity in the same month pays less; it resets every month. Outreach this season: <b>' + Math.round(S.season.impact) + '</b> points from ' + S.season.outreach + ' events.</div><div class="col">' +
+      ['outreach', 'fund', 'rest'].map(kind => '<div class="xs muted b mt">' + { outreach: 'OUTREACH', fund: 'FUNDRAISING', rest: 'TEAM' }[kind] + '</div>' + D.ACTIVITIES.filter(a => a.kind === kind).map(a => {
+        const ok = C.actAvailable(S, a), n = lim.counts[a.id] || 0, blocked = !ok || n >= lim.perType || lim.used >= lim.max, fat = C.fundFatigue(S, a.id);
+        const why = !ok ? 'Locked' : n >= lim.perType ? 'Done' + (lim.perType > 1 ? ' ' + n + '×' : '') : lim.used >= lim.max ? 'Limit reached' : 'Do it' + (lim.perType > 1 && n ? ' (' + n + '/' + lim.perType + ')' : '');
+        const gain = a.kind === 'outreach' ? '+' + Math.round(a.impact * fat * (a.robot && G.Shop.lvl(S, 'trailer') ? D.TRAILER_OUTREACH : 1)) + ' outreach' + (a.money ? ' · +$' : '') : a.kind === 'rest' ? 'fatigue −' + (-a.fatigue) : 'raises money';
+        return '<div class="row act ' + (ok ? '' : 'locked') + '"><span class="aico">' + UI.icon(ok ? a.icon || 'outreach' : 'lock', 18) + '</span><div class="sp"><b>' + h(a.name) + '</b> <span class="xs muted">' + h(ok ? a.desc : a.reqText || '') + '</span></div><span class="xs muted">' + gain + (fat < 1 && ok ? ' · <span class="warn">×' + fat.toFixed(2) + ' this month</span>' : '') + ' · ' + (a.cost ? U.money(a.cost) : 'free') + '</span><button class="btn sm" data-act="doAct" data-arg="' + a.id + '" ' + (blocked ? 'disabled' : '') + '>' + why + '</button></div>';
+      }).join('')).join('') +
+      '<div class="hr"></div><div class="row"><div class="sp"><b>Feeder programs</b> <span class="xs muted">$1,000/yr each (paid in September): +recruits, better recruits, +Impact</span></div><button class="btn sm" data-act="feeder" data-arg="-1">−</button><b>' + S.feeders + '</b><button class="btn sm" data-act="feeder" data-arg="1">+</button></div></div>') + '</div>';
     // roster
     o += '<h2 class="mt">Core students</h2><table class="t"><tr><th>Name</th><th>Grade</th><th class="num">Drive</th><th class="num">Aware</th><th class="num">Comp</th><th class="num">Mech</th><th class="num">HP</th><th class="num">Strat</th><th>Potential</th><th class="num">Matches</th><th>Role</th></tr>' +
       S.students.slice().sort((a, b) => b.grade - a.grade).map(s => {
@@ -595,29 +723,16 @@
   // =====================================================================
   UI.S.workshop = { html() {
     const S = G.S;
-    let o = '<h1>Workshop</h1><div class="sub">Facilities make every project faster and better. Parts carry over between seasons.</div>';
-    o += '<div class="hint mb">Facilities wear down with use. Lower condition means lower efficiency, down to 40% at 0% condition. <b>Renovate</b> restores condition for a fraction of the price. <b>Upgrade</b> adds a level and also restores condition. Upkeep is charged per level at each Kickoff.</div>';
+    let o = UI.head('Workshop', 'workshop', 'Facilities make every project faster and better. They wear down: renovate to restore them, upgrade for more. Upkeep is charged per level at Kickoff.', 'workshop');
     o += '<div class="card mb"><div class="ct">Facilities<span class="sp"></span>' + UI.tag('+' + G.Shop.facilitySlots(S) + ' project slots', G.Shop.facilitySlots(S) ? 'acc' : '') + ' ' + UI.tag('Upkeep ' + U.money(G.Shop.upkeep(S)) + '/season') + '</div><div class="grid g2">' + D.EQUIP.map(e => facilityBox(S, e)).join('') + '</div></div>';
-    o += '<div class="grid g2">';
-    const fieldOwned = (S.equip.field === S.year && S.phase !== 'off') || S.equip.field === 'pending';
-    o += UI.card('Game elements', '<div class="row"><div class="sp"><b>' + h(D.FIELD.name) + (S.year && S.phase !== 'off' ? ' (' + S.year + ')' : ' (next season)') + '</b><div class="xs muted">' + h(D.FIELD.desc) + '</div></div>' +
-      (fieldOwned ? UI.tag('owned', 'good') : '<button class="btn sm" data-act="buyEq" data-arg="field">Buy · ' + U.money(D.FIELD.cost) + '</button>') + '</div>');
-    o += UI.card('Parts store', '<div class="col">' + D.PARTS.map(p => {
-      const cur = S.parts[p.id] || 0;
-      return '<div><b>' + h(p.name) + '</b> <span class="xs muted">— owned: ' + h(p.tiers[cur].name) + '</span><div class="row wrap gap4 mt">' + p.tiers.map((t, i) => i === 0 ? '' : '<button class="btn sm ' + (i <= cur ? 'sel' : '') + '" data-act="buyPart" data-arg="' + p.id + '|' + i + '" ' + (i <= cur ? 'disabled' : '') + ' title="' + h(t.desc) + '">' + h(t.name) + ' ' + U.money(t.cost) + '</button>').join('') + '</div><div class="xs muted">' + h(p.tiers[Math.min(p.tiers.length - 1, cur + 1)].desc) + '</div></div>';
-    }).join('') + '<div class="hr"></div>' + UI.batteryRow(S) +
-      (function () {
-        const up = G.Career.spareUnitPrice(S, false);
-        return '<div class="row"><div class="sp"><b>Spare parts</b> <span class="xs muted">' + S.parts.spares + ' units — used by repairs at home and in the pits, and by driver practice · ' + U.money(up) + ' each here, ' + U.money(G.Career.spareUnitPrice(S, true)) + ' each at events</span></div>' +
-          '<button class="btn sm" data-act="buySpares" data-arg="5">+5 · ' + U.money(5 * up) + '</button><button class="btn sm" data-act="buySpares" data-arg="10">+10 · ' + U.money(10 * up) + '</button></div>';
-      })() + '</div>');
-    return o + '</div>';
+    o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Motors, electronics, mechanism kits, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Shop</button></div>';
+    return o;
   } };
   function facilityBox(S, e) {
     const Sh = G.Shop, l = Sh.lvl(S, e.id), max = e.levels.length;
     const up = Sh.upgradeCost(S, e.id), reno = Sh.renoCost(S, e.id);
-    let o = '<div class="card flat"><div class="row"><b>' + h(e.name) + '</b>' + UI.tag('Lv ' + l + '/' + max, l ? 'acc' : '') + '<span class="sp"></span>' + (l ? '<span class="xs muted">' + h(e.levels[l - 1].name) + '</span>' : '<span class="xs dim">not owned</span>') + '</div>';
-    o += '<div class="xs muted mb">' + h(e.desc) + '</div>';
+    let o = '<div class="card flat"><div class="row"><span class="fico">' + UI.icon(e.id, 22) + '</span><b>' + h(e.name) + '</b>' + UI.tag('Lv ' + l + '/' + max, l ? 'acc' : '') + '<span class="sp"></span>' + (l ? '<span class="xs muted">' + h(e.levels[l - 1].name) + '</span>' : '<span class="xs dim">not owned</span>') + '</div>';
+    o += '<div class="xs muted mb">' + h(e.desc) + (e.id === 'trailer' ? ' Far events become a long drive instead of a flight (15% cheaper, no air-freight damage), robot demos wear the robot less and robot outreach counts 20% more.' : '') + '</div>';
     if (l) {
       const c = Sh.cond(S, e.id), eff = Sh.eff(S, e.id);
       o += '<div class="statrow"><span class="n">Condition</span>' + UI.bar(c, 100, UI.colorFor(c)) + '<span class="v">' + Math.round(c) + '%</span></div>' +
@@ -625,6 +740,7 @@
         (eff < 0.99 ? '<div class="xs muted">At full condition: ' + h(Sh.effectText(S, e.id, l, 1)) + '</div>' : '') +
         (Sh.fx(S, e.id, 'slot', l, 1) && !Sh.slotOf(S, e.id) ? '<div class="xs bad">Below ' + Sh.SLOT_COND + '% condition: its project slot is out of action until you renovate.</div>' : '');
     }
+    if (e.id === 'pfield') o += UI.elemStatus(S);
     if (up != null) o += '<div class="xs muted mt">' + (l ? 'Level ' + (l + 1) + ' — ' + h(e.levels[l].name) : 'Level 1 — ' + h(e.levels[0].name)) + ': ' + h(Sh.effectText(S, e.id, l + 1, 1)) + '</div>';
     o += '<div class="row wrap gap4 mt">';
     if (l) o += '<button class="btn sm" data-act="renoEq" data-arg="' + e.id + '" ' + (reno ? '' : 'disabled') + '>' + (reno ? 'Renovate · ' + U.money(reno) : 'Like new') + '</button>';
@@ -633,9 +749,23 @@
     o += '</div><div class="xs dim mt">Upkeep ' + U.money(e.upkeep) + '/season per level · wears ' + [e.wear.season ? e.wear.season + '%/build week' : '', e.wear.off ? e.wear.off + '%/offseason month' : '', e.wear.event ? e.wear.event + '%/event' : ''].filter(Boolean).join(', ') + '</div></div>';
     return o;
   }
-  UI.A.buyEq = id => { if (!UI.err(G.Career.buyEquip(G.S, id))) { UI.toast(id === 'field' ? 'Purchased' : 'Done — ' + G.Shop.item(id).levels[G.Shop.lvl(G.S, id) - 1].name + ' ready', 'good'); UI.render(); } };
+  // Game elements on the practice field: this game's sets, preorders on the way, how full the field is
+  UI.elemStatus = function (S) {
+    const P = G.Parts, y = P.elemYear(S), ny = P.nextYear(S), fs = P.fieldSize(S);
+    const line = (yr, label) => {
+      const sets = P.elemSets(S, yr), pend = P.elemPending(S, yr), fill = P.elemFill(S, yr);
+      const chips = sets.map(e => '<span class="tag">' + P.setName(e.s) + ' ' + Math.round(e.h * 100) + '%</span>').concat(pend.map(e => '<span class="tag info">' + P.setName(e.s) + ' · pending</span>')).join(' ');
+      return '<div class="row sm wrap gap4">' + UI.icon('elements', 14) + '<span>' + label + ' (' + yr + ')</span>' + (S.elemKop && S.elemKop[yr] ? '<span class="tag">KOP pieces</span>' : '') + chips +
+        (yr === y ? '<span class="sp"></span><span class="xs ' + (fill >= 0.99 ? 'good' : 'warn') + '">' + (fs ? 'field ' + Math.round(fill * 100) + '% filled' : 'kit pieces are enough') + '</span>' : '') + '</div>';
+    };
+    let o = '<div class="hr"></div><div class="xs muted mb">Game elements · ' + (fs ? 'this field fits a ' + P.setName(fs).toLowerCase() + ' set' : 'no practice field: the kit game pieces cover it') + '</div>';
+    if (y != null) o += line(y, P.inSeason(S) ? 'This season' : 'Last season');
+    if (ny != null && (P.elemPending(S, ny).length || P.elemSets(S, ny).length)) o += line(ny, 'Next season');
+    if (y == null && (ny == null || !P.elemPending(S, ny).length)) o += '<div class="xs muted">No game elements yet.</div>';
+    return o + '<div class="row mt"><button class="btn sm" data-act="partsElem">Game elements in the Shop</button></div>';
+  };
+  UI.A.buyEq = id => { if (!UI.err(G.Career.buyEquip(G.S, id))) { UI.toast('Done — ' + G.Shop.item(id).levels[G.Shop.lvl(G.S, id) - 1].name + ' ready', 'good'); UI.render(); } };
   UI.A.renoEq = id => { const cost = G.Shop.renoCost(G.S, id); if (!UI.err(G.Shop.renovate(G.S, id))) { UI.toast('Renovated for ' + U.money(cost) + ' — back to 100%', 'good'); UI.render(); } };
-  UI.A.buyPart = arg => { const [id, t] = arg.split('|'); if (!UI.err(G.Career.buyPart(G.S, id, Number(t)))) { UI.toast('Purchased', 'good'); UI.render(); } };
   UI.A.buyBatt = n => { const before = G.Shop.fleetHealth(G.S); if (!UI.err(G.Career.buyBatteries(G.S, Number(n)))) { UI.toast('Fleet health ' + Math.round(before * 100) + '% → ' + Math.round(G.Shop.fleetHealth(G.S) * 100) + '%', 'good'); UI.render(); } };
   UI.batteryRow = function (S) {
     const Sh = G.Shop, lim = Sh.battLimit(S), fl = S.parts.batts, room = Sh.battRoom(S), free = lim - fl.length;
@@ -654,14 +784,23 @@
   function goalsTxt(sp) { return sp.goals.map(g => '<div class="xs">' + (g.met ? '✔ ' : '• ') + h(D.GOALS[g.id].text) + ' <span class="good">+' + U.money(g.bonus) + '</span></div>').join(''); }
   UI.S.finance = { html() {
     const S = G.S, C = G.Career;
-    let o = '<h1>Finance</h1><div class="sub">Budget ' + U.money(S.money) + ' · sponsors pay at Kickoff each season · bonuses when goals are met.</div><div class="grid g2">';
+    let o = UI.head('Finance', 'finance', 'Budget ' + U.money(S.money) + ' · sponsors pay at Kickoff each season · bonuses when goals are met.', 'money');
+    const sf = C.stemFundInfo(S);
+    if (S.money < D.STEM_FUND.below) o += '<div class="card hl mb"><div class="row">' + UI.icon('fund', 22) + '<div class="sp"><b>STEM support fund</b><div class="sm muted">Emergency money for teams running low (under ' + U.money(D.STEM_FUND.below) + '): ' + U.money(sf.amt) + ' now, but people hear about it (reputation −' + sf.rep + '). ' + sf.left + ' of ' + D.STEM_FUND.uses + ' applications left this program year.</div></div><button class="btn primary" data-act="stemFund" ' + (sf.ok ? '' : 'disabled') + '>Apply · +' + U.money(sf.amt) + '</button></div></div>';
+    if (C.highExpect(S)) o += '<div class="hint mb">' + UI.icon('trophy', 14) + ' Top program: sponsors offer a little more, but they expect wins. Sponsors with <b>High</b> expectations lose a lot of satisfaction in seasons without a regional win or a Championship spot.</div>';
+    // in-season debt: allowed, settled by the school at the season review
+    if (C.inSeason(S)) {
+      const debt = Math.max(0, -S.money), pen = C.debtPenalty(debt, S.debtRun);
+      o += '<div class="' + (debt ? 'warnbox' : 'hint') + ' mb">' + (debt ? 'You are <b>' + U.money(debt) + '</b> in debt. ' : '') + 'During the season you can spend into debt (up to ' + U.money(D.DEBT_LIMIT) + '). The school clears it at the season review, but the board docks program support and reputation' + (debt ? ': right now that would be <b>support −' + pen.support + ', reputation −' + pen.rep + '</b>' : ' — the bigger the debt, the bigger the hit') + '.' + (S.debtRun ? ' Last season also ended in debt, so penalties are ×' + C.debtPenalty(0, S.debtRun).mult.toFixed(1) + '.' : ' Repeat overdrafts in consecutive seasons cost more.') + ' Strong results can make it worth the risk.</div>';
+    } else if (S.money < 0) o += '<div class="warnbox mb">In the offseason you can only spend cash you have. Fundraisers still work while you are in the red.</div>';
+    o += '<div class="grid g2">';
     o += UI.card('Sponsors (' + S.sponsors.filter(s => s.slot === 'partner').length + '/' + C.partnerSlots(S) + ' partner slots)', S.sponsors.length ? S.sponsors.map(sp =>
-      '<div class="card flat mb"><div class="row"><b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
+      '<div class="card flat mb"><div class="row">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
       '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div></div>').join('') : '<p class="muted">No sponsors. Offers arrive in October.</p>');
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.map(of =>
-      '<div class="card flat mb"><div class="row"><b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
+      '<div class="card flat mb"><div class="row">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
       '<div class="xs muted">' + h(of.typeName) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span><button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button></div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>');
@@ -673,15 +812,35 @@
     o += '<div class="mt">' + UI.card('Ledger', '<table class="t"><tr><th>Date</th><th>Item</th><th class="num">Amount</th></tr>' + S.ledger.slice(0, 40).map(l => '<tr><td class="xs muted">' + h(l.d) + '</td><td>' + h(l.desc) + '</td><td class="num ' + (l.amt < 0 ? 'bad' : 'good') + '">' + U.money(l.amt) + '</td></tr>').join('') + '</table>') + '</div>';
     return o;
   } };
+  UI.A.stemFund = () => { const f = G.Career.stemFundInfo(G.S); UI.confirm('Apply for the STEM support fund?', 'You receive ' + U.money(f.amt) + '. Reputation −' + f.rep + '.', 'Apply', () => { if (!UI.err(G.Career.applyStemFund(G.S))) { UI.toast('STEM support fund: +' + U.money(f.amt), 'good'); UI.render(); } }); };
   UI.A.signSp = id => { if (!UI.err(G.Career.signSponsor(G.S, id))) { UI.toast('Sponsor signed', 'good'); UI.render(); } };
 
   // =====================================================================
   // CALENDAR
   // =====================================================================
-  UI.S.calendar = { html() {
+  // Program-year calendar: every turn from May to the season review, with filters
+  const CAL_CATS = [['event', 'Events', 'var(--accent)'], ['dev', 'Development', 'var(--info)'], ['sponsor', 'Sponsors', 'var(--warn)'], ['program', 'Program', 'var(--good)'], ['money', 'Money', '#c9a7ff']];
+  UI.programCalendar = function (S) {
+    const f = UI.st.calF = UI.st.calF || { event: true, dev: true, sponsor: true, program: true, money: true };
+    const slots = G.Career.calendar(S), months = [];
+    slots.forEach(x => { let mo = months.find(m => m.name === x.month && !m.closed); if (!mo) { months.forEach(m => m.closed = true); mo = { name: x.month, slots: [] }; months.push(mo); } mo.slots.push(x); });
+    const col = Object.fromEntries(CAL_CATS.map(c => [c[0], c[2]]));
+    let o = '<div class="row wrap gap4 mb"><span class="xs muted">Show:</span>' + CAL_CATS.map(c => '<button class="btn sm ' + (f[c[0]] ? 'sel' : '') + '" data-act="calFilter" data-arg="' + c[0] + '"><span class="cdot" style="background:' + c[2] + '"></span>' + c[1] + '</button>').join('') +
+      '<span class="sp"></span><span class="xs muted">Today: ' + h(G.Career.dateLabel(S)) + '</span></div>';
+    o += '<div class="calgrid">' + months.map(mo => '<div class="calmonth"><div class="calmh">' + mo.name + '</div>' + mo.slots.map(x => {
+      const items = x.items.filter(it => f[it.cat]);
+      return '<div class="calslot' + (x.cur ? ' cur' : x.past ? ' past' : '') + '">' + (x.label !== x.month || x.cur ? '<div class="calsl">' + (x.label !== x.month ? h(x.label) : '') + (x.cur ? ' <span class="tag acc">now</span>' : '') + '</div>' : '') +
+        items.map(it => '<div class="calit ' + it.cls + '"><span class="cdot" style="background:' + col[it.cat] + '"></span>' + h(it.text) + '</div>').join('') + '</div>';
+    }).join('') + '</div>').join('') + '</div>';
+    return UI.card('Program calendar ' + UI.tag(S.phase === 'off' ? 'offseason ' + (S.preseason ? 'pre-season' : '') : String(S.year), 'acc'), o);
+  };
+  UI.A.calFilter = k => { const f = UI.st.calF = UI.st.calF || { event: true, dev: true, sponsor: true, program: true, money: true }; f[k] = !f[k]; UI.render(); };
+  // Month cards scroll on their own: start each one at the current week
+  UI.calScroll = () => document.querySelectorAll('.calmonth').forEach(m => { const c = m.querySelector('.calslot.cur'); if (c) m.scrollTop = Math.max(0, c.offsetTop - 40); });
+  UI.S.calendar = { after() { UI.calScroll(); }, html() {
     const S = G.S, C = G.Career;
     const nextYear = S.phase === 'off' ? (S.orderMode === 'random' && S.mode === 'career' ? 'next season (game revealed at Kickoff)' : (S.order[S.upcoming] || '')) : S.year;
-    let o = '<h1>Calendar</h1><div class="sub">Regionals for ' + h(String(nextYear)) + ' · registered ' + S.registered.length + '/' + S.maxEvents + ' · next fee ' + U.money(C.regFee(S)) + (C.isLate(S) ? ' + ' + U.money(D.FEES.late) + ' late fee' : '') + '</div>';
+    let o = UI.head('Calendar', 'calendar', '', 'calendar') + UI.programCalendar(S) + '<h2 class="mt">Regional registration</h2><div class="sub">Regionals for ' + h(String(nextYear)) + ' · registered ' + S.registered.length + '/' + S.maxEvents + ' · next fee ' + U.money(C.regFee(S)) + (C.isLate(S) ? ' + ' + U.money(D.FEES.late) + ' late fee' : '') + '</div>';
     o += '<div class="hint mb">Each regional week costs registration + travel and uses most of that week\'s build hours. Early weeks: weaker opponents but a less developed robot. Win a regional, an Impact/EI award, or enough Regional Pool points (best two events, cut-off ' + C.poolThreshold(S) + ') to qualify for the Championship.</div>';
     for (let w = 1; w <= 6; w++) {
       const list = S.regionals.filter(r => r.week === w);
@@ -689,21 +848,24 @@
         list.map(r => {
           const tier = D.travelTier(S.team.region, r.region, r.local), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
           return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="acc">' + '★'.repeat(r.str) + '</td><td>' +
-            (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';
+            (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '" title="' + (C.refundable(S, 'c' + r.week) ? 'Half the fee back' : 'Less than a month away: no refund') + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';
         }).join('') + '</table></div>';
     }
     // scrimmage & offseason
     const canScrim = (S.phase === 'kickoff' || (S.phase === 'build' && S.week < 7) || S.phase === 'off');
-    o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? UI.tag('registered', 'good') : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>');
+    o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? (S.eventsDone['scrim' + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' <button class="btn sm bad" data-act="withdrawScrim">Withdraw</button>') : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>');
     if (S.phase === 'off') {
-      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + D.OFFSEASON_EVENTS.map(e => '<tr><td>' + e.month + '</td><td>' + h(e.name) + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? UI.tag(S.eventsDone[e.id + S.year] ? 'done' : 'registered', 'good') : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game. Double XP for students, reputation and sponsor goodwill.</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
+      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + D.OFFSEASON_EVENTS.map(e => '<tr><td>' + e.month + '</td><td>' + h(e.name) + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? (S.eventsDone[e.id + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' <button class="btn sm bad" data-act="withdrawOff" data-arg="' + e.id + '">Withdraw</button>') : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game. Double XP for students, reputation and sponsor goodwill.</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
     }
     if (S.phase !== 'off' && S.season.events.length) o += '<div class="mt">' + UI.card('Regional Pool', '<div>Pool total (best two events): <b>' + C.poolTotal(S) + '</b> / cut-off ' + C.poolThreshold(S) + '</div>' + (S.season.champsQualified ? '<div class="good mt">Qualified: ' + h(S.season.champsReason) + '</div>' : '')) + '</div>';
     return o;
   } };
   UI.A.register = id => { if (!UI.err(G.Career.register(G.S, id))) { UI.toast('Registered', 'good'); UI.render(); } };
-  UI.A.withdraw = id => UI.confirm('Withdraw?', 'You get 50% of the fee back.', 'Withdraw', () => { G.Career.withdraw(G.S, id); UI.render(); });
-  UI.A.regScrim = () => { const S = G.S; if (S.money < D.FEES.scrimmage) return UI.err('Not enough money'); G.Career.spend(S, D.FEES.scrimmage, 'Week 0 scrimmage'); S.scrimmage = true; UI.render(); };
+  const wdText = key => G.Career.refundable(G.S, key) ? 'It is at least a month away, so you get half the fee back.' : 'It is less than a month away: no refund.';
+  UI.A.withdraw = id => { const r = G.S.regionals.find(x => x.id === id); UI.confirm('Withdraw from ' + r.name + '?', wdText('c' + r.week), 'Withdraw', () => { G.Career.withdraw(G.S, id); UI.render(); }); };
+  UI.A.withdrawOff = id => { const o = D.OFFSEASON_EVENTS.find(x => x.id === id); UI.confirm('Withdraw from ' + o.name + '?', wdText('off' + D.MONTHS.indexOf(o.month)), 'Withdraw', () => { G.Career.withdrawOffseason(G.S, id); UI.render(); }); };
+  UI.A.withdrawScrim = () => UI.confirm('Withdraw from the Week 0 scrimmage?', wdText('b7'), 'Withdraw', () => { G.Career.withdrawScrimmage(G.S); UI.render(); });
+  UI.A.regScrim = () => { const S = G.S; { const e = G.Career.afford(S, D.FEES.scrimmage); if (e) return UI.err(e); } G.Career.spend(S, D.FEES.scrimmage, 'Week 0 scrimmage'); S.scrimmage = true; UI.render(); };
   UI.A.regOff = id => { if (!UI.err(G.Career.registerOffseason(G.S, id))) UI.render(); };
 
   // =====================================================================
@@ -711,7 +873,7 @@
   // =====================================================================
   UI.S.history = { html() {
     const S = G.S;
-    let o = '<h1>History</h1><div class="sub">Legacy points: ' + S.legacy + '</div>';
+    let o = UI.head('History', 'history', 'Legacy points: ' + S.legacy, 'basics');
     const bn = G.Career.banners(S);
     o += UI.card('Banner wall ' + UI.tag(bn.length + ' banner' + (bn.length === 1 ? '' : 's'), bn.length ? 'acc' : ''), bn.length ? UI.bannerWall(bn) : '<p class="muted">No banners yet. Win an event or the Impact Award to hang your first blue banner.</p>', '', 'mb');
     S.history.slice().reverse().forEach(hs => {

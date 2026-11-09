@@ -346,6 +346,12 @@
       ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-h * 0.2, 0, h * 0.35, -1.2, 1.2); ctx.stroke();
     } else if (sh === 'fixed') { ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.55, -h * 0.35, h * 0.7, h * 0.7); ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.55, -h * 0.08, h * 0.7, h * 0.16); }
     else if (sh === 'dump') {
+      // 2022 low-goal bucket: an open tray that tips cargo out of the back
+      ctx.fillStyle = '#3b424a'; ctx.fillRect(-h * 0.72, -h * 0.5, h * 0.8, h);
+      ctx.fillStyle = '#23282e'; ctx.fillRect(-h * 0.62, -h * 0.38, h * 0.6, h * 0.76);
+      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.strokeRect(-h * 0.72, -h * 0.5, h * 0.8, h);
+    } else if (sh === 'wide') {
+      // 2026 wide dumper: a full-width bank of flywheels
       ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.2, -h * 0.86, h * 0.42, h * 1.72);
       ctx.fillStyle = lk.c2 || '#ffcf4a';
       for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(h * 0.41, -h * 0.68 + i * h * 0.34, sz * 0.055, 0, 7); ctx.fill(); }
@@ -447,7 +453,8 @@
       if (sh === 'turret') { ctx.fillRect(sx - 0.18 * s, sy + 0.04 * s, 0.36 * s, 0.06 * s); ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke(); }
       else if (sh === 'hood' || sh === 'pivot') { ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, 0, 7); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.15 * s, Math.PI * 1.15, Math.PI * 1.75); ctx.stroke(); }
       else if (sh === 'fixed') { ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.9); ctx.fillRect(-0.05 * s, -0.05 * s, 0.32 * s, 0.1 * s); ctx.restore(); }
-      else if (sh === 'dump') { ctx.fillRect(sx - 0.05 * s, sy - 0.12 * s, 0.42 * s, 0.24 * s); ctx.fillStyle = lk.c2 || '#ffcf4a'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sx + 0.05 * s + i * 0.12 * s, sy, 0.045 * s, 0, 7); ctx.fill(); } ctx.fillStyle = '#2f353c'; }
+      else if (sh === 'dump') { ctx.beginPath(); ctx.moveTo(sx - 0.2 * s, sy); ctx.lineTo(sx + 0.15 * s, sy); ctx.lineTo(sx + 0.22 * s, sy - 0.16 * s); ctx.lineTo(sx - 0.27 * s, sy - 0.16 * s); ctx.closePath(); ctx.fill(); }
+      else if (sh === 'wide') { ctx.fillRect(sx - 0.05 * s, sy - 0.12 * s, 0.42 * s, 0.24 * s); ctx.fillStyle = lk.c2 || '#ffcf4a'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sx + 0.05 * s + i * 0.12 * s, sy, 0.045 * s, 0, 7); ctx.fill(); } ctx.fillStyle = '#2f353c'; }
       ctx.fillStyle = '#2f353c'; ctx.fillRect(sx - 0.03 * s, sy, 0.06 * s, top - sy);
     }
     // hopper
@@ -488,7 +495,13 @@
       if (f.k === 'shot') {
         const k = Math.min(1, age * 2.2);
         const x = f.x0 + (f.x1 - f.x0) * k, y = f.y0 + (f.y1 - f.y0) * k - Math.sin(k * Math.PI) * 0.6;
-        circ(ctx, s, x, y, 0.1, f.hit ? 'rgba(255,240,140,' + (1 - age) + ')' : 'rgba(180,180,180,' + (1 - age) + ')');
+        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age) * (f.hit ? 1 : 0.55);
+        if (m.year === 2024) ring(ctx, s, x, y, 0.15, COL.note);
+        else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
+        else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
+        else if (m.year === 2026) { ball(ctx, s, x, y, 0.07, COL.fuel); ball(ctx, s, x - 0.18, y + 0.1, 0.06, COL.fuel); ball(ctx, s, x + 0.12, y - 0.14, 0.06, COL.fuel); }
+        else circ(ctx, s, x, y, 0.1, '#d9dee3');
+        ctx.restore();
       } else if (f.k === 'pop') {
         ctx.globalAlpha = Math.max(0, 1 - age);
         text(ctx, s, f.text, f.x, f.y - 0.4 - age * 0.8, alc(f.a), 13);

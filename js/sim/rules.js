@@ -15,6 +15,8 @@
     if (best) best.claimed = true;
     return best;
   };
+  // a robot's position in its own alliance's field coordinates (E.P is its own inverse)
+  const loc = (m, r) => E.P(m, r.a, r.x, r.y), RR = E.RR;
   const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => m.hp[a] = Math.max(40, ...m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40))); };
 
   // =====================================================================
@@ -88,7 +90,7 @@
     init(m) {
       setHp(m);
       m.hub = { x: FW / 2, y: FH / 2 };
-      m.obs = [{ x: m.hub.x, y: m.hub.y, r: 1.65 }];
+      m.obs = [{ x: m.hub.x, y: m.hub.y, r: 1.65, h: 1.3 }];
       m.cargo = [];
       ['red', 'blue'].forEach(a => {
         // staged cargo ring around the tarmac edge (each alliance's balls sit on both sides of the field), plus the terminal
@@ -100,6 +102,13 @@
     },
     start(m, r) { const g = [150, 180, 210][r.slot] * Math.PI / 180; return E.P(m, r.a, m.hub.x + Math.cos(g) * 2.5, m.hub.y + Math.sin(g) * 2.5); },
     guard(m, a) { return E.P(m, a, 5.7, 4.1); },
+    // G207: robots touching their Launch Pad (the two Hub-facing Hangar legs); G208: in their Hangar Zone in the last 30 s
+    protect(m, r) {
+      const q = loc(m, r);
+      if (Math.hypot(q.x - 3.07, q.y - 0.22) < 0.65 || Math.hypot(q.x - 3.07, q.y - 2.67) < 0.65) return 'Launch Pad';
+      if (m.total - m.t <= 30 && q.x < 3.17 + RR && q.y < 2.77 + RR) return 'Hangar Zone';
+      return '';
+    },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0];
       if (r.mem.got == null) r.mem.got = 1;
@@ -130,7 +139,7 @@
       if (r.held > 0 && H.canScore(m, r)) return score22(m, r);
       r.label = r.jam.intake ? 'Intake jammed' : r.jam.scorer ? 'Shooter jammed' : 'Waiting';
     },
-    endSpot(m, r) { return E.P(m, r.a, 0.9 + r.slot * 0.85, 1.35); },
+    endSpot(m, r) { return E.P(m, r.a, 0.85 + r.slot * 0.92, 1.35); },
     finishEnd(m) {
       m.robots.forEach(r => {
         if (r.end && r.end.lvl > 0 && !r.dead) { const p = this.endgame.levels[r.end.lvl - 1].pts; m.score[r.a].end += p; r.stats.pts += p; }
@@ -236,6 +245,14 @@
     },
     start(m, r) { return E.P(m, r.a, 2.1, [0.8, 2.75, 4.7][r.slot]); },
     guard(m, a) { return E.P(m, a, 8.0, 5.8); },
+    // G207: a robot inside its opponent's Community or Loading Zone may not contact anyone, so robots are safe in their own
+    // (that covers the Charge Station endgame too)
+    protect(m, r) {
+      const q = loc(m, r);
+      if (q.x < 4.9 + RR && q.y < 5.55 + RR) return 'Community';
+      if (q.x > 13.2 - RR && q.y > 5.5 - RR) return 'Loading Zone';
+      return '';
+    },
     autoDecide(m, r) {
       const ss = m.ss[r.a], max = m.S.autoPieces[r.cap.autoTier || 0];
       if (r.mem.got == null) r.mem.got = 1;
@@ -269,7 +286,7 @@
           () => { r.held = 1; r.heldType = type; }, 'Grabbing ' + type);
       }, 'To loading zone');
     },
-    endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, 3.9, 2.2 + r.slot * 0.55) : E.P(m, r.a, 2.3, 0.9 + r.slot * 1.5); },
+    endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, 3.9, 1.98 + r.slot * 0.8) : E.P(m, r.a, 2.3, 0.9 + r.slot * 1.5); },
     finishEnd(m) {
       ['red', 'blue'].forEach(a => {
         const ss = m.ss[a], rs = H.alliance(m, a);
@@ -427,7 +444,9 @@
     endgame: { levels: [{ name: 'Onstage', pts: 3, time: 5, drop: 0.05 }], park: 1 },
     init(m) {
       setHp(m);
-      m.obs = [{ x: 4.9, y: 4.1, r: 1.05 }, { x: FW - 4.9, y: 4.1, r: 1.05 }];
+      // the Stage: robots drive under it, but not through its three legs or the centre Podium
+      m.obs = [{ x: 4.9, y: 4.1, r: 1.05, h: 0.3, end: true }, { x: FW - 4.9, y: 4.1, r: 1.05, h: 0.3, end: true }];
+      ['red', 'blue'].forEach(a => [0, 120, 240].forEach(d => { const g = d * Math.PI / 180, p = E.P(m, a, 4.9 + Math.cos(g) * 1.3, 4.1 + Math.sin(g) * 1.3); m.obs.push({ x: p.x, y: p.y, r: 0.1, h: 0.15 }); }));
       m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {};
       m.center = [0.75, 2.4, 4.1, 5.8, 7.45].map(y => ({ x: FW / 2, y }));
       ['red', 'blue'].forEach(a => {
@@ -449,6 +468,15 @@
     // cancels most of the feeding advantage (as it did in the real game)
     guard(m, a) { return E.P(m, a, 12.6, 2.2); },
     defTarget(m, r) { return m.robots.find(x => x.a !== r.a && x.plan.role === 'feed' && !x.dead) || null; },
+    // G423: Source and Amp Zones; G422: touching the Podium (until the last 20 s); G424: the Stage Zone in the last 20 s
+    protect(m, r) {
+      const q = loc(m, r), tl = m.total - m.t, ds = Math.hypot(q.x - 4.9, q.y - 4.1);
+      if (q.y < q.x - 14.1) return 'Source Zone';
+      if (q.x > 1.0 && q.x < 2.7 && q.y > 7.0) return 'Amp Zone';
+      if (tl > 20 && ds < 0.3 + RR + 0.05) return 'Podium';
+      if (tl <= 20 && ds < 1.6) return 'Stage Zone';
+      return '';
+    },
     autoDecide(m, r) {
       const tier = r.cap.autoTier || 0, max = m.S.autoPieces[tier];
       if (r.mem.got == null) r.mem.got = 1;
@@ -663,7 +691,7 @@
       setHp(m);
       m.coop = false; m.reef = {}; m.faces = {}; m.stations = {}; m.procSpot = {}; m.netSpot = {}; m.cages = {};
       // the Barge spans the whole midline; robots pass under its truss but not through the centre leg or the hanging cages
-      m.obs = [{ x: 4.49, y: 4.03, r: 1.0 }, { x: FW - 4.49, y: 4.03, r: 1.0 }, { x: FW / 2, y: FH / 2, r: 0.3 }];
+      m.obs = [{ x: 4.49, y: 4.03, r: 1.0, h: 0.88 }, { x: FW - 4.49, y: 4.03, r: 1.0, h: 0.88 }, { x: FW / 2, y: FH / 2, r: 0.3, h: 0.22 }];
       ['red', 'blue'].forEach(a => {
         m.reef[a] = E.P(m, a, 4.49, 4.03);
         m.faces[a] = [0, 60, 120, 180, 240, 300].map(d => { const g = d * Math.PI / 180; return E.P(m, a, 4.49 + Math.cos(g) * 1.45, 4.03 + Math.sin(g) * 1.45); });
@@ -671,7 +699,7 @@
         m.procSpot[a] = E.P(m, a, 6.0, FH - 0.7);           // processor: on the alliance's right-hand side wall
         m.netSpot[a] = E.P(m, a, FW / 2 - 1.15, 2.1);       // shoot algae into the net above the alliance's half of the Barge
         m.cages[a] = CAGE_Y.map(y => E.P(m, a, FW / 2, y)); // three cages on the alliance's half (its left)
-        m.cages[a].forEach(c => m.obs.push({ x: c.x, y: c.y, r: 0.24 }));
+        m.cages[a].forEach(c => m.obs.push({ x: c.x, y: c.y, r: 0.24, h: 0.18, end: true }));
         const algae = H.alliance(m, a).filter(canProcess).sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0));
         // station assignment: best two coral scorers get a station each, the third shares with the weaker of them
         const coral = H.alliance(m, a).filter(r => (r.cap.reach || 0) > 0).sort((p, q) => coralPower(q) - coralPower(p));
@@ -683,6 +711,13 @@
     },
     start(m, r) { return E.P(m, r.a, 6.85, [1.4, 4.03, 6.6][r.slot]); },
     guard(m, a) { return E.P(m, a, 6.4, 3.0); },
+    // G427: Reef Zone and Barge Zone, whoever starts the contact (G428, robots touching a Cage late on, sit in the Barge Zone)
+    protect(m, r) {
+      const q = loc(m, r);
+      if (Math.hypot(q.x - 4.49, q.y - 4.03) < 1.38 + RR * 0.7) return 'Reef Zone';
+      if (Math.abs(q.x - FW / 2) < 0.6 + RR && q.y < 3.77 + RR) return 'Barge Zone';
+      return '';
+    },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0];
       if (r.mem.got == null) { r.mem.got = 1; r.mem.sc = 0; }
@@ -860,7 +895,9 @@
     init(m) {
       setHp(m);
       m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = '';
-      m.obs = [{ x: XB, y: 4.03, r: 0.75 }, { x: FW - XB, y: FH - 4.03, r: 0.75 }, { x: 1.1, y: 4.03, r: 0.4 }, { x: FW - 1.1, y: FH - 4.03, r: 0.4 }];
+      m.obs = [{ x: XB, y: 4.03, r: 0.75, h: 0.62 }, { x: FW - XB, y: FH - 4.03, r: 0.75, h: 0.62 }];
+      // the Tower: a solid base and uprights (robots heading for their climb may touch their own)
+      ['red', 'blue'].forEach(a => [-0.75, 0, 0.75].forEach(dy => { const p = E.P(m, a, 1.1, 4.03 + dy); m.obs.push({ x: p.x, y: p.y, r: 0.75, h: 0.42, end: true }); }));
       ['red', 'blue'].forEach(a => {
         m.hub[a] = E.P(m, a, XB, 4.03);
         m.zone[a] = zoneOf(m, a, 0.6, 3.85, 0.6, 7.6);
@@ -870,6 +907,12 @@
     },
     start(m, r) { return E.P(m, r.a, 3.55, [1.6, 4.03, 6.45][r.slot]); },
     guard(m, a) { return E.P(m, a, 2.7, 2.4); },
+    // G420: robots touching their Tower in the last 30 s, whoever starts the contact
+    protect(m, r) {
+      if (m.total - m.t > 30) return '';
+      const q = loc(m, r);
+      return q.x < 1.52 + RR + 0.1 && Math.abs(q.y - 4.03) < 1.15 + RR + 0.1 ? 'Tower' : '';
+    },
     route(m, r, from, to) {
       const lines = [{ X: XB, own: 'blue' }, { X: FW - XB, own: 'red' }].filter(L => (from.x - L.X) * (to.x - L.X) < 0);
       if (!lines.length) return null;
@@ -958,7 +1001,7 @@
       if (r.held > 0 && H.canScore(m, r)) return shoot26(m, r);
       r.label = r.jam.intake ? 'Intake jammed' : 'Waiting';
     },
-    endSpot(m, r) { return E.P(m, r.a, 1.15, 4.03 + (r.slot - 1) * 0.75); },
+    endSpot(m, r) { return E.P(m, r.a, 1.15, 4.03 + (r.slot - 1) * 0.88); },
     finishEnd(m) {
       m.robots.forEach(r => {
         if (r.end && r.end.lvl > 0 && !r.dead) { const p = [10, 20, 30][r.end.lvl - 1]; m.score[r.a].end += p; m.ss[r.a].tower += p; r.stats.pts += p; }
@@ -985,11 +1028,13 @@
 // ---------------------------------------------------------------------
 (function () {
   const R = G.Rules, S = G.Seasons;
-  R[2022].defense = { eff: 2.2, foul: 0.8, range: 1.8, zone: 0.45 };
-  R[2023].defense = { eff: 0.5, foul: 1.7 };
-  R[2024].defense = { eff: 3.2, foul: 0.7, range: 2.0, zone: 0.7 };
-  R[2025].defense = { eff: 0.5, foul: 1.7 };
-  R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35 };
+  // pin: seconds a robot may be pinned (G202 2022–23 and G420 2024: 5 s; G425 2025 and G418 2026: 3 s);
+  // reset: how long the defender must stay 6 ft away before pinning again; protMajor: protected-zone contact is a major/tech foul
+  R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3 };
+  R[2023].defense = { eff: 0.5, foul: 1.7, pin: 5, reset: 3 };
+  R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true };
+  R[2025].defense = { eff: 0.5, foul: 1.7, pin: 3, reset: 3, protMajor: true };
+  R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35, pin: 3, reset: 3, protMajor: true };
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes across the field and hoard them for Amplify.' };

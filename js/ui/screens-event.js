@@ -10,7 +10,7 @@
   // =====================================================================
   // EVENT HUB
   // =====================================================================
-  UI.S.event = { nav: 'event', html() {
+  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (ev && ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
@@ -28,12 +28,25 @@
     return o;
   } };
 
+  // Condition of each subsystem on the competition robot, with "swap in spare" where an identical spare is in storage
+  UI.condRows = function (S) {
+    const R = S.robot;
+    return Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver).map(k => {
+      const sp = G.Robot.spareFor(S, k);
+      return '<div class="row gap4">' + '<div class="sp">' + UI.stat(G.Seasons.sub(R.year, k).name, R.subs[k].cond, null, UI.colorFor(R.subs[k].cond)) + '</div>' +
+        (sp ? '<button class="btn sm" data-act="swapSpare" data-arg="' + k + '" title="An identical spare (v' + sp.ver + ', ' + Math.round(sp.cond) + '%) from storage or the other robot">Swap in spare · ' + Math.round(sp.cond) + '%</button>' : '') + '</div>';
+    }).join('');
+  };
+  UI.A.swapSpare = k => {
+    const r = G.Robot.swapSpare(G.S, k);
+    if (typeof r === 'string') return UI.err(r);
+    UI.toast(r.name + ': spare swapped in (' + r.from + '% → ' + r.to + '%). The worn one went to ' + r.where + '.', 'good'); G.Save.write('auto'); UI.render();
+  };
   // ---------------- pit crew: condition + spare parts at event prices ----------------
   function pitCard(ev) {
     const S = G.S, R = S.robot, C = G.Career;
     const up = C.spareUnitPrice(S, true), home = C.spareUnitPrice(S, false);
-    const conds = Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k].ver)
-      .map(k => UI.stat(G.Seasons.sub(R.year, k).name, R.subs[k].cond, null, UI.colorFor(R.subs[k].cond))).join('');
+    const conds = UI.condRows(S);
     return '<div class="card mt"><div class="ct">Pit crew<span class="sp"></span>' + UI.tag(S.parts.spares + ' spare parts', S.parts.spares ? '' : 'bad') + '</div>' +
       '<div class="grid g2"><div>' + (conds || '<p class="muted">Nothing built yet.</p>') + '</div><div class="col">' +
       '<div class="sm muted">Before each match the pit crew repairs the robot. One spare part restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. With no spares left, repairs stop at 60%.</div>' +
@@ -58,7 +71,9 @@
       G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left"><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + S.robot.pending.length + ' pending)' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
     o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + UI.stat('Auto bonus', ev.tuneAuto * 500) +
-      UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
+      UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) +
+      (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
+      '<div class="sm mt">' + UI.icon('fatigue', 14) + ' Fatigue ' + UI.fatigueBar(ev.fatigue == null ? 30 : ev.fatigue) + ' <b>' + Math.round(ev.fatigue == null ? 30 : ev.fatigue) + '</b> (' + G.Career.fatigueLabel(ev.fatigue == null ? 30 : ev.fatigue) + ') · ' + UI.icon('scout', 14) + ' scouting credibility <b>' + Math.round((ev.scoutCred || 1) * 100) + '%</b></div>' + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
       (ev.log.length ? '<div class="hr"></div>' + ev.log.slice(-6).map(l => '<div class="sm">• ' + h(l) + '</div>').join('') : '') + '</div></div>';
     return o;
   }
@@ -124,7 +139,7 @@
   const pctTxt = v => v == null ? '<span class="dim">—</span>' : '<span style="color:' + UI.colorFor(v * 100) + '">' + Math.round(v * 100) + '%</span>';
   const OBS_HEAD = '<th class="num" title="Points this robot scored itself, per match">Pts/m</th><th class="num" title="Matches where its autonomous routine ran as planned">Auto</th><th title="Successful endgame climbs out of attempts, and the usual level">Climb</th><th class="num" title="Matches without a breakdown, brownout, jam or comms loss (✕ = times disabled)">Fault-free</th><th class="num" title="Fouls per match">Fouls</th><th class="num" title="Matches spent playing defense">Def</th>';
   function obsCells(ev, t) {
-    const o = G.Ev.obsOf(ev, t), Sz = G.Seasons[ev.year];
+    const o = G.Ev.obsShown(ev, t), Sz = G.Seasons[ev.year];
     if (!o) return '<td class="dim xs" colspan="6">no matches yet</td>';
     const climb = o.climbTry ? pctTxt(o.climb) + ' <span class="xs dim" title="' + (ev.year === 2023 ? 'Docks that ended Engaged' : 'Successful climbs / attempts') + '">' + Math.round((o.climb || 0) * o.climbTry) + '/' + o.climbTry + (ev.year === 2023 ? ' eng' : o.climbLvl ? ' ' + h(Sz.endNames[Math.round(o.climbLvl)] || '') : '') + '</span>' : '<span class="dim">—</span>';
     return '<td class="num">' + o.pts.toFixed(1) + '</td><td class="num">' + pctTxt(o.auto) + '</td><td class="nowrap">' + climb + '</td><td class="num">' + pctTxt(o.rel) + (o.dead ? ' <span class="xs bad" title="Disabled ' + o.dead + '×">' + o.dead + '✕</span>' : '') + '</td><td class="num">' + o.fouls.toFixed(1) + '</td><td class="num">' + (o.def || '<span class="dim">0</span>') + '</td>';
@@ -132,7 +147,7 @@
   function pickTable(ev) {
     const sel = ev.sel, opr = G.Ev.opr(ev), al = sel.alliances[sel.pending.k] || [me()];
     const avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t)) && !sel.declined.includes(t) && t !== me());
-    const rows = avail.map(t => ({ t, sc: G.Ev.scout(ev, t), v: G.Ev.pickScore(ev, al, t) })).sort((a, b) => b.v - a.v);
+    const rows = avail.map(t => ({ t, sc: G.Ev.scout(ev, t), v: G.Ev.pickScore(ev, al, t, true) })).sort((a, b) => b.v - a.v);
     return '<div class="xs muted mb">Sorted by pick value: OPR discounted by breakdowns, plus auto and climb consistency, fouls, and what your alliance still needs. Hover the headers for details.</div>' +
       '<div style="max-height:440px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num">Value</th><th></th></tr>' + rows.slice(0, 30).map((r, i) => {
       return '<tr><td class="nowrap">' + tlink(r.t) + (i < 3 ? ' ' + UI.tag('rec', 'acc') : '') + '<div class="xs muted">#' + G.Ev.rankOf(ev, r.t) + ' · ' + h(r.sc.arch || '') + '</div></td><td class="num">' + (opr[r.t] || 0) + '</td>' + obsCells(ev, r.t) + '<td class="num b">' + r.v.toFixed(1) + '</td><td><button class="btn sm primary" data-act="selPick" data-arg="' + r.t + '">Pick</button></td></tr>';
@@ -155,13 +170,27 @@
   };
   function playoffView(ev) {
     const pa = G.Ev.playerAlliance(ev);
-    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are Alliance ' + (pa + 1) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') : ' ' + UI.tag('not selected', 'bad')) + '</div>';
+    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are Alliance ' + (pa + 1) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
     if (pa >= 0) o += '<div class="sm mb">Alliance: ' + ev.alliances[pa].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>';
     if (pa >= 0 && !G.Ev.playerEliminated(ev)) o += '<div class="row wrap"><button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button></div>';
     else o += '<div class="row wrap"><button class="btn primary" data-act="simRestPO">Simulate remaining playoffs</button></div>';
     o += '</div>' + UI.bracket(ev);
     return o;
   }
+  // "1 loss" chip: two losses and you're out (the finals are best of three)
+  function lossTag(ev) {
+    const l = G.Ev.playerLosses(ev);
+    if (l.inFinals) return UI.tag('Finals: ' + l.finals + ' game' + (l.finals === 1 ? '' : 's') + ' lost (best of 3)', l.finals ? 'warn' : 'good');
+    return UI.tag(l.losses + (l.losses === 1 ? ' loss' : ' losses') + ' · out at 2', l.losses ? 'warn' : 'good');
+  }
+  UI.lossTag = lossTag;
+  // Name of the match being played: "Qualification 12 of 64", "Playoff Match 7", "Finals · Game 2"
+  UI.matchLabel = function (ev, obj) {
+    if (!obj) return '';
+    if (!obj.playoff) return 'Qualification ' + obj.n + ' of ' + ev.quals.length;
+    if (ev.kind === 'einstein' || obj.id === 'F') return (ev.kind === 'einstein' && obj.id !== 'F' ? 'Einstein ' : '') + (obj.id === 'F' ? 'Finals · Game ' + ((obj.game || 0) + 1) : 'Playoff Match ' + String(obj.id).replace('M', ''));
+    return 'Playoff Match ' + String(obj.id).replace('M', '');
+  };
   function prepPO(ev, m) {
     const key = m.id + ':' + m.games.length;
     if (ev.prepKey !== key) { G.Career.beforePlayerMatch(G.S, ev); ev.prepKey = key; }
@@ -209,7 +238,7 @@
   // ---------------- tabs: rankings / scouting / schedule ----------------
   function tabs(ev) {
     const t = UI.st.evTab || 'rank';
-    let o = '<div class="row mt mb">' + [['rank', 'Rankings'], ['scout', 'Scouting'], ['sched', 'Schedule']].map(x => '<button class="btn sm ' + (t === x[0] ? 'sel' : '') + '" data-act="evTab" data-arg="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>';
+    let o = UI.tabs(t, [['rank', 'Rankings', 'history'], ['scout', 'Scouting', 'scout'], ['sched', 'Schedule', 'calendar'], ['inc', 'Incidents', 'incident', ev.incidents && ev.incidents.length ? ev.incidents.length : 0]], 'evTab');
     const opr = G.Ev.opr(ev);
     if (t === 'rank') {
       o += '<div class="card"><table class="t"><tr><th>#</th><th>Team</th><th>Name</th><th class="num">RS</th><th>W-L-T</th><th class="num">Avg score</th><th class="num">OPR</th></tr>' + G.Ev.rankings(ev).map((n, i) => {
@@ -217,20 +246,33 @@
         return '<tr class="' + (n === me() ? 'me' : '') + '"><td>' + (i + 1) + '</td><td>' + tlink(n) + '</td><td class="sm">' + h(tname(n)) + '</td><td class="num">' + (r.played ? (r.rp / r.played).toFixed(2) : '—') + '</td><td>' + r.w + '-' + r.l + '-' + r.t + '</td><td class="num">' + (r.played ? Math.round(r.pts / r.played) : '—') + '</td><td class="num">' + (opr[n] || 0) + '</td></tr>';
       }).join('') + '</table></div>';
     } else if (t === 'scout') {
-      o += '<div class="card"><div class="sm muted mb"><b>Observed</b> columns show what each robot actually did in its qualification matches. <b>Estimated</b> ratings (last four columns) sharpen with a Strategy mentor, Scouting Focus practice and more matches watched.</div><div style="overflow-x:auto"><table class="t tight"><tr><th>Team</th><th>Robot</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num" title="Estimated">Speed</th><th class="num" title="Estimated">Scoring</th><th class="num" title="Estimated">Acc</th><th class="num" title="Estimated reliability">Rel</th></tr>' +
+      o += credLine(ev) + '<div class="card"><div class="sm muted mb"><b>Observed</b> columns show what your scouts recorded in qualification matches. <b>Estimated</b> ratings (last four columns) sharpen with a Strategy mentor, Scouting Focus practice and more matches watched.</div><div style="overflow-x:auto"><table class="t tight"><tr><th>Team</th><th>Robot</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num" title="Estimated">Speed</th><th class="num" title="Estimated">Scoring</th><th class="num" title="Estimated">Acc</th><th class="num" title="Estimated reliability">Rel</th></tr>' +
         ev.teams.slice().sort((a, b) => (opr[b] || 0) - (opr[a] || 0)).map(n => {
           const sc = G.Ev.scout(ev, n), e = sc.est || sc.cap, c = sc.cap;
           const nd = sc.noise ? '<span class="xs dim">±' + sc.noise + '</span>' : '';
           return '<tr class="' + (n === me() ? 'me' : '') + '"><td>' + tlink(n) + '</td><td class="xs">' + h(sc.arch) + '</td><td class="num">' + (opr[n] || 0) + '</td>' + obsCells(ev, n) + '<td class="num">' + Math.round(e.speed) + '</td><td class="num">' + Math.round(e.scoreSpd) + nd + '</td><td class="num">' + Math.round(e.accuracy) + '</td><td class="num">' + Math.round(e.rel) + '</td></tr>';
         }).join('') + '</table></div></div>';
+    } else if (t === 'inc') {
+      o += incidentsView(ev);
     } else {
       o += '<div class="card"><table class="t"><tr><th>Match</th><th>Red</th><th>Blue</th><th class="num">Score</th></tr>' + ev.quals.map(mt => '<tr class="' + (G.Ev.hasPlayer(mt) ? 'me' : '') + '"><td>Q' + mt.n + '</td><td class="red">' + mt.red.join(' ') + '</td><td class="blue">' + mt.blue.join(' ') + '</td><td class="num">' + (mt.res ? '<span class="red">' + mt.res.red.score + '</span> – <span class="blue">' + mt.res.blue.score + '</span>' : '') + '</td></tr>').join('') + '</table></div>';
     }
     return o;
   }
   UI.A.evTab = t => { UI.st.evTab = t; UI.render(); };
+  // ---- fatigue at events: scouting credibility and incidents ----
+  function credLine(ev) {
+    const c = ev.scoutCred == null ? 1 : ev.scoutCred, col = c >= 0.9 ? 'good' : c >= 0.8 ? 'warn' : 'bad';
+    return '<div class="row sm mb cred">' + UI.icon('scout', 16) + '<span>Scouting credibility <b class="' + col + '">' + Math.round(c * 100) + '%</b></span><span class="xs muted">About ' + Math.round((1 - c) * 100) + '% of other teams\' data may belong to the wrong robot. A tired team makes more mistakes; a Strategy mentor, experience and Scouting Focus practice help.</span></div>';
+  }
+  function incidentsView(ev) {
+    const f = ev.fatigue == null ? D.FATIGUE_BASE : ev.fatigue;
+    let o = '<div class="row sm mb">' + UI.icon('fatigue', 16) + '<span>Team fatigue at this event: <b class="' + (f > 60 ? 'bad' : f > 40 ? 'warn' : 'good') + '">' + Math.round(f) + ' (' + G.Career.fatigueLabel(f) + ')</b></span><span class="xs muted">' + (f <= D.INCIDENT_FREE ? 'At this level there is at most one incident per event.' : 'Expect about ' + G.Ev.incidentRate(f).toFixed(1) + ' incidents at a regional.') + ' Fatigue is fixed for the whole event (the Championship and Einstein count as one).</span></div>';
+    if (!ev.incidents || !ev.incidents.length) return o + '<div class="card"><p class="muted">No incidents so far. The drive team, pit crew and scouts are on top of things.</p></div>';
+    return o + '<div class="inc-list">' + ev.incidents.map(x => '<div class="inc"><div class="row">' + UI.icon('incident', 16) + '<b>' + h(x.title) + '</b><span class="sp"></span><span class="xs muted">' + h(x.at) + '</span></div><div class="sm muted">' + h(x.text) + '</div></div>').join('') + '</div>';
+  }
   function obsBlock(ev, n) {
-    const ob = G.Ev.obsOf(ev, n);
+    const ob = G.Ev.obsShown(ev, n);
     if (!ob) return '<div class="sm dim mt">No qualification matches observed yet.</div>';
     return '<h3 class="mt">Observed at this event <span class="xs muted">(' + ob.n + ' matches)</span></h3><div class="kv">' +
       '<span class="k">Points scored / match</span><span>' + ob.pts.toFixed(1) + '</span>' +
@@ -299,7 +341,7 @@
       '<label class="row sm"><input type="checkbox" data-chg="planChk" data-k="rpHunt" ' + (plan.rpHunt ? 'checked' : '') + '> Chase bonus ranking points</label>' +
       '<label class="row sm"><input type="checkbox" data-chg="planChk" data-k="avoid" ' + (plan.avoid ? 'checked' : '') + '> Avoid contact (fewer fouls, slower)</label></div>';
     const R = S.robot;
-    o += '<div class="hr"></div><div class="sm"><b>Robot status</b></div>' + Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k].ver).map(k => UI.stat(G.Seasons.sub(R.year, k).name, R.subs[k].cond, null, UI.colorFor(R.subs[k].cond))).join('') +
+    o += '<div class="hr"></div><div class="sm"><b>Robot status</b></div>' + UI.condRows(S) +
       '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
@@ -343,7 +385,8 @@
       '<div class="row wrap gap4"><span class="xs muted" style="width:62px">Endgame</span>' + callBtn('endNow', '1', 'Go now') + callBtn('endTiming', 'late', 'Go late') + Sz.endNames.map((n, i) => i > 0 ? callBtn('endLevel', i, 'Aim ' + n) : '').join('') + '</div>' +
       partnerRow(ev, obj, a, callBtn) +
       '<div class="row wrap gap4"><span class="xs muted" style="width:62px">Other</span>' + callBtn('rp', '1', 'Chase bonus RP') + callBtn('rp', '0', 'Just win') + callBtn('avoid', '1', 'Avoid contact') + callBtn('avoid', '0', 'Allow contact') + callBtn('reset', '1', 'Reset robot!', 'bad') + '</div></div>';
-    return '<div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' +
+    return '<div class="row mb matchhead">' + UI.icon('event', 18) + '<b>' + h(UI.matchLabel(ev, obj)) + '</b><span class="xs muted">' + h(ev.name) + '</span><span class="sp"></span>' + (obj.playoff && ev.kind !== 'einstein' ? lossTag(ev) : '') + '</div>' +
+      '<div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' +
       '<div class="matchview"><div><div class="card" style="padding:10px"><div class="ct sm">Your robot</div><div id="myBox"></div></div><div class="card mt" style="padding:10px"><div class="ct sm">Robots</div><div id="robBox"></div></div></div>' +
       '<div><div class="fieldwrap"><canvas id="fieldCv" width="1100" height="547"></canvas></div>' +
       '<div class="card mt" style="padding:10px"><div class="row mb"><b>Coach Calls</b> <span class="tag acc" id="callsLeft"></span><span class="sp"></span><div class="row gap4" id="spd">' +
@@ -471,13 +514,16 @@
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
     const ev = Ev();
-    let o = '<div class="row"><div><div class="xs muted">' + (R.kind === 'qual' ? 'QUALIFICATION ' + obj.n : 'PLAYOFF ' + obj.id) + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1></div><span class="sp"></span><div class="score r">' + res.red.score + '</div><div class="score b">' + res.blue.score + '</div></div>';
+    let o = '<div class="row"><div><div class="xs muted">' + h(UI.matchLabel(ev, Object.assign({ playoff: R.kind !== 'qual' }, obj)).toUpperCase()) + (R.kind !== 'qual' && ev && ev.po && !ev.po.done ? ' · ' + lossTag(ev) : '') + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1></div><span class="sp"></span><div class="score r">' + res.red.score + '</div><div class="score b">' + res.blue.score + '</div></div>';
     o += '<div class="grid g2 mt"><div class="card"><div class="ct">Score breakdown</div><table class="t"><tr><th></th><th class="num red">Red</th><th class="num blue">Blue</th></tr>' +
       [['Auto', 'auto'], ['Teleop', 'tele'], ['Endgame', 'end'], ['Fouls received', 'foul'], ['Total', 'score']].map(x => '<tr><td>' + x[0] + '</td><td class="num">' + res.red[x[1]] + '</td><td class="num">' + res.blue[x[1]] + '</td></tr>').join('') + '</table>' +
       (R.kind === 'qual' ? '<div class="hr"></div><div class="b">You earned ' + res[a].rp + ' RP</div>' + res[a].bonus.map(b => '<div class="sm">' + (b.ok ? '<span class="good">✔</span> ' : '<span class="dim">✘</span> ') + h(b.name) + ' <span class="muted">(' + b.val + '/' + b.thr + ')</span></div>').join('') : '') + '</div>';
     o += '<div class="card"><div class="ct">Robots</div><table class="t"><tr><th>Team</th><th class="num">Pts</th><th class="num">Cycles</th><th class="num">Acc</th><th>Endgame</th><th>Issues</th></tr>' + res.robots.map(r => '<tr class="' + (r.team === me() ? 'me' : '') + '"><td class="' + r.a + '">' + r.team + '</td><td class="num">' + r.pts + '</td><td class="num">' + r.cycles + '</td><td class="num">' + (r.shots ? Math.round(100 * r.hits / r.shots) + '%' : '—') + '</td><td class="xs">' + (r.end ? (r.end.lvl ? G.Seasons[ev ? ev.year : G.S.year].endNames[r.end.lvl] : r.end.failed ? 'failed' : 'park') : '—') + '</td><td class="xs warn">' + h(r.faults.concat(r.fouls ? [r.fouls + ' foul' + (r.fouls > 1 ? 's' : '')] : []).join(', ')) + (r.autoOK === false ? ' <span class="dim">auto miss</span>' : '') + '</td></tr>').join('') + '</table></div></div>';
     if (G.S.robot) { const RB = G.S.robot; o += '<div class="card mt"><div class="ct">Robot condition after the match</div><div class="grid g3">' + Object.keys(RB.subs).filter(k => k !== 'soft' && RB.subs[k].ver).map(k => UI.stat(G.Seasons.sub(RB.year, k).name, RB.subs[k].cond, null, UI.colorFor(RB.subs[k].cond))).join('') + '</div><div class="xs muted">Pit repairs happen automatically before your next match (more time between matches = more repairs; uses spare parts).</div></div>'; }
+    if (UI.wonEvent(ev, R)) o = '<div class="card hl mb"><div class="row">' + UI.icon('trophy', 26) + '<div><div class="lg b acc">' + (ev.kind === 'einstein' ? 'WORLD CHAMPIONS!' : ev.kind === 'champs' ? 'Division Champions!' : 'Event winners!') + '</div><div class="sm muted">' + h(ev.name) + '</div></div></div></div>' + o;
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="nav" data-arg="event">Continue ▶</button></div>';
     return o;
-  } };
+  }, after() { const R = UI.st.lastResult, ev = Ev(); if (R && !R.party && UI.wonEvent(ev, R)) { R.party = true; UI.confetti(); } } };
+  // This result is the match that won the event for the player's alliance
+  UI.wonEvent = (ev, R) => !!(ev && R && R.kind !== 'qual' && ev.result && ev.result.won && R.obj && R.obj.id === 'F');
 })();

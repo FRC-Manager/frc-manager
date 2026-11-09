@@ -67,28 +67,22 @@
 
   // ---------- Fees ----------
   D.FEES = { firstRegional: 6000, addRegional: 4000, late: 1000, champs: 5000, scrimmage: 500, shopOps: 2000 };
+  D.DEBT_LIMIT = 50000; // in-season debt the school board will tolerate; settled at the season review (support and reputation penalty)
+  D.STEM_FUND = { below: 1000, max: 6000, uses: 2, rep: 4 }; // emergency fund when the balance is under $1,000: up to $6k, twice a program year, −4 reputation each
 
-  // ---------- Parts store ----------
-  D.PARTS = [
-    { id: 'motors', name: 'Motors', tiers: [
-      { name: 'Brushed (kit)', cost: 0, desc: 'Included in the kit of parts.' },
-      { name: 'Brushless Gen 1', cost: 900, desc: '+4 speed / +3 scoring ceilings, fewer brownouts.' },
-      { name: 'Brushless Gen 2', cost: 2000, desc: '+8 speed / +6 scoring ceilings, far fewer brownouts.' }] },
-    { id: 'swerve', name: 'Swerve Modules', tiers: [
-      { name: 'None', cost: 0, desc: 'Required for the Swerve drivetrain.' },
-      { name: 'Basic swerve set', cost: 2400, desc: 'Unlocks Swerve.' },
-      { name: 'Premium swerve set', cost: 3600, desc: 'Unlocks Swerve, +3 speed ceiling, +5 drivetrain reliability.' }] },
-    { id: 'sensors', name: 'Sensors & Control', tiers: [
-      { name: 'Basic (kit)', cost: 0, desc: 'Basic encoders.' },
-      { name: 'Encoders + gyro upgrade', cost: 600, desc: '+5 auto ceiling, +2 reliability.' }] },
-    { id: 'vision', name: 'Vision Hardware', tiers: [
-      { name: 'None', cost: 0, desc: 'No camera.' },
-      { name: 'Camera', cost: 400, desc: 'Unlocks Vision Level 1 (auto-aim / auto-align).' },
-      { name: 'Dual camera + coprocessor', cost: 1200, desc: 'Unlocks Vision Level 2 (shoot-on-the-move, pose estimation).' }] },
-    { id: 'pneu', name: 'Pneumatics Kit', tiers: [
-      { name: 'None', cost: 0, desc: '' },
-      { name: 'Pneumatics kit', cost: 500, desc: 'Intake and manipulator projects take 15% fewer hours.' }] }
-  ];
+  // ---------- Fatigue (in season) ----------
+  D.FATIGUE_BASE = 30;      // the normal level a team settles at
+  D.FATIGUE_IDLE = 0.10;    // leaving about 10% of the week's hours idle holds fatigue steady
+  D.FATIGUE_SLOPE = 40;     // fatigue change per week per unit of idle share below/above that
+  D.FATIGUE_OVERTIME = 10;  // an overtime week
+  D.FATIGUE_EVENT = 9;      // a competition week
+  D.INCIDENT_FREE = 35;     // at or below this fatigue, at most one incident per event
+
+  // ---------- Team trailer ----------
+  D.TRAILER_LONG = 0.85;    // long drives instead of flying: 15% cheaper than flights and no air-freight damage
+  D.TRAILER_OUTREACH = 1.2; // robot shows on the road: +20% outreach from robot activities
+
+  // Parts, vendors and game elements live in js/data/parts.js
   D.BATTERY_COST = 150; D.SPARES_COST = 120; // per spare unit
   D.SPARES_EVENT_MULT = 2;    // spare parts bought at an event cost double
   D.SPARE_COND_PER_UNIT = 30; // condition points one spare part restores
@@ -123,11 +117,16 @@
       levels: [{ name: 'Basic practice area', cost: 2500 }, { name: 'Half field', cost: 6500 }, { name: 'Full field', cost: 12000 }],
       fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Unlocks weekly testing hours for development testing and driver practice. Driver practice needs this season\'s game elements for full value.' }
   ];
-  D.FIELD = { name: 'Game Elements', cost: 2500, desc: 'This season\'s scoring elements and game pieces for your practice field. Bought again each season because every game is new.' };
   D.BATT_LIMIT = [10, 10, 20]; // max batteries by Battery Station level (0, 1, 2)
   D.PROJ_CAP = 80;             // hours one project can absorb per week (×4 per offseason month, ±25% by priority)
   // Testing hours (practice field time, like a wind tunnel): split between development testing and driver practice
-  D.TEST_BOT_HOURS = 4;     // a practice robot adds testing hours per week
+  D.TEST_BOT_HOURS = 6;     // a second runnable robot adds testing hours per week
+  D.BOT2_PRACTICE = 1.25;   // driver practice on the second robot is 25% more effective (no waiting while the competition robot is worked on)
+  // Driver familiarity (0–1) with each subsystem the drive team has driven. A new mechanism starts at NEW; a new
+  // version of the same one costs VER per step; a different concept costs 0.2–0.65 (more for very different ones).
+  // Weekly shop driving, driver practice, event practice and matches win it back. In matches each subsystem's
+  // stats are multiplied by 1 − EFFECT × (1 − familiarity).
+  D.FAM = { NEW: 0.35, VER: 0.04, WEEK: 0.18, OFF: 0.25, PRACTICE: 12, MATCH: 0.06, BLOCK: 0.12, EFFECT: 0.15 };
   D.TEST_COST = 40;         // $ per development-testing hour (prototype parts and materials)
   D.TEST_PER_PROJ = 5;      // test hours one project can absorb per week (×4 per offseason month)
   D.TEST_GAIN = 0.025;      // each test hour on a project adds 2.5% to that project's progress this week
@@ -139,7 +138,7 @@
   D.DRILL_WEAR = 0.8;       // robot condition lost per driver-practice hour when there are no spares
   D.DRILL_BATT = 0.004;     // battery health used per driver-practice hour, shared across the fleet
   D.NO_SPARE_COND = 75;     // without spare parts, home repairs can only patch a subsystem up to this condition
-  D.FUND_FATIGUE = 0.8;         // each repeat of the same fundraiser in a program year (June–May) pays ×0.8 (grants: chance ×0.8)
+  D.FUND_FATIGUE = 0.8;         // each repeat of the same activity within a month pays ×0.8 (grants: chance ×0.8); resets every month
   D.ACT_LIMIT = 3;             // team activities (outreach + fundraising) per week; each type once per week; offseason month ×4
   D.RENO_RATE = 0.35;  // renovation cost = level cost × RENO_RATE × (missing condition / 100) → ~17% of the price at 50% condition
   D.DEV_CATS = { fab: 'Fabrication', soft: 'Software', research: 'Research' };
@@ -162,14 +161,27 @@
   D.knowLevel = xp => { let l = 0; for (let i = 1; i < D.KNOW_THRESH.length; i++) if (xp >= D.KNOW_THRESH[i]) l = i; return l; };
 
   // ---------- Outreach & fundraising ----------
+  // req: unlocked by facilities, staff, sponsors or reputation. robot: a robot show (the trailer adds +20% outreach).
+  const lvl = (S, id) => G.Shop.lvl(S, id);
   D.ACTIVITIES = [
-    { id: 'demo', name: 'Community robot demo', kind: 'outreach', cost: 100, impact: 6, rep: 2, desc: 'Show the robot at a library or fair.' },
-    { id: 'camp', name: 'STEM summer camp', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, desc: 'Run a week-long camp for middle schoolers.' },
-    { id: 'fll', name: 'Mentor a junior robotics team', kind: 'outreach', cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
-    { id: 'bake', name: 'Bake sale', kind: 'fund', cost: 50, money: [300, 600], desc: 'Classic.' },
-    { id: 'carwash', name: 'Car wash', kind: 'fund', cost: 80, money: [400, 900], desc: 'Weekend car wash.' },
-    { id: 'crowd', name: 'Crowdfunding campaign', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
-    { id: 'grant', name: 'Write a grant application', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, desc: 'Roughly 35% chance of a $1,500–$4,000 grant (better with strong outreach).' }
+    { id: 'demo', name: 'Community robot demo', icon: 'garage', kind: 'outreach', cost: 100, impact: 6, rep: 2, robot: true, desc: 'Show the robot at a library or fair.' },
+    { id: 'camp', name: 'STEM summer camp', icon: 'team', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, desc: 'Run a week-long camp for middle schoolers.' },
+    { id: 'fll', name: 'Mentor a junior robotics team', icon: 'mentors', kind: 'outreach', cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
+    { id: 'openhouse', name: 'Weekend shop open house', icon: 'lathe', kind: 'outreach', cost: 150, impact: 9, rep: 2, recruits: 1, money: [150, 450], req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Families tour the machine shop; a donation box by the door.' },
+    { id: 'workshop', name: 'Machining workshop for local teams', icon: 'cnc', kind: 'outreach', cost: 200, impact: 11, rep: 3, req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Teach other teams to make their own parts.' },
+    { id: 'cadclass', name: 'CAD & coding night', icon: 'laptops', kind: 'outreach', cost: 80, impact: 7, rep: 2, req: S => lvl(S, 'laptops') > 0, reqText: 'Needs a Programming Station', desc: 'Open lab night on the team\'s workstations.' },
+    { id: 'printkits', name: '3D-printed kits for schools', icon: 'printer', kind: 'outreach', cost: 150, impact: 8, rep: 2, req: S => lvl(S, 'printer') >= 2, reqText: 'Needs a Print farm (3D Printing level 2)', desc: 'Print simple robot kits for elementary classrooms.' },
+    { id: 'fieldday', name: 'Practice-field scrimmage day', icon: 'pfield', kind: 'outreach', cost: 250, impact: 10, rep: 3, money: [300, 800], robot: true, req: S => lvl(S, 'pfield') >= 2, reqText: 'Needs a half or full practice field', desc: 'Host local teams on your field; small entry fees.' },
+    { id: 'roadshow', name: 'Trailer roadshow', icon: 'trailer', kind: 'outreach', cost: 300, impact: 13, rep: 3, robot: true, req: S => lvl(S, 'trailer') > 0, reqText: 'Needs the Team Trailer', desc: 'Take the robot on tour to schools across the region.' },
+    { id: 'industry', name: 'Industry night with a mentor', icon: 'mentors', kind: 'outreach', cost: 0, impact: 6, rep: 2, req: S => S.mentors.some(m => m.role === 'biz' || m.role === 'design'), reqText: 'Needs a Business or Design mentor', desc: 'A mentor hosts a careers talk.' },
+    { id: 'pizza', name: 'Team pizza & movie night', icon: 'team', kind: 'rest', cost: 150, fatigue: -6, morale: 2, desc: 'No outreach at all, but a tired team gets some rest (fatigue −6 in season).' },
+    { id: 'bake', name: 'Bake sale', icon: 'fund', kind: 'fund', cost: 50, money: [300, 600], desc: 'Classic.' },
+    { id: 'carwash', name: 'Car wash', icon: 'fund', kind: 'fund', cost: 80, money: [400, 900], desc: 'Weekend car wash.' },
+    { id: 'crowd', name: 'Crowdfunding campaign', icon: 'money', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
+    { id: 'grant', name: 'Write a grant application', icon: 'design', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, desc: 'Roughly 35% chance of a $1,500–$4,000 grant (better with strong outreach).' },
+    { id: 'showcase', name: 'Sponsor showcase night', icon: 'sponsor', kind: 'fund', cost: 200, money: [600, 1600], sponsorSat: 4, req: S => S.sponsors.length >= 2, reqText: 'Needs two or more sponsors', desc: 'Show sponsors the robot; satisfaction +4 for every sponsor.' },
+    { id: 'gala', name: 'Alumni fundraising dinner', icon: 'trophy', kind: 'fund', cost: 400, money: [1500, 3800], req: S => S.history.length > 0, reqText: 'After your first season', desc: 'Former members and parents, one big night.' },
+    { id: 'parts', name: 'Sell old parts and stock', icon: 'parts', kind: 'fund', cost: 0, money: [300, 900], req: S => lvl(S, 'lathe') > 0, reqText: 'Needs a Machine Shop', desc: 'Machine and sell spare stock to rookie teams.' }
   ];
 
   // ---------- Mentors ----------
@@ -218,14 +230,16 @@
     found: ['Bright Futures Foundation', 'STEM Forward Fund', 'Next Generation Trust']
   };
   D.SPONSOR_TYPES = {
-    tech: { name: 'Tech corporation', title: true, money: [8000, 16000], exp: 'High', goals: ['champs', 'win', 'playoffs2', 'avgRP'], perks: ['bonusBoost'], oblig: [2, 3] },
-    local: { name: 'Local business', title: false, money: [800, 3000], exp: 'Low', goals: ['events2', 'outreach', 'playoffs1'], perks: [], oblig: [0, 1] },
-    eng: { name: 'Engineering firm', title: true, money: [4000, 10000], exp: 'Medium', goals: ['techAward', 'playoffs1', 'award'], perks: ['tempMentor'], oblig: [1, 2] },
-    mfg: { name: 'Manufacturing company', title: true, money: [3000, 8000], exp: 'Medium', goals: ['quality', 'playoffs1', 'award'], perks: ['fabSpeed', 'partsDiscount'], oblig: [1, 2] },
-    uni: { name: 'University', title: false, money: [1000, 3500], exp: 'Low', goals: ['outreach', 'impactAward'], perks: ['xpBonus'], oblig: [1, 1] },
-    soft: { name: 'Software company', title: false, money: [1500, 5000], exp: 'Medium', goals: ['autoAward', 'avgRP', 'playoffs1'], perks: ['progSpeed'], oblig: [1, 1] },
-    found: { name: 'Foundation grant', title: false, grant: true, money: [2500, 5000], exp: 'Low', goals: ['outreach'], perks: [], oblig: [0, 0] }
+    tech: { name: 'Tech corporation', title: true, f: 1.08, money: [8000, 16000], exp: 'High', goals: ['champs', 'win', 'playoffs2', 'avgRP'], perks: ['bonusBoost'], oblig: [2, 3] },
+    local: { name: 'Local business', title: false, f: 0.8, money: [800, 3000], exp: 'Low', goals: ['events2', 'outreach', 'playoffs1'], perks: [], oblig: [0, 1] },
+    eng: { name: 'Engineering firm', title: true, f: 1, money: [4000, 10000], exp: 'Medium', goals: ['techAward', 'playoffs1', 'award'], perks: ['tempMentor'], oblig: [1, 2] },
+    mfg: { name: 'Manufacturing company', title: true, f: 0.95, money: [3000, 8000], exp: 'Medium', goals: ['quality', 'playoffs1', 'award'], perks: ['fabSpeed', 'partsDiscount'], oblig: [1, 2] },
+    uni: { name: 'University', title: false, f: 0.9, money: [1000, 3500], exp: 'Low', goals: ['outreach', 'impactAward'], perks: ['xpBonus'], oblig: [1, 1] },
+    soft: { name: 'Software company', title: false, f: 1.1, money: [1500, 5000], exp: 'Medium', goals: ['autoAward', 'avgRP', 'playoffs1'], perks: ['progSpeed'], oblig: [1, 1] },
+    found: { name: 'Foundation grant', title: false, grant: true, f: 1, money: [2500, 5000], exp: 'Low', goals: ['outreach'], perks: [], oblig: [0, 0] }
   };
+  D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
+  D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };
   D.PERKS = {
     bonusBoost: { name: 'Performance bonuses +50%' },
     tempMentor: { name: 'Engineering volunteers: +1 temporary 3★ Design Mentor' },
@@ -278,8 +292,8 @@
       desc: 'Brand-new team. Small budget, no experience — but eligible for rookie awards.' },
     established: { name: 'Established', money: 45000, students: 25, mentors: [[2, 3], [2, 3], [2, 3], [2, 2]], know: 1, equip: ['printer'], parts: {}, rep: 45, support: 60, school: 14000,
       desc: 'A solid program with some experience and a 3D printer.' },
-    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: { swerve: 1, motors: 1 }, rep: 75, support: 65, school: 22000,
-      desc: 'A perennial contender with deep knowledge, a CNC router and swerve modules — and high expectations.' }
+    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: {}, rep: 75, support: 65, school: 22000,
+      desc: 'A perennial contender with deep knowledge, a CNC router and Apex swerve parts — and sponsors who expect wins.' }
   };
 
   // ---------- Single-season scenarios ----------

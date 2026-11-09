@@ -39,7 +39,7 @@
       const p = R.start(m, r);
       r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
-      r.autoOK = m.rng.chance(U.clamp(0.5 + 0.46 * r.cap.auto / 100 + (r.tuneAuto || 0), 0.3, 0.985));
+      r.autoOK = m.rng.chance(U.clamp(0.5 + 0.46 * r.cap.auto / 100 + (r.tuneAuto || 0), 0.3, 0.985)) && !r.autoFail;
     });
     return m;
   };
@@ -50,7 +50,7 @@
     return {
       team: en.team, a, slot: i, cap: en.cap, look: en.look || {}, drv, isPlayer: !!en.isPlayer,
       plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, defTarget: null }, en.plan || {}),
-      tune, conf, tuneAuto: en.tuneAuto || 0,
+      tune, conf, tuneAuto: en.tuneAuto || 0, autoFail: !!en.autoFail,
       // practiced drive teams (confidence) drive faster, line up quicker, handle pieces faster, foul less and climb more surely; 0.6 ≈ an average AI team
       drvF: 0.816 + 0.22 * drv.drive / 100 + 0.16 * (conf - 0.6), confK: conf - 0.6,
       opF: 0.86 + 0.14 * drv.mech / 100,
@@ -58,6 +58,7 @@
       x: 0, y: 0, px: 0, py: 0, sx: 0, sy: 0, hd: 0, path: [], st: 'idle', timer: 0, onDone: null, onArrive: null, label: 'Ready',
       held: 0, heldType: null, fault: null, jam: {}, perm: {}, dead: false, left: false,
       end: null, endBusy: false, climbing: false, defBy: null, defT: null, defSlow: 1, contacts: 0, defTime: 0,
+      pinT: 0, sepT: 0, backoff: 0, pinLimit: null, pins: 0, prog: null,
       stats: { pts: 0, cycles: 0, shots: 0, hits: 0, fouls: 0, faults: [] }, replan: false, mem: {}
     };
   }
@@ -115,7 +116,7 @@
       case 'idle': decide(m, r); break;
       case 'move': moveStep(m, r); break;
       case 'act': {
-        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) : 1);
+        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) : 1);
         if (r.timer <= 0) { const f = r.onDone; r.onDone = null; r.st = 'idle'; if (f) f(); }
         break;
       }
@@ -128,6 +129,19 @@
       case 'defend': defendStep(m, r); break;
       default: break;
     }
+    // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
+    if (r.st === 'move' && r.path.length) {
+      const pg = r.prog || (r.prog = { t: m.t, x: r.x, y: r.y, n: 0 });
+      if (m.t - pg.t >= 1.0) {
+        if (Math.hypot(r.x - pg.x, r.y - pg.y) < 0.25) {
+          pg.n++;
+          const goal = r.path[r.path.length - 1];
+          if (pg.n >= 3 && dist(r, goal) < 1.6) r.path = [];
+          else r.path.unshift(sidestep(m, r, r.path[0], pg.n));
+        } else pg.n = 0;
+        pg.t = m.t; pg.x = r.x; pg.y = r.y;
+      }
+    } else r.prog = null;
     if (!r.left) r.left = m.R.leftCheck ? m.R.leftCheck(m, r) : dist(r, { x: r.sx, y: r.sy }) > 1.2;
   }
 
@@ -154,20 +168,54 @@
     // alignment / acceleration overhead at the end of each leg
     r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) + 1.1 * (1 - r.drv.drive / 100)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
   }
-  function avoid(m, a, b) {
+  // Plans around field elements: the first element on the way gets a waypoint beside it, then both legs are checked
+  // again (a couple of levels deep). Solid elements (o.h = physical radius) are inflated by half a robot.
+  function avoid(m, a, b, depth, noEnd) {
+    depth = depth || 0; if (noEnd == null) noEnd = !!a.endBusy;
+    const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
+    let hit = null;
     for (const o of m.obs) {
-      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
-      let t = ((o.x - a.x) * dx + (o.y - a.y) * dy) / L2;
-      t = U.clamp(t, 0, 1);
+      if (o.end && noEnd) continue;
+      const rad = o.h ? Math.max(o.r, o.h + RR + 0.05) : o.r;
+      const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1);
       const cx = a.x + dx * t, cy = a.y + dy * t;
-      if (Math.hypot(o.x - cx, o.y - cy) < o.r && t > 0.03 && t < 0.97) {
-        let nx = cx - o.x, ny = cy - o.y, nl = Math.hypot(nx, ny);
-        if (nl < 1e-3) { nx = -dy; ny = dx; nl = Math.hypot(nx, ny) || 1; }
-        const w = { x: U.clamp(o.x + nx / nl * (o.r + 0.55), 0.45, FW - 0.45), y: U.clamp(o.y + ny / nl * (o.r + 0.55), 0.45, FH - 0.45) };
-        return [w, b];
-      }
+      if (Math.hypot(o.x - cx, o.y - cy) < rad && t > 0.03 && t < 0.97 && (!hit || t < hit.t)) hit = { o, t, cx, cy, rad };
     }
-    return [b];
+    if (!hit) return [b];
+    const o = hit.o;
+    let nx = hit.cx - o.x, ny = hit.cy - o.y, nl = Math.hypot(nx, ny);
+    if (nl < 1e-3) { nx = -dy; ny = dx; nl = Math.hypot(nx, ny) || 1; }
+    const off = o.h ? hit.rad + 0.3 : o.r + 0.55;
+    // go round the side the path leans towards, unless that side is against a wall or another solid element
+    const side = k => {
+      const p = { x: o.x + nx / nl * off * k, y: o.y + ny / nl * off * k };
+      const c = { x: U.clamp(p.x, 0.45, FW - 0.45), y: U.clamp(p.y, 0.45, FH - 0.45) };
+      let bad = Math.hypot(p.x - c.x, p.y - c.y);
+      for (const q of m.obs) if (q !== o && q.h && !(q.end && noEnd)) bad += Math.max(0, q.h + RR - Math.hypot(c.x - q.x, c.y - q.y));
+      return { c, bad };
+    };
+    const s1 = side(1), s2 = s1.bad > 0.15 ? side(-1) : null;
+    const w = s2 && s2.bad < s1.bad ? s2.c : s1.c;
+    if (depth >= 2) return [w, b];
+    return avoid(m, a, w, depth + 1, noEnd).concat(avoid(m, w, b, depth + 1, noEnd));
+  }
+  // Unstick: try headings from "slightly sideways" round to "straight back" and take the first one with room to drive
+  function sidestep(m, r, goal, n) {
+    const base = Math.atan2(goal.y - r.y, goal.x - r.x), k = 0.7 + 0.25 * Math.min(n, 4), sgn = (n + r.slot) % 2 ? 1 : -1;
+    const room = p => {
+      let c = Math.min(p.x - RR, FW - RR - p.x, p.y - RR, FH - RR - p.y) + 0.43;
+      for (const o of m.robots) if (o !== r) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - 2 * RR);
+      for (const o of m.obs) if (o.h && !(o.end && r.endBusy)) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - o.h - RR);
+      return c;
+    };
+    let best = null, bc = -1e9;
+    for (const deg of [60, -60, 95, -95, 130, -130, 180]) {
+      const g = base + sgn * deg * Math.PI / 180, p = { x: U.clamp(r.x + Math.cos(g) * k, 0.5, FW - 0.5), y: U.clamp(r.y + Math.sin(g) * k, 0.5, FH - 0.5) };
+      const c = Math.min(room(p), room({ x: (p.x + r.x) / 2, y: (p.y + r.y) / 2 }) + 0.2);
+      if (c > 0.05) return p;
+      if (c > bc) { bc = c; best = p; }
+    }
+    return best;
   }
   E.avoid = avoid;
   function speedOf(m, r) {
@@ -205,18 +253,35 @@
     r.x += (goal.x - r.x) * k; r.y += (goal.y - r.y) * k;
     r.hd = Math.atan2(goal.y - r.py, goal.x - r.px);
   }
+  // Robots are about 0.86 m across with bumpers: they push each other apart (a robot that cannot move — climbing,
+  // disabled or parked — makes the other one give way completely) and cannot drive through solid field elements
+  // (hubs, reef, stage legs, barge leg, towers and cages; a robot heading for its climb may touch its own tower/cage).
+  const RR = E.RR = 0.43;
+  const fixed = r => r.climbing || r.dead || r.st === 'done';
   function separate(m) {
-    const rs = m.robots;
-    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
-      const a = rs[i], b = rs[j];
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      if (d < 0.8 && d > 1e-4) {
-        const push = (0.8 - d) / 2, ux = dx / d, uy = dy / d;
-        if (!a.climbing && !a.dead && a.st !== 'done') { a.x -= ux * push; a.y -= uy * push; }
-        if (!b.climbing && !b.dead && b.st !== 'done') { b.x += ux * push; b.y += uy * push; }
+    const rs = m.robots, D2 = 2 * RR;
+    for (let it = 0; it < 3; it++) {
+      for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+        const a = rs[i], b = rs[j], fa = !fixed(a), fb = !fixed(b);
+        if (!fa && !fb) continue;
+        let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+        if (d >= D2) continue;
+        if (d < 1e-4) { dx = 0.3; dy = a.slot >= b.slot ? 0.3 : -0.3; d = Math.hypot(dx, dy); }
+        const over = D2 - d, ux = dx / d, uy = dy / d, ka = fa ? (fb ? 0.5 : 1) : 0, kb = fb ? (fa ? 0.5 : 1) : 0;
+        a.x -= ux * over * ka; a.y -= uy * over * ka; b.x += ux * over * kb; b.y += uy * over * kb;
+      }
+      for (const r of rs) {
+        if (fixed(r)) continue;
+        for (const o of m.obs) {
+          if (!o.h || (o.end && (r.endBusy || r.end))) continue;
+          const dx = r.x - o.x, dy = r.y - o.y, d = Math.hypot(dx, dy), min = o.h + RR;
+          if (d >= min) continue;
+          if (d < 1e-4) { r.x = o.x + min; continue; }
+          r.x = o.x + dx / d * min; r.y = o.y + dy / d * min;
+        }
       }
     }
-    for (const r of rs) { r.x = U.clamp(r.x, 0.4, FW - 0.4); r.y = U.clamp(r.y, 0.4, FH - 0.4); }
+    for (const r of rs) { r.x = U.clamp(r.x, RR, FW - RR); r.y = U.clamp(r.y, RR, FH - RR); }
   }
 
   function act(r, secs, then, label) { r.st = 'act'; r.timer = Math.max(0.1, secs); r.onDone = then || null; if (label) r.label = label; }
@@ -229,7 +294,9 @@
     if (!t && m.R.defTarget) t = m.R.defTarget(m, r); // season-specific target (e.g. 2024: shut down the feeder)
     if (!t) {
       const os = m.robots.filter(x => x.a !== r.a && !x.dead);
-      t = os.sort((p, q) => (q.stats.pts + power(q)) - (p.stats.pts + power(p)))[0];
+      // defenders go after the best scorer they can actually slow down: turrets shoot on the move, so they are poor targets
+      const val = q => (q.stats.pts + power(q)) * (q.cap.turret ? 0.75 : 1);
+      t = os.sort((p, q) => val(q) - val(p))[0];
     }
     if (!t) { r.st = 'wait'; r.timer = 1; r.label = 'Waiting'; return; }
     r.defT = t; r.st = 'defend'; r.label = 'Defending ' + t.team;
@@ -238,31 +305,67 @@
   function defendStep(m, r) {
     const t = r.defT;
     if (!t || t.dead || t.st === 'done' || t.climbing) { r.st = 'idle'; r.defT = null; return; }
-    const guard = m.R.guard(m, t.a);
+    const guard = m.R.guard(m, t.a), prot = m.R.protect ? m.R.protect(m, t) : '';
     let goal;
-    if (dist(t, guard) < 6) goal = { x: t.x + (guard.x - t.x) * 0.2, y: t.y + (guard.y - t.y) * 0.2 };
-    else goal = guard;
-    stepToward(r, goal, speedOf(m, r) * DT * 0.95);
-    r.label = 'Defending ' + t.team;
+    if (prot || r.backoff > m.t) {
+      // pin count used up, or the target is in a protected zone: give it room (6 ft) and wait beside its path
+      const gx = guard.x - t.x, gy = guard.y - t.y, gl = Math.hypot(gx, gy) || 1, nx = -gy / gl, ny = gx / gl;
+      const side = (r.x - t.x) * nx + (r.y - t.y) * ny >= 0 ? 1 : -1, room = prot ? 1.9 : 2.0;
+      goal = { x: t.x + nx * side * room + gx / gl * 0.5, y: t.y + ny * side * room + gy / gl * 0.5 };
+      r.label = prot ? 'Waiting: ' + prot + ' is protected' : 'Backing off (pin count)';
+    } else {
+      // stay bumper to bumper between the target and where it wants to go (never drive "into" it)
+      const dg = dist(t, guard);
+      if (dg < 6) { const k = Math.max(2 * RR + 0.03, 0.2 * dg) / (dg || 1); goal = { x: t.x + (guard.x - t.x) * k, y: t.y + (guard.y - t.y) * k }; }
+      else goal = guard;
+      r.label = 'Defending ' + t.team;
+    }
+    goal = { x: U.clamp(goal.x, 0.5, FW - 0.5), y: U.clamp(goal.y, 0.5, FH - 0.5) };
+    stepToward(r, avoid(m, r, goal)[0], speedOf(m, r) * DT * 0.95);
+  }
+  // Pinning (G202 2022–23, G420 2024: 5 s; G425 2025, G418 2026: 3 s): a defender holding a robot that is trying to
+  // drive away must release it and back off 6 ft before the limit. Disciplined drive teams count; sloppy ones overstay.
+  function pinCheck(m, d, t, dd, DF) {
+    const PIN = DF.pin || 5;
+    if (dd > 1.83) { d.sepT += DT; if (d.sepT > (DF.reset || 3)) d.pinT = 0; } else d.sepT = 0;
+    const moved = Math.hypot(t.x - t.px, t.y - t.py);
+    if (dd < 2 * RR + 0.12 && t.st === 'move' && moved < 0.4 * speedOf(m, t) * DT) {
+      if (!d.pinT) d.pinLimit = PIN - 0.7 + 1.3 * U.clamp((40 - d.drv.comp) / 40, 0, 1) - 0.4 * d.confK + m.rng.range(-0.3, 0.35);
+      d.pinT += DT;
+    }
+    if (d.pinT && d.pinT >= d.pinLimit) {
+      if (d.pinT > PIN) foul(m, d, false, 'pinning');
+      d.pins++; d.pinT = 0; d.pinLimit = null; d.backoff = m.t + (DF.reset || 3) + 0.8;
+      log(m, d.a, d.team + ' releases the pin on ' + t.team, 'def');
+    }
   }
   function defensePass(m) {
     for (const r of m.robots) { r.defBy = null; r.defSlow = 1; }
+    const DF = m.R.defense || { eff: 1, foul: 1 }; // how much defense matters in this game
+    const prot = r => (m.R.protect ? m.R.protect(m, r) : '');
     for (const d of m.robots) {
-      if (d.st !== 'defend' || !d.defT || d.dead || (d.fault && d.fault.stall)) continue;
-      const t = d.defT;
-      const DF = m.R.defense || { eff: 1, foul: 1 }; // how much defense matters in this game
-      // zone effect: other opponents passing close to the defender get caught in traffic
+      if (d.st !== 'defend' || !d.defT || d.dead || (d.fault && d.fault.stall)) { d.pinT = 0; continue; }
+      const t = d.defT, dd = dist(d, t);
+      if (d.backoff > m.t) { if (dd > 1.83) d.sepT += DT; continue; }
+      // zone effect: other opponents passing close to the defender get caught in traffic (turrets shrug most of it off)
       if (DF.zone) {
         for (const o of m.robots) {
-          if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3) continue;
-          const zs = U.clamp(1 - DF.zone * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200), 0.6, 0.97);
+          if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
-      if (dist(d, t) < (DF.range || 1.4) && !t.climbing) {
+      const pz = prot(t);
+      if (pz) {
+        // contact with a robot in its protected zone is a foul, whoever starts it
+        if (dd < 2 * RR + 0.03 && m.rng.next() < 0.15 * DT) foul(m, d, !!DF.protMajor, pz);
+        continue;
+      }
+      if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff, 0.35, 0.97);
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1), 0.35, 0.97);
+        pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
         if (m.rng.next() < pf * DT) foul(m, d, m.rng.chance(0.2));
@@ -272,10 +375,10 @@
       }
     }
   }
-  function foul(m, r, major) {
+  function foul(m, r, major, why) {
     const pts = major ? m.S.foul.major : m.S.foul.minor;
     m.score[opp(r.a)].foul += pts; r.stats.fouls++;
-    log(m, r.a, (major ? 'MAJOR FOUL' : 'Foul') + ' on ' + r.team + ' (+' + pts + ' ' + opp(r.a) + ')', 'foul');
+    log(m, r.a, (major ? 'MAJOR FOUL' : 'Foul') + ' on ' + r.team + (why ? ' (' + why + ')' : '') + ' (+' + pts + ' ' + opp(r.a) + ')', 'foul');
   }
 
   // ---------- faults ----------
@@ -447,7 +550,7 @@
 
   // ---------- helpers exposed to season rules ----------
   const H = E.H = {
-    P: E.P, dist, opp, moveTo, act, waitUntil, speedOf, log, foul,
+    P: E.P, dist, opp, moveTo, act, waitUntil, speedOf, log, foul, avoid,
     canCollect: (m, r) => !r.cap.noIntake && !r.perm.intake && !(r.jam.intake > m.t),
     canScore: (m, r) => !r.cap.noScorer && !r.perm.scorer && !(r.jam.scorer > m.t),
     collectTime(m, r, kind, base) {
@@ -468,7 +571,7 @@
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.55 : 1);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1);
       p *= 0.95 + 0.05 * r.opF;
       p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;

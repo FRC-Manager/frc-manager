@@ -38,9 +38,11 @@
     const hasAlt = (subs.amp && subs.amp.ver) || (subs.algae && subs.algae.ver);
     cap.noScorer = !!cap.noScorerMain && !hasAlt;
     const avg = rels.length ? U.avg(rels) : 60, mn = rels.length ? Math.min(...rels) : 60;
-    const parts = extra.parts || {};
-    cap.rel = U.clamp(0.6 * avg + 0.4 * mn + (parts.sensors ? 2 : 0), 5, 99);
-    cap.brown = [1.25, 1.0, 0.8][parts.motors || 0];
+    // the player's parts: sensors help reliability, worn parts fail more, mixed control systems cost a little everywhere
+    const pp = extra.pp;
+    cap.rel = U.clamp(0.6 * avg + 0.4 * mn + (pp ? 3 * pp.enc - 10 * (1 - pp.health) - (pp.mixed ? 3 : pp.kopMix ? 2 : 0) : 0), 5, 99);
+    cap.brown = pp ? (1.25 - 0.5 * pp.motor) * (1 + 0.6 * (1 - pp.health)) : 1.25;
+    if (pp) { const k = (0.97 + 0.03 * pp.health) * (pp.mixed ? 0.98 : pp.kopMix ? 0.99 : 1); cap.speed = Math.round(cap.speed * k); cap.scoreSpd = Math.round(cap.scoreSpd * k); }
     cap.weight = Math.round(weight);
     if (cap.endLevel && !cap.endgame) cap.endgame = 40;
     return cap;

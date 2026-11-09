@@ -10,6 +10,17 @@
     S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false }, extra || {}));
     if (S.inbox.length > 120) S.inbox.length = 120;
   };
+  // In season (Kickoff → Championship) the team may run up debt down to D.DEBT_LIMIT; the school settles it at the
+  // season review at a cost to program support and reputation. In the offseason spending needs cash.
+  C.inSeason = S => ['kickoff', 'build', 'comp', 'champs'].includes(S.phase);
+  C.afford = function (S, cost) {
+    if (!cost || cost <= 0) return null;
+    if (C.inSeason(S)) return S.money - cost >= -D.DEBT_LIMIT ? null : 'The school board caps in-season debt at ' + U.money(D.DEBT_LIMIT) + '.';
+    return S.money >= cost ? null : 'Not enough money (' + U.money(cost) + ' needed; in the offseason you can only spend cash you have)';
+  };
+  // Repeat overdrafts cost more: +50% for each consecutive season that ended in debt (S.debtRun), so debt can't be a
+  // yearly free budget for permanent investments like facilities.
+  C.debtPenalty = (debt, run) => { const m = 1 + 0.5 * Math.min(4, run || 0); return { support: Math.round(Math.min(30, 3 + debt / 1500) * m), rep: Math.round(Math.min(12, 1 + debt / 4000) * m), mult: m }; };
   C.spend = function (S, amt, desc) { amt = Math.round(amt); S.money -= amt; S.ledger.unshift({ d: C.dateLabel(S), desc, amt: -amt }); if (S.season) S.season.spent += amt; if (S.ledger.length > 300) S.ledger.length = 300; };
   C.earn = function (S, amt, desc) { amt = Math.round(amt); S.money += amt; S.ledger.unshift({ d: C.dateLabel(S), desc, amt }); if (S.season) S.season.earned += amt; if (S.ledger.length > 300) S.ledger.length = 300; };
   C.hasPerk = (S, id) => S.sponsors.some(s => s.perk === id);
@@ -71,15 +82,18 @@
       money: scen && scen.money ? scen.money : P.money, ledger: [], morale: scen && scen.morale ? scen.morale : 65, support: P.support, rep: P.rep,
       studentsCount: P.students, students: [], driveTeam: { driver: null, operator: null, hp: null, coach: 'mentor' },
       mentors: [], market: [], equip: { printer: 0, cnc: false, lathe: false, field: null, laptops: false, charger: false, pitcart: false, trailer: false, kb: false },
-      parts: Object.assign({ motors: 0, swerve: 0, sensors: 0, vision: 0, pneu: 0, batteries: 4, battHealth: 1, spares: 6 }, P.parts),
+      parts: { batteries: 4, battHealth: 1, spares: 0 }, // spare parts are bought per season (none before the first one)
       know: {}, usedAreas: {}, robot: null, projects: [], sponsors: [], offers: [], activities: [], regionals: [], registered: [], scrimmage: false,
       offReg: [], event: null, eventsDone: {}, season: newSeasonState(order[0]), history: [], offResults: [], inbox: [], teams: null,
       feeders: 0, practiceWeeks: 0, lastTune: 0, lastConf: 0, schoolBase: P.school, legacy: 0, overtime: false, turnHours: 0, actHours: 0,
-      lastChamp: null, worldChamps: 0, lateFree: o.mode === 'single'
+      lastChamp: null, worldChamps: 0, lateFree: o.mode === 'single',
+      fatigue: D.FATIGUE_BASE, autoSpares: true, stemFund: null, actMonth: null
     };
     S.team.rookieYear = o.profile === 'rookie' ? order[0] : null;
     // equipment / knowledge
-    P.equip.forEach(e => { if (e === 'printer') S.equip.printer = 1; else if (e === 'field') S.equip.field = 'pending'; else S.equip[e] = true; });
+    P.equip.forEach(e => { if (e === 'printer') S.equip.printer = 1; else if (e !== 'field') S.equip[e] = true; });
+    G.Parts.setup(S, rng); // starting parts inventory, vendor release plan, stock
+    if (P.equip.includes('field')) S.elemPre[order[0]] = [{ s: 1 }]; // powerhouse: a full field of elements on preorder
     G.Shop.migrate(S); // converts starting equipment into facility levels + condition
     D.AREAS.forEach(a => S.know[a.id] = 0);
     if (P.know > 0 && !(scen && scen.resetKnow)) {
@@ -127,10 +141,16 @@
   C.autoDriveTeam = autoDriveTeam;
 
   // ======================= sponsors =======================
+  // Offer sizes depend on difficulty, with a small lift for reputation and last season's results. Title sponsors pay about
+  // three times a partner. Powerhouse programs (and very high reputation) draw sponsors who expect wins.
+  C.sponsorPerf = function (S) {
+    const last = S.history[S.history.length - 1];
+    return 0.92 + 0.16 * S.rep / 100 + (last ? Math.min(0.08, (last.legacy || 0) / 2500) : 0);
+  };
+  C.highExpect = S => S.profile === 'powerhouse' || S.rep >= 80;
   C.genOffers = function (S) {
     const rng = G.R, offers = [];
-    const money = { easy: 1.25, normal: 1, hard: 0.85 }[S.diff] || 1;
-    const repF = 0.6 + 0.6 * S.rep / 100;
+    const money = D.SPONSOR_DIFF[S.diff] || 1, perf = C.sponsorPerf(S), high = C.highExpect(S);
     const types = Object.keys(D.SPONSOR_TYPES);
     const used = new Set(S.sponsors.map(s => s.name));
     const make = (slot) => {
@@ -138,15 +158,18 @@
       const T = D.SPONSOR_TYPES[tk];
       let name; let g = 0; do { name = rng.pick(D.SPONSOR_NAMES[tk]); g++; } while (used.has(name) && g < 10);
       used.add(name);
-      let base = rng.range(T.money[0], T.money[1]) * repF * money;
+      let base = D.SPONSOR_BASE[slot] * (T.f || 1) * perf * money * rng.range(0.94, 1.06);
       base = Math.round(base / 250) * 250;
-      const goals = rng.shuffle(T.goals.slice()).slice(0, slot === 'grant' ? 1 : rng.int(1, 2)).map(id => ({ id, bonus: Math.round(D.GOALS[id].bonus * (slot === 'title' ? 1.5 : 1) * money / 250) * 250, met: false }));
+      let gids = rng.shuffle(T.goals.slice()).slice(0, slot === 'grant' ? 1 : rng.int(1, 2));
+      if (high && slot !== 'grant') { const hard = rng.pick(slot === 'title' ? ['win', 'champs'] : ['playoffs2', 'win']); if (!gids.includes(hard)) gids = [hard].concat(gids).slice(0, 2); }
+      const goals = gids.map(id => ({ id, bonus: Math.round(D.GOALS[id].bonus * (slot === 'title' ? 1.5 : 1) * money / 250) * 250, met: false }));
       const nOb = rng.int(T.oblig[0], T.oblig[1]) + (slot === 'title' ? 1 : 0);
       const obligations = [];
       const obPool = rng.shuffle(D.OBLIGATIONS.slice());
       for (let i = 0; i < (slot === 'grant' ? 0 : Math.min(nOb, obPool.length)); i++) obligations.push(obPool[i].text.replace('{s}', name));
       const perk = T.perks.length && rng.chance(slot === 'title' ? 0.9 : 0.6) ? rng.pick(T.perks) : (slot !== 'grant' && rng.chance(0.15) ? 'travelDiscount' : null);
-      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length: slot === 'grant' ? 1 : rng.int(1, 3), goals, obligations, perk, exp: T.exp };
+      const exp = high && slot !== 'grant' ? 'High' : T.exp;
+      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length: slot === 'grant' ? 1 : rng.int(1, 3), goals, obligations, perk, exp };
     };
     for (let i = 0; i < 3; i++) offers.push(make('title'));
     for (let i = 0; i < 6; i++) offers.push(make('partner'));
@@ -182,7 +205,12 @@
     const sp = S.sponsors.find(s => s.id === a.sponsorId);
     a.status = how === 'skip' ? 'skipped' : 'done';
     if (how === 'student') { S.lastConf = Math.max(0, S.lastConf - 0.1); S.morale = Math.max(0, S.morale - 1); if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
-    if (how === 'robot') { if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - 10); }); if ((S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: 10 }; if (sp) sp.sat = Math.min(100, sp.sat + 10); S.rep = Math.min(100, S.rep + 1); S.season.impact += 3; }
+    if (how === 'robot') {
+      const tr = G.Shop.lvl(S, 'trailer') > 0, wear = tr ? 4 : 10; // a trailer means a proper display and safe transport
+      if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - wear); });
+      if ((S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: wear };
+      if (sp) sp.sat = Math.min(100, sp.sat + (tr ? 13 : 10)); S.rep = Math.min(100, S.rep + 1); S.season.impact += tr ? 4 : 3;
+    }
     if (how === 'hours') { S.actHours += 30; if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
     if (how === 'skip') { if (sp) sp.sat = Math.max(0, sp.sat - 15); }
   };
@@ -221,7 +249,7 @@
     const m = S.market.find(x => x.id === id);
     if (!m) return 'Not found';
     if (S.mentors.length >= 8) return 'You can have at most 8 mentors';
-    if (S.money < m.cost) return 'Not enough money';
+    { const e = C.afford(S, m.cost); if (e) return e; }
     if (m.cost) C.spend(S, m.cost, 'Mentor: ' + m.name);
     m.paid = true; m.contract = Math.max(1, m.contract);
     S.mentors.push(m); S.market = S.market.filter(x => x !== m);
@@ -238,6 +266,80 @@
     });
   }
   C.studentXP = studentXP;
+
+  // ======================= program-year calendar =======================
+  // Every turn of the program year as a slot (offseason months, Kickoff, build weeks, Week 0, competition weeks,
+  // Championship, review) with what happens in it: events, development, sponsor duties and program milestones.
+  C.calendarSlots = function (S) {
+    const slots = [];
+    D.MONTHS.forEach((mo, i) => slots.push({ key: 'off' + i, month: mo, label: mo, unit: 'month' }));
+    slots.push({ key: 'kick', month: 'Jan', label: 'Kickoff' });
+    for (let w = 1; w <= 7; w++) slots.push({ key: 'b' + w, month: w <= 4 ? 'Jan' : 'Feb', label: w === 7 ? 'Week 0' : 'Build week ' + w, week: w });
+    for (let w = 1; w <= 7; w++) slots.push({ key: 'c' + w, month: w <= 4 ? 'Mar' : 'Apr', label: w === 7 ? 'Week 7 · rest week' : 'Competition week ' + w, week: w });
+    slots.push({ key: 'champs', month: 'Apr', label: 'Championship' });
+    slots.push({ key: 'review', month: 'May', label: 'Season review' });
+    return slots;
+  };
+  C.calendarIndex = function (S) {
+    switch (S.phase) {
+      case 'off': return S.month;
+      case 'kickoff': return 8;
+      case 'build': return 8 + S.week;
+      case 'comp': return 15 + S.week;
+      case 'champs': return 23;
+      default: return 24;
+    }
+  };
+  C.calendar = function (S) {
+    const slots = C.calendarSlots(S), cur = C.calendarIndex(S), at = k => slots.find(x => x.key === k);
+    slots.forEach((x, i) => { x.items = []; x.past = i < cur; x.cur = i === cur; });
+    const add = (k, cat, text, cls) => { const x = typeof k === 'number' ? slots[Math.min(slots.length - 1, Math.max(0, k))] : at(k); if (x) x.items.push({ cat, text, cls: cls || '' }); };
+    const off = S.phase === 'off';
+    // program milestones
+    add('off1', 'program', 'Graduation: seniors leave');
+    add('off3', 'program', 'Mentor market refreshes');
+    add('off4', 'program', 'New students join · school funding');
+    if (S.feeders) add('off4', 'money', 'Feeder programs ' + U.money(S.feeders * 1000));
+    add('off5', 'program', 'Sponsor offers · regional registration opens');
+    add('kick', 'program', 'Game reveal: pick concepts');
+    add('kick', 'money', 'Sponsors pay · facility upkeep ' + U.money(G.Shop.upkeep(S)));
+    add('review', 'program', 'Program review: goals, support, graduation');
+    add('c7', 'program', 'No regionals: recover fatigue before the Championship');
+    // events
+    S.regionals.forEach(r => {
+      if (!S.registered.includes(r.id)) return;
+      const done = S.eventsDone[r.id], res = done && S.season.events.find(e => e.id === r.id);
+      add('c' + r.week, 'event', (done ? '✓ ' : '') + r.name + (res ? ' — ' + res.finish : ' (' + D.TRAVEL[D.travelTier(S.team.region, r.region, r.local)].name.toLowerCase() + ')'), done ? 'good' : 'acc');
+    });
+    // regionals you could still register for (only for weeks that have not happened yet)
+    for (let w = 1; w <= 6; w++) {
+      if (slots.findIndex(x => x.key === 'c' + w) < cur) continue;
+      const open = S.regionals.filter(r => r.week === w && !S.registered.includes(r.id) && !C.canRegister(S, r)).length;
+      if (open && !S.registered.some(id => { const r = S.regionals.find(x => x.id === id); return r && r.week === w; })) add('c' + w, 'event', open + ' regional' + (open > 1 ? 's' : '') + ' open', 'dim');
+    }
+    if (S.scrimmage) add('b7', 'event', 'Week 0 scrimmage', 'acc');
+    const sq = S.season && S.season.champsQualified;
+    add('champs', 'event', sq ? 'Championship — qualified!' : 'Championship (win a regional, Impact/EI or Regional Pool)', sq ? 'good' : 'dim');
+    D.OFFSEASON_EVENTS.forEach(e => {
+      const i = D.MONTHS.indexOf(e.month), reg = S.offReg.includes(e.id), done = S.eventsDone[e.id + S.year];
+      if (!reg && i < cur) return; // missed: nothing to show
+      add(i, 'event', (done ? '✓ ' : reg ? '' : 'Open: ') + e.name + (reg ? '' : ' (' + U.money(e.fee) + ')'), done ? 'good' : reg ? 'acc' : 'dim');
+    });
+    // development: when each project should finish at its current share of the hours
+    if (S.phase !== 'review' && S.phase !== 'end') {
+      const plan = C.hoursPlan(S);
+      S.projects.forEach(p => {
+        const rate = (plan.give[p.id] || 0) * plan.mult(p);
+        if (rate < 0.5) { add(cur, 'dev', p.name + ' — no hours this ' + (off ? 'month' : 'week'), 'warn'); return; }
+        const turns = Math.max(1, Math.ceil((p.need + (p.extra || 0) - p.done - (p.polish || 0)) / rate - 1e-6));
+        add(cur + turns - 1, 'dev', (turns === 1 ? 'Finishes: ' : 'ETA: ') + p.name, turns === 1 ? 'good' : '');
+      });
+      (S.boosts || []).forEach(b => add(cur + Math.max(0, (b.turns || 1) - 1), 'dev', 'Ends: ' + (b.title || 'boost'), 'dim'));
+    }
+    // sponsor duties
+    (S.activities || []).forEach(a => { if (a.year === S.year && a.status === 'pending') add('b' + a.week, 'sponsor', a.sponsor + ': ' + a.text, 'warn'); });
+    return slots;
+  };
 
   // ======================= calendar / turns =======================
   C.eventThisTurn = function (S) {
@@ -256,11 +358,18 @@
     }
     return null;
   };
-  C.travelCost = function (S, def) {
-    if (def.kind === 'einstein') return 0;
+  // How the team gets there: local, drive, fly — or, with a team trailer, a long drive instead of flying the robot
+  C.travelMode = function (S, def) {
+    if (def.kind === 'einstein') return 'none';
     let tier = def.kind === 'champs' ? 'fly' : def.kind === 'regional' ? D.travelTier(S.team.region, def.region, def.local) : 'local';
     if (def.kind === 'offseason') tier = 'drive';
-    let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' ? 0.4 : 1);
+    if (tier === 'fly' && G.Shop.lvl(S, 'trailer')) return 'trailer';
+    return tier;
+  };
+  C.travelCost = function (S, def) {
+    if (def.kind === 'einstein') return 0;
+    const mode = C.travelMode(S, def), tier = mode === 'trailer' ? 'fly' : mode;
+    let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' ? 0.4 : 1) * (mode === 'trailer' ? D.TRAILER_LONG : 1);
     if (tier !== 'fly') c *= G.Shop.travelMult(S);
     if (C.hasPerk(S, 'travelDiscount')) c *= 0.75;
     return Math.round(c);
@@ -273,13 +382,19 @@
       if (tc) C.spend(S, tc, 'Travel: ' + def.name);
     }
     if (def.kind === 'einstein') return C.startEinstein(S, def);
-    const fly = def.kind === 'champs' || (def.kind === 'regional' && D.travelTier(S.team.region, def.region, def.local) === 'fly');
+    const fly = C.travelMode(S, def) === 'fly';
     G.Shop.wear(S, 'event', { fly });
     // The robot arrives at 100% unless: not enough spare parts for the repairs, a long trip (shipped by air),
     // or a sponsor demo with the robot this same competition week. (Einstein follows the division too closely for any of this.)
     const arrival = { notes: [] };
+    if (S.robot && S.autoSpares && def.kind !== 'einstein') {
+      const n = C.spareEstimate(S, def.kind) - S.parts.spares;
+      if (n > 0 && !C.afford(S, n * C.spareUnitPrice(S, false))) { C.buySpares(S, n); arrival.notes.push('Auto-restock bought ' + n + ' spare part' + (n > 1 ? 's' : '') + ' for this event.'); }
+    }
+    if (C.travelMode(S, def) === 'trailer') arrival.notes.push('The robot travelled in the team trailer: no air-freight knocks.');
     if (S.robot) {
-      const rep = G.Robot.homeRepair(S);
+      G.Robot.famDrive(S, S.robot.comp || 0, 0);
+      const rep = G.Robot.homeRepair(S, true);
       if (rep.used) arrival.notes.push('Repairs used ' + rep.used + ' spare part' + (rep.used > 1 ? 's' : '') + '.');
       if (rep.short) arrival.notes.push('Not enough spare parts to finish the repairs (' + rep.short + ' condition points left).');
       const hit = (amt, why) => { Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - amt()); }); arrival.notes.push(why); };
@@ -293,13 +408,20 @@
     ev.arrival = arrival;
     return ev;
   };
+  // Spare parts the next event will probably use: today's repairs plus wear over the matches
+  C.spareEstimate = function (S, kind) {
+    if (!S.robot) return 0;
+    const subs = Object.keys(S.robot.subs).filter(k => k !== 'soft' && S.robot.subs[k].ver).length;
+    const matches = { champs: 13, offseason: 8, scrimmage: 5 }[kind] || 12;
+    return Math.max(0, Math.ceil(G.Robot.repairNeed(S) + matches * subs * 4 / D.SPARE_COND_PER_UNIT - 0.3));
+  };
   // What the robot's condition will be when it arrives at an event (HQ / calendar preview)
   C.arrivalPreview = function (S, def) {
     if (!S.robot || !def || def.kind === 'einstein') return null;
     const notes = [], need = G.Robot.repairNeed(S), have = Math.max(0, S.parts.spares - (S.parts.spareUse || 0));
     let cond = 100;
     if (need > have + 0.01) { notes.push('short on spare parts'); cond -= Math.min(25, (need - have) * D.SPARE_COND_PER_UNIT / Math.max(1, Object.values(S.robot.subs).filter(x => x.ver).length)); }
-    const fly = def.kind === 'champs' || (def.kind === 'regional' && D.travelTier(S.team.region, def.region, def.local) === 'fly');
+    const fly = C.travelMode(S, def) === 'fly';
     if (fly) { notes.push('flying (−4–9%)'); cond -= 6.5; }
     if (S.demoWear && S.demoWear.key === turnKey(S)) { notes.push('sponsor demo this week (−' + S.demoWear.amt + '%)'); cond -= S.demoWear.amt; }
     return { cond: Math.round(cond), notes, spares: Math.max(0, Math.ceil(need - have)) };
@@ -323,6 +445,8 @@
     });
     ev.alliances = alliances;
     ev.tune = div.tune; ev.conf = div.conf; ev.tuneAuto = div.tuneAuto;
+    // Einstein is part of the Championship: same fatigue, same scouting team
+    if (div.fatigue != null) { ev.fatigue = div.fatigue; ev.scoutCred = div.scoutCred; }
     ev.practice.blocks = 0;
     G.Ev.initPlayoffs(ev);
     return ev;
@@ -358,23 +482,26 @@
     const lvl = G.Shop.lvl(S, 'pfield');
     if (!lvl || !['off', 'kickoff', 'build', 'comp'].includes(S.phase)) return { total: 0, drive: 0, dev: 0, unlocked: !!lvl };
     if (eventWeek == null) eventWeek = C.isEventTurn(S);
-    let h = G.Shop.fx(S, 'pfield', 'test') + (S.robot && S.robot.practiceBot ? D.TEST_BOT_HOURS : 0);
+    let h = G.Shop.fx(S, 'pfield', 'test') + D.TEST_BOT_HOURS * G.Robot.secondShare(S);
     if (S.phase === 'off') h *= 4;
     if (eventWeek) h *= 0.5;
     h = Math.round(h);
-    const canDrive = !!S.robot, split = canDrive ? (S.testSplit == null ? 0.5 : S.testSplit) : 0;
+    const canDrive = G.Robot.driveBot(S) >= 0, split = canDrive ? (S.testSplit == null ? 0.5 : S.testSplit) : 0;
     const drive = Math.round(h * split);
     // driver practice on the real game needs this season's game elements (offseason: last season's game)
-    const elem = S.phase === 'off' ? 0.6 : S.equip.field === S.year ? 1 : 0.5;
+    const elem = G.Parts.elemQ(S, G.Parts.elemYear(S));
     return { total: h, drive, dev: h - drive, unlocked: true, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
   };
   C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
-  // Driver practice: drive-team skills and confidence; uses a few spare parts and a little battery life.
-  // Out of spares, the robot itself wears (unless a practice robot takes the beating).
+  // Driver practice: drive-team skills, confidence and familiarity with the robot they drive; uses a few spare parts
+  // and a little battery life. Out of spares, the robot they practice on wears.
   function driverPractice(S, th) {
-    const h = th.drive;
-    if (!h || !S.robot) return null;
-    const eff = h * th.elem, out = { hours: h, spares: 0, wear: 0 };
+    const h = th.drive, bi = G.Robot.driveBot(S);
+    if (!h || !S.robot || bi < 0) return null;
+    const R = S.robot, eff = h * th.elem * (bi !== (R.comp || 0) ? 1 + (D.BOT2_PRACTICE - 1) * G.Robot.secondShare(S) : 1), out = { hours: h, spares: 0, wear: 0, bot: bi };
+    G.Parts.wearPractice(S, h, bi);                 // motors and electronics on the robot that practices
+    G.Robot.famDrive(S, bi, 1 - Math.exp(-eff / D.FAM.PRACTICE));
+    G.Parts.wearElem(S, G.Parts.elemYear(S), h);    // and the game elements on the field
     S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + eff / D.DRILL_PER);
     const dt = C.driveTeam(S), k = 0.15 * eff;
     if (dt.driver.id) studentXP(S, dt.driver, ['drive', 'aware', 'comp'], k);
@@ -386,13 +513,11 @@
       P.drillUse = (P.drillUse || 0) + h * D.DRILL_SPARES;
       while (P.drillUse >= 1 && P.spares > 0) { P.spares--; P.drillUse--; out.spares++; }
     } else {
-      // no spares: broken bits stay broken, and the robot itself wears (a practice robot takes the beating instead)
+      // no spares: broken bits stay broken, and the robot they practice on wears
       P.drillUse = 0;
-      if (!S.robot.practiceBot) {
-        const subs = Object.values(S.robot.subs).filter(x => x.ver && x !== S.robot.subs.soft);
-        out.wear = Math.round(h * D.DRILL_WEAR);
-        subs.forEach(x => x.cond = Math.max(0, x.cond - out.wear * G.R.range(0.6, 1.4)));
-      }
+      const sb = S.robot.bots[bi].subs, subs = Object.keys(sb).filter(k => k !== 'soft' && sb[k] && sb[k].ver).map(k => sb[k]);
+      out.wear = Math.round(h * D.DRILL_WEAR);
+      subs.forEach(x => x.cond = Math.max(0, x.cond - out.wear * G.R.range(0.6, 1.4)));
     }
     if (P.batts.length) P.batts.forEach(b => b.h = Math.max(0.3, b.h - D.DRILL_BATT * h / P.batts.length * G.R.range(0.5, 1.5)));
     return out;
@@ -428,14 +553,15 @@
     S.actHours = 0;
     switch (S.phase) {
       case 'off': processWork(S, hours, th); offMonthEnd(S); break;
-      case 'kickoff': processWork(S, hours, th); S.phase = 'build'; S.week = 1; break;
+      case 'kickoff': { const r = processWork(S, hours, th); fatigueWeek(S, hours, r.spare, false); S.phase = 'build'; S.week = 1; break; }
       case 'build': processWeek(S, hours, th); if (S.week >= 7) { S.phase = 'comp'; S.week = 1; } else S.week++; break;
-      case 'comp': processWeek(S, hours, th); if (S.week >= 6) C.toChamps(S); else S.week++; break;
+      case 'comp': processWeek(S, hours, th); if (S.week >= 7) C.toChamps(S); else S.week++; break;
       case 'champs': C.toReview(S); break;
       case 'review': C.endReview(S); break;
     }
     // new turn: random news, team chatter, (rarely) a shop incident or a school/sponsor opportunity
     if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); G.Shop.rollBoost(S); }
+    G.Parts.rollStock(S);
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
     G.Save.write('auto');
@@ -448,11 +574,13 @@
     const inc = G.Shop.turnMods(S); // shop incidents: one turn only
     const mods = mergeMods(inc, G.Shop.boostMods(S));
     const r = G.Robot.work(S, hours, mods, th ? th.dev : 0);
-    S.lastWork = { hours, used: Math.round(r.used), idle: Math.round(r.spare), done: r.done, mods: inc ? G.Shop.modsText(inc) : '' };
+    // the drive team drives the robot around the shop every week (practice-field time comes on top)
+    if (S.robot && S.robot.bots && S.lastEventTurn !== turnKey(S)) G.Robot.famDrive(S, G.Robot.driveBot(S), S.phase === 'off' ? D.FAM.OFF : D.FAM.WEEK);
+    S.lastWork = { hours, used: Math.round(r.used), idle: Math.round(r.spare), polished: Math.round(r.polished || 0), done: r.done, mods: inc ? G.Shop.modsText(inc) : '' };
     if (th && th.total) {
       if (r.testUsed > 0.05) C.spend(S, r.testUsed * D.TEST_COST, 'Development testing (' + Math.round(r.testUsed) + ' h)');
       const dp = driverPractice(S, th);
-      S.lastTest = { total: th.total, dev: th.dev, devUsed: Math.round(r.testUsed), devIdle: Math.round(r.testIdle), bonus: Math.round(r.testBonus), drive: th.drive, spares: dp ? dp.spares : 0, wear: dp ? dp.wear : 0 };
+      S.lastTest = { total: th.total, dev: th.dev, devUsed: Math.round(r.testUsed), devIdle: Math.round(r.testIdle), bonus: Math.round(r.testBonus), drive: th.drive, spares: dp ? dp.spares : 0, wear: dp ? dp.wear : 0, bot: dp ? dp.bot : null };
     } else S.lastTest = null;
     G.Shop.clearMods(S);
     G.Shop.tickBoosts(S);
@@ -465,8 +593,32 @@
     const lead = S.mentors.find(m => m.role === 'design') || S.mentors[0];
     C.inbox(S, 'Design meeting: ' + sg.title, (lead ? lead.name + ' (design lead)' : 'The design captain') + ' suggests: ' + sg.title + '.\n\nWhy: ' + sg.reason + '\n\nCost: ' + sg.quote.hours + ' h · ' + U.money(sg.quote.cost) + '. Start it from the Design Office.', 'dev');
   };
+  // Fatigue (in season only): about 10% idle hours a week holds it steady; busier weeks, overtime and competitions
+  // pile it on; quieter weeks let the team recover. It matters at events (incidents, scouting mistakes).
+  function fatigueWeek(S, hours, idle, eventWeek) {
+    const f = hours > 0 ? idle / hours : 1, before = S.fatigue == null ? D.FATIGUE_BASE : S.fatigue;
+    S.fatigue = fatigueNext(S, before, f, eventWeek);
+    S.lastFatigue = { before: Math.round(before), after: S.fatigue, idlePct: Math.round(f * 100), overtime: !!S.overtime, event: !!eventWeek };
+  }
+  // Overtime weeks never lower fatigue, however much time sits idle
+  function fatigueNext(S, before, f, eventWeek) {
+    let d = (D.FATIGUE_IDLE - f) * D.FATIGUE_SLOPE * (eventWeek ? 0.5 : 1), drift = (D.FATIGUE_BASE - before) * 0.08;
+    if (S.overtime) { d = Math.max(0, d) + D.FATIGUE_OVERTIME; drift = Math.max(0, drift); }
+    if (eventWeek) d += D.FATIGUE_EVENT;
+    return Math.round(U.clamp(before + d + drift, 5, 100));
+  }
+  C.fatigueWeek = fatigueWeek;
+  C.fatigueLabel = f => f < 22 ? 'Fresh' : f <= 40 ? 'Normal' : f <= 60 ? 'Tired' : 'Exhausted';
+  // The fatigue the team would end this week with, given this turn's plan (for the Design Office preview)
+  C.fatiguePreview = function (S) {
+    if (!['kickoff', 'build', 'comp'].includes(S.phase)) return null;
+    const ev = S.lastEventTurn === turnKey(S), hours = Math.max(0, C.turnHours(S, ev) - S.actHours), plan = C.hoursPlan(S);
+    const f = hours > 0 ? plan.idle / hours : 1, before = S.fatigue == null ? D.FATIGUE_BASE : S.fatigue;
+    return { now: Math.round(before), next: fatigueNext(S, before, f, ev), idlePct: Math.round(f * 100) };
+  };
   function processWeek(S, hours, th) {
     const r = processWork(S, hours, th);
+    fatigueWeek(S, hours, r.spare, S.lastEventTurn === turnKey(S));
     if (S.overtime) { S.morale = Math.max(0, S.morale - 6); C.spend(S, 200, 'Overtime meals'); }
     // home repair with spare parts (driver practice above may have used some)
     if (S.robot && S.robot.year === S.year && !(S.lastEventTurn === turnKey(S))) {
@@ -481,6 +633,7 @@
   }
   function offMonthEnd(S) {
     G.Shop.wear(S, 'off');
+    S.fatigue = Math.round((S.fatigue == null ? D.FATIGUE_BASE : S.fatigue) + (D.FATIGUE_BASE - (S.fatigue == null ? D.FATIGUE_BASE : S.fatigue)) * 0.7); // the offseason resets the team
     G.Shop.ageBatteries(S, 0.004); // batteries slowly age on the shelf
     if (S.month >= 7) { C.kickoff(S); return; }
     S.month++;
@@ -534,9 +687,12 @@
     if (!S.season || S.season.year !== S.year) { const imp = S.season ? S.season.impact : 0, out = S.season ? S.season.outreach : 0, done = !!(S.season && S.season.impactDone), fundN = (S.season && S.season.fundN) || {}; S.season = newSeasonState(S.year); S.season.impact = imp; S.season.outreach = out; S.season.impactDone = done; S.season.fundN = fundN; }
     S.season.year = S.year;
     G.Robot.newSeason(S, S.year);
+    G.Parts.kickoff(S, first);
+    // spare parts are specific to each game: last season's stock is no use now
+    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Shop), or turn on auto-restock.', 'dev');
+    S.parts.spares = 0; S.parts.spareUse = 0;
     S.usedAreas = {}; S.practiceWeeks = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(DIVS);
-    if (S.equip.field === 'pending') S.equip.field = S.year; else if (S.equip.field !== S.year) S.equip.field = null;
     if (!S.regionals.length || S.regionals[0].year !== S.year) S.regionals = D.makeRegionals(S.year, rng);
     if (S.mode === 'career') C.markFull(S);
     // finances
@@ -585,16 +741,54 @@
     const r = S.regionals.find(x => x.id === id);
     const err = C.canRegister(S, r); if (err) return err;
     const fee = C.regFee(S) + (C.isLate(S) ? D.FEES.late : 0);
-    if (S.money < fee) return 'Not enough money (' + U.money(fee) + ')';
+    { const e = C.afford(S, fee); if (e) return e; }
     C.spend(S, fee, 'Registration: ' + r.name);
     S.registered.push(id);
     return null;
   };
+  // Weeks from now until a calendar slot (offseason months count as four weeks)
+  C.weeksUntil = function (S, key) {
+    const slots = C.calendarSlots(S), cur = C.calendarIndex(S), t = slots.findIndex(x => x.key === key);
+    if (t < 0) return 0;
+    let w = 0;
+    for (let i = cur; i < t; i++) w += slots[i].unit === 'month' ? 4 : 1;
+    return w;
+  };
+  C.refundable = (S, key) => C.weeksUntil(S, key) >= 4;
+  // Withdraw from a regional: half the fee back if it is at least a month away, otherwise nothing
   C.withdraw = function (S, id) {
     const r = S.regionals.find(x => x.id === id);
     if (!r || !S.registered.includes(id) || S.eventsDone[id]) return;
+    const refund = C.refundable(S, 'c' + r.week);
     S.registered = S.registered.filter(x => x !== id);
-    C.earn(S, Math.round((S.registered.length === 0 ? D.FEES.firstRegional : D.FEES.addRegional) * 0.5), 'Withdrawal refund: ' + r.name);
+    if (refund) C.earn(S, Math.round((S.registered.length === 0 ? D.FEES.firstRegional : D.FEES.addRegional) * 0.5), 'Withdrawal refund: ' + r.name);
+    return refund;
+  };
+  C.withdrawOffseason = function (S, id) {
+    const o = D.OFFSEASON_EVENTS.find(x => x.id === id);
+    if (!o || !S.offReg.includes(id) || S.eventsDone[o.id + S.year]) return;
+    const refund = C.refundable(S, 'off' + D.MONTHS.indexOf(o.month));
+    S.offReg = S.offReg.filter(x => x !== id);
+    if (refund) C.earn(S, Math.round(o.fee * 0.5), 'Withdrawal refund: ' + o.name);
+    return refund;
+  };
+  C.withdrawScrimmage = function (S) {
+    if (!S.scrimmage || S.eventsDone['scrim' + S.year]) return;
+    const refund = C.refundable(S, 'b7');
+    S.scrimmage = false;
+    if (refund) C.earn(S, Math.round(D.FEES.scrimmage * 0.5), 'Withdrawal refund: Week 0 scrimmage');
+    return refund;
+  };
+  // Skip the event that is on this turn (no refund this close to it)
+  C.skipEvent = function (S) {
+    const ev = C.eventThisTurn(S);
+    if (!ev || !ev.def) return 'No event to skip';
+    const d = ev.def;
+    if (d.kind === 'champs') S.champsDeclined = true;
+    else if (d.kind === 'einstein') return 'You can\'t skip Einstein';
+    else { S.eventsDone[d.id] = true; (S.season.skipped = S.season.skipped || []).push(d.name); }
+    C.inbox(S, 'Skipped: ' + d.name, 'The team stayed home from ' + d.name + '. Fees for events this close are not refunded.', 'event');
+    return null;
   };
   C.markFull = function (S) { S.regionals.forEach(r => { if (!S.registered.includes(r.id) && G.R.chance(0.3)) r.full = true; }); };
 
@@ -613,6 +807,7 @@
     let bi = 0; ev.batts.forEach((b, i) => { if (b > ev.batts[bi] + 1e-9 || (Math.abs(b - ev.batts[bi]) < 1e-9 && fleet[i].h > fleet[bi].h)) bi = i; });
     ev.battIdx = bi;
     ev.batt = ev.batts[bi] * (fleet[bi] ? fleet[bi].h : 1);
+    G.Ev.rollIncident(S, ev);
   };
   C.afterPlayerMatch = function (S, ev, match, res) {
     const me = S.team.num;
@@ -620,6 +815,9 @@
     if (!rr) return;
     const a = rr.a, o = a === 'red' ? 'blue' : 'red';
     G.Robot.applyWear(S, rr, !!match.playoff);
+    G.Parts.wearMatch(S, rr);
+    G.Robot.famDrive(S, S.robot.comp || 0, D.FAM.MATCH);
+    ev.incNext = null;
     if (rr.faults.some(f => /^Fell from/.test(f))) {
       const msg = 'Your robot fell from the ' + rr.faults.find(f => /^Fell from/.test(f)).replace('Fell from ', '') + ' — heavy damage everywhere' + (rr.scrapped ? ', ' + rr.scrapped + ' spare part' + (rr.scrapped > 1 ? 's' : '') + ' scrapped' : '') + '. The pit crew will need spares to rebuild it.';
       ev.log.push(msg);
@@ -760,7 +958,7 @@
     r.awards.forEach(a => S.season.awards.push(a));
     if (ev.kind === 'champs') {
       S.season.champsPlayoffs = r.playoffs;
-      if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
+      if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
     }
     // reputation & morale
     S.rep = U.clamp(S.rep + (r.won ? 8 : r.finalist ? 4 : r.playoffs ? 2 : -1) + r.awards.length * 3, 0, 100);
@@ -797,7 +995,7 @@
   };
   C.registerChamps = function (S) {
     if (S.champsPaid) return null;
-    if (S.money < D.FEES.champs) return 'Not enough money';
+    { const e = C.afford(S, D.FEES.champs); if (e) return e; }
     C.spend(S, D.FEES.champs, 'Championship registration');
     S.champsPaid = S.year;
     return null;
@@ -838,17 +1036,29 @@
     let dSup = 0;
     const TIER = { Minimum: [4, -14], Target: [8, -6], Stretch: [14, -2] };
     s.goals.forEach(g => { g.met = !!D.PROGRAM_GOALS[g.id].check(s); const t = TIER[g.tier] || [8, -6]; dSup += g.met ? t[0] : t[1]; });
-    if (S.money < 0) dSup -= 20;
+    const debt = Math.max(0, Math.round(-S.money)), pen = C.debtPenalty(debt, S.debtRun);
+    if (debt) dSup -= pen.support;
+    S.debtRun = debt ? (S.debtRun || 0) + 1 : 0;
     dSup *= dSup < 0 ? ({ easy: 0.5, normal: 1, hard: 1.5 }[S.diff] || 1) : 1;
     S.support = Math.round(U.clamp(S.support + dSup, 0, 100));
     s.supportDelta = Math.round(dSup);
-    s.legacy = C.legacyFor(s) + (S.money >= 0 ? 20 : 0);
+    s.legacy = C.legacyFor(s) + (debt ? 0 : 20);
+    // the school pays the bills: the balance goes back to $0, but the board remembers
+    if (debt) {
+      S.rep = U.clamp(S.rep - pen.rep, 0, 100);
+      s.debt = debt; s.debtPen = pen;
+      S.money = 0; S.ledger.unshift({ d: C.dateLabel(S), desc: 'School board covered the season\'s debt', amt: debt });
+      C.inbox(S, 'From the school board: about the overdraft', 'The district has covered this season\'s ' + U.money(debt) + ' overdraft so the team can keep operating, and your balance is back to $0. ' +
+        'The board has noted it in your program review (program support −' + pen.support + ') and word has got around (reputation −' + pen.rep + '). ' + (pen.mult > 1 ? 'This is not the first time, so the board is less forgiving (penalties ×' + pen.mult.toFixed(1) + '). Another overdraft next season will cost even more. ' : 'If it happens again next season, the penalties grow. ') +
+        (debt > 20000 ? 'Please present a realistic budget before next season.' : 'A strong season goes a long way with the board — results like yours make this easier to defend.'), 'money');
+    }
     S.legacy += s.legacy;
     // sponsors
     const left = [];
     S.sponsors.forEach(sp => {
       sp.goals.forEach(g => { if (!g.met) sp.sat = Math.max(0, sp.sat - 8); });
       if (sp.exp === 'High' && !s.events.some(e => e.playoffs)) sp.sat = Math.max(0, sp.sat - 10);
+      if (sp.exp === 'High' && C.highExpect(S) && !(s.events.some(e => e.won) || s.champsQualified)) sp.sat = Math.max(0, sp.sat - 12); // top programs are expected to win
       sp.seasonsLeft--;
       if (sp.seasonsLeft <= 0) {
         if (sp.slot !== 'grant' && G.R.chance(sp.sat / 100)) { sp.seasonsLeft = G.R.int(1, 2); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, 'Sponsor renewed: ' + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season(s) at ' + U.money(sp.base) + '.', 'money'); }
@@ -880,7 +1090,9 @@
     const imp = 0;
     S.season = newSeasonState(null); S.season.impact = imp;
     S.offReg = [];
-    C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. The next game is revealed at Kickoff in January.', 'info');
+    C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
+    G.Parts.rollStock(S);
+    G.Parts.announce(S);
   };
   C.grade = function (S) {
     const sc = D.SCENARIOS.find(x => x.id === S.scenario) || {};
@@ -903,54 +1115,56 @@
     const k = S.phase === 'off' ? 4 : 1;
     return { max: D.ACT_LIMIT * k, perType: k, used: S.actLog.total, counts: S.actLog.counts, unit: S.phase === 'off' ? 'month' : 'week' };
   };
-  C.fundFatigue = (S, id) => Math.pow(D.FUND_FATIGUE, (S.season && S.season.fundN && S.season.fundN[id]) || 0);
+  // Repeats of the same activity within a month pay less (donor fatigue / the same audience); counts reset every month
+  C.monthKey = function (S) {
+    if (S.phase === 'off') return 'o' + S.si + '-' + S.month;
+    if (S.phase === 'kickoff' || (S.phase === 'build' && S.week <= 4)) return 's' + S.si + '-Jan';
+    if (S.phase === 'build') return 's' + S.si + '-Feb';
+    if (S.phase === 'comp' && S.week <= 4) return 's' + S.si + '-Mar';
+    return 's' + S.si + '-Apr';
+  };
+  function actMonth(S) { const k = C.monthKey(S); if (!S.actMonth || S.actMonth.key !== k) S.actMonth = { key: k, n: {} }; return S.actMonth; }
+  C.fundFatigue = (S, id) => Math.pow(D.FUND_FATIGUE, actMonth(S).n[id] || 0);
+  C.actAvailable = (S, a) => !a.req || a.req(S);
   C.doActivity = function (S, id) {
     const a = D.ACTIVITIES.find(x => x.id === id), rng = G.R;
+    if (!a) return 'Unknown activity';
+    if (!C.actAvailable(S, a)) return a.reqText || 'Not available';
     const lim = C.actLimits(S);
     if (lim.used >= lim.max) return 'The team has already done ' + lim.max + ' activities this ' + lim.unit + '. Try again next ' + lim.unit + '.';
     if ((lim.counts[id] || 0) >= lim.perType) return 'Already done this ' + lim.unit + (lim.perType > 1 ? ' (' + lim.perType + '×)' : '') + '.';
-    if (S.money < a.cost) return 'Not enough money';
+    { const e = C.afford(S, a.cost); if (e) return e; } // free fundraisers always work, even in the red
     S.actLog.counts[id] = (S.actLog.counts[id] || 0) + 1; S.actLog.total++;
     if (a.cost) C.spend(S, a.cost, a.name);
     let msg = '';
-    if (a.kind === 'outreach') {
-      S.season.impact += a.impact; S.season.outreach++; S.rep = Math.min(100, S.rep + a.rep);
-      msg = '+' + a.impact + ' outreach points, +' + a.rep + ' reputation';
+    const fat = C.fundFatigue(S, a.id), mo = actMonth(S);
+    mo.n[a.id] = (mo.n[a.id] || 0) + 1;
+    const trailer = a.robot && G.Shop.lvl(S, 'trailer') ? D.TRAILER_OUTREACH : 1; // the trailer makes robot shows easier
+    if (a.kind === 'rest') {
+      const before = S.fatigue;
+      if (C.inSeason(S)) S.fatigue = Math.max(5, S.fatigue + a.fatigue * fat);
+      S.morale = Math.min(100, S.morale + a.morale);
+      msg = 'Morale +' + a.morale + (C.inSeason(S) ? ', fatigue ' + Math.round(before) + ' → ' + Math.round(S.fatigue) : ' (fatigue only matters in season)');
+    } else if (a.kind === 'outreach') {
+      const imp = Math.round(a.impact * fat * trailer * 10) / 10, rp = Math.round(a.rep * fat * 10) / 10;
+      S.season.impact += imp; S.season.outreach++; S.rep = Math.min(100, S.rep + rp);
+      if (a.recruits && fat > 0.6) S.studentsCount += a.recruits;
+      if (a.money) { const gm = Math.round(rng.range(a.money[0], a.money[1]) * fat); C.earn(S, gm, a.name); msg = U.money(gm) + ' raised, '; }
+      if (a.sponsorSat) S.sponsors.forEach(sp => sp.sat = Math.min(100, sp.sat + a.sponsorSat));
+      if (a.fatigue && C.inSeason(S)) S.fatigue = Math.max(5, S.fatigue + a.fatigue);
+      msg += '+' + imp + ' outreach points, +' + rp + ' reputation' + (fat < 1 ? ' (same audience again this month: ×' + fat.toFixed(2) + ')' : '') + (trailer > 1 ? ' · trailer bonus' : '');
     } else {
-      // donor fatigue: each repeat of the same fundraiser in this program year (June–May) pays less
-      const fat = C.fundFatigue(S, a.id);
-      S.season.fundN = S.season.fundN || {};
-      S.season.fundN[a.id] = (S.season.fundN[a.id] || 0) + 1;
       let g;
       if (a.grant) { const p = (0.25 + C.impactRating(S).parts.outreach / 300) * fat; g = rng.chance(p) ? rng.int(a.money[0], a.money[1]) : 0; }
       else g = Math.round(rng.range(a.money[0], a.money[1]) * (a.repScale ? 0.5 + S.rep / 100 : 1) * (S.mentors.some(m => m.role === 'biz') ? 1.15 : 1) * fat);
       if (g) C.earn(S, g, a.name);
-      msg = g ? 'Raised ' + U.money(g) + (fat < 1 ? ' (repeat donors give less: ×' + fat.toFixed(2) + ')' : '') : 'The application was not funded this time.';
+      if (a.sponsorSat) S.sponsors.forEach(sp => sp.sat = Math.min(100, sp.sat + a.sponsorSat));
+      msg = g ? 'Raised ' + U.money(g) + (fat < 1 ? ' (repeat donors this month give less: ×' + fat.toFixed(2) + ')' : '') : 'The application was not funded this time.';
     }
     return { ok: true, msg };
   };
-  // Facilities are bought/upgraded through G.Shop; only the per-season practice field is handled here.
-  C.buyEquip = function (S, id) {
-    if (id !== 'field') return G.Shop.upgrade(S, id);
-    if ((S.equip.field === S.year && S.phase !== 'off') || S.equip.field === 'pending') return 'Owned';
-    const cost = D.FIELD.cost;
-    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
-    C.spend(S, cost, D.FIELD.name);
-    S.equip.field = S.phase === 'off' ? 'pending' : S.year;
-    S.morale = Math.min(100, S.morale + 3);
-    return null;
-  };
-  C.buyPart = function (S, id, tier) {
-    const p = D.PARTS.find(x => x.id === id);
-    const cur = S.parts[id] || 0;
-    if (tier <= cur) return 'Already owned';
-    let cost = p.tiers[tier].cost;
-    if (C.hasPerk(S, 'partsDiscount')) cost *= 0.85;
-    if (S.money < cost) return 'Not enough money';
-    C.spend(S, cost, p.tiers[tier].name);
-    S.parts[id] = tier;
-    return null;
-  };
+  // Facilities are bought/upgraded through G.Shop (parts and game elements: G.Parts).
+  C.buyEquip = (S, id) => G.Shop.upgrade(S, id);
   C.buyBatteries = (S, n) => G.Shop.buyBatteries(S, n);
   // Spare parts cost more when bought at an event (rush delivery to the pits).
   C.spareUnitPrice = function (S, atEvent) {
@@ -958,7 +1172,7 @@
   };
   C.buySpares = function (S, n, atEvent) {
     const cost = n * C.spareUnitPrice(S, atEvent);
-    if (S.money < cost) return 'Not enough money (' + U.money(cost) + ' needed)';
+    { const e = C.afford(S, cost); if (e) return e; }
     C.spend(S, cost, n + ' spare parts' + (atEvent ? ' (at event)' : ''));
     S.parts.spares += n;
     return null;
@@ -968,10 +1182,27 @@
     if (S.offReg.includes(id)) return 'Registered';
     if (!S.robot) return 'You need last season\'s robot';
     if (D.MONTHS.indexOf(o.month) < S.month) return 'Already past';
-    if (S.money < o.fee) return 'Not enough money';
+    { const e = C.afford(S, o.fee); if (e) return e; }
     C.spend(S, o.fee, 'Offseason: ' + o.name);
     S.offReg.push(id);
     return null;
   };
   C.setFeeders = function (S, n) { S.feeders = U.clamp(n, 0, 3); };
+  // STEM support fund: emergency money when the balance is under $1,000, at a cost in reputation. Twice per program year at most.
+  C.stemFundInfo = function (S) {
+    const key = G.Parts.buyIdx(S), used = S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0;
+    const amt = Math.round(U.clamp(D.STEM_FUND.below - S.money + 2000, 2000, D.STEM_FUND.max) / 500) * 500;
+    return { ok: S.money < D.STEM_FUND.below && used < D.STEM_FUND.uses, left: D.STEM_FUND.uses - used, amt, rep: D.STEM_FUND.rep };
+  };
+  C.applyStemFund = function (S) {
+    const f = C.stemFundInfo(S);
+    if (S.money >= D.STEM_FUND.below) return 'The fund only helps teams with less than ' + U.money(D.STEM_FUND.below) + ' left';
+    if (!f.ok) return 'You have used the STEM support fund ' + D.STEM_FUND.uses + ' times this program year';
+    const key = G.Parts.buyIdx(S);
+    S.stemFund = { key, n: (S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0) + 1 };
+    C.earn(S, f.amt, 'STEM support fund');
+    S.rep = Math.max(0, S.rep - f.rep);
+    C.inbox(S, 'STEM support fund approved', U.money(f.amt) + ' has been granted to keep the team running. Word gets around that the team needed a bailout (reputation −' + f.rep + ').', 'money');
+    return null;
+  };
 })();
