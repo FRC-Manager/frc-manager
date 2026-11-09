@@ -219,6 +219,20 @@
     };
   };
 
+  // ---------- Feeder programs ----------
+  // attr: skill bonus for a recruit who comes from a fully grown program with this focus; size: extra recruits per year;
+  // impact: weight in the Impact rating's "feeder programs" part (3 established balanced programs = full marks)
+  D.FEEDER_MAX = 6; D.FEEDER_COST = 1000;
+  D.FEEDER_FOCUS = {
+    balanced: { name: 'Balanced', desc: 'A bit of everything, a little more potential', attr: { drive: 5, aware: 5, comp: 5, mech: 5, hp: 5, strat: 5 }, pot: 6, size: 1.2, impact: 1 },
+    drive: { name: 'Drive team', desc: 'Driving, awareness and human-player skill', attr: { drive: 10, aware: 6, hp: 6, comp: 3 }, pot: 2, size: 0.8, impact: 0.8 },
+    tech: { name: 'Technical', desc: 'Mechanism skill (operators) and composure', attr: { mech: 11, comp: 5, aware: 2 }, pot: 2, size: 1.2, impact: 0.8 },
+    strat: { name: 'Strategy', desc: 'Strategy and awareness: coaches, scouts and presenters', attr: { strat: 11, aware: 6 }, pot: 2, size: 0.8, impact: 0.9 },
+    outreach: { name: 'Outreach', desc: 'Community-first: more recruits and a stronger Impact story', attr: { aware: 3, strat: 3, comp: 3 }, pot: 1, size: 2, impact: 1.6 }
+  };
+  D.FEEDER_SCHOOLS = ['Lincoln', 'Westside', 'Oak Hill', 'Riverside', 'Maple Grove', 'Cedar Park', 'Northview', 'Pine Ridge', 'Lakeshore', 'Hillcrest', 'Brookfield', 'Fairview', 'Eastwood', 'Summit'];
+  D.FEEDER_KINDS = ['Elementary FLL Explore', 'Middle School FLL', 'Middle School FTC', 'STEM Club', 'Library Maker Club', 'Summer Robotics Camp', 'Girls in STEM Club'];
+
   // ---------- Sponsors ----------
   D.SPONSOR_NAMES = {
     tech: ['Vantage Systems', 'Nimbus Data', 'Quantix Labs', 'Helios Microdevices', 'Aurora Networks', 'Stratos Cloud'],

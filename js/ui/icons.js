@@ -45,6 +45,7 @@
     fatigue: '<path d="M20 15A8 8 0 0 1 9 4a8 8 0 1 0 11 11z"/><path d="M15 4h3l-3 3h3"/>',
     incident: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
     scout: '<circle cx="7" cy="15" r="4"/><circle cx="17" cy="15" r="4"/><path d="M11 15h2M5 11l2-6h3M19 11l-2-6h-3"/>',
+    sprout: '<path d="M12 21v-9"/><path d="M12 12c0-4 3-6.5 7.5-6.5 0 4.2-3 6.5-7.5 6.5z"/><path d="M12 14.5c0-3.2-2.6-5.5-6.5-5.5 0 3.3 2.6 5.5 6.5 5.5z"/>',
     outreach: '<path d="M3 10v4l11 5V5z"/><path d="M14 9h2a3 3 0 0 1 0 6h-2M6 14l1 5h3"/>',
     fund: '<circle cx="12" cy="13" r="7"/><path d="M12 9v8M9.5 11.5c0-1 1-1.5 2.5-1.5s2.5.6 2.5 1.5-1 1.5-2.5 1.5-2.5.6-2.5 1.5 1 1.5 2.5 1.5 2.5-.5 2.5-1.5M10 3h4"/>',
     trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/>',

@@ -121,6 +121,9 @@
     tries.push(() => { const c = pick(D2.PART_CATS); const it = pick(P.items(S, c.id)); if (it) P.sell(S, c.id, it.id); });
     tries.push(() => { P.buyElem(S, pick(['q', 'h', 'f']), rnd() < 0.5); });
     tries.push(() => { S.vendorPref = pick([null, 'A', 'B']); });
+    // v2.2: feeder programs and sponsor signing / undo
+    tries.push(() => { const C2 = G.Career; const r = rnd(); if (r < 0.4) C2.addProgram(S, pick(Object.keys(D2.FEEDER_FOCUS))); else if (r < 0.7) { const p = pick(S.programs || []); if (p) C2.setProgramFocus(S, p.id, pick(Object.keys(D2.FEEDER_FOCUS))); } else { const p = pick(S.programs || []); if (p) C2.closeProgram(S, p.id); } });
+    tries.push(() => { const C2 = G.Career; const r = rnd(); if (r < 0.3) C2.autoSponsors(S); else if (r < 0.6) { const o = pick(S.offers); if (o) C2.signSponsor(S, o.id); } else { const sp = pick(S.sponsors.filter(x => C2.canUnsign(S, x))); if (sp) C2.unsignSponsor(S, sp.id); } });
     tries.push(() => { S.testSplit = pick([0, 0.25, 0.5, 0.75, 1]); S.overtime = (S.phase === 'build' || S.phase === 'kickoff') && rnd() < 0.3; });
     if (R && R.bots) {
       const year = R.year, subs = G.Seasons[year].subs.map(sd => sd.id).filter(k => k !== 'soft');
@@ -168,6 +171,11 @@
       });
       Object.keys(S.elem || {}).forEach(y => (S.elem[y] || []).forEach(e => { if (!(e.s > 0) || !fin(e.h)) bad('element set ' + JSON.stringify(e)); }));
       Object.keys(S.elemPre || {}).forEach(y => (S.elemPre[y] || []).forEach(e => { if (!(e.s > 0)) bad('preorder ' + JSON.stringify(e)); }));
+      if (!Array.isArray(S.programs) || S.programs.length > G.Data.FEEDER_MAX || S.feeders !== S.programs.length) bad('feeder programs ' + (S.programs && S.programs.length) + ' / feeders ' + S.feeders);
+      (S.programs || []).forEach(p => { if (!G.Data.FEEDER_FOCUS[p.focus] || !(p.years >= 0)) bad('program ' + JSON.stringify(p)); });
+      { const sl = G.Career.sponsorSlots(S); ['title', 'grant'].forEach(k => { if (sl[k].n > sl[k].max) bad(k + ' sponsors ' + sl[k].n); }); if (sl.partner.n > 5) bad('partners ' + sl.partner.n); }
+      { const ids = {}; S.sponsors.concat(S.offers).forEach(x => { if (ids[x.id]) bad('sponsor id twice ' + x.name); ids[x.id] = 1; }); }
+      S.students.forEach(st => Object.keys(st.attr).forEach(k => { if (!fin(st.attr[k]) || st.attr[k] < 0 || st.attr[k] > 100) bad('student attr ' + k + ' ' + st.attr[k]); }));
       S.projects.forEach(p => { if (!fin(p.need) || p.need <= 0 || !fin(p.done) || !fin(p.cost)) bad('project ' + p.name + ' ' + p.need + '/' + p.done); });
       const R = S.robot;
       if (R) {

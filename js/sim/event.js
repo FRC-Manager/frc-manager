@@ -545,12 +545,31 @@
   };
   Ev.playerAlliance = function (ev) { const me = G.S.team.num; return ev.alliances ? ev.alliances.findIndex(a => a.includes(me)) : -1; };
   Ev.poMatchObj = function (ev, m) {
-    const g = m.games.length;
-    return { key: 1000 + BR.findIndex(b => b.id === m.id) * 10 + g, game: g, playoff: true, red: ev.alliances[m.red], blue: ev.alliances[m.blue], id: m.id };
+    const g = m.games.filter(x => !x.replay).length, last = m.games[m.games.length - 1];
+    return { key: 1000 + BR.findIndex(b => b.id === m.id) * 10 + m.games.length, game: g, replay: !!(last && last.replay), playoff: true, red: ev.alliances[m.red], blue: ev.alliances[m.blue], id: m.id };
+  };
+  // FRC playoff tiebreakers (game manuals): foul points first, then the season's auto / endgame points, and only if
+  // everything is still equal is the match replayed. 2022 Hangar and 2023 Charge Station come before auto.
+  Ev.TIEBREAK = year => (year === 2022 || year === 2023
+    ? [['foul', 'foul points'], ['end', year === 2022 ? 'Hangar points' : 'Charge Station points'], ['auto', 'auto points']]
+    : [['foul', 'foul points'], ['auto', 'auto points'], ['end', ({ 2024: 'Stage', 2025: 'Barge', 2026: 'Tower' })[year] ? ({ 2024: 'Stage', 2025: 'Barge', 2026: 'Tower' })[year] + ' points' : 'endgame points']]);
+  Ev.breakTie = function (ev, res) {
+    if (res.winner !== 'tie') return;
+    for (const [k, label] of Ev.TIEBREAK(ev.year)) {
+      if (res.red[k] === res.blue[k]) continue;
+      const w = res.red[k] > res.blue[k] ? 'red' : 'blue';
+      res.winner = w; res.tiebreak = label; res.tieVals = { red: res.red[k], blue: res.blue[k] };
+      res[w].win = 1; res[w === 'red' ? 'blue' : 'red'].win = 0;
+      return;
+    }
+    res.replay = true; // tied on every tiebreaker
   };
   Ev.applyPlayoff = function (ev, m, res) {
     const obj = Ev.poMatchObj(ev, m);
-    m.games.push({ red: res.red.score, blue: res.blue.score, winner: res.winner, res });
+    Ev.breakTie(ev, res);
+    // safety: a match tied on everything three times in a row goes to the alliance with more auto points, then the higher seed
+    if (res.replay && m.games.filter(x => x.replay).length >= 2) { const w = res.red.auto !== res.blue.auto ? (res.red.auto > res.blue.auto ? 'red' : 'blue') : (m.red < m.blue ? 'red' : 'blue'); res.replay = false; res.winner = w; res.tiebreak = res.red.auto !== res.blue.auto ? 'auto points' : 'alliance seed'; res[w].win = 1; res[w === 'red' ? 'blue' : 'red'].win = 0; }
+    m.games.push({ red: res.red.score, blue: res.blue.score, winner: res.winner, res, replay: !!res.replay, tb: res.tiebreak || null });
     m.res = res; m.redT = obj.red; m.blueT = obj.blue;
     ev.matchCount++;
     if (obj.red.includes(G.S.team.num) || obj.blue.includes(G.S.team.num)) G.Career.afterPlayerMatch(G.S, ev, obj, res);
@@ -558,11 +577,7 @@
     if (m.bo3) {
       const rw = m.games.filter(x => x.winner === 'red').length, bw = m.games.filter(x => x.winner === 'blue').length;
       if (rw >= 2) w = 'red'; else if (bw >= 2) w = 'blue';
-      if (m.games.length >= 5 && !w) w = rw >= bw ? 'red' : 'blue';
-    } else {
-      if (res.winner !== 'tie') w = res.winner;
-      else if (m.games.length >= 2) w = res.red.auto >= res.blue.auto ? 'red' : 'blue';
-    }
+    } else if (res.winner !== 'tie') w = res.winner;
     if (w) {
       m.winner = w === 'red' ? m.red : m.blue;
       m.loser = w === 'red' ? m.blue : m.red;

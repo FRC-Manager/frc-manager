@@ -16,15 +16,15 @@
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
     let o = '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + ev.year + ' ' + h(G.Seasons[ev.year].name) + '</div></div><span class="sp"></span>' +
       (rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '') + '</div>';
-    const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'];
-    o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === ev.stage ? 'acc' : stages.indexOf(s) < stages.indexOf(ev.stage) ? 'good' : '')).join(' ') + '</div>';
-    if (ev.stage === 'practice') o += practiceView(ev);
+    const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
+    o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
+    if (stage === 'practice') o += practiceView(ev);
     else if (ev.stage === 'quals') o += qualsView(ev);
     else if (ev.stage === 'selection') o += selectionView(ev);
     else if (ev.stage === 'playoffs') o += playoffView(ev);
     else o += doneView(ev);
     if (ev.stage !== 'done' && S.robot) o += pitCard(ev);
-    if (ev.stage !== 'practice' && ev.kind !== 'einstein') o += tabs(ev);
+    if (stage !== 'practice' && ev.kind !== 'einstein') o += tabs(ev);
     return o;
   } };
 
@@ -65,11 +65,17 @@
     let o = '';
     if (ev.inspection && ev.inspection.notes.length) o += '<div class="warnbox mb">' + ev.inspection.notes.map(h).join('<br>') + '</div>';
     if (ev.arrival && ev.arrival.cond != null && ev.practice.used.length === 0) o += '<div class="' + (ev.arrival.cond < 99 ? 'warnbox' : 'hint') + ' mb">Robot arrived at <b>' + ev.arrival.cond + '%</b> condition.' + (ev.arrival.notes.length ? ' ' + ev.arrival.notes.map(h).join(' ') : '') + (ev.arrival.cond < 99 ? ' The pit crew can repair it between matches with spare parts.' : '') + '</div>';
-    o += '<div class="grid g2"><div class="card"><div class="ct">Practice day — block ' + (ev.practice.used.length + 1) + ' of ' + ev.practice.blocks + '</div>';
+    o += '<div class="grid g2"><div class="card"><div class="ct">' + (ev.pracReview ? 'Practice day complete' : 'Practice day — block ' + (ev.practice.used.length + 1) + ' of ' + ev.practice.blocks) + '</div>';
     const mustLighten = ev.inspection && !ev.inspection.ok;
+    if (ev.pracReview) {
+      const nm = id => id === 'auto' ? 'Auto-picked blocks' : id === 'lighten' ? 'Emergency lightening' : ((G.Ev.PRACTICE.find(x => x.id === id) || {}).name || id);
+      o += '<div class="col">' + (ev.pracLog || []).map((x, i) => '<div class="sm"><b>' + (i + 1) + '. ' + h(nm(x.p)) + '</b><div class="xs muted">' + x.out.map(h).join(' ') + '</div></div>').join('') + '</div>' +
+        '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="endPractice">Continue to ' + (ev.stage === 'playoffs' ? 'playoffs' : 'qualifications') + '</button></div></div>';
+    } else {
     o += '<div class="col">' + (mustLighten ? '<button class="btn primary" data-act="practice" data-arg="lighten">Emergency lightening (required to pass inspection)</button>' :
       G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left"><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + S.robot.pending.length + ' pending)' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
+    }
     o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + UI.stat('Auto bonus', ev.tuneAuto * 500) +
       UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) +
       (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
@@ -77,8 +83,15 @@
       (ev.log.length ? '<div class="hr"></div>' + ev.log.slice(-6).map(l => '<div class="sm">• ' + h(l) + '</div>').join('') : '') + '</div></div>';
     return o;
   }
-  UI.A.practice = function (p) { const ev = Ev(); const out = G.Ev.doPractice(ev, p); out.forEach(x => ev.log.push(x)); UI.toast(out.join(' '), 'good'); G.Save.write('auto'); UI.render(); };
-  UI.A.skipPractice = function () { G.Ev.skipPractice(Ev()); UI.render(); };
+  UI.A.practice = function (p) { const ev = Ev(); if (ev.stage !== 'practice') return; const out = G.Ev.doPractice(ev, p); out.forEach(x => ev.log.push(x)); (ev.pracLog = ev.pracLog || []).push({ p, out }); if (ev.stage !== 'practice') ev.pracReview = true; UI.toast(out.join(' '), 'good'); G.Save.write('auto'); UI.render(); };
+  UI.A.skipPractice = function () {
+    const ev = Ev(); if (ev.stage !== 'practice') return;
+    const n0 = ev.log.length;
+    G.Ev.skipPractice(ev);
+    (ev.pracLog = ev.pracLog || []).push({ p: 'auto', out: ev.log.slice(n0) });
+    ev.pracReview = true; G.Save.write('auto'); UI.render();
+  };
+  UI.A.endPractice = function () { const ev = Ev(); if (ev) { ev.pracReview = false; G.Save.write('auto'); UI.render(); } };
 
   function matchTeamsLine(mt) {
     return '<span class="pill-red">' + mt.red.map(tlink).join(' ') + '</span> vs <span class="pill-blue">' + mt.blue.map(tlink).join(' ') + '</span>';
@@ -160,7 +173,7 @@
   function bmatch(ev, id) {
     const m = ev.po.matches.find(x => x.id === id), pa = G.Ev.playerAlliance(ev);
     const al = i => i == null ? '<span class="dim">TBD</span>' : 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
-    const sc = (side) => m.games.map(g => side === 'red' ? g.red : g.blue).join(' / ');
+    const sc = (side) => m.games.map(g => '<span' + (g.tb ? ' title="Tied: won on ' + h(g.tb) + '"' : g.replay ? ' title="Tied on every tiebreaker: replayed"' : '') + '>' + (side === 'red' ? g.red : g.blue) + (g.tb && g.winner === side ? '*' : g.replay ? 'ʳ' : '') + '</span>').join(' / ');
     const cls = (i) => m.winner == null ? '' : m.winner === i ? 'w' : 'l';
     return '<div class="bm ' + (m.red === pa || m.blue === pa ? 'me' : '') + '"><div class="xs muted">' + id + (m.bye ? ' (bye)' : '') + '</div><div class="al ' + cls(m.red) + '"><span class="red">' + al(m.red) + '</span><span>' + sc('red') + '</span></div><div class="al ' + cls(m.blue) + '"><span class="blue">' + al(m.blue) + '</span><span>' + sc('blue') + '</span></div></div>';
   }
@@ -188,8 +201,9 @@
   UI.matchLabel = function (ev, obj) {
     if (!obj) return '';
     if (!obj.playoff) return 'Qualification ' + obj.n + ' of ' + ev.quals.length;
-    if (ev.kind === 'einstein' || obj.id === 'F') return (ev.kind === 'einstein' && obj.id !== 'F' ? 'Einstein ' : '') + (obj.id === 'F' ? 'Finals · Game ' + ((obj.game || 0) + 1) : 'Playoff Match ' + String(obj.id).replace('M', ''));
-    return 'Playoff Match ' + String(obj.id).replace('M', '');
+    const rp = obj.replay ? ' (replay)' : '';
+    if (ev.kind === 'einstein' || obj.id === 'F') return (ev.kind === 'einstein' && obj.id !== 'F' ? 'Einstein ' : '') + (obj.id === 'F' ? 'Finals · Game ' + ((obj.game || 0) + 1) : 'Playoff Match ' + String(obj.id).replace('M', '')) + rp;
+    return 'Playoff Match ' + String(obj.id).replace('M', '') + rp;
   };
   function prepPO(ev, m) {
     const key = m.id + ':' + m.games.length;
@@ -514,7 +528,8 @@
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
     const ev = Ev();
-    let o = '<div class="row"><div><div class="xs muted">' + h(UI.matchLabel(ev, Object.assign({ playoff: R.kind !== 'qual' }, obj)).toUpperCase()) + (R.kind !== 'qual' && ev && ev.po && !ev.po.done ? ' · ' + lossTag(ev) : '') + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1></div><span class="sp"></span><div class="score r">' + res.red.score + '</div><div class="score b">' + res.blue.score + '</div></div>';
+    let o = '<div class="row"><div><div class="xs muted">' + h(UI.matchLabel(ev, Object.assign({ playoff: R.kind !== 'qual' }, obj)).toUpperCase()) + (R.kind !== 'qual' && ev && ev.po && !ev.po.done ? ' · ' + lossTag(ev) : '') + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1>' +
+      (res.tiebreak ? '<div class="sm">Tied ' + res.red.score + '–' + res.blue.score + ': decided by <b>' + h(res.tiebreak) + '</b>' + (res.tieVals ? ' (' + res.tieVals.red + '–' + res.tieVals.blue + ')' : '') + ', the FRC playoff tiebreaker.</div>' : res.replay ? '<div class="sm warn">Tied on every tiebreaker (fouls, auto and endgame points): the match will be replayed.</div>' : '') + '</div><span class="sp"></span><div class="score r">' + res.red.score + '</div><div class="score b">' + res.blue.score + '</div></div>';
     o += '<div class="grid g2 mt"><div class="card"><div class="ct">Score breakdown</div><table class="t"><tr><th></th><th class="num red">Red</th><th class="num blue">Blue</th></tr>' +
       [['Auto', 'auto'], ['Teleop', 'tele'], ['Endgame', 'end'], ['Fouls received', 'foul'], ['Total', 'score']].map(x => '<tr><td>' + x[0] + '</td><td class="num">' + res.red[x[1]] + '</td><td class="num">' + res.blue[x[1]] + '</td></tr>').join('') + '</table>' +
       (R.kind === 'qual' ? '<div class="hr"></div><div class="b">You earned ' + res[a].rp + ' RP</div>' + res[a].bonus.map(b => '<div class="sm">' + (b.ok ? '<span class="good">✔</span> ' : '<span class="dim">✘</span> ') + h(b.name) + ' <span class="muted">(' + b.val + '/' + b.thr + ')</span></div>').join('') : '') + '</div>';

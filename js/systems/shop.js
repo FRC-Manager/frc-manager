@@ -85,6 +85,7 @@
     if (S.impV !== 2) { if (S.teams) Object.values(S.teams).forEach(t => { if (!t.rookie) t.impact = G.AI.impactRoll(G.makeRng(t.num * 7919 + 13), t.str); }); S.impV = 2; }
     if (G.Robot) G.Robot.migrate(S); // v2.1 two robots (before parts: they read both robots)
     if (G.Parts) G.Parts.migrate(S); // v2.0 parts inventory and game elements
+    if (G.Career && G.Career.migrate) G.Career.migrate(S); // v2.2 feeder programs
     if (S.fatigue == null) S.fatigue = D.FATIGUE_BASE;
     if (S.autoSpares == null) S.autoSpares = true;
   };

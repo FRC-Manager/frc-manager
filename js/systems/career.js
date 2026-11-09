@@ -85,7 +85,7 @@
       parts: { batteries: 4, battHealth: 1, spares: 0 }, // spare parts are bought per season (none before the first one)
       know: {}, usedAreas: {}, robot: null, projects: [], sponsors: [], offers: [], activities: [], regionals: [], registered: [], scrimmage: false,
       offReg: [], event: null, eventsDone: {}, season: newSeasonState(order[0]), history: [], offResults: [], inbox: [], teams: null,
-      feeders: 0, practiceWeeks: 0, lastTune: 0, lastConf: 0, schoolBase: P.school, legacy: 0, overtime: false, turnHours: 0, actHours: 0,
+      feeders: 0, programs: [], practiceWeeks: 0, lastTune: 0, lastConf: 0, schoolBase: P.school, legacy: 0, overtime: false, turnHours: 0, actHours: 0,
       lastChamp: null, worldChamps: 0, lateFree: o.mode === 'single',
       fatigue: D.FATIGUE_BASE, autoSpares: true, stemFund: null, actMonth: null
     };
@@ -120,6 +120,7 @@
     S.regionals = D.makeRegionals(order[0], rng);
     if (o.mode === 'career') {
       C.genOffers(S);
+      G.Parts.teaser(S);
       C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy equipment, start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.', 'info');
     } else {
       // single season: auto-sign starter sponsors, then kickoff right away
@@ -186,10 +187,48 @@
     const sp = Object.assign({}, o, { seasonsLeft: o.length, sat: 60, paidYear: null, goals: o.goals.map(g => Object.assign({}, g)) });
     S.sponsors.push(sp);
     S.offers = S.offers.filter(x => x !== o);
+    sp.undo = { turn: turnKey(S), offer: JSON.parse(JSON.stringify(o)), paid: 0 };
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
-    if (S.phase !== 'off') { C.earn(S, sp.base * bizBoost, 'Sponsor: ' + sp.name); sp.paidYear = S.year; C.scheduleActivities(S, sp); }
+    if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
     if (!silent) C.inbox(S, 'Signed: ' + sp.name, (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ' — ' + U.money(sp.base) + ' per season for ' + sp.length + ' season(s).' + (S.phase === 'off' ? ' First payment arrives at Kickoff.' : ''), 'money');
     return null;
+  };
+  // A deal signed this turn can be taken back until time moves on (the offer returns to the list)
+  C.canUnsign = (S, sp) => !!(sp && sp.undo && sp.undo.turn === turnKey(S));
+  C.unsignSponsor = function (S, id) {
+    const sp = S.sponsors.find(x => x.id === id);
+    if (!sp) return 'Sponsor not found';
+    if (!C.canUnsign(S, sp)) return 'This deal is final: it was signed before this turn';
+    S.sponsors = S.sponsors.filter(x => x !== sp);
+    if (sp.undo.paid) {
+      S.money -= sp.undo.paid; if (S.season) S.season.earned -= sp.undo.paid;
+      const li = S.ledger.findIndex(l => l.desc === 'Sponsor: ' + sp.name && l.amt === sp.undo.paid);
+      if (li >= 0) S.ledger.splice(li, 1);
+    }
+    S.activities = S.activities.filter(a => !(a.sponsorId === sp.id && a.status === 'pending'));
+    const mi = S.inbox.findIndex(m => m.title === 'Signed: ' + sp.name);
+    if (mi >= 0) S.inbox.splice(mi, 1);
+    S.offers.push(sp.undo.offer);
+    return null;
+  };
+  C.sponsorSlots = S => {
+    const n = k => S.sponsors.filter(s => s.slot === k).length;
+    return { title: { n: n('title'), max: 1 }, partner: { n: n('partner'), max: C.partnerSlots(S) }, grant: { n: n('grant'), max: 1 } };
+  };
+  // How good an offer looks: yearly money, contract length, likely bonuses and perks, minus obligations and risky expectations
+  C.offerValue = function (S, o) {
+    const strong = C.highExpect(S) || S.rep >= 60;
+    const bonus = U.sum(o.goals.map(g => g.bonus * (({ win: 0.25, champs: 0.25, playoffs2: 0.45 })[g.id] || 0.6)));
+    return o.base * (1 + 0.12 * (o.length - 1)) + bonus * 0.5 + (o.perk ? 600 : 0) - 450 * o.obligations.length - (o.exp === 'High' && !strong ? o.base * 0.25 : 0);
+  };
+  // Fill every open slot with the best offers (title, partners, grant)
+  C.autoSponsors = function (S) {
+    const signed = [];
+    ['title', 'grant', 'partner'].forEach(slot => {
+      const list = S.offers.filter(o => o.slot === slot).sort((a, b) => C.offerValue(S, b) - C.offerValue(S, a));
+      for (const o of list) { if (C.signSponsor(S, o.id, true)) break; signed.push(o.name); }
+    });
+    return signed;
   };
   C.dropSponsor = function (S, id) { const s = S.sponsors.find(x => x.id === id); if (!s) return; S.sponsors = S.sponsors.filter(x => x !== s); S.rep = Math.max(0, S.rep - 3); };
   C.scheduleActivities = function (S, sp) {
@@ -301,6 +340,8 @@
     add('off4', 'program', 'New students join · school funding');
     if (S.feeders) add('off4', 'money', 'Feeder programs ' + U.money(S.feeders * 1000));
     add('off5', 'program', 'Sponsor offers · regional registration opens');
+    { const li = off ? G.Parts.buyIdx(S) : S.si; const seen = {};
+      (S.vendorPlan || []).filter(r => r.idx === li && r.mo >= 4 && !seen[r.v] && (seen[r.v] = 1)).forEach(r => add('off' + r.mo, 'dev', D.VENDORS[r.v].name + ' product launch')); }
     add('kick', 'program', 'Game reveal: pick concepts');
     add('kick', 'money', 'Sponsors pay · facility upkeep ' + U.money(G.Shop.upkeep(S)));
     add('review', 'program', 'Program review: goals, support, graduation');
@@ -548,6 +589,7 @@
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
+    S.launchQueue = []; // launch pop-ups belong to the turn they happened in
     const hours = Math.max(0, C.turnHours(S, thisWeekEvent) - S.actHours);
     const th = C.testHours(S, thisWeekEvent);
     S.actHours = 0;
@@ -564,6 +606,7 @@
     G.Parts.rollStock(S);
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
+    S.sponsors.forEach(sp => { delete sp.undo; });
     G.Save.write('auto');
     return null;
   };
@@ -650,17 +693,33 @@
       if (grads.length) C.inbox(S, 'Graduation', grads.map(s => s.name).join(', ') + ' graduated. ' + lost + ' students left the team in total. Train new drivers at offseason events!', 'staff');
       autoDriveTeamIfMissing(S);
     }
+    G.Parts.launchMonth(S); // vendor product launches (September to December)
     if (mo === 'Aug') { C.refreshMarket(S); C.inbox(S, 'Mentor market refreshed', 'New mentor candidates are available (Mentors screen).', 'staff'); }
     if (mo === 'Sep') {
       S.students.forEach(s => s.grade++);
-      const n = Math.max(2, Math.round(4 + S.rep / 10 + S.season.outreach + S.feeders * 1.5 + rng.int(-2, 2)));
+      const fo = C.feederOutlook(S);
+      const n = Math.max(2, Math.round(4 + S.rep / 10 + S.season.outreach + fo.size + rng.int(-2, 2)));
       S.studentsCount += n;
       const add = Math.min(12 - S.students.length, Math.max(2, Math.round(n / 2)));
-      for (let i = 0; i < add; i++) S.students.push(D.makeStudent(rng, rng.chance(0.7) ? 9 : 10, S.feeders * 6 + S.rep / 10 - 5));
+      const from = {};
+      for (let i = 0; i < add; i++) {
+        const st = D.makeStudent(rng, rng.chance(0.7) ? 9 : 10, fo.talent + S.rep / 10 - 5);
+        const pg = rng.chance(fo.share) ? C.pickProgram(S, rng) : null;
+        if (pg) {
+          const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg) * rng.range(0.7, 1.3);
+          Object.keys(F.attr).forEach(k => { st.attr[k] = Math.round(U.clamp(st.attr[k] + F.attr[k] * m, 10, 85)); });
+          st.pot = Math.round(U.clamp(st.pot + F.pot * m, 25, 100));
+          st.from = pg.name; from[pg.name] = (from[pg.name] || 0) + 1;
+        }
+        S.students.push(st);
+      }
       const fund = Math.round(S.schoolBase * (0.6 + 0.8 * S.support / 100));
       C.earn(S, fund, 'School funding');
-      if (S.feeders) C.spend(S, S.feeders * 1000, 'Feeder programs');
-      C.inbox(S, 'New school year', n + ' new students joined (' + S.studentsCount + ' total). School funding: ' + U.money(fund) + '.', 'staff');
+      const np = (S.programs || []).length;
+      if (np) C.spend(S, np * D.FEEDER_COST, 'Feeder programs (' + np + ')');
+      (S.programs || []).forEach(pg => { pg.years = (pg.years || 0) + 1; });
+      const via = Object.keys(from).map(k => from[k] + ' from ' + k).join(', ');
+      C.inbox(S, 'New school year', n + ' new students joined (' + S.studentsCount + ' total).' + (via ? ' Core recruits: ' + via + '.' : '') + ' School funding: ' + U.money(fund) + '.' + (np ? ' Feeder programs: ' + U.money(np * D.FEEDER_COST) + '.' : ''), 'staff');
     }
     if (mo === 'Oct') {
       C.genOffers(S);
@@ -863,7 +922,7 @@
     const parts = {
       outreach: impSat(raw), record: impSat(U.avg(past)),
       pitch: U.clamp(C.mentorSkill(S, 'biz') * 0.6 + (stu.length ? U.avg(stu) : 25) * 0.6, 0, 100),
-      programs: S.feeders / 3 * 100, rep: S.rep
+      programs: Math.min(100, C.feederOutlook(S).impact / 3 * 100), rep: S.rep
     };
     let score = 0;
     Object.keys(C.IMPACT_W).forEach(k => score += parts[k] * C.IMPACT_W[k]);
@@ -1092,7 +1151,7 @@
     S.offReg = [];
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
-    G.Parts.announce(S);
+    G.Parts.teaser(S);
   };
   C.grade = function (S) {
     const sc = D.SCENARIOS.find(x => x.id === S.scenario) || {};
@@ -1187,7 +1246,60 @@
     S.offReg.push(id);
     return null;
   };
-  C.setFeeders = function (S, n) { S.feeders = U.clamp(n, 0, 3); };
+  // ======================= Feeder programs =======================
+  // Up to 6 programs (FLL, FTC, camps, clubs), each with a development focus. They grow over three school years and
+  // shape the next September's recruits: team size, overall talent and the skills their focus trains.
+  C.programMaturity = pg => [0.6, 0.85, 1][Math.min(2, pg.years || 0)];
+  C.programStage = pg => ['New', 'Growing', 'Established'][Math.min(2, pg.years || 0)];
+  C.feederOutlook = function (S) {
+    const list = S.programs || [];
+    let mat = 0, size = 0, impact = 0;
+    const attr = { drive: 0, aware: 0, comp: 0, mech: 0, hp: 0, strat: 0 };
+    list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg); mat += m; size += F.size * m; impact += F.impact * m; });
+    const talent = 3 * mat, share = Math.min(0.85, 0.2 * mat);
+    // expected bonus per recruit: general talent (0.4 per point) + the focus of the program they come from
+    Object.keys(attr).forEach(k => { attr[k] = talent * 0.4; });
+    if (mat) list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg), w = share * m / mat; Object.keys(F.attr).forEach(k => { attr[k] += F.attr[k] * m * w; }); });
+    return { n: list.length, mat, size, talent, share, impact, attr };
+  };
+  C.pickProgram = function (S, rng) {
+    const list = S.programs || []; if (!list.length) return null;
+    let r = rng.next() * U.sum(list.map(C.programMaturity));
+    for (const pg of list) { r -= C.programMaturity(pg); if (r <= 0) return pg; }
+    return list[list.length - 1];
+  };
+  C.addProgram = function (S, focus) {
+    S.programs = S.programs || [];
+    if (S.programs.length >= D.FEEDER_MAX) return 'You can run at most ' + D.FEEDER_MAX + ' feeder programs';
+    const used = new Set(S.programs.map(p => p.name)), rng = G.R;
+    let name, g = 0;
+    do { name = rng.pick(D.FEEDER_SCHOOLS) + ' ' + rng.pick(D.FEEDER_KINDS); g++; } while (used.has(name) && g < 30);
+    S.programs.push({ id: U.uid('fp'), name, focus: D.FEEDER_FOCUS[focus] ? focus : 'balanced', years: 0 });
+    S.feeders = S.programs.length;
+    return null;
+  };
+  C.closeProgram = function (S, id) { S.programs = (S.programs || []).filter(p => p.id !== id); S.feeders = S.programs.length; };
+  // Changing a program's focus retrains its coaches: it loses a year of growth (free while it is new)
+  C.setProgramFocus = function (S, id, focus) {
+    const pg = (S.programs || []).find(p => p.id === id);
+    if (!pg || !D.FEEDER_FOCUS[focus] || pg.focus === focus) return;
+    pg.focus = focus; pg.years = Math.max(0, (pg.years || 0) - 1);
+  };
+  C.setFeeders = function (S, n) { // dev and old callers: balanced programs up to n
+    n = U.clamp(n, 0, D.FEEDER_MAX); S.programs = S.programs || [];
+    while (S.programs.length < n && !C.addProgram(S, 'balanced'));
+    while (S.programs.length > n) S.programs.pop();
+    S.feeders = S.programs.length;
+  };
+  // older saves: a feeder count becomes that many established, balanced programs
+  C.migrate = function (S) {
+    if (!S.programs) {
+      const n = U.clamp(S.feeders || 0, 0, D.FEEDER_MAX);
+      S.programs = [];
+      for (let i = 0; i < n; i++) { C.addProgram(S, 'balanced'); S.programs[i].years = 2; }
+    }
+    S.feeders = S.programs.length;
+  };
   // STEM support fund: emergency money when the balance is under $1,000, at a cost in reputation. Twice per program year at most.
   C.stemFundInfo = function (S) {
     const key = G.Parts.buyIdx(S), used = S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0;

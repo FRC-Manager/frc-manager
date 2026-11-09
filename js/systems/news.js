@@ -305,6 +305,7 @@
     const res = e.run(S);
     if (!res) return false;
     seen(S)[e.id] = turnNo(S);
+    if (res[2] && res[2].reply) res[2].until = turnNo(S); // replies are open for this turn only (a week in season, a month in the offseason)
     post(S, res[0], res[1], 'news', res[2]);
     return true;
   }

@@ -17,21 +17,45 @@
   // Career season index the shop is selling for: during the offseason you buy for the coming season
   P.buyIdx = S => S.si + (['off', 'review', 'end'].includes(S.phase) ? 1 : 0);
   P.inSeason = S => ['kickoff', 'build', 'comp', 'champs'].includes(S.phase);
-  // Product releases: 2–3 updates over a career, by season index. The old generation stays on sale for one more year.
-  P.planReleases = function (S, rng) {
-    S.vendorPlan = [];
-    if (S.mode !== 'career' || S.order.length < 3) return;
-    const pairs = rng.shuffle(D.ELEC_CATS.reduce((a, c) => a.concat([[c, 'A'], [c, 'B']]), []));
-    const n = rng.int(2, 3);
-    for (let i = 0; i < n; i++) S.vendorPlan.push({ idx: rng.int(1, S.order.length - 1), cat: pairs[i][0], v: pairs[i][1] });
-    S.vendorPlan.sort((a, b) => a.idx - b.idx);
+  // Product launches. Before every season each vendor holds one launch event, 1–4 months before Kickoff (Sep–Dec),
+  // and puts 1–2 new products on sale at once. No product line goes past version III in a career.
+  // Plan entries: { idx: season index the product is for, cat, v, mo: launch month (D.MONTHS index) }.
+  // The previous version stays on sale until the end of that season.
+  P.MAX_GEN = 3; P.LAUNCH_MONTHS = [4, 5, 6, 7];
+  P.planReleases = function (S, rng, from) {
+    if (from == null) S.vendorPlan = [];
+    S.vendorPlan = S.vendorPlan || [];
+    if (S.mode !== 'career') return;
+    const N = S.order.length;
+    ['A', 'B'].forEach(v => {
+      const cnt = {}; D.ELEC_CATS.forEach(c => { cnt[c] = S.vendorPlan.filter(r => r.v === v && r.cat === c).length; });
+      for (let idx = from || 0; idx < N; idx++) {
+        if (S.vendorPlan.some(r => r.v === v && r.idx === idx)) continue; // (migrated saves) this vendor already launched this season
+        const cap = D.ELEC_CATS.reduce((a, c) => a + Math.max(0, P.MAX_GEN - 1 - cnt[c]), 0), later = N - idx - 1;
+        if (cap <= 0) break;
+        const k = Math.max(1, Math.min(rng.chance(0.35) ? 2 : 1, cap - later)); // always leave room for a launch every later year
+        const last = new Set(S.vendorPlan.filter(r => r.v === v && r.idx === idx - 1).map(r => r.cat));
+        const pool = D.ELEC_CATS.filter(c => cnt[c] < P.MAX_GEN - 1).map(c => ({ c, o: (last.has(c) ? 10 : 0) + cnt[c] * 2 + rng.next() * 1.5 })).sort((a, b) => a.o - b.o);
+        // the first season's launch has to come after the career starts (October)
+        const months = idx === (from || 0) && S.phase === 'off' && P.buyIdx(S) === idx ? P.LAUNCH_MONTHS.filter(m => m > S.month) : P.LAUNCH_MONTHS;
+        if (!months.length) continue;
+        const mo = rng.pick(months);
+        pool.slice(0, k).forEach(x => { S.vendorPlan.push({ idx, cat: x.c, v, mo }); cnt[x.c]++; });
+      }
+    });
+    S.vendorPlan.sort((a, b) => a.idx - b.idx || a.mo - b.mo);
   };
-  P.genAt = (S, cat, v, idx) => 1 + (S.vendorPlan || []).filter(r => r.cat === cat && r.v === v && r.idx <= idx).length;
+  // Is a planned product on sale yet? Earlier seasons' launches always; this season's once its launch month has come.
+  P.released = function (S, r) {
+    const idx = P.buyIdx(S);
+    return r.idx < idx || (r.idx === idx && (P.inSeason(S) || (S.phase === 'off' && S.month >= (r.mo || 0))));
+  };
+  P.genAt = (S, cat, v) => 1 + (S.vendorPlan || []).filter(r => r.cat === cat && r.v === v && P.released(S, r)).length;
   // Everything you can buy right now: [{ prod, isNew, ending }]
   P.forSale = function (S) {
     const idx = P.buyIdx(S), out = [];
     D.ELEC_CATS.forEach(cat => ['A', 'B'].forEach(v => {
-      const g = P.genAt(S, cat, v, idx), justOut = (S.vendorPlan || []).some(r => r.cat === cat && r.v === v && r.idx === idx);
+      const g = P.genAt(S, cat, v), justOut = (S.vendorPlan || []).some(r => r.cat === cat && r.v === v && r.idx === idx && P.released(S, r));
       out.push({ prod: PROD[cat + v + g], isNew: justOut && g > 1 });
       if (justOut && g > 1) out.push({ prod: PROD[cat + v + (g - 1)], ending: true });
     }));
@@ -370,14 +394,98 @@
     G.Career.inbox(S, 'Kit of Parts', 'This season\'s kit is in: ' + kit.motor + ' brushed motors, ' + kit.gearbox + ' kitbot gearboxes, a basic control hub and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
       (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Shop, and in season it often sells out.', 'dev');
   };
-  // New products are announced at the start of the offseason they go on sale
-  P.announce = function (S) {
-    const idx = P.buyIdx(S);
-    (S.vendorPlan || []).filter(r => r.idx === idx).forEach(r => {
-      const g = P.genAt(S, r.cat, r.v, idx), np = PROD[r.cat + r.v + g], op = PROD[r.cat + r.v + (g - 1)];
-      G.Career.inbox(S, 'New from ' + D.VENDORS[r.v].name + ': ' + np.name, np.name + ' is on sale now: performance ' + Math.round(np.perf * 100) + ' (was ' + Math.round(op.perf * 100) + '), ' + U.money(np.price) + ' each. ' + op.name + ' stays on sale until the end of next season, then it is discontinued. Parts you own keep working.', 'dev');
+  // ======================= product launch events =======================
+  const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
+  const LAUNCH_INTRO = {
+    A: [
+      'Apex Motion rented a convention hall, dimmed the lights and let a fog machine run for a full minute before anyone said a word. Then the CEO walked out holding a single box.',
+      'The Apex Motion livestream opened with a countdown clock, a drone shot of the factory and a drum solo. Fourteen thousand people watched; about thirty stayed for the spec sheet.',
+      'At the Apex Motion keynote, the lead engineer pulled a cloth off a pedestal and the room went quiet. Somebody in the back said "finally".',
+      'Apex Motion launched with a cinematic trailer, a waitlist and a press kit printed on brushed aluminum. The trailer had a slow-motion shot of a motor shaft. Twice.'
+    ],
+    B: [
+      'Lumen Robotics announced its launch with a forum post at 6 a.m. titled "some new stuff". It had one photo, a price list and a spreadsheet of test data.',
+      'Lumen\'s founder livestreamed from the warehouse floor, between pallets, holding the new parts up to a phone camera. The audio cut out twice. Nobody minded.',
+      'Lumen Robotics launched by mailing samples to fifty rookie teams and reposting the unboxing videos they sent back.',
+      'Lumen\'s launch was a twelve-minute video: what changed, what it costs, when it ships. Then it ended. The comments called it "refreshing".'
+    ]
+  };
+  const LAUNCH_TAG = {
+    motorA: '"More torque per gram than anything we have ever made. And yes, the fan is louder."',
+    motorB: 'Close to the premium motors for a lot less money, with the same mounting pattern as before.',
+    encA: '"Zero drift. We checked. Twice." Faster reads and a tougher housing.',
+    encB: 'Same footprint, faster reads, and a connector that no longer wiggles loose by the third match of the day.',
+    ctrlA: 'Built-in IMU, live CAN diagnostics and an LED ring that is "strictly for diagnostics".',
+    ctrlB: 'More channels, better brownout protection, and it still fits where the old one did.',
+    swerveA: 'Lower profile, faster steering and tool-free tread swaps. The demo video drifts sideways for nine seconds straight.',
+    swerveB: 'A bigger bearing, a stiffer plate and, finally, a module that survives curbs and bumps.'
+  };
+  const LAUNCH_TALK = {
+    any: [
+      ['Pre-ordered before the livestream ended.', 'a lead mentor on Team {t}'],
+      ['Cool. Now ship the ones I ordered last year.', 'a forum comment with 412 upvotes'],
+      ['Our programmers already want to rewrite everything for it.', 'a student on Team {t}'],
+      ['I will wait for the teardown video.', 'a cautious electrical mentor'],
+      ['Lead time is six weeks. Kickoff is in {k}. Do the math.', 'a team treasurer'],
+      ['Our sponsor asked if we were buying it. Our sponsor is now buying it.', 'Team {t}'],
+      ['Does it come in team colors?', 'a rookie, asking the important questions'],
+      ['The spec sheet has more footnotes than our Impact essay.', 'the strategy lead on Team {t}'],
+      ['We bought forty of the old ones last week. Of course.', 'a very tired mentor on Team {t}'],
+      ['Someone in the chat asked if it is legal. It is legal.', 'an FRC volunteer']
+    ],
+    A: [
+      ['It costs how much?', 'the entire chat, at once'],
+      ['The fog machine drew more current than our drivetrain.', 'a student on Team {t}'],
+      ['Beautiful. Expensive. Beautiful.', 'a mentor on Team {t}'],
+      ['Every top-ten team will run it by Week 1. Watch.', 'a scouting lead on Team {t}']
+    ],
+    B: [
+      ['Lumen keeps doing more with less. Respect.', 'a rookie mentor'],
+      ['The stream buffered for ten minutes and it was still the best launch of the year.', 'a forum regular'],
+      ['Most of the performance for a lot less money. Our treasurer cried a little, in a good way.', 'Team {t}'],
+      ['No fog machine, no drum solo, just a price. I love it.', 'a mentor on Team {t}']
+    ]
+  };
+  function someTeam(S, rng) {
+    const ks = S.teams ? Object.keys(S.teams).filter(n => Number(n) !== S.team.num) : [];
+    return ks.length ? rng.pick(ks) : String(rng.int(100, 9999));
+  }
+  // Called at the start of each offseason month: vendors whose launch is this month put their new products on sale
+  P.launchMonth = function (S) {
+    if (S.phase !== 'off') return;
+    const idx = P.buyIdx(S), rng = R();
+    ['A', 'B'].forEach(v => {
+      const rs = (S.vendorPlan || []).filter(r => r.v === v && r.idx === idx && r.mo === S.month);
+      if (!rs.length) return;
+      const V = D.VENDORS[v], year = S.order[idx] || S.year + 1, toKick = 8 - S.month;
+      const prods = rs.map(r => {
+        const g = P.genAt(S, r.cat, v), np = PROD[r.cat + v + g], op = PROD[r.cat + v + (g - 1)];
+        const own = P.items(S, r.cat).reduce((m, it) => Math.max(m, (PROD[it.p] || {}).perf || 0), 0);
+        return { id: np.id, cat: r.cat, name: np.name, oldName: op.name, perf: np.perf, oldPerf: op.perf, price: P.price(S, np), oldPrice: P.price(S, op), tag: LAUNCH_TAG[r.cat + v] || '', own };
+      });
+      const talk = rng.shuffle(LAUNCH_TALK[v].slice()).slice(0, rng.int(1, 2)).concat(rng.shuffle(LAUNCH_TALK.any.slice())).slice(0, 3)
+        .map(([t, w]) => [t.replace('{k}', toKick + ' month' + (toKick > 1 ? 's' : '')), w.replace('{t}', someTeam(S, rng))]);
+      const best = prods.slice().sort((a, b) => (b.perf - b.own) - (a.perf - a.own))[0];
+      const take = !best.own ? 'Your electrical lead: "We have never run ' + CAT_WORD[best.cat] + ' like these. Worth a look before Kickoff."'
+        : best.perf - best.own >= 0.1 ? 'Your electrical lead wants the ' + best.name + ' on the competition robot: a clear step up from what is on the shelf.'
+          : 'Your electrical lead: "What we have is close enough. No need to rush."';
+      const L = { id: U.uid('L'), v, vendor: V.name, month: D.MONTHS[S.month], year, toKick, intro: rng.pick(LAUNCH_INTRO[v]), prods, talk, take };
+      L.title = V.name + ' launch: ' + prods.map(p => p.name).join(' & ');
+      const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + Math.round(p.oldPerf * 100) + ' → ' + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
+        '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
+        '\n\nOn sale now in the Shop. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
+      G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
+      (S.launchQueue = S.launchQueue || []).push(L);
     });
   };
+  // Rumors at the start of each offseason (and at the start of a career): when each vendor will launch, and roughly what
+  P.teaser = function (S) {
+    const idx = P.buyIdx(S), rs = (S.vendorPlan || []).filter(r => r.idx === idx && !P.released(S, r));
+    if (!rs.length) return;
+    const lines = ['A', 'B'].map(v => { const x = rs.filter(r => r.v === v); return x.length ? D.VENDORS[v].name + ': launch event in ' + D.MONTHS[x[0].mo] + '. The rumor is new ' + x.map(r => CAT_WORD[r.cat]).join(' and ') + '.' : null; }).filter(Boolean);
+    G.Career.inbox(S, 'Vendor launch season', 'Both electronics vendors launch new products this fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev');
+  };
+  P.announce = P.teaser; // older callers
 
   // ======================= setup & migration =======================
   P.setup = function (S, rng) {
@@ -396,8 +504,16 @@
     (S.ledger || []).slice().reverse().forEach(l => { const mm = /(Quarter|Half|Full)-field set \((\d{4})\)/.exec(l.desc || ''); if (mm) (bought[mm[2]] = bought[mm[2]] || []).push({ Quarter: 0.25, Half: 0.5, Full: 1 }[mm[1]]); });
     bad.forEach(b => { const q = bought[b.y]; b.e.s = q && q.length ? q.shift() : 0.25; });
   }
+  // v2.2 launch events: earlier plans had no launch month. Past and current releases stay released;
+  // future seasons are planned again under the new rules (one launch per vendor per season, at most version III).
+  function migrateLaunches(S) {
+    if (!S.vendorPlan || S.mode !== 'career' || S.vendorPlan.every(r => r.mo != null)) return;
+    const idx = P.buyIdx(S);
+    S.vendorPlan = S.vendorPlan.filter(r => r.idx <= idx).map(r => Object.assign(r, { mo: 0 }));
+    P.planReleases(S, G.makeRng((S.team ? S.team.num : 1) * 31 + idx), P.inSeason(S) ? idx + 1 : idx);
+  }
   P.migrate = function (S) {
-    if (S && S.inv) { fixElemSizes(S); return; }
+    if (S && S.inv) { fixElemSizes(S); migrateLaunches(S); return; }
     if (!S || S.inv) return;
     const rng = G.makeRng((S.seed || 1) * 31 + 7), old = S.parts || {};
     S.inv = {}; D.PART_CATS.forEach(c => S.inv[c.id] = []);
