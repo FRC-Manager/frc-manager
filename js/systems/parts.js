@@ -80,7 +80,14 @@
     D.ELEM_SETS.forEach(e => { st['elem' + e.id] = season ? rng.chance(U.clamp(D.STOCK.elem + d, 0.1, 1)) : true; });
     S.stock = st;
   };
-  P.inStock = (S, id) => !S.stock || S.stock[id] !== false;
+  // In the offseason everything is in stock (the shop says so): only in-season weeks can sell out
+  P.inStock = (S, id) => !P.inSeason(S) || !S.stock || S.stock[id] !== false;
+  // How many of a product fit on the shelf right now: free slots plus worse parts it would push off (worn or older ones)
+  P.buyRoom = function (S, prodId) {
+    const prod = PROD[prodId]; if (!prod) return 0;
+    const nv = prod.perf * 0.65 + 0.35;
+    return D.PART_CAT[prod.cat].max - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9).length;
+  };
 
   // ======================= inventory =======================
   P.items = (S, cat) => (S.inv && S.inv[cat]) || [];
@@ -104,16 +111,22 @@
     if (!P.forSale(S).some(x => x.prod.id === prodId)) return 'No longer sold';
     if (!P.inStock(S, prodId)) return 'Out of stock this week. In season, check back next week (or stock up before Kickoff).';
     const cat = D.PART_CAT[prod.cat];
-    if (cat.kit || cat.id === 'pneu' || cat.id === 'camera') { n = Math.min(n, cat.max - P.count(S, prod.cat)); if (n <= 0) return 'Storage is full (' + cat.max + ' ' + cat.short.toLowerCase() + ')'; }
-    // a full shelf only takes parts better than its worst ones (otherwise the new ones would be thrown straight out)
-    { const nv = prod.perf * 0.65 + 0.35, room = cat.max - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv).length;
-      if (room <= 0) return 'No room: all ' + cat.max + ' ' + cat.short.toLowerCase() + ' slots hold parts at least as good as this. Sell some first.';
+    // a full shelf only takes parts better than its worst ones (worn or older): those are sold if they still can be, else recycled
+    { const room = P.buyRoom(S, prodId);
+      if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
     const cost = n * P.price(S, prod);
     { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, n + '× ' + prod.name);
+    const had = P.items(S, prod.cat).slice();
     const dropped = P.add(S, prod.cat, prodId, n, 1);
-    return { bought: n, replaced: dropped };
+    let sold = 0, got = 0;
+    if (dropped) {
+      const keep = new Set(P.items(S, prod.cat));
+      had.filter(it => !keep.has(it)).forEach(it => { const v = it.h > D.SELL_MIN ? P.resale(S, it) : 0; if (v > 0) { sold++; got += v; } });
+      if (got) G.Career.earn(S, got, 'Sold ' + sold + ' replaced ' + cat.short.toLowerCase());
+    }
+    return { bought: n, replaced: dropped, sold, got };
   };
 
   // The product to buy for a category from a vendor (electronics) or the COTS suppliers
@@ -241,7 +254,7 @@
     Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (tot[cat] > have) miss.push({ cat, n: tot[cat] - have }); });
     return miss;
   };
-  P.shortText = miss => 'Needs ' + miss.map(m => m.n + ' more ' + (m.n > 1 ? D.PART_CAT[m.cat].short.toLowerCase() : D.PART_CAT[m.cat].short.toLowerCase().replace(/s$/, ''))).join(', ') + ' (Shop)';
+  P.shortText = miss => 'Needs ' + miss.map(m => m.n + ' more ' + (m.n > 1 ? D.PART_CAT[m.cat].short.toLowerCase() : D.PART_CAT[m.cat].short.toLowerCase().replace(/s$/, ''))).join(', ') + ' (Inventory)';
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
   P.kitsUsed = function (S, cat) {
     let used = 0;
@@ -400,7 +413,7 @@
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
     G.Career.inbox(S, rookie ? 'Rookie Kit of Parts' : 'Kit of Parts', 'This season\'s ' + (rookie ? 'rookie kit (bigger than the yearly kit every team gets)' : 'kit') + ' is in: ' + P.kopText(kit) + ' and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
       (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
-      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Shop, and in season it often sells out.', 'dev');
+      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
   };
   // ======================= product launch events =======================
   const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
@@ -481,7 +494,7 @@
       L.title = V.name + ' launch: ' + prods.map(p => p.name).join(' & ');
       const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + Math.round(p.oldPerf * 100) + ' → ' + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
         '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
-        '\n\nOn sale now in the Shop. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
+        '\n\nOn sale now in the Inventory tab. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
       G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
       (S.launchQueue = S.launchQueue || []).push(L);
     });

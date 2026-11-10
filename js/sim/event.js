@@ -169,6 +169,15 @@
         ev.feedStats = ev.feedStats || { n: 0, f: 0 };
         ev.feedStats.n++; if (feeding) ev.feedStats.f++;
       }
+      // 2026 fuel hoarding: while its hub is inactive an alliance lobs fuel from the neutral zone back into its own zone.
+      // AI alliances pick it up over the season; your alliance's grasp comes from your team's strategy read.
+      if (ev.year === 2026) {
+        const ai = Ev.hoardChance(ev, playoff), mine = hasPlayer ? G.Career.metaInsight(S) : 0, k = Ev.metaProgress(ev);
+        const hoards = rng.chance(hasPlayer ? Math.max(ai, mine * 0.9) : ai);
+        iq = hoards ? (hasPlayer ? Math.max(mine, 0.35 + 0.45 * k) : 0.4 + 0.5 * k) : 0;
+        ev.feedStats = ev.feedStats || { n: 0, f: 0 };
+        ev.feedStats.n++; if (hoards) ev.feedStats.f++;
+      }
       out.feedIQ = out.feedIQ || {}; out.feedIQ[a] = iq;
       // AI alliance strategy: should the weakest robot play defense? Teams learn each game's meta over the season.
       const already = ens.some(e => e.plan.role === 'defend');
@@ -195,6 +204,12 @@
     if (ev.year !== 2024) return 0;
     const k = Ev.metaProgress(ev);
     return playoff ? 0.15 + 0.6 * k : 0.05 + 0.45 * k;
+  };
+  // 2026: chance an AI alliance hoards fuel during its inactive shifts (rare in Week 1, standard by the Championship)
+  Ev.hoardChance = function (ev, playoff) {
+    if (ev.year !== 2026) return 0;
+    const k = Ev.metaProgress(ev);
+    return playoff ? 0.2 + 0.65 * k : 0.08 + 0.5 * k;
   };
   // Chance an AI alliance assigns one defender. Shooting games trend toward defense; placement games away from it.
   Ev.defenseChance = function (ev, playoff) {
@@ -269,7 +284,11 @@
   const INCIDENTS = [
     { id: 'batt', w: 3, title: 'Battery not swapped', text: 'The pit crew sent the robot out on the battery from the last match.', apply: ev => { ev.batt = (ev.batt || 1) * 0.45; } },
     { id: 'auto', w: 3, title: 'Wrong auto selected', text: 'The drive team picked the wrong autonomous routine from the dashboard.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
-    { id: 'bumper', w: 2, title: 'Bumper swap ran late', text: 'Wrong bumper colour on the cart: the swap at the field edge cost the whole autonomous period.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
+    { id: 'bumper', w: 2, title: 'Loose bumper', text: 'A bumper bolt was never tightened. The bumper fell off mid-match and the referee disabled the robot.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { disableAt: G.R.range(30, 110) }); } },
+    { id: 'vision', w: 2, req: S => !!(S.robot && S.robot.visionLvl > 0), title: 'Vision not calibrated', text: 'Nobody re-ran the camera calibration after the last repair: the robot aimed off target for the whole match.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { visionOff: true }); } },
+    { id: 'code', w: 2, title: 'Wrong code on the robot', text: 'A test branch was pushed to the robot in the queue: the autonomous routine did not run and half the operator controls were dead.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { codeBad: true }); } },
+    { id: 'tool', w: 2, title: 'Tool left inside the robot', text: 'A wrench stayed inside the robot after the last repair and blocked a mechanism for the whole match.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { toolIn: G.R.pick(['intake', 'scorer', 'endgame']) }); } },
+    { id: 'stick', w: 2, title: 'Joystick not plugged in', text: 'The driver station came back from the pits with the joystick unplugged. The first 20 seconds of teleop were gone before anyone noticed.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { teleDelay: 20 }); } },
     { id: 'wire', w: 3, title: 'Loose connector missed', text: 'A loose CAN connector slipped through the pit checklist.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { hidden: 1 }); } },
     { id: 'repair', w: 2, title: 'Repairs unfinished', text: 'The pit crew ran out of time before queuing and left a repair half-done.', apply: (ev, S) => { if (S.robot) Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - 8); }); } },
     { id: 'scouts', w: 2, title: 'Scouting sheets mixed up', text: 'Two scouts swapped team numbers for a whole round of matches.', apply: ev => { ev.scoutCred = Math.max(0.5, (ev.scoutCred || 0.95) - 0.05); } }
@@ -280,7 +299,7 @@
     if (f <= D.INCIDENT_FREE && n >= 1) return;
     const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12);
     if (!G.R.chance(perMatch)) return;
-    const inc = G.R.wpick(INCIDENTS, x => x.w);
+    const inc = G.R.wpick(INCIDENTS.filter(x => !x.req || x.req(S, ev)), x => x.w);
     inc.apply(ev, S);
     const at = ev.stage === 'playoffs' ? 'Playoffs' : 'Qual ' + ((ev.quals[ev.qi] || {}).n || '');
     ev.incidents.push({ at, title: inc.title, text: inc.text, f: Math.round(f) });
@@ -373,8 +392,8 @@
       tot += sc; cnt += 3;
       ts.forEach(i => { b[idx[i]] += sc; ts.forEach(j => { A[idx[i]][idx[j]] += 1; }); });
     }));
-    const mean = cnt ? tot / cnt : 0, lam = 0.8;
-    for (let i = 0; i < n; i++) { A[i][i] += lam; b[i] += lam * mean; }
+    const base = ev.oprBase || null, mean = cnt ? tot / cnt : 0, lam = base ? 2.5 : 0.8;
+    for (let i = 0; i < n; i++) { A[i][i] += lam; b[i] += lam * (base && base[teams[i]] != null ? base[teams[i]] : mean); }
     // Gaussian elimination
     for (let c = 0; c < n; c++) {
       let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
@@ -634,6 +653,7 @@
     const ps = G.Career.awardScores(S, ev);
     const winners = new Set(), list = [];
     D.AWARDS.forEach(aw => {
+      if (ev.kind === 'champs' && aw.champs) return; // judged once for the whole Championship (the FIRST Impact Award is announced on Einstein)
       let best = null, bv = -1;
       ev.teams.forEach(t => {
         if (winners.has(t)) return;

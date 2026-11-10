@@ -172,18 +172,18 @@
           base: { intake: 50 }, ceil: { intake: 96 }, caps: { ground: true, station: true, storage: 1 }, look: { intake: 'under' } }
       ] },
       { id: 'scorer', name: 'Shooter', concepts: [
-        { id: 'sub', name: 'Subwoofer fixed shooter', desc: 'Scores only pressed against the subwoofer.', cost: 600, hours: 100, w: 12, cx: 2, areas: ['shooter'],
-          base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
-        { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: speaker from the wing, can also feed the Amp.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
-          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: true, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
+        { id: 'sub', name: 'Subwoofer fixed shooter', desc: 'Scores the Speaker only pressed against the subwoofer. Can lob notes into the Amp without an amp mechanism, but slowly and with a low success rate.', cost: 600, hours: 100, w: 12, cx: 2, areas: ['shooter'],
+          base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, ampViaShooter: 0.55, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
+        { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: Speaker from the wing. Tilts up to score the Amp without an amp mechanism at a moderate speed and success rate.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
+          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: 0.8, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
+        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision. Its hood can also score the Amp at a moderate speed and success rate.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, ampViaShooter: 0.75, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
       ] },
       { id: 'amp', name: 'Amp / Trap', concepts: [
-        { id: 'none', name: 'No amp mechanism', desc: 'Speaker only.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
-        { id: 'ampbar', name: 'Amp bar', desc: 'A flip-out bar that guides notes into the Amp.', cost: 400, hours: 80, w: 5, cx: 2, areas: ['arm'],
+        { id: 'none', name: 'No amp mechanism', desc: 'The shooter scores the Amp by itself: fixed shooters slowly and with a low success rate, pivot and turret shooters at a moderate rate. No Trap.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
+        { id: 'ampbar', name: 'Amp bar', desc: 'A flip-out bar that guides notes into the Amp: faster and far more reliable than scoring it with the shooter.', cost: 400, hours: 80, w: 5, cx: 2, areas: ['arm'],
           base: { amp: 45 }, ceil: { amp: 90 }, caps: { amp: true }, look: { manip: 'ampbar' } },
-        { id: 'amptrap', name: 'Amp + Trap elevator', desc: 'Small elevator that scores the Amp and the Trap.', cost: 1000, hours: 180, w: 12, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'amptrap', name: 'Amp + Trap elevator', desc: 'Small elevator that scores the Amp (faster and more reliable than any shooter) and the Trap.', cost: 1000, hours: 180, w: 12, cx: 4, areas: ['elevator', 'arm'],
           base: { amp: 42 }, ceil: { amp: 92 }, caps: { amp: true, trapMech: true, tall: 0.2 }, look: { manip: 'elevator' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [

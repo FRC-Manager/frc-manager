@@ -40,6 +40,7 @@
       r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
       r.autoOK = m.rng.chance(U.clamp(0.5 + 0.46 * r.cap.auto / 100 + (r.tuneAuto || 0), 0.3, 0.985)) && !r.autoFail;
+      if (r.toolIn) { r.perm[r.toolIn] = true; const nm = r.toolIn === 'endgame' ? 'Climber' : r.toolIn === 'intake' ? 'Intake' : 'Scorer'; r.stats.faults.push(nm + ' blocked (tool left inside)'); log(m, r.a, r.team + ': ' + nm.toLowerCase() + ' blocked by a tool left inside the robot', 'fault'); }
     });
     return m;
   };
@@ -51,6 +52,9 @@
       team: en.team, a, slot: i, cap: en.cap, look: en.look || {}, drv, isPlayer: !!en.isPlayer,
       plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, defTarget: null }, en.plan || {}),
       tune, conf, tuneAuto: en.tuneAuto || 0, autoFail: !!en.autoFail,
+      // pit and drive-team slips (your robot only): a loose bumper, a blocked mechanism, a joystick left unplugged
+      disableAt: en.disableAt || 0, teleDelay: en.teleDelay || 0, toolIn: en.toolIn || null,
+      defSkill: en.defSkill || 0, // drilled against a defender on a second robot: loses less to defense
       // practiced drive teams (confidence) drive faster, line up quicker, handle pieces faster, foul less and climb more surely; 0.6 ≈ an average AI team
       drvF: 0.816 + 0.22 * drv.drive / 100 + 0.16 * (conf - 0.6), confK: conf - 0.6,
       opF: 0.86 + 0.14 * drv.mech / 100,
@@ -92,6 +96,11 @@
         if (!r.keepEnd) { r.end = null; r.endBusy = false; }
       }
     });
+    m.robots.forEach(r => {
+      if (r.dead || !r.teleDelay) return;
+      r.fault = { stall: true, until: m.t + r.teleDelay, label: 'NO JOYSTICK' };
+      r.stats.faults.push('Joystick unplugged (' + r.teleDelay + ' s lost)'); log(m, r.a, r.team + ': joystick not plugged in — ' + r.teleDelay + ' seconds lost', 'fault');
+    });
     if (m.R.onTeleop) m.R.onTeleop(m, H);
     log(m, null, 'TELEOP', 'phase');
   }
@@ -101,6 +110,11 @@
     if (r.dead) { r.label = r.tipped ? 'TIPPED' : 'DISABLED'; return; }
     if (r.fault && m.t >= r.fault.until) { r.fault = null; if (r.st === 'idle') r.label = ''; }
     for (const k in r.jam) if (r.jam[k] && m.t >= r.jam[k]) r.jam[k] = 0;
+    if (r.disableAt && m.t >= r.disableAt) {
+      r.disableAt = 0; r.dead = true; r.st = 'dead';
+      r.stats.faults.push('Bumper fell off — disabled'); log(m, r.a, r.team + ': bumper fell off — disabled by the referee', 'fault');
+      return;
+    }
     faultRoll(m, r);
     if (r.dead) return;
     if (r.fault && r.fault.stall) { r.label = r.fault.label; return; }
@@ -116,7 +130,7 @@
       case 'idle': decide(m, r); break;
       case 'move': moveStep(m, r); break;
       case 'act': {
-        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) : 1);
+        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) * (1 - DEF_DRILL * r.defSkill) : 1);
         if (r.timer <= 0) { const f = r.onDone; r.onDone = null; r.st = 'idle'; if (f) f(); }
         break;
       }
@@ -351,7 +365,7 @@
       if (DF.zone) {
         for (const o of m.robots) {
           if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
-          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200), 0.6, 0.97);
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200) * (1 - DEF_DRILL * o.defSkill), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
@@ -364,7 +378,7 @@
       if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1), 0.35, 0.97);
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1) * (1 - DEF_DRILL * t.defSkill), 0.35, 0.97);
         pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
@@ -383,6 +397,7 @@
 
   // ---------- faults ----------
   // Comms losses have their own, more frequent hazard (below); the season profile (R.faults) scales brownouts, tips and comms.
+  const DEF_DRILL = (G.Data && G.Data.DEF_DRILL_EFFECT) || 0.35;
   const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }];
   // 0 = clean, well-built electronics … about 1.5 = poor wiring, worn robot, hidden defects, tired battery
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
@@ -571,7 +586,7 @@
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1) * (1 - DEF_DRILL * r.defSkill);
       p *= 0.95 + 0.05 * r.opF;
       p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;

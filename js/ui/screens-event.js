@@ -5,12 +5,43 @@
   const Ev = () => G.S.event;
   const me = () => G.S.team.num;
   const tname = n => n === me() ? G.S.team.name : (G.S.teams[n] ? G.S.teams[n].name : '');
+  // "Alliance 3"; on Einstein every alliance is a division champion: "Newton · Alliance 3" (short: "Newton (A3)")
+  const alName = (ev, i) => (i == null || i < 0 ? '' : (ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? ev.divNames[i] + ' · ' : '') + 'Alliance ' + (i + 1));
+  const alShort = (ev, i) => (i == null || i < 0 ? '' : ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? ev.divNames[i] + ' (A' + (i + 1) + ')' : 'Alliance ' + (i + 1));
+  UI.alName = alName;
+  const wl = r => '<b class="' + (r.win === 1 ? 'good' : r.win === 0 ? 'bad' : 'warn') + '">' + (r.win === 1 ? 'W' : r.win === 0 ? 'L' : 'T') + '</b>';
+  // What comes next for the player, shown big on the event page and next to the match buttons.
+  // Quals: the match number and your alliance. Playoffs: the match, the opposing alliance and your last playoff result.
+  // cur: the match on the pre-match page (omit on the event page, where the next one is looked up).
+  function nextStrip(ev, cur) {
+    const pa = G.Ev.playerAlliance(ev);
+    let main = '', side = '', last = '';
+    if (cur ? !cur.playoff : ev.stage === 'quals') {
+      const mt = cur || ev.quals.slice(ev.qi).find(G.Ev.hasPlayer);
+      if (!mt) return '';
+      const a = mt.red.includes(me()) ? 'red' : 'blue', lr = ev.playerResults[ev.playerResults.length - 1], rk = ev.rank[me()];
+      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">Q' + mt.n + '</b><span class="nx-of">of ' + ev.quals.length + '</span>';
+      side = 'You are <b class="' + a + '">' + a.toUpperCase() + '</b> with ' + mt[a].filter(t => t !== me()).join(' and ') + ' · against ' + mt[a === 'red' ? 'blue' : 'red'].join(', ');
+      last = (lr ? 'Last: ' + h(String(lr.id)) + ' ' + wl(lr) + ' ' + lr.our + '–' + lr.their : 'Your first match here') + (rk && rk.played ? ' · rank ' + U.ord(G.Ev.rankOf(ev, me())) + ' (' + rk.w + '-' + rk.l + '-' + rk.t + ')' : '');
+    } else if (ev.po && pa >= 0 && (cur || ev.stage === 'playoffs')) {
+      // on the event page, the other alliances' earlier matches are played first so the opponent is known
+      const m = cur ? ev.po.matches.find(x => x.id === cur.id) : (G.Ev.playerEliminated(ev) ? null : G.Ev.simPlayoffsUntilPlayer(ev));
+      if (!m) return '';
+      const sd = m.red === pa ? 'red' : 'blue', opp = sd === 'red' ? m.blue : m.red;
+      const lp = ev.playerResults.filter(r => !/^Q\d/.test(String(r.id))).slice(-1)[0];
+      const game = m.bo3 ? 'Best of 3 · Game ' + (m.games.filter(g => !g.replay).length + 1) : h(m.round);
+      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">' + (m.id === 'F' ? 'Finals' : h(m.id)) + '</b><span class="nx-vs">against <b>' + h(alName(ev, opp)) + '</b></span><span class="nx-of">' + game + '</span>';
+      side = 'You are <b>' + h(alName(ev, pa)) + '</b> on <b class="' + sd + '">' + sd.toUpperCase() + '</b>' + (opp != null && ev.alliances[opp] ? ' · their captain: ' + ev.alliances[opp][0] + ' ' + h(tname(ev.alliances[opp][0])) : '');
+      last = lp ? 'Last playoff match: ' + h(String(lp.id)) + ' ' + wl(lp) + ' ' + lp.our + '–' + lp.their : 'Your first playoff match';
+    } else return '';
+    return '<div class="nextbar' + (cur ? ' stack' : '') + '"><div class="nx-main">' + main + '</div><div class="nx-side">' + side + '</div><div class="nx-last">' + last + '</div></div>';
+  }
   const tlink = (n) => '<a href="#" data-act="scoutTeam" data-arg="' + n + '" class="' + (n === me() ? 'b' : '') + '" style="' + (n === me() ? 'color:var(--accent2)' : 'color:inherit') + '">' + n + '</a>';
 
   // =====================================================================
   // EVENT HUB
   // =====================================================================
-  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (ev && ev.stage === 'done' && ev.result && ev.result.won && ev.kind === 'einstein' && !ev.wcShown) return UI.worldChampModal(ev); if (ev && ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
+  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
@@ -51,7 +82,7 @@
       '<div class="grid g2"><div>' + (conds || '<p class="muted">Nothing built yet.</p>') + '</div><div class="col">' +
       '<div class="sm muted">Before each match the pit crew repairs the robot. One spare part restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. With no spares left, repairs stop at 60%.</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySparesEvent" data-arg="' + n + '">Buy ' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
-      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Workshop.</div></div></div></div>';
+      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
   }
   UI.A.buySparesEvent = function (n) {
     if (UI.err(G.Career.buySpares(G.S, Number(n), true))) return;
@@ -102,7 +133,7 @@
     let o = '<div class="grid g2"><div class="card hl"><div class="ct">Qualification matches ' + UI.tag(left + ' left for you', 'acc') + '</div>';
     if (next) {
       const gap = ev.quals.indexOf(next) - ev.qi;
-      o += '<div class="mb">Next: <b>Qual ' + next.n + '</b> ' + matchTeamsLine(next) + '</div><div class="sm muted mb">' + (gap > 0 ? gap + ' other match' + (gap > 1 ? 'es' : '') + ' before yours (pit time for repairs).' : 'You\'re up next.') + '</div>' +
+      o += nextStrip(ev) + '<div class="mb sm">' + matchTeamsLine(next) + '</div><div class="sm muted mb">' + (gap > 0 ? gap + ' other match' + (gap > 1 ? 'es' : '') + ' before yours (pit time for repairs).' : 'You\'re up next.') + '</div>' +
         '<div class="row wrap"><button class="btn primary" data-act="nextQual">Prepare match ▶</button><button class="btn" data-act="simQual">Simulate it</button><button class="btn" data-act="simAllQuals">Simulate all remaining</button></div>';
     } else o += '<p>All your qualification matches are done.</p><button class="btn primary" data-act="finishQuals">Continue</button>';
     o += '</div><div class="card"><div class="ct">Your results</div>' + resultsList(ev) + '</div></div>';
@@ -172,7 +203,7 @@
   // ---------------- playoffs ----------------
   function bmatch(ev, id) {
     const m = ev.po.matches.find(x => x.id === id), pa = G.Ev.playerAlliance(ev);
-    const al = i => i == null ? '<span class="dim">TBD</span>' : 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
+    const al = i => i == null ? '<span class="dim">TBD</span>' : (ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? h(ev.divNames[i]) + ' ' : '') + 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
     const sc = (side) => m.games.map(g => '<span' + (g.tb ? ' title="Tied: won on ' + h(g.tb) + '"' : g.replay ? ' title="Tied on every tiebreaker: replayed"' : '') + '>' + (side === 'red' ? g.red : g.blue) + (g.tb && g.winner === side ? '*' : g.replay ? 'ʳ' : '') + '</span>').join(' / ');
     const cls = (i) => m.winner == null ? '' : m.winner === i ? 'w' : 'l';
     return '<div class="bm ' + (m.red === pa || m.blue === pa ? 'me' : '') + '"><div class="xs muted">' + id + (m.bye ? ' (bye)' : '') + '</div><div class="al ' + cls(m.red) + '"><span class="red">' + al(m.red) + '</span><span>' + sc('red') + '</span></div><div class="al ' + cls(m.blue) + '"><span class="blue">' + al(m.blue) + '</span><span>' + sc('blue') + '</span></div></div>';
@@ -183,9 +214,9 @@
   };
   function playoffView(ev) {
     const pa = G.Ev.playerAlliance(ev);
-    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are Alliance ' + (pa + 1) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
+    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are ' + h(alName(ev, pa)) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
     if (pa >= 0) o += '<div class="sm mb">Alliance: ' + ev.alliances[pa].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>';
-    if (pa >= 0 && !G.Ev.playerEliminated(ev)) o += '<div class="row wrap"><button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button></div>';
+    if (pa >= 0 && !G.Ev.playerEliminated(ev)) o += nextStrip(ev) + '<div class="row wrap"><button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button></div>';
     else o += '<div class="row wrap"><button class="btn primary" data-act="simRestPO">Simulate remaining playoffs</button></div>';
     o += '</div>' + UI.bracket(ev);
     return o;
@@ -201,7 +232,8 @@
   UI.matchLabel = function (ev, obj) {
     if (!obj) return '';
     if (!obj.playoff) return 'Qualification ' + obj.n + ' of ' + ev.quals.length;
-    const rp = obj.replay ? ' (replay)' : '';
+    const pm = ev && ev.po && ev.po.matches.find(x => x.id === obj.id);
+    const rp = (obj.replay ? ' (replay)' : '') + (pm && pm.red != null && pm.blue != null ? ' · ' + alShort(ev, pm.red) + ' vs ' + alShort(ev, pm.blue) : '');
     if (ev.kind === 'einstein' || obj.id === 'F') return (ev.kind === 'einstein' && obj.id !== 'F' ? 'Einstein ' : '') + (obj.id === 'F' ? 'Finals · Game ' + ((obj.game || 0) + 1) : 'Playoff Match ' + String(obj.id).replace('M', '')) + rp;
     return 'Playoff Match ' + String(obj.id).replace('M', '') + rp;
   };
@@ -233,6 +265,15 @@
   function finishIfDone(ev) { if (ev.po && ev.po.done && ev.stage !== 'done') G.Ev.finishEvent(ev); }
 
   // ---------------- done ----------------
+  // The FIRST Impact Award is announced on Einstein. A team that did not advance hears it when its division is over.
+  function impactLine(ev) {
+    const S = G.S, ci = S.season && S.season.cmpImpact;
+    if (!ci || !(ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein))) return '';
+    G.Career.settleImpact(S, 'all');
+    const nm = n => (n === me() ? '<b class="acc">' + n + ' ' + h(S.team.name) + '</b>' : n + ' ' + h(tname(n)));
+    return '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>FIRST Impact Award</b> (announced on Einstein): ' + nm(ci.winner) + '. Finalists: ' + ci.finalists.map(nm).join(', ') + '.' +
+      (ci.out ? '' : ci.eligible ? ' Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + ' regional Impact winners.' : S.hallOfFame != null ? '' : ' Only this season\'s regional Impact Award winners are judged.') + '</div>';
+  }
   function doneView(ev) {
     const r = ev.result || {};
     const bn = G.Career.eventBanners(Object.assign({ kind: ev.kind }, r), ev.year);
@@ -242,6 +283,7 @@
     o += '<div class="kv mt">' + (r.rank ? '<span class="k">Qualification rank</span><span>' + U.ord(r.rank) + ' of ' + r.size + '</span><span class="k">Record</span><span>' + h(r.record) + '</span><span class="k">Ranking score</span><span>' + (r.avgRP || 0).toFixed(2) + '</span>' : '') +
       (r.alliance ? '<span class="k">Alliance</span><span>#' + r.alliance + ' (' + h(r.role) + ')</span>' : '') + '<span class="k">OPR</span><span>' + r.opr + '</span>' + (r.pool ? '<span class="k">Pool points</span><span>' + r.pool + '</span>' : '') + '</div>';
     if (r.winners && r.winners.length) o += '<div class="sm mt">Event winners: ' + r.winners.map(tlink).join(', ') + '</div>';
+    o += impactLine(ev);
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>';
     o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
     if (ev.po) o += '<div class="mt">' + UI.bracket(ev) + '</div>';
@@ -322,13 +364,19 @@
     const a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const Sz = G.Seasons[ev.year], plan = ev.plan, opr = G.Ev.opr(ev);
     const title = UI.st.match.kind === 'qual' ? 'Qualification ' + obj.n : obj.id + ' · ' + UI.st.match.m.round + (UI.st.match.m.bo3 ? ' · game ' + (obj.game + 1) : '');
-    let o = '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance.</div>';
+    const pmm = UI.st.match.kind === 'po' ? UI.st.match.m : null, alTag = sd => (pmm ? ' · ' + h(alShort(ev, sd === 'red' ? pmm.red : pmm.blue)) : '');
+    let o = '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance' + (pmm ? ': <b>' + h(alName(ev, a === 'red' ? pmm.red : pmm.blue)) + '</b>, against <b>' + h(alName(ev, a === 'red' ? pmm.blue : pmm.red)) + '</b>' : '') + '.</div>';
     const ds = ev.defStats;
     if (Sz.meta) o += '<div class="hint mb"><b>Strategy:</b> ' + h(Sz.meta.note) + (ds && ds.n >= 10 ? ' So far at this event, ' + Math.round(100 * ds.d / ds.n) + '% of alliances have played a defender.' : '') + '</div>';
     if (ev.year === 2024) {
       const fs = ev.feedStats, read = Math.round(100 * G.Career.metaInsight(S));
       o += '<div class="xs muted mb"><b>Note feeding:</b> ' + (fs && fs.n >= 6 ? Math.round(100 * fs.f / fs.n) + '% of alliances at this event feed notes across the field to hoard them for Amplify. ' : 'some alliances lob notes across the field to hoard them for Amplify. ') +
         'Your alliance runs it better with a stronger strategy read: <b>' + read + '%</b> (Strategy mentor, drive coach, driver practice and events scouted).</div>';
+    }
+    if (ev.year === 2026) {
+      const fs = ev.feedStats, read = Math.round(100 * G.Career.metaInsight(S));
+      o += '<div class="xs muted mb"><b>Fuel hoarding:</b> ' + (fs && fs.n >= 6 ? Math.round(100 * fs.f / fs.n) + '% of alliances at this event keep working while their hub is inactive: they sweep the neutral zone and lob the fuel back into their own zone, so the next scoring shift starts with short cycles. ' : 'some alliances sweep the neutral zone while their hub is inactive and lob the fuel back into their own zone for the next scoring shift. ') +
+        'Your alliance runs it more often and more cleanly with a stronger strategy read: <b>' + read + '%</b> (Strategy mentor, drive coach, driver practice and events scouted). "Shoot on sight" turns it off for your robot.</div>';
     }
     if (Sz.meta && Sz.meta.faults) { o += '<div class="xs muted mb">' + h(Sz.meta.faults) + ' Brief comms drops are common for every robot; well-built electronics, a healthy robot and avoiding contact keep them short.</div>'; }
     const teamCard = (t, side) => {
@@ -340,7 +388,7 @@
       }
       return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' + sug + '</div>';
     };
-    o += '<div class="grid g3"><div>' + '<h3>Red alliance</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
+    o += '<div class="grid g3"><div>' + '<h3>Red alliance' + alTag('red') + '</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
     // plan
     const sel = (k, opts, cur) => '<select class="inp" data-chg="plan" data-k="' + k + '">' + opts.map(x => '<option value="' + x[0] + '" ' + (String(cur) === String(x[0]) ? 'selected' : '') + '>' + x[1] + '</option>').join('') + '</select>';
     const roles = [['score', 'Score'], ['defend', 'Play defense']].concat(ev.year === 2026 ? [['feed', 'Feed fuel to partners']] : []);
@@ -359,8 +407,9 @@
       '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
+    o += '<div class="mt">' + nextStrip(ev, obj) + '</div>';
     o += '<div class="row mt"><button class="btn primary lg" data-act="watch">Watch ▶</button><button class="btn" data-act="simThis">Simulate</button><span class="sp"></span><button class="btn ghost" data-act="nav" data-arg="event">Back</button></div></div>';
-    o += '<div><h3>Blue alliance</h3>' + obj.blue.map(t => teamCard(t, 'blue')).join('') + '</div></div>';
+    o += '<div><h3>Blue alliance' + alTag('blue') + '</h3>' + obj.blue.map(t => teamCard(t, 'blue')).join('') + '</div></div>';
     return o;
   } };
   UI.A.plan = (v, el) => { const k = el.dataset.k; const ev = Ev(); ev.plan[k] = (k === 'endLevel' || k === 'defTarget') ? (v === '' ? null : Number(v)) : v; UI.render(); };
@@ -523,7 +572,7 @@
   // =====================================================================
   // MATCH RESULT
   // =====================================================================
-  UI.S.mresult = { nav: 'event', after() { const ev = Ev(), R = UI.st.lastResult; if (ev && ev.kind === 'einstein' && UI.wonEvent(ev, R) && !ev.wcShown) UI.worldChampModal(ev); }, html() {
+  UI.S.mresult = { nav: 'event', html() {
     const R = UI.st.lastResult; if (!R) return '<button class="btn" data-act="nav" data-arg="event">Back</button>';
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
@@ -536,9 +585,16 @@
     o += '<div class="card"><div class="ct">Robots</div><table class="t"><tr><th>Team</th><th class="num">Pts</th><th class="num">Cycles</th><th class="num">Acc</th><th>Endgame</th><th>Issues</th></tr>' + res.robots.map(r => '<tr class="' + (r.team === me() ? 'me' : '') + '"><td class="' + r.a + '">' + r.team + '</td><td class="num">' + r.pts + '</td><td class="num">' + r.cycles + '</td><td class="num">' + (r.shots ? Math.round(100 * r.hits / r.shots) + '%' : '—') + '</td><td class="xs">' + (r.end ? (r.end.lvl ? G.Seasons[ev ? ev.year : G.S.year].endNames[r.end.lvl] : r.end.failed ? 'failed' : 'park') : '—') + '</td><td class="xs warn">' + h(r.faults.concat(r.fouls ? [r.fouls + ' foul' + (r.fouls > 1 ? 's' : '')] : []).join(', ')) + (r.autoOK === false ? ' <span class="dim">auto miss</span>' : '') + '</td></tr>').join('') + '</table></div></div>';
     if (G.S.robot) { const RB = G.S.robot; o += '<div class="card mt"><div class="ct">Robot condition after the match</div><div class="grid g3">' + Object.keys(RB.subs).filter(k => k !== 'soft' && RB.subs[k].ver).map(k => UI.stat(G.Seasons.sub(RB.year, k).name, RB.subs[k].cond, null, UI.colorFor(RB.subs[k].cond))).join('') + '</div><div class="xs muted">Pit repairs happen automatically before your next match (more time between matches = more repairs; uses spare parts).</div></div>'; }
     if (UI.wonEvent(ev, R)) o = '<div class="card hl mb"><div class="row">' + UI.icon('trophy', 26) + '<div><div class="lg b acc">' + (ev.kind === 'einstein' ? 'WORLD CHAMPIONS!' : ev.kind === 'champs' ? 'Division Champions!' : 'Event winners!') + '</div><div class="sm muted">' + h(ev.name) + '</div></div></div></div>' + o;
+    if (ev && ev.stage !== 'done') o += '<div class="mt">' + nextStrip(ev) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="nav" data-arg="event">Continue ▶</button></div>';
     return o;
-  }, after() { const R = UI.st.lastResult, ev = Ev(); if (R && !R.party && UI.wonEvent(ev, R)) { R.party = true; UI.confetti(); } } };
+  }, after() {
+    const R = UI.st.lastResult, ev = Ev();
+    if (!R || !ev || !UI.wonEvent(ev, R)) return;
+    // the match that won Einstein: straight to the World Champions celebration
+    if (ev.kind === 'einstein' && !ev.wcShown && G.S.season.wc) { ev.wcShown = true; ev.party = true; R.party = true; return UI.worldChampModal(G.S.season.wc); }
+    if (!R.party) { R.party = true; UI.confetti(); }
+  } };
   // This result is the match that won the event for the player's alliance
   // ---------------- World Champions celebration ----------------
   const TROPHY = '<svg class="wc-trophy" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="wcg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#9c700c"/><stop offset=".42" stop-color="#ffe9a0"/><stop offset=".58" stop-color="#f5c542"/><stop offset="1" stop-color="#8a6209"/></linearGradient>' +
@@ -547,69 +603,124 @@
     '<path d="M34 16h52v20c0 21-11 35-26 37-15-2-26-16-26-37z" fill="url(#wcg)"/><g clip-path="url(#wcc)"><rect class="wc-glint" x="-40" y="0" width="30" height="80" fill="url(#wcs)" transform="skewX(-20)"/></g>' +
     '<path d="M60 27l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L60 45.6l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff6d1"/>' +
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
-  const WC_PICK = (arr, n) => { const a = arr.slice(), out = []; while (a.length && out.length < n) out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]); return out; };
-  UI.worldChampModal = function (ev) {
-    const S = G.S, r = ev.result || {}; ev.wcShown = true; ev.party = true;
-    const gyear = ev.year, Sz = G.Seasons[gyear] || {}, pa = G.Ev.playerAlliance(ev), al = pa >= 0 ? ev.alliances[pa] : [me()];
-    const fict = G.Career.isFictional(S), year = G.Career.calYear(S, gyear); // random career order: the career's own timeline
-    // streak: consecutive earlier seasons that also ended in a world title (this one is already counted in S.worldChamps)
-    let streak = 1; for (let i = S.history.length - 1; i >= 0 && S.history[i].worldChamp; i--) streak++;
-    // the streak's game years for the headline: "2023–2024" when they follow each other, else "2025 & 2023" (random game order)
-    const syears = S.history.slice(S.history.length - (streak - 1)).map(x => G.Career.calYear(S, x.year)).concat([year]);
-    const consec = syears.every((y, i) => !i || y === syears[i - 1] + 1);
-    const yearTxt = streak < 2 ? String(year) : consec ? syears[0] + '–' + syears[syears.length - 1] : syears.slice(0, -1).join(', ') + ' & ' + syears[syears.length - 1];
-    const titles = Math.max(1, S.worldChamps || 1);
+  const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
+  const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
+  // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
+  UI.worldChampModal = function (d, replay) {
+    if (!d) return;
+    const B = x => '<b class="wc-name">' + h(x) + '</b>';
+    const streak = d.streak, titles = d.titles, year = d.year, me0 = d.team.num;
+    const consec = d.syears.every((y, i) => !i || y === d.syears[i - 1] + 1);
+    const yearTxt = streak < 2 ? String(year) : consec ? d.syears[0] + '–' + d.syears[d.syears.length - 1] : d.syears.slice(0, -1).join(', ') + ' & ' + d.syears[d.syears.length - 1];
     const label = streak === 2 ? 'BACK-TO-BACK WORLD CHAMPIONS' : streak === 3 ? 'THREE-PEAT WORLD CHAMPIONS' : streak > 3 ? streak + '-IN-A-ROW WORLD CHAMPIONS' : 'WORLD CHAMPIONS';
-    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'red' : 'blue', opp = F ? (side === 'red' ? F.blue : F.red) : null;
-    const fw = F ? F.games.filter(g => !g.replay && g.winner === side).length : 0, fl = F ? F.games.filter(g => !g.replay && g.winner && g.winner !== side && g.winner !== 'tie').length : 0;
-    const oppCap = opp != null && ev.alliances[opp] ? ev.alliances[opp][0] : null;
-    const dt = G.Career.driveTeam(S), drv = dt.driver && dt.driver.name, op = dt.operator && dt.operator.name, coach = dt.coach && dt.coach.name;
-    const partners = al.filter(t => t !== me()), sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name;
-    const role = ['captain', 'first pick', 'second pick', 'backup'][al.indexOf(me())] || 'alliance member';
-    // the story
-    const first = titles === 1, rookieYear = S.team.rookieYear && S.team.rookieYear === year;
-    const story = [
-      (streak === 2 ? 'Last season\'s champions did it again: back-to-back world titles are rarer than a perfect auto.' : streak > 2 ? streak + ' world titles in a row. People will be telling this story at Kickoff for years.' : first ? 'From the game reveal in January to the last buzzer on Einstein, this is the season every team dreams about.' : 'Title number ' + titles + '. The trophy case needs more room.'),
-      rookieYear ? 'In your rookie season, no less: the whole pit area is talking about it.' : '',
-      'As ' + role + ' of the ' + (S.champsDiv || 'division') + ' champions, your alliance won the Einstein finals ' + fw + '–' + fl + ' in ' + h(Sz.name || 'this game') + '.',
-      drv ? h(drv) + ' at the controls' + (op ? ', ' + h(op) + ' on the mechanisms' : '') + (coach ? ', ' + h(coach) + ' calling the plays' : '') + ', and a whole team in the stands that can barely speak.' : ''
-    ].filter(Boolean).join(' ');
-    // what people are saying
-    const pool = [
-      ['Ladies and gentlemen, your ' + year + ' FIRST World Champions' + (streak === 2 ? '… for the second year in a row' : streak > 2 ? '… for the ' + U.ord(streak) + ' year in a row' : '') + '!', 'the Einstein emcee'],
-      drv ? ['I can\'t feel my hands. Did we actually just win that?', h(drv) + ', driver'] : null,
-      op ? ['Every cycle in that final, we had practised a hundred times. It still felt like a dream.', h(op) + ', operator'] : null,
-      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', 'your lead mentor'],
-      partners[0] ? ['Best alliance we have ever been part of. Thank you for picking us.', 'Team ' + partners[0] + ' ' + h((S.teams[partners[0]] || {}).name || '')] : null,
-      partners[1] ? ['We are going to need a bigger trailer for the ride home.', 'Team ' + partners[1] + ' ' + h((S.teams[partners[1]] || {}).name || '')] : null,
-      oppCap ? ['Hardest finals we have ever played. Congratulations, you earned every point.', 'Team ' + oppCap + ' ' + h((S.teams[oppCap] || {}).name || '') + ', Einstein finalists'] : null,
-      sponsor ? ['We are hanging the banner photo in our lobby. Next season is on us.', h(sponsor)] : null,
-      ['We are adding a trophy case. A bigger one.', 'your school principal'],
-      ['A rookie team asked for a photo with your robot. Then twenty more did.', 'the pit announcer'],
-      streak >= 2 ? ['Back-to-back? Somebody check their code for a cheat mode.', 'a forum comment with 1,200 upvotes'] : ['Who ARE these people? Bookmarking their team page right now.', 'a forum comment'],
-      ['The robot is fine. The drive team is not fine. Nobody is fine. It is wonderful.', 'your pit crew']
-    ].filter(Boolean);
-    const quotes = [pool[0]].concat(WC_PICK(pool.slice(1), 3));
-    const egg = D.REAL_CHAMPS[gyear];
-    const eggTxt = egg ? 'In the real ' + gyear + ' season (' + (Sz.name || 'that game') + '), Einstein was won by the ' + egg.div + ' division alliance: ' + egg.teams.map(t => t[0] + ' ' + t[1]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' + (egg.teams.some(t => t[0] === S.team.num) ? ' Your team number is on that list too. Coincidence?' : '') : '';
+    const role = ['captain', 'first pick', 'second pick', 'backup'][d.alliance.findIndex(x => x.num === me0)] || 'alliance member';
+    // the line under the headline: history made, a title won back, or last year's final put right
+    const note = streak >= 3 ? (NUMW[streak] || streak) + ' in a row · no one has done it in decades'
+      : streak === 2 ? 'Only a few teams in FRC history have done it'
+        : titles > 1 ? U.ord(titles) + ' world title' + (d.lastTitleYear ? ' · first since ' + d.lastTitleYear : '') + (d.lastFinalist ? ' · finalists last year' : '')
+          : d.lastFinalist ? 'Finalists last year · champions now' : '';
+    const lead = streak === 2 ? 'Last season\'s champions did it again. Only a few teams have done it before in FRC history.'
+      : streak >= 3 ? (NUMW[streak] || streak) + ' world titles in a row. No one has done it in the past decades.'
+        : titles > 1 ? 'World Champions again: this is your ' + U.ord(titles) + ' title' + (d.lastTitleYear ? ', and the first since ' + d.lastTitleYear : '') + '. Winning it once is a great season. Winning it again is a program.' + (d.lastFinalist ? ' It also settles last year\'s lost final.' : '')
+          : d.lastFinalist ? 'A year ago you stood on Einstein and watched the confetti fall on the other alliance. This time it is yours.'
+            : 'From the game reveal in January to the last buzzer on Einstein, this is the season every team dreams about.';
+    const story = h(lead) + (d.rookie ? ' In your rookie season, no less: the whole pit area is talking about it.' : '') +
+      ' As ' + role + ' of the ' + h(d.div || 'division') + ' champions, your alliance won the Einstein finals ' + d.fw + '–' + d.fl + (d.opp ? ' against ' + h((d.opp.div ? d.opp.div + ' ' : '') + 'captain ' + d.opp.num + ' ' + d.opp.name) : '') + ' in ' + h(d.game || 'this game') + '. ' +
+      B(d.driver) + ' at the controls' + (d.coach ? ' and ' + B(d.coach) + ' calling every play' + (d.coachIsMentor ? ' from behind the glass' : '') : '') + ', with a whole team in the stands that can barely speak.';
+    const egg = D.REAL_CHAMPS[d.gyear];
+    const eggTxt = egg ? 'In the real ' + d.gyear + ' season (' + (d.game || 'that game') + '), Einstein was won by the ' + egg.div + ' division alliance: ' + egg.teams.map(t => t[0] + ' ' + t[1]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' + (egg.teams.some(t => t[0] === me0) ? ' Your team number is on that list too. Coincidence?' : '') : '';
     // twinkling stars around the trophy and title only (never behind the text further down)
     const stars = Array.from({ length: 14 }, (_, i) => { const left = i % 2 ? 4 + (i * 7) % 22 : 74 + (i * 5) % 22; return '<i class="wc-star" style="left:' + left + '%;top:' + (14 + (i * 37) % 190) + 'px;animation-delay:' + (i * 0.23).toFixed(2) + 's"></i>'; }).join('');
-    const d = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
     UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
-      d(0.05) + TROPHY + '</div>' +
-      d(0.35, 'wc-kicker') + 'EINSTEIN · ' + (fict ? '' : h(String(gyear)) + ' ') + h((Sz.name || '').toUpperCase()) + (titles > 1 && streak < 2 ? ' · ' + titles + '-TIME CHAMPIONS' : '') + '</div>' +
-      d(0.5, 'wc-team') + S.team.num + ' · ' + h(String(S.team.name).toUpperCase()) + '</div>' +
-      d(0.65, 'wc-you') + 'YOU ARE THE</div>' +
+      dl(0.05) + TROPHY + '</div>' +
+      dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.65, 'wc-you') + 'YOU ARE THE</div>' +
       '<div class="wc-title">' + yearTxt + ' ' + label + '</div>' +
-      d(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (S.champsDiv || '') }, true) + '</div>' +
-      d(1.2, 'wc-msg') + story + '</div>' +
-      d(1.4, 'wc-al') + al.map((t, i) => '<span class="wc-chip' + (t === me() ? ' me' : '') + '"><b>' + t + '</b> ' + h(t === me() ? S.team.name : ((S.teams[t] || {}).name || '')) + '<small>' + ['Captain', '1st pick', '2nd pick', 'Backup'][i] + '</small></span>').join('') + '</div>' +
-      d(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + quotes.map(q => '<div class="wc-q">“' + q[0] + '”<span>— ' + q[1] + '</span></div>').join('') + '</div>' +
-      d(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + ' Celebrate!</button></div>' +
-      (eggTxt ? d(2.0, 'wc-egg') + '<b>Easter egg</b> · ' + h(eggTxt) + '</div>' : '') +
-      '</div>', { wide: true, lock: true, cls: 'wcm' });
-    UI.confetti(7000); setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200);
+      (note ? dl(0.9, 'wc-note') + h(note) + '</div>' : '') +
+      dl(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (d.div || '') }, !replay) + '</div>' +
+      dl(1.2, 'wc-msg') + story + '</div>' +
+      dl(1.4, 'wc-al') + d.alliance.map((t, i) => '<span class="wc-chip' + (t.num === me0 ? ' me' : '') + '"><b>' + t.num + '</b> ' + h(t.name) + '<small>' + ['Captain', '1st pick', '2nd pick', 'Backup'][i] + '</small></span>').join('') + '</div>' +
+      dl(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + (d.quotes || []).map(cq).join('') + '</div>' +
+      dl(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + (replay ? ' Close' : ' Celebrate!') + '</button></div>' +
+      (eggTxt ? dl(2.0, 'wc-egg') + '<b>Easter egg</b> · ' + h(eggTxt) + '</div>' : '') +
+      '</div>', { wide: true, lock: !replay, cls: 'wcm' });
+    UI.confetti(replay ? 4500 : 7000); if (!replay) { setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200); }
   };
-  UI.A.wcClose = () => UI.closeModal();
+  UI.A.wcClose = () => { UI.closeModal(); const ev = Ev(); if (ev && UI.screen === 'event') UI.ceremony(ev); };
+
+  // ---------------- FIRST Impact Award (Championship) ----------------
+  const LAUREL = '<svg class="ic-medal" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="icg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff7d6"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#b8860b"/></linearGradient></defs>' +
+    [-1, 1].map(sx => '<g transform="translate(60 62) scale(' + sx + ' 1)">' + [0, 1, 2, 3, 4, 5, 6].map(i => { const deg = 244 - i * 22, a = deg * Math.PI / 180, x = Math.cos(a) * 43, y = -Math.sin(a) * 43; return '<ellipse class="ic-leaf" style="animation-delay:' + (0.2 + i * 0.08) + 's" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" rx="9.5" ry="4.2" transform="rotate(' + (-(deg + 90) - 28) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')" fill="url(#icg)"/>'; }).join('') + '</g>').join('') +
+    '<circle cx="60" cy="58" r="25" fill="#0b3f78" stroke="url(#icg)" stroke-width="4"/><path d="M60 40l5.3 10.8 11.9 1.7-8.6 8.4 2 11.9L60 67.2l-10.6 5.6 2-11.9-8.6-8.4 11.9-1.7z" fill="url(#icg)"/>' +
+    '<path d="M46 96l14-8 14 8v14l-14-7-14 7z" fill="#0a74c7" stroke="url(#icg)" stroke-width="2"/></svg>';
+  // d: the snapshot made when the award was announced (Career.impactCele), kind 'winner' or 'finalist'
+  UI.impactCele = function (d, replay) {
+    if (!d) return;
+    const B = x => '<b class="wc-name">' + h(x) + '</b>', win = d.kind === 'winner';
+    const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    const sparks = Array.from({ length: 12 }, (_, i) => '<i class="ic-spark" style="left:' + (6 + (i * 29) % 88) + '%;animation-delay:' + (i * 0.37).toFixed(2) + 's;animation-duration:' + (4 + (i % 4)) + 's"></i>').join('');
+    const sp = d.speakers || [];
+    const story = (win
+      ? 'After Einstein Final 1 the head judge read one team number, and it was yours. The FIRST Impact Award goes to the team that best shows what the program is for: not the robot, but everything around it. '
+      : 'Before Einstein Final 1 the judges named six teams from the whole world as FIRST Impact Award Finalists, and yours was one of them. ') +
+      (sp.length ? B(sp[0]) + (sp[1] ? ' and ' + B(sp[1]) : '') + ' presented your story to the judges' + (d.mentor ? ', coached by ' + B(d.mentor) : '') + '. ' : '') +
+      'Behind it: ' + [d.outreach ? d.outreach + ' outreach event' + (d.outreach === 1 ? '' : 's') + ' this season' : '', d.programs ? d.programs + ' feeder program' + (d.programs > 1 ? 's' : '') : '', (d.seasons > 1 ? d.seasons + ' seasons' : 'a season') + ' of steady work'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' +
+      (win ? ' Your team joins the <b>Hall of Fame</b> and is invited to every future Championship.' : ' A blue banner goes on your wall, and the judges will remember the name.');
+    const others = win ? (d.finalists || []) : (d.finalists || []);
+    UI.modal('<div class="wc ic"><div class="ic-halo"></div>' + sparks +
+      dl(0.05) + LAUREL + '</div>' +
+      dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.65, 'wc-you') + (win ? 'YOU WON THE' : 'YOU ARE A') + '</div>' +
+      '<div class="wc-title ic-title">' + (win ? 'FIRST IMPACT AWARD' : 'FIRST IMPACT AWARD FINALIST') + '</div>' +
+      dl(0.9, 'wc-note') + (win ? 'The most prestigious award in the program · Hall of Fame' : 'One of six in the world') + '</div>' +
+      dl(1.0, 'wc-bn') + UI.banner({ gold: win, award: win ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: d.year, event: 'FIRST Championship' }, !replay) + '</div>' +
+      dl(1.2, 'wc-msg') + story + '</div>' +
+      dl(1.4, 'wc-al') + '<span class="wc-chip me"><b>' + d.score + '</b> Impact rating<small>out of 100</small></span><span class="wc-chip"><b>' + d.outreach + '</b> outreach events<small>this season</small></span><span class="wc-chip"><b>' + d.programs + '</b> feeder programs<small>running</small></span></div>' +
+      (others.length ? dl(1.5, 'ic-list') + (win ? 'Finalists: ' : 'The six Finalists: ') + others.map(t => (t.num === d.team.num ? '<b class="wc-name">' + t.num + ' ' + h(t.name) + '</b>' : t.num + ' ' + h(t.name))).join(' · ') + (win ? '' : '. Winner: ' + d.winner.num + ' ' + h(d.winner.name)) + '</div>' : '') +
+      dl(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + (d.quotes || []).map(cq).join('') + '</div>' +
+      dl(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + (replay ? ' Close' : win ? ' Celebrate!' : ' Continue') + '</button></div>' +
+      '</div>', { wide: true, lock: !replay, cls: 'wcm icm' });
+    UI.confetti(win ? 6000 : 3500); if (win && !replay) setTimeout(() => UI.confetti(5000), 2400);
+  };
+  // The announcement when your team is not the one being called (Einstein only)
+  function impactAnnounce(stage) {
+    const S = G.S, ci = S.season.cmpImpact, nm = n => n + ' ' + h(n === me() ? S.team.name : tname(n) || ((S.teams[n] || {}).name || ''));
+    const body = stage === 'fin'
+      ? '<div class="xs b acc">AWARDS · BEFORE EINSTEIN FINAL 1</div><h2>FIRST Impact Award Finalists</h2><p class="muted">The judges call six teams from around the world onto the field. Each of them hangs a blue banner tonight.</p>' +
+        '<div class="col">' + ci.finalists.map(n => '<div class="card flat">' + UI.icon('trophy', 14) + ' <b>' + nm(n) + '</b></div>').join('') + '</div>' +
+        '<p class="sm muted mt">' + (ci.eligible ? 'Your team is not among the six. One award is still to come: the winner is announced after Final 1.' : 'The winner is announced after Final 1.') + '</p>'
+      : '<div class="xs b acc">AWARDS · AFTER EINSTEIN FINAL 1</div><h2>FIRST Impact Award</h2><p class="muted">The most prestigious award in the program goes to…</p>' +
+        '<div class="card hl" style="text-align:center"><div class="xl b">' + nm(ci.winner) + '</div><div class="sm muted">Hall of Fame · ' + G.Career.calYear(S) + '</div></div>' +
+        '<p class="sm muted mt">' + (ci.out === 'finalist' ? 'Your team stays a Finalist, with a blue banner of its own.' : ci.eligible ? 'Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + '.' : 'Win a regional Impact Award to be judged here next time.') + '</p>';
+    UI.modal(body + '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="wcClose">Back to the field</button></div>', { lock: true });
+  }
+  // Championship ceremonies in order. On Einstein: Finalists before Final 1, the winner after Final 1, then (if you won
+  // it all) the World Champions celebration. In a division that ended without Einstein: your own awards only.
+  UI.ceremony = function (ev) {
+    const S = G.S, C = G.Career, ci = S.season && S.season.cmpImpact;
+    if (document.getElementById('modal')) return false;
+    const seen = ev.ciSeen = ev.ciSeen || {};
+    if (ev.kind === 'einstein') {
+      const F = ev.po && ev.po.matches.find(x => x.id === 'F'), done = ev.stage === 'done';
+      if (ci && !seen.fin && (done || (F && F.red != null && F.blue != null))) {
+        seen.fin = true; C.settleImpact(S, 'fin'); G.Save.write('auto');
+        if (ci.out === 'finalist') UI.impactCele(ci.cele); else impactAnnounce('fin');
+        return true;
+      }
+      if (ci && !seen.win && (done || (F && F.games.length >= 1))) {
+        seen.win = true; C.settleImpact(S, 'win'); G.Save.write('auto');
+        if (ci.out === 'winner') UI.impactCele(ci.cele); else impactAnnounce('win');
+        return true;
+      }
+      if (done && ev.result && ev.result.won && !ev.wcShown && S.season.wc) { ev.wcShown = true; ev.party = true; UI.worldChampModal(S.season.wc); return true; }
+    } else if (ev.kind === 'champs' && ev.stage === 'done' && !S.pendingEinstein && ci) {
+      C.settleImpact(S, 'all');
+      if (ci.out && !seen.own) { seen.own = true; G.Save.write('auto'); UI.impactCele(ci.cele); return true; }
+    }
+    return false;
+  };
   UI.wonEvent = (ev, R) => !!(ev && R && R.kind !== 'qual' && ev.result && ev.result.won && R.obj && R.obj.id === 'F');
 })();

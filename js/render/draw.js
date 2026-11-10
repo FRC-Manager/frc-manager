@@ -197,7 +197,12 @@
       }
       const ss = m && m.ss[a];
       if (ss) {
-        for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
+        if (ss.fc) ss.fc.forEach((f, k) => {
+          const g = k * 60 * Math.PI / 180, n = f.lv[0] + f.lv[1] + f.lv[2] + f.lv[3];
+          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? 0.13 : 0.11, COL.algae); }
+          if (n) { const p = P(sym, a, 4.49 + Math.cos(g) * 1.16, 4.03 + Math.sin(g) * 1.16); text(ctx, s, String(n), p.x, p.y, n >= 11 ? '#3ecf8e' : '#f3efe6', 8); }
+        });
+        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
         text(ctx, s, ss.lv[3] + '·' + ss.lv[2] + '·' + ss.lv[1] + '·' + ss.lv[0], c.x, c.y, '#fff', 9);
       } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 9);
       // coral stations in the two corners of the alliance wall
@@ -253,10 +258,16 @@
       for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
       apoly(ctx, s, sym, a, [[0.05, 0.05], [1.45, 0.05], [0.05, 1.65]], als(a), alc(a), 2);
       atext(ctx, s, sym, a, 'OUTPOST', 0.5, 0.45, alc(a), 7);
-      if (m && m.ss[a] && m.ss[a].pool > 0) { const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8); }
+      if (m && m.ss[a] && m.ss[a].pool > 0) {
+        const zr = seeded(a === 'red' ? 71 : 72), nb = Math.min(48, Math.ceil(m.ss[a].pool / 2));
+        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+        const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8);
+      }
     });
     const r = seeded(2026);
-    for (let i = 0; i < 80; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    const nN = m && m.neutral != null ? Math.min(120, Math.ceil(m.neutral / 3)) : 80;
+    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    if (m && m.neutral != null) text(ctx, s, 'neutral zone fuel ' + Math.round(m.neutral), FW / 2, 0.22, COL.fuel, 8);
   };
 
   // ------------------------------------------------------------------

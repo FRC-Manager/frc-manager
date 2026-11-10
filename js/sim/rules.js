@@ -320,12 +320,19 @@
   // 2024 CRESCENDO
   // =====================================================================
   const canAmp = r => !!(r.cap.amp || r.cap.ampViaShooter);
+  // Amp through the shooter (no amp mechanism): ampViaShooter is how well the shooter does it. A fixed (subwoofer) shooter
+  // lobs notes in slowly and misses a lot (0.55), pivot shooters are moderate (0.8), turrets a little behind them (0.75).
+  const viaF = r => (r.cap.ampViaShooter === true ? 0.8 : r.cap.ampViaShooter || 0.55);
+  const ampSpd24 = r => (r.cap.amp ? (r.cap.ampSkill || 45) + 30 : r.cap.scoreSpd * (viaF(r) - 0.05));
   // The amp specialist is the amp-capable robot that is not defending and has the weakest speaker game (re-picked live).
   function ampBotOf(m, a) {
     const rs = m.robots.filter(r => r.a === a && canAmp(r) && r.plan.role !== 'defend' && !r.dead && !r.perm.scorer);
     if (!rs.length) return null;
+    // every shooter can put notes in the Amp, but a real amp mechanism is far better at it: the amp robot is the one that
+    // gives up the least speaker scoring for the most amp ability
     const sp = r => (r.cap.speaker ? r.cap.accuracy + r.cap.scoreSpd + (r.cap.range || 0) : -50);
-    return rs.sort((p, q) => sp(p) - sp(q))[0].team;
+    const av = r => 2 * ampSpd24(r) - sp(r);
+    return rs.sort((p, q) => av(q) - av(p))[0].team;
   }
   function useAmp24(m, r) {
     const ss = m.ss[r.a];
@@ -360,10 +367,10 @@
     const ss = m.ss[r.a], spot = m.ampSpot[r.a];
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
-      const skill = r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.scoreSpd * 0.75;
+      const skill = r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.scoreSpd * (viaF(r) - 0.05);
       H.act(r, H.scoreTime(m, r, 1.1, skill), () => {
         r.stats.shots++;
-        if (m.rng.chance(H.hit(m, r, 1.12, 0, r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.accuracy * 0.85))) {
+        if (m.rng.chance(H.hit(m, r, 1.12, 0, r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.accuracy * (viaF(r) + 0.05)))) {
           r.stats.hits++; r.stats.cycles++; ss.notes++; ss.ampNotes++;
           if (m.phase === 'auto') { ss.autoNotes++; H.addPts(m, r, 2, '+2', spot); }
           else { H.addPts(m, r, 1, '+1', spot); if (!(ss.ampUntil > m.t)) ss.bank = Math.min(2, ss.bank + 1); }
@@ -582,23 +589,32 @@
   const own25 = (a, p) => a === 'blue' ? { x: p.x, y: p.y } : { x: FW - p.x, y: FH - p.y };
   const canProcess = r => !!(r.cap.processor || r.cap.net);
   const canRemove = r => !!(r.cap.algaeRemove);
-  function avail25(ss, L) {
-    if (L === 1) return 30 - ss.lv[0];
-    if (L === 2) return 12 - ss.lv[1] - 2 * ss.algaeLow;
-    if (L === 3) return 12 - ss.lv[2] - 2 * ss.algaeHigh;
-    return 12 - ss.lv[3];
+  // The Reef has six faces. Each face has two branches (two coral) at L2, L3 and L4 and room for about five coral in its
+  // L1 trough. One algae rests on every face, alternating low and high, and blocks that face's L2 or L3 until it is removed.
+  // Robots fill the faces nearest their coral stations first, then have to drive around to the far side.
+  const FACE_CAP = [5, 2, 2, 2];
+  const faceRoom = (f, L) => ((L === 2 && f.alg === 'low') || (L === 3 && f.alg === 'high') ? 0 : FACE_CAP[L - 1] - f.lv[L - 1]);
+  // nearest face that still has room at level L (-1 if none)
+  function faceFor(m, r, L) {
+    const ss = m.ss[r.a], spots = m.faces[r.a]; let best = -1, bd = 1e9;
+    for (let k = 0; k < 6; k++) { if (faceRoom(ss.fc[k], L) <= 0) continue; const d = E.dist(r, spots[k]); if (d < bd) { bd = d; best = k; } }
+    return best;
   }
   function chooseLevel(m, r) {
     const ss = m.ss[r.a], reach = r.cap.reach || 0, auto = m.phase === 'auto';
+    const dNear = E.dist(r, H.nearest(r, m.faces[r.a]));
     let best = 0, bv = -1;
     for (let L = 1; L <= reach; L++) {
-      if (avail25(ss, L) <= 0) continue;
+      const k = faceFor(m, r, L);
+      if (k < 0) continue;
       let val = (auto ? PT25.auto : PT25.tele)[L - 1];
       if (!auto && ss.lv[L - 1] < 5 && r.plan.rpHunt) val += 1.2;
       if (r.plan.target === 'L4' && L === 4) val += 4;
       if (r.plan.target === 'mid' && (L === 2 || L === 3)) val += 3;
       if (r.plan.target === 'L1' && L === 1) val += 4;
-      const ev = val * [0.98, 0.95, 0.92, 0.86][L - 1] / ([0.8, 1.0, 1.3, 1.7][L - 1] + 5);
+      // a branch on the far side of the Reef costs a longer drive
+      const far = Math.max(0, E.dist(r, m.faces[r.a][k]) - dNear);
+      const ev = val * [0.98, 0.95, 0.92, 0.86][L - 1] / ([0.8, 1.0, 1.3, 1.7][L - 1] + 5 + 0.45 * far);
       if (ev > bv) { bv = ev; best = L; }
     }
     return best;
@@ -608,17 +624,18 @@
     const rs = m.robots.filter(r => r.a === a && canProcess(r) && r.plan.role !== 'defend' && !r.dead);
     return rs.length ? rs.sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0))[0].team : null;
   }
-  const reefSpot = (m, r) => H.nearest(r, m.faces[r.a]);
   function placeCoral(m, r, L) {
-    const spot = reefSpot(m, r);
+    const ss = m.ss[r.a], k = faceFor(m, r, L);
+    if (k < 0) { r.label = 'Reef level full'; return; }
+    const f = ss.fc[k], spot = m.faces[r.a][k];
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (faceRoom(f, L) <= 0) { r.label = 'Branch taken'; return; } // a partner filled it on the way: pick again
       H.act(r, H.scoreTime(m, r, [0.8, 1.0, 1.3, 1.7][L - 1]), () => {
-        const ss = m.ss[r.a];
-        if (avail25(ss, L) <= 0) return;
+        if (faceRoom(f, L) <= 0) return;
         r.stats.shots++;
         if (m.rng.chance(H.hit(m, r, [1.12, 1.05, 1.0, 0.93][L - 1]))) {
-          ss.lv[L - 1]++; r.stats.hits++; r.stats.cycles++;
+          f.lv[L - 1]++; ss.lv[L - 1]++; r.stats.hits++; r.stats.cycles++;
           if (m.phase === 'auto') ss.autoCoral++;
           const pts = (m.phase === 'auto' ? PT25.auto : PT25.tele)[L - 1];
           H.addPts(m, r, pts, 'L' + L + ' +' + pts, m.reef[r.a]);
@@ -628,13 +645,19 @@
     }, 'To reef');
   }
   function removeAlgae(m, r, keep) {
-    H.moveTo(m, r, reefSpot(m, r), () => {
+    const ss = m.ss[r.a], spots = m.faces[r.a];
+    // prefer the high algae with enough reach (or when no low one is left); otherwise the nearest face that still has one
+    const wantHigh = ss.algaeHigh > 0 && ((r.cap.reach || 0) >= 3 || ss.algaeLow === 0);
+    let best = -1, bd = 1e9;
+    for (let k = 0; k < 6; k++) { const f = ss.fc[k]; if (!f.alg) continue; const d = E.dist(r, spots[k]) + ((f.alg === 'high') === wantHigh ? 0 : 3); if (d < bd) { bd = d; best = k; } }
+    if (best < 0) return;
+    H.moveTo(m, r, spots[best], () => {
       if (!H.canScore(m, r)) return;
       H.act(r, H.scoreTime(m, r, 1.2, r.cap.algaeSkill || 50), () => {
-        const ss = m.ss[r.a];
-        if (ss.algaeHigh > 0 && ((r.cap.reach || 0) >= 3 || ss.algaeLow === 0)) ss.algaeHigh--;
-        else if (ss.algaeLow > 0) ss.algaeLow--;
-        else return;
+        const f = ss.fc[best];
+        if (!f.alg) return;
+        if (f.alg === 'high') ss.algaeHigh--; else ss.algaeLow--;
+        f.alg = null;
         if (keep && canProcess(r) && !r.held) { r.held = 1; r.heldType = 'algae'; }
       }, 'Removing algae');
     }, 'To reef (algae)');
@@ -705,7 +728,7 @@
         const coral = H.alliance(m, a).filter(r => (r.cap.reach || 0) > 0).sort((p, q) => coralPower(q) - coralPower(p));
         const stAssign = {};
         coral.forEach((r, i) => { stAssign[r.team] = i === 0 ? 0 : 1; });
-        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null, stAssign, stFree: [0, 0] };
+        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, fc: [0, 1, 2, 3, 4, 5].map(k => ({ lv: [0, 0, 0, 0], alg: k % 2 ? 'low' : 'high' })), proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null, stAssign, stFree: [0, 0] };
       });
       m.robots.forEach(r => { r.held = (r.cap.reach || 0) > 0 ? 1 : 0; r.heldType = r.held ? 'coral' : null; });
     },
@@ -798,6 +821,36 @@
   const T26 = () => G.Rules[2026].tempo;
   function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) * (r.cap.dumper ? 1.9 : 1) / E.PACE[r.plan.pace].cyc / T26().s; } // a dumper empties the hopper about twice as fast
   function irate26(r) { return (0.6 + 5.4 * r.cap.intake / 100) * (r.cap.wide || 1) / T26().c; }
+  // Fuel on the field: m.neutral is the fuel lying in the neutral zone (about 360 at the start), ss.pool the fuel on the
+  // floor of an alliance zone, ss.depot the alliance's depot. Scored fuel drops back into the neutral zone; missed shots
+  // mostly bounce into the shooter's own zone. A thinner neutral zone is slower to sweep.
+  const dens26 = m => U.clamp(0.45 + m.neutral / 320, 0.45, 1.15);
+  // Hoarding (the REBUILT meta): an alliance can't score while its hub is inactive, so strong alliances keep working.
+  // They sweep the neutral zone and lob the fuel back into their own zone; when the hub lights up, all three robots
+  // refill a few steps from it. How cleanly the lobs land depends on the alliance's grasp of the strategy (feedIQ).
+  // The robot keeps whatever is in its hopper for the next shift and works as a conveyor: it sweeps fuel off the neutral
+  // zone floor and fires it straight back over its own line, a few seconds at a time.
+  function hoard26(m, r) {
+    const ss = m.ss[r.a], iq = m.feedIQ[r.a] || 0;
+    if (m.neutral < 4) return false;
+    const sweep = () => {
+      if (!H.canCollect(m, r) || !H.canScore(m, r)) return;
+      const T = 3.5, thru = Math.min(irate26(r) * dens26(m) * 1.2, rate26(r)); // no hopper to manage: straight through the robot
+      H.act(r, T, () => {
+        const k = Math.min(Math.floor(m.neutral), Math.max(1, Math.round(thru * T)));
+        if (k <= 0) return;
+        const land = Math.round(k * U.clamp(0.55 + 0.4 * iq - (r.defBy ? 0.15 : 0), 0.3, 0.97)); // lobs that fall short stay in the neutral zone
+        m.neutral -= land; ss.pool += land; ss.hoarded += land; r.stats.passes = (r.stats.passes || 0) + 1;
+        H.shotFx(m, r, E.P(m, r.a, m.rng.range(2.2, 3.4), U.clamp(4.03 + m.rng.range(-2.4, 2.4), 0.9, 7.2)), true);
+      }, 'Sweeping fuel home');
+    };
+    const qx = r.a === 'blue' ? r.x : FW - r.x, qy = r.a === 'blue' ? r.y : FH - r.y; // position in the alliance's own frame
+    const pt = qx > 5.3 && qx < 8.4
+      ? E.P(m, r.a, U.clamp(qx + m.rng.range(-0.8, 0.8), 5.6, 8.0), U.clamp(qy + m.rng.range(-1.0, 1.0), 0.9, 7.3))
+      : E.P(m, r.a, m.rng.range(5.7, 7.4), m.rng.range(0.9, 7.3));
+    H.moveTo(m, r, pt, sweep, 'Hoarding: neutral zone');
+    return true;
+  }
   function shoot26(m, r) {
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
@@ -819,6 +872,7 @@
       let hits = 0;
       for (let i = 0; i < k; i++) if (m.rng.next() < p) hits++;
       r.stats.shots += k; r.stats.hits += hits; r.held -= k;
+      { const miss = k - hits, back = Math.round(miss * 0.35); ss.pool += back; m.neutral += miss - back + hits; } // scored fuel returns to the neutral zone; misses bounce around the hub
       H.shotFx(m, r, hub, hits > 0);
       if (hits) {
         if (active26(m, r.a)) { ss.fuel += hits; if (m.phase === 'auto') ss.autoFuel += hits; H.addPts(m, r, hits, '+' + hits, hub); }
@@ -833,9 +887,9 @@
     const rate = irate26(r);
     const opts = [];
     if (c.ground) {
-      if (ss.pool >= 5) opts.push({ pt: E.P(m, r.a, m.rng.range(2.0, 3.4), m.rng.range(1.5, 6.6)), n: Math.min(need, ss.pool), rate: rate * 1.2, src: 'pool', k: 1 });
+      if (ss.pool >= 5) opts.push({ pt: E.P(m, r.a, m.rng.range(2.0, 3.4), m.rng.range(1.5, 6.6)), n: Math.min(need, ss.pool), rate: rate * (1.2 + Math.min(1.6, Math.max(0, ss.pool - 12) / 32)), src: 'pool', k: 1 });
       if (ss.depot > 0) opts.push({ pt: E.P(m, r.a, 0.7, 6.5), n: Math.min(need, ss.depot), rate, src: 'depot', k: 1 });
-      opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: need, rate, src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
+      if (m.neutral >= 3) opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: Math.min(need, Math.floor(m.neutral)), rate: rate * dens26(m), src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
     }
     opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.0 + 1.6 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 });
     let best = null, bv = 1e9;
@@ -850,6 +904,7 @@
       let n = best.n;
       if (best.src === 'pool') { n = Math.min(n, ss.pool); ss.pool -= n; }
       if (best.src === 'depot') { n = Math.min(n, ss.depot); ss.depot -= n; }
+      if (best.src === 'neutral') { n = Math.min(n, Math.floor(m.neutral)); m.neutral -= n; }
       if (n <= 0) return;
       H.act(r, n / best.rate * E.PACE[r.plan.pace].cyc + 0.6, () => { r.held = Math.min(cap26(r), r.held + n); }, 'Collecting fuel');
     }, 'To ' + names[best.src]);
@@ -860,13 +915,17 @@
     if (r.held >= cap26(r) * 0.8 || (r.held > 0 && !H.canCollect(m, r))) {
       const spot = E.P(m, r.a, 5.5, U.clamp(r.a === 'blue' ? r.y : FH - r.y, 1.0, 7.2));
       return H.moveTo(m, r, spot, () => {
-        H.act(r, r.held / (rate26(r) * 1.3) + 0.3, () => { ss.pool += Math.round(r.held * 0.9); r.held = 0; r.stats.cycles++; }, 'Feeding zone');
+        H.act(r, r.held / (rate26(r) * 1.3) + 0.3, () => { const land = Math.round(r.held * 0.9); ss.pool += land; m.neutral += r.held - land; r.held = 0; r.stats.cycles++; }, 'Feeding zone');
       }, 'Feeding');
     }
     if (!c.ground || !H.canCollect(m, r)) { r.label = 'Can\'t feed'; return; }
-    const rate = irate26(r), need = cap26(r) - r.held;
+    const rate = irate26(r) * dens26(m), need = Math.min(cap26(r) - r.held, Math.floor(m.neutral));
+    if (need < 1) { r.label = 'Neutral zone empty'; return; }
     H.moveTo(m, r, E.P(m, r.a, m.rng.range(6.0, 9.5), m.rng.range(0.9, 7.3)), () => {
-      H.act(r, need / rate + 0.5, () => { r.held = cap26(r); }, 'Collecting fuel');
+      const n = Math.min(need, Math.floor(m.neutral));
+      if (n <= 0) return;
+      m.neutral -= n;
+      H.act(r, n / rate + 0.5, () => { r.held = Math.min(cap26(r), r.held + n); }, 'Collecting fuel');
     }, 'To neutral zone');
   }
   Rules[2026] = {
@@ -894,14 +953,14 @@
     },
     init(m) {
       setHp(m);
-      m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = '';
+      m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = ''; m.neutral = 360;
       m.obs = [{ x: XB, y: 4.03, r: 0.75, h: 0.62 }, { x: FW - XB, y: FH - 4.03, r: 0.75, h: 0.62 }];
       // the Tower: a solid base and uprights (robots heading for their climb may touch their own)
       ['red', 'blue'].forEach(a => [-0.75, 0, 0.75].forEach(dy => { const p = E.P(m, a, 1.1, 4.03 + dy); m.obs.push({ x: p.x, y: p.y, r: 0.75, h: 0.42, end: true }); }));
       ['red', 'blue'].forEach(a => {
         m.hub[a] = E.P(m, a, XB, 4.03);
         m.zone[a] = zoneOf(m, a, 0.6, 3.85, 0.6, 7.6);
-        m.ss[a] = { fuel: 0, autoFuel: 0, tower: 0, autoTower: 0, pool: 0, depot: 24, wasted: 0, depotClaim: false };
+        m.ss[a] = { fuel: 0, autoFuel: 0, tower: 0, autoTower: 0, pool: 0, depot: 24, wasted: 0, depotClaim: false, hoard: (m.feedIQ[a] || 0) > 0, hoarded: 0 };
       });
       m.robots.forEach(r => { r.held = Math.min(8, cap26(r)); });
     },
@@ -967,7 +1026,7 @@
           r.mem.sweep = 1;
           const rate = irate26(r), need = Math.min(cap26(r), Math.floor(rate * Math.max(1, tl - 9)));
           if (need >= 3) {
-            return H.moveTo(m, r, E.P(m, r.a, 6.3, [1.6, 4.0, 6.4][r.slot]), () => H.act(r, need / rate + 0.4, () => { r.held = need; }, 'Auto sweep'), 'Auto: neutral sweep');
+            return H.moveTo(m, r, E.P(m, r.a, 6.3, [1.6, 4.0, 6.4][r.slot]), () => { const n = Math.min(need, Math.floor(m.neutral)); m.neutral -= n; H.act(r, n / rate + 0.4, () => { r.held = n; }, 'Auto sweep'); }, 'Auto: neutral sweep');
           }
         }
       }
@@ -978,6 +1037,7 @@
       const b = m.ss.blue.autoFuel, rd = m.ss.red.autoFuel;
       m.firstInactive = b > rd ? 'blue' : rd > b ? 'red' : (m.rng.chance(0.5) ? 'red' : 'blue');
       H.log(m, null, 'Auto fuel ' + rd + '–' + b + ': ' + m.firstInactive.toUpperCase() + ' hub goes inactive first', 'rp');
+      ['red', 'blue'].forEach(a => { if (m.ss[a].hoard) H.log(m, a, a.toUpperCase() + ' alliance hoards fuel in its zone while its hub is inactive', 'call'); });
     },
     tick(m) {
       if (m.phase !== 'tele') return;
@@ -991,6 +1051,8 @@
       const capN = cap26(r), act = active26(m, r.a);
       if (role === 'feed') return feed26(m, r);
       const shootAny = r.plan.target === 'shoot';
+      // hoarding alliances keep working through their inactive shift, until the hub is about to light up
+      if (m.ss[r.a].hoard && !act && !shootAny && !m.inEnd && r.cap.ground && H.canScore(m, r) && H.canCollect(m, r) && !activeSoon(m, r.a, 6) && hoard26(m, r)) return;
       if (r.held > 0 && H.canScore(m, r)) {
         const soon = activeSoon(m, r.a, 4);
         const ready = r.held >= Math.ceil(capN * 0.7) || !H.canCollect(m, r) || !r.cap.ground && !r.cap.station;
@@ -1016,7 +1078,7 @@
         { key: 'trav', name: 'Traversal', val: tower, thr: 50, ok: tower >= 50, unit: 'tower pts' }
       ];
     },
-    hud(m, a) { return [active26(m, a) ? 'HUB ACTIVE' : 'HUB INACTIVE']; }
+    hud(m, a) { const ss = m.ss[a]; return [active26(m, a) ? 'HUB ACTIVE' : 'HUB INACTIVE', 'zone fuel ' + ss.pool].concat(ss.hoard ? ['HOARDING'] : []); }
   };
 })();
 
@@ -1039,7 +1101,7 @@
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes across the field and hoard them for Amplify.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers.' };
-  S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream.' };
+  S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream. Later in the season, top alliances also hoard: while their hub is inactive they lob fuel from the neutral zone back into their own zone, so the next scoring shift starts with short cycles.' };
 
   // Season failure profiles: multipliers on brownouts, tip-overs and comms losses (engine faultRoll)
   R[2022].faults = { brown: 1.2, tip: 1.0, tipAll: 0.1, comms: 1.05 };

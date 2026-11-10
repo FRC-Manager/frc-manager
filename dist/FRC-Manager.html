@@ -358,6 +358,44 @@ table.t.slots select.inp { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .wc-rays, .wc-star, .wc-trophy, .wc-glint, .wc-title, .wc-in { animation: none !important; } }
 .wc-btn .ico { vertical-align: -3px; margin-right: 4px; }
 
+/* v2.4: fixed data colours (never the team colour), next-match strip, celebrations */
+:root { --data: #f5b800; --data2: #ffd24d; }
+.bar > i { background: var(--data); }
+.dat { color: var(--data2); }
+table.t tr.me td { background: rgba(245,184,0,0.10); }
+.rbox.me, .bm.me { border-color: var(--data); }
+.nextbar { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; align-items: center; padding: 12px 16px; margin-bottom: 12px; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(245,184,0,0.16), rgba(245,184,0,0.04)); border: 1px solid rgba(245,184,0,0.55); border-left: 5px solid var(--data); }
+.nx-main { grid-row: span 2; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.nx-k { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--data2); }
+.nx-id { font-size: 30px; font-weight: 900; line-height: 1; color: #fff; font-variant-numeric: tabular-nums; }
+.nx-vs { font-size: 17px; color: var(--text); } .nx-vs b { color: var(--data2); }
+.nx-of { font-size: 12px; color: var(--muted); }
+.nx-side { font-size: 13.5px; } .nx-last { font-size: 13px; color: var(--muted); }
+@media (max-width: 760px) { .nextbar { grid-template-columns: 1fr; } .nx-main { grid-row: auto; } }
+.wc-name { color: #ffe08a; font-weight: 800; padding: 0 1px; border-bottom: 2px solid rgba(245,197,66,.55); }
+.wc-note { display: inline-block; margin: 8px auto 0; padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(245,197,66,.6); background: rgba(0,0,0,.3);
+  color: #ffe08a; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+/* FIRST Impact Award: blue and gold */
+.modal.wcm.icm { border-color: #3d8fe0; background: radial-gradient(ellipse at 50% -10%, #0f4c8f 0%, #0a2a52 42%, #0b1220 100%); box-shadow: 0 0 0 1px rgba(74,163,255,.3), 0 0 70px rgba(74,163,255,.35); }
+.ic-halo { position: absolute !important; z-index: 0 !important; left: 50%; top: 74px; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255,224,138,.38) 0%, rgba(74,163,255,.22) 35%, transparent 68%); animation: icpulse 3.6s ease-in-out infinite; }
+@keyframes icpulse { 50% { transform: scale(1.14); opacity: .7; } }
+.ic-medal { width: 132px; height: 132px; filter: drop-shadow(0 8px 22px rgba(74,163,255,.6)); animation: wcpop .9s cubic-bezier(.2,1.5,.4,1) both, wcfloat 3.6s ease-in-out .9s infinite; }
+.ic-leaf { animation: icleaf .6s ease both; }
+@keyframes icleaf { from { opacity: 0; } to { opacity: 1; } }
+.ic-spark { position: absolute; z-index: 0; bottom: -10px; width: 6px; height: 6px; border-radius: 50%; background: #ffe08a; box-shadow: 0 0 8px #ffe08a; pointer-events: none; opacity: 0; animation: icrise 5s linear infinite; }
+@keyframes icrise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .9; } 100% { transform: translateY(-620px); opacity: 0; } }
+.wc.ic .wc-kicker { color: #9fd0ff; } .wc.ic .wc-you { color: #cfe6ff; }
+.wc.ic .wc-chip { border-color: rgba(74,163,255,.5); color: #dcecff; } .wc.ic .wc-chip small { color: #8fb5dc; }
+.wc.ic .wc-q { border-left-color: #4aa3ff; } .wc.ic .wc-q span, .wc.ic .wc-h { color: #9fc4ea; }
+.ic-list { max-width: 660px; margin: 12px auto 0; font-size: 12.5px; line-height: 1.6; color: #b9d3ef; }
+@media (prefers-reduced-motion: reduce) { .ic-halo, .ic-medal, .ic-leaf, .ic-spark { animation: none !important; } .ic-spark { display: none; } }
+.wbanners { display: flex; flex-wrap: wrap; gap: 18px; }
+.wbn { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wbn .btn .ico { vertical-align: -2px; }
+.nextbar.stack { grid-template-columns: 1fr; } .nextbar.stack .nx-main { grid-row: auto; }
+
 </style>
 </head>
 <body>
@@ -425,7 +463,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.3';
+  G.VERSION = '2.4';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -661,18 +699,18 @@ window.G = window.G || {};
           base: { intake: 50 }, ceil: { intake: 96 }, caps: { ground: true, station: true, storage: 1 }, look: { intake: 'under' } }
       ] },
       { id: 'scorer', name: 'Shooter', concepts: [
-        { id: 'sub', name: 'Subwoofer fixed shooter', desc: 'Scores only pressed against the subwoofer.', cost: 600, hours: 100, w: 12, cx: 2, areas: ['shooter'],
-          base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
-        { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: speaker from the wing, can also feed the Amp.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
-          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: true, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
+        { id: 'sub', name: 'Subwoofer fixed shooter', desc: 'Scores the Speaker only pressed against the subwoofer. Can lob notes into the Amp without an amp mechanism, but slowly and with a low success rate.', cost: 600, hours: 100, w: 12, cx: 2, areas: ['shooter'],
+          base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, ampViaShooter: 0.55, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
+        { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: Speaker from the wing. Tilts up to score the Amp without an amp mechanism at a moderate speed and success rate.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
+          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: 0.8, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
+        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision. Its hood can also score the Amp at a moderate speed and success rate.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, ampViaShooter: 0.75, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
       ] },
       { id: 'amp', name: 'Amp / Trap', concepts: [
-        { id: 'none', name: 'No amp mechanism', desc: 'Speaker only.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
-        { id: 'ampbar', name: 'Amp bar', desc: 'A flip-out bar that guides notes into the Amp.', cost: 400, hours: 80, w: 5, cx: 2, areas: ['arm'],
+        { id: 'none', name: 'No amp mechanism', desc: 'The shooter scores the Amp by itself: fixed shooters slowly and with a low success rate, pivot and turret shooters at a moderate rate. No Trap.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
+        { id: 'ampbar', name: 'Amp bar', desc: 'A flip-out bar that guides notes into the Amp: faster and far more reliable than scoring it with the shooter.', cost: 400, hours: 80, w: 5, cx: 2, areas: ['arm'],
           base: { amp: 45 }, ceil: { amp: 90 }, caps: { amp: true }, look: { manip: 'ampbar' } },
-        { id: 'amptrap', name: 'Amp + Trap elevator', desc: 'Small elevator that scores the Amp and the Trap.', cost: 1000, hours: 180, w: 12, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'amptrap', name: 'Amp + Trap elevator', desc: 'Small elevator that scores the Amp (faster and more reliable than any shooter) and the Trap.', cost: 1000, hours: 180, w: 12, cx: 4, areas: ['elevator', 'arm'],
           base: { amp: 42 }, ceil: { amp: 92 }, caps: { amp: true, trapMech: true, tall: 0.2 }, look: { manip: 'elevator' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [
@@ -1070,6 +1108,52 @@ window.G = window.G || {};
     2026: { div: 'Daly', teams: [[4414, 'HighTide'], [1323, 'MadTown Robotics'], [4065, 'Nerds of Prey'], [1538, 'The Holy Cows']] }
   };
 
+  // ---------- The state of the art moves on (offseason, from the second season) ----------
+  // Rule and vendor changes arrive at the start of each offseason and hit next season; new designs spread online in one
+  // month between July and September. Each one makes part of the team's know-how outdated: the area loses a share of
+  // its XP (counted from at most TECH_CAP × the top level, so banked XP is no shield). A specialist mentor halves the loss.
+  D.TECH_RULE_PCT = 0.25; D.TECH_DESIGN_PCT = 0.15; D.TECH_CAP = 1.25; D.TECH_RULES_N = 2; D.TECH_DESIGNS_N = 3;
+  D.TECH_RULES = [
+    { id: 'wiring', area: 'elec', tag: 'Robot rules', title: 'New wiring rules', body: 'Next season\'s robot rules rewrite the electrical section: new wire-gauge tables, every branch circuit protected on its own, and the main breaker has to sit where a referee can reach it. Half of your wiring standard is now a history lesson.',
+      talk: [['Our inspection checklist just became a collector\'s item.', 'an electrical mentor'], ['So the zip-tie budget goes up. Again.', 'a team treasurer']] },
+    { id: 'codearch', area: 'autoPath', tag: 'Vendor update', title: 'New code architecture', body: 'The control-system library was rebuilt around a new command framework and a new path-following interface. Last season\'s autonomous code no longer compiles, and the migration guide runs to forty pages.',
+      talk: [['Deprecated. Deprecated. Deprecated. Removed.', 'your lead programmer, reading the changelog'], ['I liked the old trajectory follower. It knew me.', 'a student on Team {t}']] },
+    { id: 'vissoft', area: 'vision', tag: 'Vendor update', title: 'New vision software', body: 'The vision coprocessor software everyone runs got a full rewrite: new pipelines, a new calibration tool and a new coordinate convention. Your tuned settings do not carry over.',
+      talk: [['The new coordinate system is "more intuitive". Our robot now aims at the ceiling.', 'a programmer on Team {t}'], ['Calibration takes ten minutes now. Finding the calibration board took two hours.', 'a vision lead']] },
+    { id: 'swervefw', area: 'swerve', tag: 'Vendor update', title: 'Swerve firmware overhaul', body: 'Both module vendors moved to new motor-controller firmware with a different control mode and odometry timing. Your drive constants need tuning again from scratch.',
+      talk: [['Every gain we tuned last year is now a suggestion.', 'a controls mentor'], ['It drives great. Sideways. Only sideways.', 'a driver on Team {t}']] },
+    { id: 'bumper', area: 'intake', tag: 'Robot rules', title: 'Bumper and frame rule change', body: 'Bumpers sit in a different height zone next season and robots may reach less far beyond the frame. Last year\'s intake geometry no longer fits inside the rules.',
+      talk: [['We spent two seasons perfecting that intake. The new rules moved the bumper two inches.', 'a design mentor'], ['On the bright side, bumpers are still red and blue.', 'a forum comment']] },
+    { id: 'height', area: 'climb', tag: 'Robot rules', title: 'New height and extension limits', body: 'A lower height limit, and no reaching above the robot before the endgame. Tall telescoping climbers need a rethink, and so do the hooks that go with them.',
+      talk: [['Our climber is now four inches too proud of itself.', 'a mentor on Team {t}'], ['Measure twice, read the rule three times, cut once.', 'a fabrication mentor']] }
+  ];
+  D.TECH_DESIGNS = [
+    { id: 'pivot', area: 'arm', title: 'A new pivot design', body: 'A top team posted the CAD of a pivot driven through a dead-axle chain stage, with the encoder on the output shaft: half the backlash and a third of the parts. Every arm built the old way suddenly looks a season old.' },
+    { id: 'rigging', area: 'elevator', title: 'New elevator rigging', body: 'An offseason reveal showed a continuous-rigged elevator with a spring tensioner that never needs re-tying. The build thread has 900 replies and counting.' },
+    { id: 'visalg', area: 'vision', title: 'A new vision algorithm', body: 'An open-source pose estimator that fuses several tags with the gyro landed over the summer. Teams report localization twice as steady as last season\'s best.' },
+    { id: 'intake', area: 'intake', title: 'A new intake geometry', body: 'Somebody worked out a compliant-wheel intake that centers the game piece by itself. Slow-motion videos of it are everywhere.' },
+    { id: 'hood', area: 'shooter', title: 'A new shooter layout', body: 'A twin-flywheel shooter with a motorized hood and a feeder that pre-spins the piece: tighter groups from farther out, and the drawings are public.' },
+    { id: 'turret', area: 'turret', title: 'A new turret build', body: 'A printed-ring turret with an internal cable chain and 540 degrees of travel, published with full drawings. Slip rings are suddenly old news.' },
+    { id: 'indexer', area: 'index', title: 'A new indexer', body: 'A serializer built around a star wheel that makes jams close to impossible went viral after an offseason event.' },
+    { id: 'climber', area: 'climb', title: 'A new climber', body: 'A spring-driven climber with latching hooks: up in under two seconds, and it stays up when the power is cut.' },
+    { id: 'swervemod', area: 'swerve', title: 'A new swerve module layout', body: 'An inverted module with smaller wheels and the motors tucked inside the frame rail. Lower, lighter, and it corners like it is on rails.' },
+    { id: 'planner', area: 'autoPath', title: 'A new path planner', body: 'A trajectory optimizer that replans around other robots on the fly was released as a free library. Hand-drawn paths look quaint now.' }
+  ];
+  D.TECH_TALK = {
+    rules: [['Reading the manual front to back this year. I say that every year.', 'a mentor on Team {t}'], ['Whoever wrote that rule has clearly met our robot.', 'a student on Team {t}'], ['Update the checklist, update the wiki, update the students. In that order.', 'a lead mentor'], ['Good news: everyone else has to relearn it too.', 'a forum regular']],
+    designs: [['Saved the CAD. Told nobody. Everybody had already saved the CAD.', 'a design student on Team {t}'], ['We are not copying it. We are being inspired by it. Precisely.', 'a mentor on Team {t}'], ['Open build threads are the best and worst thing to happen to my sleep.', 'a lead mentor'], ['Our version is the same, but with more zip ties.', 'Team {t}'], ['I gave it a week before somebody printed it in team colors. It took two days.', 'a forum regular']]
+  };
+  D.TECH_INTRO = {
+    rules: ['The season is barely over and next year\'s paperwork is already here. Two changes will reach your shop before Kickoff:', 'Summer homework arrived early. The robot rules and the vendors both moved, and your notes did not move with them:', 'Every offseason somebody changes the ground under the robot. This year it is these two:'],
+    designs: ['Offseason reveal threads are in full swing, and a few ideas are spreading faster than anyone can build them:', 'It was a busy month online. Three designs showed up that everybody will be running by Kickoff:', 'The best teams published their homework, and it raises the bar for everyone else:']
+  };
+  // ---------- Second robot drills ----------
+  D.DEF_DRILL_HOURS = 18;   // driver-practice hours with two running robots for full "playing through defense" skill (resets each season)
+  D.DEF_DRILL_EFFECT = 0.35; // a fully drilled drive team loses this much less to a defender (speed, cycle time, accuracy)
+  D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%
+  D.CHASSIS_PATH_XP = 3;    // ... and adds Autonomous Pathing XP every week it runs
+  D.DRIVE_FAMILY = { kit: 'tank', wcd: 'tank', mec: 'holonomic', swerve: 'holonomic' };
+
   // ---------- Feeder programs ----------
   // attr: skill bonus for a recruit who comes from a fully grown program with this focus; size: extra recruits per year;
   // impact: weight in the Impact rating's "feeder programs" part (3 established balanced programs = full marks)
@@ -1341,6 +1425,7 @@ window.G = window.G || {};
       r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
       r.autoOK = m.rng.chance(U.clamp(0.5 + 0.46 * r.cap.auto / 100 + (r.tuneAuto || 0), 0.3, 0.985)) && !r.autoFail;
+      if (r.toolIn) { r.perm[r.toolIn] = true; const nm = r.toolIn === 'endgame' ? 'Climber' : r.toolIn === 'intake' ? 'Intake' : 'Scorer'; r.stats.faults.push(nm + ' blocked (tool left inside)'); log(m, r.a, r.team + ': ' + nm.toLowerCase() + ' blocked by a tool left inside the robot', 'fault'); }
     });
     return m;
   };
@@ -1352,6 +1437,9 @@ window.G = window.G || {};
       team: en.team, a, slot: i, cap: en.cap, look: en.look || {}, drv, isPlayer: !!en.isPlayer,
       plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, defTarget: null }, en.plan || {}),
       tune, conf, tuneAuto: en.tuneAuto || 0, autoFail: !!en.autoFail,
+      // pit and drive-team slips (your robot only): a loose bumper, a blocked mechanism, a joystick left unplugged
+      disableAt: en.disableAt || 0, teleDelay: en.teleDelay || 0, toolIn: en.toolIn || null,
+      defSkill: en.defSkill || 0, // drilled against a defender on a second robot: loses less to defense
       // practiced drive teams (confidence) drive faster, line up quicker, handle pieces faster, foul less and climb more surely; 0.6 ≈ an average AI team
       drvF: 0.816 + 0.22 * drv.drive / 100 + 0.16 * (conf - 0.6), confK: conf - 0.6,
       opF: 0.86 + 0.14 * drv.mech / 100,
@@ -1393,6 +1481,11 @@ window.G = window.G || {};
         if (!r.keepEnd) { r.end = null; r.endBusy = false; }
       }
     });
+    m.robots.forEach(r => {
+      if (r.dead || !r.teleDelay) return;
+      r.fault = { stall: true, until: m.t + r.teleDelay, label: 'NO JOYSTICK' };
+      r.stats.faults.push('Joystick unplugged (' + r.teleDelay + ' s lost)'); log(m, r.a, r.team + ': joystick not plugged in — ' + r.teleDelay + ' seconds lost', 'fault');
+    });
     if (m.R.onTeleop) m.R.onTeleop(m, H);
     log(m, null, 'TELEOP', 'phase');
   }
@@ -1402,6 +1495,11 @@ window.G = window.G || {};
     if (r.dead) { r.label = r.tipped ? 'TIPPED' : 'DISABLED'; return; }
     if (r.fault && m.t >= r.fault.until) { r.fault = null; if (r.st === 'idle') r.label = ''; }
     for (const k in r.jam) if (r.jam[k] && m.t >= r.jam[k]) r.jam[k] = 0;
+    if (r.disableAt && m.t >= r.disableAt) {
+      r.disableAt = 0; r.dead = true; r.st = 'dead';
+      r.stats.faults.push('Bumper fell off — disabled'); log(m, r.a, r.team + ': bumper fell off — disabled by the referee', 'fault');
+      return;
+    }
     faultRoll(m, r);
     if (r.dead) return;
     if (r.fault && r.fault.stall) { r.label = r.fault.label; return; }
@@ -1417,7 +1515,7 @@ window.G = window.G || {};
       case 'idle': decide(m, r); break;
       case 'move': moveStep(m, r); break;
       case 'act': {
-        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) : 1);
+        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) * (1 - DEF_DRILL * r.defSkill) : 1);
         if (r.timer <= 0) { const f = r.onDone; r.onDone = null; r.st = 'idle'; if (f) f(); }
         break;
       }
@@ -1652,7 +1750,7 @@ window.G = window.G || {};
       if (DF.zone) {
         for (const o of m.robots) {
           if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
-          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200), 0.6, 0.97);
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200) * (1 - DEF_DRILL * o.defSkill), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
@@ -1665,7 +1763,7 @@ window.G = window.G || {};
       if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1), 0.35, 0.97);
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1) * (1 - DEF_DRILL * t.defSkill), 0.35, 0.97);
         pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
@@ -1684,6 +1782,7 @@ window.G = window.G || {};
 
   // ---------- faults ----------
   // Comms losses have their own, more frequent hazard (below); the season profile (R.faults) scales brownouts, tips and comms.
+  const DEF_DRILL = (G.Data && G.Data.DEF_DRILL_EFFECT) || 0.35;
   const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }];
   // 0 = clean, well-built electronics … about 1.5 = poor wiring, worn robot, hidden defects, tired battery
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
@@ -1872,7 +1971,7 @@ window.G = window.G || {};
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1) * (1 - DEF_DRILL * r.defSkill);
       p *= 0.95 + 0.05 * r.opF;
       p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;
@@ -2236,12 +2335,19 @@ window.G = window.G || {};
   // 2024 CRESCENDO
   // =====================================================================
   const canAmp = r => !!(r.cap.amp || r.cap.ampViaShooter);
+  // Amp through the shooter (no amp mechanism): ampViaShooter is how well the shooter does it. A fixed (subwoofer) shooter
+  // lobs notes in slowly and misses a lot (0.55), pivot shooters are moderate (0.8), turrets a little behind them (0.75).
+  const viaF = r => (r.cap.ampViaShooter === true ? 0.8 : r.cap.ampViaShooter || 0.55);
+  const ampSpd24 = r => (r.cap.amp ? (r.cap.ampSkill || 45) + 30 : r.cap.scoreSpd * (viaF(r) - 0.05));
   // The amp specialist is the amp-capable robot that is not defending and has the weakest speaker game (re-picked live).
   function ampBotOf(m, a) {
     const rs = m.robots.filter(r => r.a === a && canAmp(r) && r.plan.role !== 'defend' && !r.dead && !r.perm.scorer);
     if (!rs.length) return null;
+    // every shooter can put notes in the Amp, but a real amp mechanism is far better at it: the amp robot is the one that
+    // gives up the least speaker scoring for the most amp ability
     const sp = r => (r.cap.speaker ? r.cap.accuracy + r.cap.scoreSpd + (r.cap.range || 0) : -50);
-    return rs.sort((p, q) => sp(p) - sp(q))[0].team;
+    const av = r => 2 * ampSpd24(r) - sp(r);
+    return rs.sort((p, q) => av(q) - av(p))[0].team;
   }
   function useAmp24(m, r) {
     const ss = m.ss[r.a];
@@ -2276,10 +2382,10 @@ window.G = window.G || {};
     const ss = m.ss[r.a], spot = m.ampSpot[r.a];
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
-      const skill = r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.scoreSpd * 0.75;
+      const skill = r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.scoreSpd * (viaF(r) - 0.05);
       H.act(r, H.scoreTime(m, r, 1.1, skill), () => {
         r.stats.shots++;
-        if (m.rng.chance(H.hit(m, r, 1.12, 0, r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.accuracy * 0.85))) {
+        if (m.rng.chance(H.hit(m, r, 1.12, 0, r.cap.amp ? (r.cap.ampSkill || 45) : r.cap.accuracy * (viaF(r) + 0.05)))) {
           r.stats.hits++; r.stats.cycles++; ss.notes++; ss.ampNotes++;
           if (m.phase === 'auto') { ss.autoNotes++; H.addPts(m, r, 2, '+2', spot); }
           else { H.addPts(m, r, 1, '+1', spot); if (!(ss.ampUntil > m.t)) ss.bank = Math.min(2, ss.bank + 1); }
@@ -2498,23 +2604,32 @@ window.G = window.G || {};
   const own25 = (a, p) => a === 'blue' ? { x: p.x, y: p.y } : { x: FW - p.x, y: FH - p.y };
   const canProcess = r => !!(r.cap.processor || r.cap.net);
   const canRemove = r => !!(r.cap.algaeRemove);
-  function avail25(ss, L) {
-    if (L === 1) return 30 - ss.lv[0];
-    if (L === 2) return 12 - ss.lv[1] - 2 * ss.algaeLow;
-    if (L === 3) return 12 - ss.lv[2] - 2 * ss.algaeHigh;
-    return 12 - ss.lv[3];
+  // The Reef has six faces. Each face has two branches (two coral) at L2, L3 and L4 and room for about five coral in its
+  // L1 trough. One algae rests on every face, alternating low and high, and blocks that face's L2 or L3 until it is removed.
+  // Robots fill the faces nearest their coral stations first, then have to drive around to the far side.
+  const FACE_CAP = [5, 2, 2, 2];
+  const faceRoom = (f, L) => ((L === 2 && f.alg === 'low') || (L === 3 && f.alg === 'high') ? 0 : FACE_CAP[L - 1] - f.lv[L - 1]);
+  // nearest face that still has room at level L (-1 if none)
+  function faceFor(m, r, L) {
+    const ss = m.ss[r.a], spots = m.faces[r.a]; let best = -1, bd = 1e9;
+    for (let k = 0; k < 6; k++) { if (faceRoom(ss.fc[k], L) <= 0) continue; const d = E.dist(r, spots[k]); if (d < bd) { bd = d; best = k; } }
+    return best;
   }
   function chooseLevel(m, r) {
     const ss = m.ss[r.a], reach = r.cap.reach || 0, auto = m.phase === 'auto';
+    const dNear = E.dist(r, H.nearest(r, m.faces[r.a]));
     let best = 0, bv = -1;
     for (let L = 1; L <= reach; L++) {
-      if (avail25(ss, L) <= 0) continue;
+      const k = faceFor(m, r, L);
+      if (k < 0) continue;
       let val = (auto ? PT25.auto : PT25.tele)[L - 1];
       if (!auto && ss.lv[L - 1] < 5 && r.plan.rpHunt) val += 1.2;
       if (r.plan.target === 'L4' && L === 4) val += 4;
       if (r.plan.target === 'mid' && (L === 2 || L === 3)) val += 3;
       if (r.plan.target === 'L1' && L === 1) val += 4;
-      const ev = val * [0.98, 0.95, 0.92, 0.86][L - 1] / ([0.8, 1.0, 1.3, 1.7][L - 1] + 5);
+      // a branch on the far side of the Reef costs a longer drive
+      const far = Math.max(0, E.dist(r, m.faces[r.a][k]) - dNear);
+      const ev = val * [0.98, 0.95, 0.92, 0.86][L - 1] / ([0.8, 1.0, 1.3, 1.7][L - 1] + 5 + 0.45 * far);
       if (ev > bv) { bv = ev; best = L; }
     }
     return best;
@@ -2524,17 +2639,18 @@ window.G = window.G || {};
     const rs = m.robots.filter(r => r.a === a && canProcess(r) && r.plan.role !== 'defend' && !r.dead);
     return rs.length ? rs.sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0))[0].team : null;
   }
-  const reefSpot = (m, r) => H.nearest(r, m.faces[r.a]);
   function placeCoral(m, r, L) {
-    const spot = reefSpot(m, r);
+    const ss = m.ss[r.a], k = faceFor(m, r, L);
+    if (k < 0) { r.label = 'Reef level full'; return; }
+    const f = ss.fc[k], spot = m.faces[r.a][k];
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (faceRoom(f, L) <= 0) { r.label = 'Branch taken'; return; } // a partner filled it on the way: pick again
       H.act(r, H.scoreTime(m, r, [0.8, 1.0, 1.3, 1.7][L - 1]), () => {
-        const ss = m.ss[r.a];
-        if (avail25(ss, L) <= 0) return;
+        if (faceRoom(f, L) <= 0) return;
         r.stats.shots++;
         if (m.rng.chance(H.hit(m, r, [1.12, 1.05, 1.0, 0.93][L - 1]))) {
-          ss.lv[L - 1]++; r.stats.hits++; r.stats.cycles++;
+          f.lv[L - 1]++; ss.lv[L - 1]++; r.stats.hits++; r.stats.cycles++;
           if (m.phase === 'auto') ss.autoCoral++;
           const pts = (m.phase === 'auto' ? PT25.auto : PT25.tele)[L - 1];
           H.addPts(m, r, pts, 'L' + L + ' +' + pts, m.reef[r.a]);
@@ -2544,13 +2660,19 @@ window.G = window.G || {};
     }, 'To reef');
   }
   function removeAlgae(m, r, keep) {
-    H.moveTo(m, r, reefSpot(m, r), () => {
+    const ss = m.ss[r.a], spots = m.faces[r.a];
+    // prefer the high algae with enough reach (or when no low one is left); otherwise the nearest face that still has one
+    const wantHigh = ss.algaeHigh > 0 && ((r.cap.reach || 0) >= 3 || ss.algaeLow === 0);
+    let best = -1, bd = 1e9;
+    for (let k = 0; k < 6; k++) { const f = ss.fc[k]; if (!f.alg) continue; const d = E.dist(r, spots[k]) + ((f.alg === 'high') === wantHigh ? 0 : 3); if (d < bd) { bd = d; best = k; } }
+    if (best < 0) return;
+    H.moveTo(m, r, spots[best], () => {
       if (!H.canScore(m, r)) return;
       H.act(r, H.scoreTime(m, r, 1.2, r.cap.algaeSkill || 50), () => {
-        const ss = m.ss[r.a];
-        if (ss.algaeHigh > 0 && ((r.cap.reach || 0) >= 3 || ss.algaeLow === 0)) ss.algaeHigh--;
-        else if (ss.algaeLow > 0) ss.algaeLow--;
-        else return;
+        const f = ss.fc[best];
+        if (!f.alg) return;
+        if (f.alg === 'high') ss.algaeHigh--; else ss.algaeLow--;
+        f.alg = null;
         if (keep && canProcess(r) && !r.held) { r.held = 1; r.heldType = 'algae'; }
       }, 'Removing algae');
     }, 'To reef (algae)');
@@ -2621,7 +2743,7 @@ window.G = window.G || {};
         const coral = H.alliance(m, a).filter(r => (r.cap.reach || 0) > 0).sort((p, q) => coralPower(q) - coralPower(p));
         const stAssign = {};
         coral.forEach((r, i) => { stAssign[r.team] = i === 0 ? 0 : 1; });
-        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null, stAssign, stFree: [0, 0] };
+        m.ss[a] = { lv: [0, 0, 0, 0], algaeLow: 3, algaeHigh: 3, fc: [0, 1, 2, 3, 4, 5].map(k => ({ lv: [0, 0, 0, 0], alg: k % 2 ? 'low' : 'high' })), proc: 0, net: 0, autoCoral: 0, barge: 0, allLeft: false, algaeBot: algae.length ? algae[0].team : null, stAssign, stFree: [0, 0] };
       });
       m.robots.forEach(r => { r.held = (r.cap.reach || 0) > 0 ? 1 : 0; r.heldType = r.held ? 'coral' : null; });
     },
@@ -2714,6 +2836,36 @@ window.G = window.G || {};
   const T26 = () => G.Rules[2026].tempo;
   function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) * (r.cap.dumper ? 1.9 : 1) / E.PACE[r.plan.pace].cyc / T26().s; } // a dumper empties the hopper about twice as fast
   function irate26(r) { return (0.6 + 5.4 * r.cap.intake / 100) * (r.cap.wide || 1) / T26().c; }
+  // Fuel on the field: m.neutral is the fuel lying in the neutral zone (about 360 at the start), ss.pool the fuel on the
+  // floor of an alliance zone, ss.depot the alliance's depot. Scored fuel drops back into the neutral zone; missed shots
+  // mostly bounce into the shooter's own zone. A thinner neutral zone is slower to sweep.
+  const dens26 = m => U.clamp(0.45 + m.neutral / 320, 0.45, 1.15);
+  // Hoarding (the REBUILT meta): an alliance can't score while its hub is inactive, so strong alliances keep working.
+  // They sweep the neutral zone and lob the fuel back into their own zone; when the hub lights up, all three robots
+  // refill a few steps from it. How cleanly the lobs land depends on the alliance's grasp of the strategy (feedIQ).
+  // The robot keeps whatever is in its hopper for the next shift and works as a conveyor: it sweeps fuel off the neutral
+  // zone floor and fires it straight back over its own line, a few seconds at a time.
+  function hoard26(m, r) {
+    const ss = m.ss[r.a], iq = m.feedIQ[r.a] || 0;
+    if (m.neutral < 4) return false;
+    const sweep = () => {
+      if (!H.canCollect(m, r) || !H.canScore(m, r)) return;
+      const T = 3.5, thru = Math.min(irate26(r) * dens26(m) * 1.2, rate26(r)); // no hopper to manage: straight through the robot
+      H.act(r, T, () => {
+        const k = Math.min(Math.floor(m.neutral), Math.max(1, Math.round(thru * T)));
+        if (k <= 0) return;
+        const land = Math.round(k * U.clamp(0.55 + 0.4 * iq - (r.defBy ? 0.15 : 0), 0.3, 0.97)); // lobs that fall short stay in the neutral zone
+        m.neutral -= land; ss.pool += land; ss.hoarded += land; r.stats.passes = (r.stats.passes || 0) + 1;
+        H.shotFx(m, r, E.P(m, r.a, m.rng.range(2.2, 3.4), U.clamp(4.03 + m.rng.range(-2.4, 2.4), 0.9, 7.2)), true);
+      }, 'Sweeping fuel home');
+    };
+    const qx = r.a === 'blue' ? r.x : FW - r.x, qy = r.a === 'blue' ? r.y : FH - r.y; // position in the alliance's own frame
+    const pt = qx > 5.3 && qx < 8.4
+      ? E.P(m, r.a, U.clamp(qx + m.rng.range(-0.8, 0.8), 5.6, 8.0), U.clamp(qy + m.rng.range(-1.0, 1.0), 0.9, 7.3))
+      : E.P(m, r.a, m.rng.range(5.7, 7.4), m.rng.range(0.9, 7.3));
+    H.moveTo(m, r, pt, sweep, 'Hoarding: neutral zone');
+    return true;
+  }
   function shoot26(m, r) {
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
@@ -2735,6 +2887,7 @@ window.G = window.G || {};
       let hits = 0;
       for (let i = 0; i < k; i++) if (m.rng.next() < p) hits++;
       r.stats.shots += k; r.stats.hits += hits; r.held -= k;
+      { const miss = k - hits, back = Math.round(miss * 0.35); ss.pool += back; m.neutral += miss - back + hits; } // scored fuel returns to the neutral zone; misses bounce around the hub
       H.shotFx(m, r, hub, hits > 0);
       if (hits) {
         if (active26(m, r.a)) { ss.fuel += hits; if (m.phase === 'auto') ss.autoFuel += hits; H.addPts(m, r, hits, '+' + hits, hub); }
@@ -2749,9 +2902,9 @@ window.G = window.G || {};
     const rate = irate26(r);
     const opts = [];
     if (c.ground) {
-      if (ss.pool >= 5) opts.push({ pt: E.P(m, r.a, m.rng.range(2.0, 3.4), m.rng.range(1.5, 6.6)), n: Math.min(need, ss.pool), rate: rate * 1.2, src: 'pool', k: 1 });
+      if (ss.pool >= 5) opts.push({ pt: E.P(m, r.a, m.rng.range(2.0, 3.4), m.rng.range(1.5, 6.6)), n: Math.min(need, ss.pool), rate: rate * (1.2 + Math.min(1.6, Math.max(0, ss.pool - 12) / 32)), src: 'pool', k: 1 });
       if (ss.depot > 0) opts.push({ pt: E.P(m, r.a, 0.7, 6.5), n: Math.min(need, ss.depot), rate, src: 'depot', k: 1 });
-      opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: need, rate, src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
+      if (m.neutral >= 3) opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: Math.min(need, Math.floor(m.neutral)), rate: rate * dens26(m), src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
     }
     opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.0 + 1.6 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 });
     let best = null, bv = 1e9;
@@ -2766,6 +2919,7 @@ window.G = window.G || {};
       let n = best.n;
       if (best.src === 'pool') { n = Math.min(n, ss.pool); ss.pool -= n; }
       if (best.src === 'depot') { n = Math.min(n, ss.depot); ss.depot -= n; }
+      if (best.src === 'neutral') { n = Math.min(n, Math.floor(m.neutral)); m.neutral -= n; }
       if (n <= 0) return;
       H.act(r, n / best.rate * E.PACE[r.plan.pace].cyc + 0.6, () => { r.held = Math.min(cap26(r), r.held + n); }, 'Collecting fuel');
     }, 'To ' + names[best.src]);
@@ -2776,13 +2930,17 @@ window.G = window.G || {};
     if (r.held >= cap26(r) * 0.8 || (r.held > 0 && !H.canCollect(m, r))) {
       const spot = E.P(m, r.a, 5.5, U.clamp(r.a === 'blue' ? r.y : FH - r.y, 1.0, 7.2));
       return H.moveTo(m, r, spot, () => {
-        H.act(r, r.held / (rate26(r) * 1.3) + 0.3, () => { ss.pool += Math.round(r.held * 0.9); r.held = 0; r.stats.cycles++; }, 'Feeding zone');
+        H.act(r, r.held / (rate26(r) * 1.3) + 0.3, () => { const land = Math.round(r.held * 0.9); ss.pool += land; m.neutral += r.held - land; r.held = 0; r.stats.cycles++; }, 'Feeding zone');
       }, 'Feeding');
     }
     if (!c.ground || !H.canCollect(m, r)) { r.label = 'Can\'t feed'; return; }
-    const rate = irate26(r), need = cap26(r) - r.held;
+    const rate = irate26(r) * dens26(m), need = Math.min(cap26(r) - r.held, Math.floor(m.neutral));
+    if (need < 1) { r.label = 'Neutral zone empty'; return; }
     H.moveTo(m, r, E.P(m, r.a, m.rng.range(6.0, 9.5), m.rng.range(0.9, 7.3)), () => {
-      H.act(r, need / rate + 0.5, () => { r.held = cap26(r); }, 'Collecting fuel');
+      const n = Math.min(need, Math.floor(m.neutral));
+      if (n <= 0) return;
+      m.neutral -= n;
+      H.act(r, n / rate + 0.5, () => { r.held = Math.min(cap26(r), r.held + n); }, 'Collecting fuel');
     }, 'To neutral zone');
   }
   Rules[2026] = {
@@ -2810,14 +2968,14 @@ window.G = window.G || {};
     },
     init(m) {
       setHp(m);
-      m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = '';
+      m.hub = {}; m.zone = {}; m.firstInactive = null; m.lastShift = ''; m.neutral = 360;
       m.obs = [{ x: XB, y: 4.03, r: 0.75, h: 0.62 }, { x: FW - XB, y: FH - 4.03, r: 0.75, h: 0.62 }];
       // the Tower: a solid base and uprights (robots heading for their climb may touch their own)
       ['red', 'blue'].forEach(a => [-0.75, 0, 0.75].forEach(dy => { const p = E.P(m, a, 1.1, 4.03 + dy); m.obs.push({ x: p.x, y: p.y, r: 0.75, h: 0.42, end: true }); }));
       ['red', 'blue'].forEach(a => {
         m.hub[a] = E.P(m, a, XB, 4.03);
         m.zone[a] = zoneOf(m, a, 0.6, 3.85, 0.6, 7.6);
-        m.ss[a] = { fuel: 0, autoFuel: 0, tower: 0, autoTower: 0, pool: 0, depot: 24, wasted: 0, depotClaim: false };
+        m.ss[a] = { fuel: 0, autoFuel: 0, tower: 0, autoTower: 0, pool: 0, depot: 24, wasted: 0, depotClaim: false, hoard: (m.feedIQ[a] || 0) > 0, hoarded: 0 };
       });
       m.robots.forEach(r => { r.held = Math.min(8, cap26(r)); });
     },
@@ -2883,7 +3041,7 @@ window.G = window.G || {};
           r.mem.sweep = 1;
           const rate = irate26(r), need = Math.min(cap26(r), Math.floor(rate * Math.max(1, tl - 9)));
           if (need >= 3) {
-            return H.moveTo(m, r, E.P(m, r.a, 6.3, [1.6, 4.0, 6.4][r.slot]), () => H.act(r, need / rate + 0.4, () => { r.held = need; }, 'Auto sweep'), 'Auto: neutral sweep');
+            return H.moveTo(m, r, E.P(m, r.a, 6.3, [1.6, 4.0, 6.4][r.slot]), () => { const n = Math.min(need, Math.floor(m.neutral)); m.neutral -= n; H.act(r, n / rate + 0.4, () => { r.held = n; }, 'Auto sweep'); }, 'Auto: neutral sweep');
           }
         }
       }
@@ -2894,6 +3052,7 @@ window.G = window.G || {};
       const b = m.ss.blue.autoFuel, rd = m.ss.red.autoFuel;
       m.firstInactive = b > rd ? 'blue' : rd > b ? 'red' : (m.rng.chance(0.5) ? 'red' : 'blue');
       H.log(m, null, 'Auto fuel ' + rd + '–' + b + ': ' + m.firstInactive.toUpperCase() + ' hub goes inactive first', 'rp');
+      ['red', 'blue'].forEach(a => { if (m.ss[a].hoard) H.log(m, a, a.toUpperCase() + ' alliance hoards fuel in its zone while its hub is inactive', 'call'); });
     },
     tick(m) {
       if (m.phase !== 'tele') return;
@@ -2907,6 +3066,8 @@ window.G = window.G || {};
       const capN = cap26(r), act = active26(m, r.a);
       if (role === 'feed') return feed26(m, r);
       const shootAny = r.plan.target === 'shoot';
+      // hoarding alliances keep working through their inactive shift, until the hub is about to light up
+      if (m.ss[r.a].hoard && !act && !shootAny && !m.inEnd && r.cap.ground && H.canScore(m, r) && H.canCollect(m, r) && !activeSoon(m, r.a, 6) && hoard26(m, r)) return;
       if (r.held > 0 && H.canScore(m, r)) {
         const soon = activeSoon(m, r.a, 4);
         const ready = r.held >= Math.ceil(capN * 0.7) || !H.canCollect(m, r) || !r.cap.ground && !r.cap.station;
@@ -2932,7 +3093,7 @@ window.G = window.G || {};
         { key: 'trav', name: 'Traversal', val: tower, thr: 50, ok: tower >= 50, unit: 'tower pts' }
       ];
     },
-    hud(m, a) { return [active26(m, a) ? 'HUB ACTIVE' : 'HUB INACTIVE']; }
+    hud(m, a) { const ss = m.ss[a]; return [active26(m, a) ? 'HUB ACTIVE' : 'HUB INACTIVE', 'zone fuel ' + ss.pool].concat(ss.hoard ? ['HOARDING'] : []); }
   };
 })();
 
@@ -2955,7 +3116,7 @@ window.G = window.G || {};
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes across the field and hoard them for Amplify.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers.' };
-  S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream.' };
+  S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream. Later in the season, top alliances also hoard: while their hub is inactive they lob fuel from the neutral zone back into their own zone, so the next scoring shift starts with short cycles.' };
 
   // Season failure profiles: multipliers on brownouts, tip-overs and comms losses (engine faultRoll)
   R[2022].faults = { brown: 1.2, tip: 1.0, tipAll: 0.1, comms: 1.05 };
@@ -3331,6 +3492,15 @@ window.G = window.G || {};
         ev.feedStats = ev.feedStats || { n: 0, f: 0 };
         ev.feedStats.n++; if (feeding) ev.feedStats.f++;
       }
+      // 2026 fuel hoarding: while its hub is inactive an alliance lobs fuel from the neutral zone back into its own zone.
+      // AI alliances pick it up over the season; your alliance's grasp comes from your team's strategy read.
+      if (ev.year === 2026) {
+        const ai = Ev.hoardChance(ev, playoff), mine = hasPlayer ? G.Career.metaInsight(S) : 0, k = Ev.metaProgress(ev);
+        const hoards = rng.chance(hasPlayer ? Math.max(ai, mine * 0.9) : ai);
+        iq = hoards ? (hasPlayer ? Math.max(mine, 0.35 + 0.45 * k) : 0.4 + 0.5 * k) : 0;
+        ev.feedStats = ev.feedStats || { n: 0, f: 0 };
+        ev.feedStats.n++; if (hoards) ev.feedStats.f++;
+      }
       out.feedIQ = out.feedIQ || {}; out.feedIQ[a] = iq;
       // AI alliance strategy: should the weakest robot play defense? Teams learn each game's meta over the season.
       const already = ens.some(e => e.plan.role === 'defend');
@@ -3357,6 +3527,12 @@ window.G = window.G || {};
     if (ev.year !== 2024) return 0;
     const k = Ev.metaProgress(ev);
     return playoff ? 0.15 + 0.6 * k : 0.05 + 0.45 * k;
+  };
+  // 2026: chance an AI alliance hoards fuel during its inactive shifts (rare in Week 1, standard by the Championship)
+  Ev.hoardChance = function (ev, playoff) {
+    if (ev.year !== 2026) return 0;
+    const k = Ev.metaProgress(ev);
+    return playoff ? 0.2 + 0.65 * k : 0.08 + 0.5 * k;
   };
   // Chance an AI alliance assigns one defender. Shooting games trend toward defense; placement games away from it.
   Ev.defenseChance = function (ev, playoff) {
@@ -3431,7 +3607,11 @@ window.G = window.G || {};
   const INCIDENTS = [
     { id: 'batt', w: 3, title: 'Battery not swapped', text: 'The pit crew sent the robot out on the battery from the last match.', apply: ev => { ev.batt = (ev.batt || 1) * 0.45; } },
     { id: 'auto', w: 3, title: 'Wrong auto selected', text: 'The drive team picked the wrong autonomous routine from the dashboard.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
-    { id: 'bumper', w: 2, title: 'Bumper swap ran late', text: 'Wrong bumper colour on the cart: the swap at the field edge cost the whole autonomous period.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { autoFail: true }); } },
+    { id: 'bumper', w: 2, title: 'Loose bumper', text: 'A bumper bolt was never tightened. The bumper fell off mid-match and the referee disabled the robot.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { disableAt: G.R.range(30, 110) }); } },
+    { id: 'vision', w: 2, req: S => !!(S.robot && S.robot.visionLvl > 0), title: 'Vision not calibrated', text: 'Nobody re-ran the camera calibration after the last repair: the robot aimed off target for the whole match.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { visionOff: true }); } },
+    { id: 'code', w: 2, title: 'Wrong code on the robot', text: 'A test branch was pushed to the robot in the queue: the autonomous routine did not run and half the operator controls were dead.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { codeBad: true }); } },
+    { id: 'tool', w: 2, title: 'Tool left inside the robot', text: 'A wrench stayed inside the robot after the last repair and blocked a mechanism for the whole match.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { toolIn: G.R.pick(['intake', 'scorer', 'endgame']) }); } },
+    { id: 'stick', w: 2, title: 'Joystick not plugged in', text: 'The driver station came back from the pits with the joystick unplugged. The first 20 seconds of teleop were gone before anyone noticed.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { teleDelay: 20 }); } },
     { id: 'wire', w: 3, title: 'Loose connector missed', text: 'A loose CAN connector slipped through the pit checklist.', apply: ev => { ev.incNext = Object.assign({}, ev.incNext, { hidden: 1 }); } },
     { id: 'repair', w: 2, title: 'Repairs unfinished', text: 'The pit crew ran out of time before queuing and left a repair half-done.', apply: (ev, S) => { if (S.robot) Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - 8); }); } },
     { id: 'scouts', w: 2, title: 'Scouting sheets mixed up', text: 'Two scouts swapped team numbers for a whole round of matches.', apply: ev => { ev.scoutCred = Math.max(0.5, (ev.scoutCred || 0.95) - 0.05); } }
@@ -3442,7 +3622,7 @@ window.G = window.G || {};
     if (f <= D.INCIDENT_FREE && n >= 1) return;
     const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12);
     if (!G.R.chance(perMatch)) return;
-    const inc = G.R.wpick(INCIDENTS, x => x.w);
+    const inc = G.R.wpick(INCIDENTS.filter(x => !x.req || x.req(S, ev)), x => x.w);
     inc.apply(ev, S);
     const at = ev.stage === 'playoffs' ? 'Playoffs' : 'Qual ' + ((ev.quals[ev.qi] || {}).n || '');
     ev.incidents.push({ at, title: inc.title, text: inc.text, f: Math.round(f) });
@@ -3535,8 +3715,8 @@ window.G = window.G || {};
       tot += sc; cnt += 3;
       ts.forEach(i => { b[idx[i]] += sc; ts.forEach(j => { A[idx[i]][idx[j]] += 1; }); });
     }));
-    const mean = cnt ? tot / cnt : 0, lam = 0.8;
-    for (let i = 0; i < n; i++) { A[i][i] += lam; b[i] += lam * mean; }
+    const base = ev.oprBase || null, mean = cnt ? tot / cnt : 0, lam = base ? 2.5 : 0.8;
+    for (let i = 0; i < n; i++) { A[i][i] += lam; b[i] += lam * (base && base[teams[i]] != null ? base[teams[i]] : mean); }
     // Gaussian elimination
     for (let c = 0; c < n; c++) {
       let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
@@ -3796,6 +3976,7 @@ window.G = window.G || {};
     const ps = G.Career.awardScores(S, ev);
     const winners = new Set(), list = [];
     D.AWARDS.forEach(aw => {
+      if (ev.kind === 'champs' && aw.champs) return; // judged once for the whole Championship (the FIRST Impact Award is announced on Einstein)
       let best = null, bv = -1;
       ev.teams.forEach(t => {
         if (winners.has(t)) return;
@@ -3984,6 +4165,19 @@ window.G = window.G || {};
     const o = R.bots[Robot.other(R)].subs;
     return ks.filter(k => o[k] && o[k].ver && o[k].concept === R.subs[k].concept).length / ks.length;
   };
+  // The competition drivetrain concept (built, or being built) and whether the second robot drives the same way:
+  // tank (Kitbot, West Coast) or holonomic (Mecanum, Swerve). A matching test chassis lets programmers develop paths early.
+  Robot.compDrive = function (S) {
+    const R = S.robot; if (!R || !R.design) return null;
+    const p = S.projects.find(x => x.type === 'build' && x.sub === 'drive');
+    return p ? p.concept : R.design.drive && R.design.drive.ver ? R.design.drive.concept : null;
+  };
+  Robot.chassisMatch = function (S) {
+    const R = S.robot; if (!R || !R.bots || R.year !== S.year || S.phase === 'off') return false;
+    const o = R.bots[Robot.other(R)].subs.drive, cd = Robot.compDrive(S);
+    return !!(o && o.ver && cd && D.DRIVE_FAMILY[o.concept] && D.DRIVE_FAMILY[o.concept] === D.DRIVE_FAMILY[cd]);
+  };
+  Robot.isPathProject = p => p.type === 'auto' || (p.type === 'upgrade' && p.sub === 'soft' && p.focus === 'auto');
   Robot.ceil = function (S, year, subId, c, stat) {
     let v = (c.ceil[stat] || 0) + 3 * lvlFor(S, subId, c, stat);
     // better motors, swerve modules and sensors raise ceilings (parts on the competition robot)
@@ -4257,7 +4451,7 @@ window.G = window.G || {};
       case 'vision': {
         const l = R.visionLvl;
         if (l >= 2) err = 'Vision maxed';
-        else if (G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Shop)';
+        else if (G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Inventory)';
         hours = 120 * (l + 1) * swMult(S); cost = 200;
         name = 'Vision Level ' + (l + 1) + (l === 0 ? ' (auto-aim)' : ' (shoot on the move)');
         break;
@@ -4411,9 +4605,11 @@ window.G = window.G || {};
     const tp = Robot.testPlan(S, devH || 0, a.give, limited), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
     let bonus = 0;
     let polished = 0;
+    const pathBoost = Robot.chassisMatch(S) ? D.CHASSIS_PATH : 0; // paths tried on a second robot that drives the same way
+    if (pathBoost && hours > 0 && S.phase !== 'off') Robot.addXP(S, 'autoPath', D.CHASSIS_PATH_XP);
     S.projects.forEach(p => {
       const h = a.give[p.id] || 0, t = tp.give[p.id] || 0, ph = a.pol[p.id] || 0;
-      const extra = h * a.mult(p) * t * perH; // testing catches problems early: less rework
+      const extra = h * a.mult(p) * (t * perH + (pathBoost && Robot.isPathProject(p) ? pathBoost : 0)); // testing catches problems early: less rework
       p.done += h * a.mult(p) + extra; p.lastHours = Math.round(h + ph);
       p.polish = (p.polish || 0) + ph * a.mult(p); p.lastPolish = ph; polished += ph;
       p.test = (p.test || 0) + t; p.lastTest = t; bonus += extra;
@@ -4680,8 +4876,15 @@ window.G = window.G || {};
       tune: ev ? ev.tune : 0.5, conf: ev ? ev.conf : 0.5, tuneAuto: ev ? ev.tuneAuto : 0,
       cond: Robot.condAvg(S), batt: ev && ev.batt != null ? ev.batt : 1, hidden: Math.max(0, Robot.hidden(S) - (ev ? ev.shake * 0.5 : 0)),
       power: G.Cap.power(R.year, cap),
-      autoFail: !!(ev && ev.incNext && ev.incNext.autoFail)
+      autoFail: !!(ev && ev.incNext && (ev.incNext.autoFail || ev.incNext.codeBad)),
+      defSkill: R.year === S.year ? S.defDrill || 0 : 0
     };
+    const inc = (ev && ev.incNext) || {};
+    if (inc.visionOff) { cap.accuracy = Math.round(cap.accuracy * 0.82); cap.vision = Math.round((cap.vision || 0) * 0.5); } // camera calibration skipped
+    if (inc.codeBad) { cap.scoreSpd = Math.round(cap.scoreSpd * 0.8); cap.intake = Math.round(cap.intake * 0.88); }            // wrong code: half the controls dead
+    if (inc.disableAt) out.disableAt = inc.disableAt;
+    if (inc.toolIn) out.toolIn = inc.toolIn;
+    if (inc.teleDelay) out.teleDelay = inc.teleDelay;
     if (ev && ev.incNext && ev.incNext.hidden) out.hidden += ev.incNext.hidden;
     return out;
   };
@@ -4844,7 +5047,7 @@ window.G = window.G || {};
   // ======================= new game =======================
   function newSeasonState(year) {
     return { year: year || null, goals: [], events: [], awards: [], champsQualified: false, champsReason: '', champsPlayoffs: false, einstein: false, worldChamp: false, divWin: false,
-      impactDone: false, impact: 0, outreach: 0, earned: 0, spent: 0, rpSum: 0, qualMatches: 0, matches: 0, faults: 0, legacy: 0 };
+      impactDone: false, impact: 0, outreach: 0, earned: 0, spent: 0, rpSum: 0, qualMatches: 0, matches: 0, faults: 0, legacy: 0, worldFinalist: false, wc: null, cmpImpact: null };
   }
   C.newGame = function (o) {
     const seed = o.seed || ((Date.now() ^ Math.floor(Math.random() * 1e9)) & 0x7fffffff); // o.seed: dev tests only
@@ -5267,6 +5470,9 @@ window.G = window.G || {};
       ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: 0 };
     });
     ev.alliances = alliances;
+    // each Einstein alliance is a division champion: yours keeps its division, the others take the remaining names
+    { const rest = rng.shuffle(DIVS.filter(d => d !== S.champsDiv)); let k = 0; ev.divNames = alliances.map(al => (al === myAll ? S.champsDiv : rest[k++ % rest.length])); }
+    ev.oprBase = C.einsteinOpr(S, ev, div);
     ev.tune = div.tune; ev.conf = div.conf; ev.tuneAuto = div.tuneAuto;
     // Einstein is part of the Championship: same fatigue, same scouting team
     if (div.fatigue != null) { ev.fatigue = div.fatigue; ev.scoutCred = div.scoutCred; }
@@ -5274,9 +5480,29 @@ window.G = window.G || {};
     G.Ev.initPlayoffs(ev);
     return ev;
   };
+  // Einstein starts from what the divisions showed: your division's OPR for its teams, and for the other champions an
+  // estimate from the same strength-to-OPR relation (new Einstein matches then pull the numbers toward what happens there)
+  C.einsteinOpr = function (S, ev, div) {
+    const base = {}, opr = div.opr || {};
+    const pts = (div.teams || []).filter(n => n !== S.team.num && S.teams[n] && opr[n] != null).map(n => [S.teams[n].str, opr[n]]);
+    let a = 0, b = 0;
+    if (pts.length >= 6) {
+      const mx = U.avg(pts.map(p => p[0])), my = U.avg(pts.map(p => p[1]));
+      let sxy = 0, sxx = 0; pts.forEach(p => { sxy += (p[0] - mx) * (p[1] - my); sxx += (p[0] - mx) * (p[0] - mx); });
+      b = sxx ? sxy / sxx : 0; a = my - b * mx;
+    }
+    const top = Object.keys(opr).map(k => opr[k]).sort((x, y) => y - x);
+    ev.teams.forEach(n => {
+      if (opr[n] != null) { base[n] = opr[n]; return; }
+      const T = S.teams[n];
+      base[n] = Math.round(Math.max(0, pts.length >= 6 && T ? a + b * T.str : (top[8] || 0)) * 10) / 10;
+    });
+    return base;
+  };
   C.leaveEvent = function (S) {
     const ev = S.event;
     if (!ev) return;
+    if (ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein)) C.settleImpact(S, 'all');
     S.eventsDone[ev.id] = true;
     S.event = null;
   };
@@ -5328,6 +5554,8 @@ window.G = window.G || {};
     G.Robot.famDrive(S, bi, 1 - Math.exp(-eff / D.FAM.PRACTICE));
     G.Parts.wearElem(S, G.Parts.elemYear(S), h);    // and the game elements on the field
     S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + eff / D.DRILL_PER);
+    // two running robots: one plays defender, so the drive team learns to keep cycling under pressure
+    if (G.Robot.twoBots(S) && R.year === S.year) { out.def0 = S.defDrill || 0; S.defDrill = Math.min(1, (S.defDrill || 0) + eff / D.DEF_DRILL_HOURS); out.def1 = S.defDrill; }
     const dt = C.driveTeam(S), k = 0.15 * eff;
     if (dt.driver.id) studentXP(S, dt.driver, ['drive', 'aware', 'comp'], k);
     if (dt.operator.id) studentXP(S, dt.operator, ['mech', 'comp'], k);
@@ -5483,6 +5711,7 @@ window.G = window.G || {};
       autoDriveTeamIfMissing(S);
     }
     G.Parts.launchMonth(S); // vendor product launches (September to December)
+    if (S.designMonth != null && S.month === S.designMonth && !S.preseason) C.techDesigns(S);
     if (mo === 'Aug') { C.refreshMarket(S); C.inbox(S, 'Mentor market refreshed', 'New mentor candidates are available (Mentors screen).', 'staff'); }
     if (mo === 'Sep') {
       S.students.forEach(s => s.grade++);
@@ -5537,9 +5766,9 @@ window.G = window.G || {};
     G.Robot.newSeason(S, S.year);
     G.Parts.kickoff(S, first);
     // spare parts are specific to each game: last season's stock is no use now
-    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Shop), or turn on auto-restock.', 'dev');
+    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev');
     S.parts.spares = 0; S.parts.spareUse = 0;
-    S.usedAreas = {}; S.practiceWeeks = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
+    S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(DIVS);
     if (!S.regionals.length || S.regionals[0].year !== S.year) S.regionals = D.makeRegionals(S.year, rng);
     if (S.mode === 'career') C.markFull(S);
@@ -5796,9 +6025,9 @@ window.G = window.G || {};
     }
     if (ev.kind === 'einstein') {
       S.season.einstein = true;
-      if (r.won) { S.season.worldChamp = true; S.worldChamps++; S.rep = 100; S.morale = 100; S.lastChamp = S.year; C.inbox(S, 'WORLD CHAMPIONS!', 'Your alliance won Einstein. Unbelievable season!', 'event'); }
+      if (r.won) { S.season.worldChamp = true; S.worldChamps++; S.rep = 100; S.morale = 100; S.lastChamp = S.year; S.lastChampSi = S.si; S.season.wc = C.wcData(S, ev); C.inbox(S, 'WORLD CHAMPIONS!', 'Your alliance won Einstein. Unbelievable season!', 'event'); }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
-      if (r.finalist) S.lastChamp = S.year;
+      if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
       return;
     }
@@ -5806,7 +6035,8 @@ window.G = window.G || {};
     r.awards.forEach(a => S.season.awards.push(a));
     if (ev.kind === 'champs') {
       S.season.champsPlayoffs = r.playoffs;
-      if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
+      S.season.cmpImpact = C.rollChampsImpact(S);
+      if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, opr: Object.assign({}, G.Ev.opr(ev)), tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
     }
     // reputation & morale
     S.rep = U.clamp(S.rep + (r.won ? 8 : r.finalist ? 4 : r.playoffs ? 2 : -1) + r.awards.length * 3, 0, 100);
@@ -5825,6 +6055,163 @@ window.G = window.G || {};
     C.inbox(S, 'Event complete: ' + ev.name, sum, 'event');
     G.News.afterEvent(S, r);
   };
+  // ======================= World Champions: what the celebration shows (kept so History can replay it) =======================
+  const pickN = (arr, n) => { const a = arr.slice(), out = []; while (a.length && out.length < n) out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]); return out; };
+  C.coachName = function (S) {
+    const dt = C.driveTeam(S);
+    if (dt.coach) return dt.coach.name;
+    const m = C.allMentors(S).filter(x => x.role === 'coach').sort((a, b) => b.skill - a.skill)[0];
+    return m ? m.name : null;
+  };
+  C.wcData = function (S, ev) {
+    const me = S.team.num, gy = ev.year, Sz = G.Seasons[gy] || {}, pa = G.Ev.playerAlliance(ev), al = pa >= 0 ? ev.alliances[pa] : [me];
+    const nm = t => (t === me ? S.team.name : (S.teams[t] || {}).name || '');
+    let streak = 1; for (let i = S.history.length - 1; i >= 0 && S.history[i].worldChamp; i--) streak++;
+    const before = S.history.filter(h => h.worldChamp), last = S.history[S.history.length - 1];
+    const year = C.calYear(S, gy), syears = S.history.slice(S.history.length - (streak - 1)).map(x => C.calYear(S, x.year)).concat([year]);
+    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'red' : 'blue', opp = F ? (side === 'red' ? F.blue : F.red) : null;
+    const fw = F ? F.games.filter(g => !g.replay && g.winner === side).length : 2, fl = F ? F.games.filter(g => !g.replay && g.winner && g.winner !== side && g.winner !== 'tie').length : 0;
+    const oc = opp != null && ev.alliances[opp] ? ev.alliances[opp][0] : null;
+    const dt = C.driveTeam(S), driver = dt.driver.name, coach = C.coachName(S), partners = al.filter(t => t !== me);
+    const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
+    const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', team: { num: me, name: S.team.name },
+      alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
+      driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
+      lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
+    const again = streak === 2 ? '… for the second year in a row' : streak > 2 ? '… for the ' + U.ord(streak) + ' year in a row' : titles > 1 ? ', champions once more' : '';
+    const pool = [
+      ['I can\'t feel my hands. Did we actually just win that?', driver + ', driver'],
+      coach ? ['Every call in that final was one we had drilled. All I did was say them out loud.', coach + ', drive coach'] : null,
+      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', 'your lead mentor'],
+      partners[0] ? ['Best alliance we have ever been part of. Thank you for picking us.', 'Team ' + partners[0] + ' ' + nm(partners[0])] : null,
+      partners[1] ? ['We are going to need a bigger trailer for the ride home.', 'Team ' + partners[1] + ' ' + nm(partners[1])] : null,
+      oc != null ? ['Hardest finals we have ever played. Congratulations, you earned every point.', 'Team ' + oc + ' ' + nm(oc) + ', Einstein finalists'] : null,
+      sponsor ? ['We are hanging the banner photo in our lobby. Next season is on us.', sponsor] : null,
+      ['We are adding a trophy case. A bigger one.', 'your school principal'],
+      ['A rookie team asked for a photo with your robot. Then twenty more did.', 'the pit announcer'],
+      lastFinalist ? ['Last year they watched the confetti fall on somebody else. Not today.', 'the Einstein commentator'] : null,
+      streak >= 2 ? ['Back-to-back? Somebody check their code for a cheat mode.', 'a forum comment with 1,200 upvotes'] : ['Who ARE these people? Bookmarking their team page right now.', 'a forum comment'],
+      ['The robot is fine. The drive team is not fine. Nobody is fine. It is wonderful.', 'your pit crew']
+    ].filter(Boolean);
+    d.quotes = [['Ladies and gentlemen, your ' + year + ' FIRST World Champions' + again + '!', 'the Einstein emcee']].concat(pickN(pool, 3));
+    return d;
+  };
+
+  // ======================= Championship: FIRST Impact Award =======================
+  // Regional Impact Award winners are judged again at the Championship: one FIRST Impact Award winner (Hall of Fame) and
+  // six Finalists. The field is the world's strongest Impact programs; your entry is your Impact rating. The Finalists
+  // are announced before Einstein Final 1 and the winner after it (settleImpact applies each announcement once).
+  C.rollChampsImpact = function (S) {
+    const s = S.season, me = S.team.num, rng = G.R;
+    const eligible = S.hallOfFame == null && s.events.some(e => e.kind === 'regional' && (e.awards || []).includes('impact'));
+    const field = Object.keys(S.teams).map(k => S.teams[k]).filter(t => t.num !== me).sort((a, b) => b.impact - a.impact).slice(0, 70).map(t => ({ num: t.num, v: t.impact * 0.9 + rng.norm(0, 4) }));
+    const ir = C.impactRating(S);
+    if (eligible) field.push({ num: me, v: ir.score + rng.norm(0, 4) });
+    field.sort((a, b) => b.v - a.v);
+    const rank = field.findIndex(x => x.num === me);
+    return { eligible, score: Math.round(ir.score), rank: rank < 0 ? null : rank + 1, of: field.length, winner: field[0].num, finalists: field.slice(1, 7).map(x => x.num),
+      out: rank === 0 ? 'winner' : rank > 0 && rank < 7 ? 'finalist' : null, result: null, told: {} };
+  };
+  C.impactCele = function (S, kind) {
+    const s = S.season, gy = S.year, ci = s.cmpImpact, me = S.team.num;
+    const nm = t => (t === me ? S.team.name : (S.teams[t] || {}).name || '');
+    const speakers = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2).map(x => x.name);
+    const biz = C.allMentors(S).filter(x => x.role === 'biz').sort((a, b) => b.skill - a.skill)[0];
+    const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
+    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name }, score: ci.score, speakers, mentor: biz ? biz.name : null,
+      outreach: s.outreach || 0, points: Math.round(s.impact || 0), programs: (S.programs || []).length, seasons: S.history.length + 1,
+      winner: { num: ci.winner, name: nm(ci.winner) }, finalists: ci.finalists.map(n => ({ num: n, name: nm(n) })) };
+    const pool = kind === 'winner' ? [
+      speakers[0] ? ['They asked what happens to our programs when we graduate. I said: come back in ten years and ask the kids we taught.', speakers[0] + ', presenter'] : null,
+      speakers[1] ? ['I practised that presentation in the shower for a month. Worth it.', speakers[1] + ', presenter'] : null,
+      d.mentor ? ['The robot takes six weeks. This took years, and every student who ever ran a demo table owns a piece of it.', d.mentor + ', outreach mentor'] : null,
+      ['We do not give this to the best robot. We give it to the team we want every other team to become.', 'the head judge'],
+      d.programs ? ['Half my class is on a robotics team now. I blame them entirely.', 'a teacher at one of your feeder programs'] : null,
+      sponsor ? ['We sponsored a robotics team. It turns out we sponsored a movement.', sponsor] : null,
+      ['The Hall of Fame banner goes up next to the gym scoreboard. The basketball coach has agreed, in writing.', 'your school principal'],
+      ['I joined because of a robot at the county fair. That was their booth.', 'a rookie from Team ' + ci.finalists[0]]
+    ] : [
+      speakers[0] ? ['Six finalists in the whole world, and they read our number. I am still shaking.', speakers[0] + ', presenter'] : null,
+      d.mentor ? ['Finalist means the judges want to see it again next year. So do I.', d.mentor + ', outreach mentor'] : null,
+      ['Any of these teams could be the model for the program. That is the point of naming them.', 'the head judge'],
+      sponsor ? ['We put the news on the front page of our site before the team got back to the pits.', sponsor] : null,
+      ['A blue banner for outreach. The trophy case did not see that one coming.', 'your school principal']
+    ];
+    d.quotes = pickN(pool.filter(Boolean), 3);
+    return d;
+  };
+  C.settleImpact = function (S, stage) {
+    const ci = S.season && S.season.cmpImpact; if (!ci) return null;
+    ci.told = ci.told || {};
+    const me = S.team.num, nm = n => n + ' ' + (n === me ? S.team.name : (S.teams[n] || {}).name || '');
+    const all = stage === 'all';
+    if ((all || stage === 'fin') && !ci.told.fin) {
+      ci.told.fin = true;
+      if (ci.out === 'finalist') {
+        ci.result = 'finalist'; ci.cele = C.impactCele(S, 'finalist');
+        S.rep = Math.min(100, S.rep + 6); S.morale = Math.min(100, S.morale + 10); S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 8); });
+        C.inbox(S, 'FIRST Impact Award Finalist!', 'On Einstein, before Final 1, the judges named the six FIRST Impact Award Finalists, and your team is one of them. A blue banner is on its way to your wall (History).', 'event');
+      }
+    }
+    if ((all || stage === 'win') && !ci.told.win) {
+      ci.told.win = true;
+      if (ci.out === 'winner') {
+        ci.result = 'winner'; ci.cele = C.impactCele(S, 'winner'); S.hallOfFame = S.si;
+        S.rep = 100; S.morale = 100; S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 20); });
+        C.inbox(S, 'FIRST IMPACT AWARD!', 'After Einstein Final 1 the judges called your team to the field: you won the FIRST Impact Award, the most prestigious award in the program, and joined the Hall of Fame. Hall of Fame teams are invited to every future Championship.', 'event');
+      } else {
+        C.inbox(S, 'FIRST Impact Award: Team ' + nm(ci.winner), 'Team ' + nm(ci.winner) + ' won the FIRST Impact Award at the Championship. Finalists: ' + ci.finalists.map(nm).join(', ') + '.' +
+          (ci.out === 'finalist' ? ' Your team was among the Finalists.' : ci.eligible ? ' Your entry (Impact rating ' + ci.score + ') placed ' + U.ord(ci.rank) + ' of ' + ci.of + '.' : S.hallOfFame != null ? ' Your team is already in the Hall of Fame.' : ' Only this season\'s regional Impact Award winners are judged at the Championship.'), 'event');
+      }
+    }
+    return ci;
+  };
+
+  // ======================= The state of the art moves on (offseason) =======================
+  const techTeam = (S, rng) => { const ks = Object.keys(S.teams || {}); return ks.length ? rng.pick(ks) : String(rng.int(100, 9999)); };
+  C.techHit = function (S, area, pct) {
+    const xp0 = S.know[area] || 0, l0 = D.knowLevel(xp0), guard = S.mentors.some(m => m.spec === area);
+    const xp1 = Math.round(Math.min(xp0, D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP) * (1 - pct * (guard ? 0.5 : 1)));
+    S.know[area] = xp1;
+    return { area, name: D.AREA[area].name, xp0, xp1, l0, l1: D.knowLevel(xp1), guard, pct: Math.round(pct * (guard ? 0.5 : 1) * 100) };
+  };
+  function techNews(S, kind, picks, pct) {
+    const rng = G.R, year = C.calYear(S, S.order[S.upcoming]) || '';
+    const items = picks.map(x => Object.assign({ title: x.title, body: x.body, tag: x.tag || 'Seen online' }, C.techHit(S, x.area, pct)));
+    const talk = rng.shuffle(picks.reduce((a, x) => a.concat(x.talk || []), []).concat(rng.shuffle(D.TECH_TALK[kind].slice()))).slice(0, 3).map(q => [q[0], q[1].replace('{t}', techTeam(S, rng))]);
+    const lost = items.filter(i => i.l1 < i.l0), guard = items.filter(i => i.guard);
+    const take = (lost.length ? 'Knowledge levels down: ' + lost.map(i => i.name + ' ' + i.l0 + ' → ' + i.l1).join(', ') + '.' : 'No knowledge level lost, but the XP is gone.') +
+      (guard.length ? ' Your specialist mentor' + (guard.length > 1 ? 's' : '') + ' halved the loss in ' + guard.map(i => i.name).join(' and ') + '.' : ' A mentor who specializes in an area halves its loss.') + ' Research (Design Office) wins it back.';
+    const L = { kind, title: kind === 'rules' ? 'Rule and vendor changes for ' + (year || 'next season') : 'New designs spotted online', month: D.MONTHS[S.month], year, intro: rng.pick(D.TECH_INTRO[kind]), items, talk, take };
+    const text = L.intro + '\n\n' + items.map(i => i.title + ' (' + i.tag + ') — ' + i.body + '\n→ ' + i.name + ': −' + i.pct + '% know-how (' + i.xp0 + ' → ' + i.xp1 + ' XP' + (i.l1 < i.l0 ? ', Level ' + i.l0 + ' → ' + i.l1 : '') + ')').join('\n\n') +
+      '\n\nWhat people are saying:\n' + talk.map(q => '“' + q[0] + '” — ' + q[1]).join('\n') + '\n\n' + take;
+    C.inbox(S, L.title, text, 'know');
+    (S.launchQueue = S.launchQueue || []).push(L);
+    return L;
+  }
+  // pick n entries from a list, avoiding the ones used last year and areas already hit this offseason
+  function techPick(S, list, n, key) {
+    const rng = G.R, seen = (S.techSeen = S.techSeen || {}), lastIds = seen[key] || [], hit = seen.areas || [];
+    let pool = rng.shuffle(list.filter(x => !lastIds.includes(x.id) && !hit.includes(x.area)));
+    if (pool.length < n) pool = pool.concat(rng.shuffle(list.filter(x => !pool.includes(x) && !hit.includes(x.area))));
+    const out = []; pool.forEach(x => { if (out.length < n && !out.some(y => y.area === x.area)) out.push(x); });
+    seen[key] = out.map(x => x.id); seen.areas = hit.concat(out.map(x => x.area));
+    return out;
+  }
+  // Start of each offseason (after a season was played): next season's rule and vendor changes
+  C.techRules = function (S) {
+    if (S.mode !== 'career' || !S.history.length) return null;
+    (S.techSeen = S.techSeen || {}).areas = [];
+    S.designMonth = G.R.pick([2, 3, 4]); // new designs spread in July, August or September
+    return techNews(S, 'rules', techPick(S, D.TECH_RULES, D.TECH_RULES_N, 'rules'), D.TECH_RULE_PCT);
+  };
+  C.techDesigns = function (S) {
+    if (S.mode !== 'career' || !S.history.length) return null;
+    S.designMonth = null;
+    return techNews(S, 'designs', techPick(S, D.TECH_DESIGNS, D.TECH_DESIGNS_N, 'designs'), D.TECH_DESIGN_PCT);
+  };
+
   C.poolThreshold = S => ({ easy: 75, normal: 85, hard: 95 }[S.diff] || 85);
   C.poolTotal = S => { const p = S.season.events.filter(e => e.kind === 'regional').map(e => e.pool).sort((a, b) => b - a); return (p[0] || 0) + (p[1] || 0); };
   function poolCheck(S) {
@@ -5835,7 +6222,8 @@ window.G = window.G || {};
   }
   C.toChamps = function (S) {
     if (!S.season.champsQualified) poolCheck(S);
-    if (!S.season.champsQualified && S.mode === 'career' && S.lastChamp === S.year - 1 && S.orderMode === 'real') { S.season.champsQualified = true; S.season.champsReason = 'Defending champions'; }
+    if (!S.season.champsQualified && S.mode === 'career' && (S.lastChampSi != null ? S.lastChampSi === S.si - 1 : S.lastChamp === S.year - 1 && S.orderMode === 'real')) { S.season.champsQualified = true; S.season.champsReason = 'Defending champions'; }
+    if (!S.season.champsQualified && S.hallOfFame != null && S.hallOfFame < S.si) { S.season.champsQualified = true; S.season.champsReason = 'Hall of Fame team'; }
     S.phase = 'champs';
     if (S.season.champsQualified) {
       C.inbox(S, 'Championship', 'You are qualified (' + S.season.champsReason + '). Registration ' + U.money(D.FEES.champs) + ' + flights. Attend from the HQ screen, or Continue to skip.', 'event');
@@ -5855,6 +6243,7 @@ window.G = window.G || {};
     s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
     if (s.champsQualified) p += 50;
     if (s.divWin) p += 150;
+    if (s.cmpImpact && s.cmpImpact.result === 'winner') p += 350; else if (s.cmpImpact && s.cmpImpact.result === 'finalist') p += 120;
     if (s.worldChamp) p += 400;
     return p;
   };
@@ -5864,22 +6253,27 @@ window.G = window.G || {};
     year = C.calYear(G.S, year); // random career order: the fictional timeline
     if (e.kind === 'regional' && e.won) out.push({ award: 'Winner', year, event: e.name });
     if (e.kind === 'champs' && e.won) out.push({ award: 'Division Winner', year, event: e.name.replace('Championship — ', '') + ' · FIRST Championship' });
-    if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true });
+    if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true, world: true, key: 'wc' });
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
   C.banners = function (S) {
     const out = [];
-    const add = (year, events, worldChamp) => {
-      events.forEach(e => out.push(...C.eventBanners(e, year)));
-      if (worldChamp) out.push(...C.eventBanners({ kind: 'einstein', won: true }, year));
+    const add = (gy, events, s) => {
+      const n0 = out.length;
+      events.forEach(e => out.push(...C.eventBanners(e, gy)));
+      if (s.worldChamp) out.push(...C.eventBanners({ kind: 'einstein', won: true }, gy));
+      const ci = s.cmpImpact && s.cmpImpact.result;
+      if (ci) out.push({ award: ci === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: C.calYear(S, gy), event: 'FIRST Championship', gold: ci === 'winner', world: true, key: 'impact' });
+      for (let i = n0; i < out.length; i++) out[i].gy = gy;
     };
-    S.history.forEach(h => add(h.year, h.events, h.worldChamp));
-    if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season.worldChamp);
+    S.history.forEach(h => add(h.year, h.events, h));
+    if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season);
     return out;
   };
   C.toReview = function (S) {
     if (S.phase === 'review') return;
+    C.settleImpact(S, 'all');
     const s = S.season;
     C.checkSponsorGoals(S, true);
     let dSup = 0;
@@ -5925,7 +6319,7 @@ window.G = window.G || {};
     const decay = S.equip.kb ? 0.1 : 0.2;
     D.AREAS.forEach(a => { if (!S.usedAreas[a.id] && !S.mentors.some(m => m.spec === a.id)) S.know[a.id] = Math.round((S.know[a.id] || 0) * (1 - decay)); });
     S.history.push({
-      year: S.year, events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp,
+      year: S.year, events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
       earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0, impactRaw: s.impact
     });
@@ -5942,6 +6336,7 @@ window.G = window.G || {};
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
     G.Parts.teaser(S);
+    C.techRules(S);
   };
   C.grade = function (S) {
     const sc = D.SCENARIOS.find(x => x.id === S.scenario) || {};
@@ -6631,7 +7026,14 @@ window.G = window.G || {};
     D.ELEM_SETS.forEach(e => { st['elem' + e.id] = season ? rng.chance(U.clamp(D.STOCK.elem + d, 0.1, 1)) : true; });
     S.stock = st;
   };
-  P.inStock = (S, id) => !S.stock || S.stock[id] !== false;
+  // In the offseason everything is in stock (the shop says so): only in-season weeks can sell out
+  P.inStock = (S, id) => !P.inSeason(S) || !S.stock || S.stock[id] !== false;
+  // How many of a product fit on the shelf right now: free slots plus worse parts it would push off (worn or older ones)
+  P.buyRoom = function (S, prodId) {
+    const prod = PROD[prodId]; if (!prod) return 0;
+    const nv = prod.perf * 0.65 + 0.35;
+    return D.PART_CAT[prod.cat].max - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9).length;
+  };
 
   // ======================= inventory =======================
   P.items = (S, cat) => (S.inv && S.inv[cat]) || [];
@@ -6655,16 +7057,22 @@ window.G = window.G || {};
     if (!P.forSale(S).some(x => x.prod.id === prodId)) return 'No longer sold';
     if (!P.inStock(S, prodId)) return 'Out of stock this week. In season, check back next week (or stock up before Kickoff).';
     const cat = D.PART_CAT[prod.cat];
-    if (cat.kit || cat.id === 'pneu' || cat.id === 'camera') { n = Math.min(n, cat.max - P.count(S, prod.cat)); if (n <= 0) return 'Storage is full (' + cat.max + ' ' + cat.short.toLowerCase() + ')'; }
-    // a full shelf only takes parts better than its worst ones (otherwise the new ones would be thrown straight out)
-    { const nv = prod.perf * 0.65 + 0.35, room = cat.max - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv).length;
-      if (room <= 0) return 'No room: all ' + cat.max + ' ' + cat.short.toLowerCase() + ' slots hold parts at least as good as this. Sell some first.';
+    // a full shelf only takes parts better than its worst ones (worn or older): those are sold if they still can be, else recycled
+    { const room = P.buyRoom(S, prodId);
+      if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
     const cost = n * P.price(S, prod);
     { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, n + '× ' + prod.name);
+    const had = P.items(S, prod.cat).slice();
     const dropped = P.add(S, prod.cat, prodId, n, 1);
-    return { bought: n, replaced: dropped };
+    let sold = 0, got = 0;
+    if (dropped) {
+      const keep = new Set(P.items(S, prod.cat));
+      had.filter(it => !keep.has(it)).forEach(it => { const v = it.h > D.SELL_MIN ? P.resale(S, it) : 0; if (v > 0) { sold++; got += v; } });
+      if (got) G.Career.earn(S, got, 'Sold ' + sold + ' replaced ' + cat.short.toLowerCase());
+    }
+    return { bought: n, replaced: dropped, sold, got };
   };
 
   // The product to buy for a category from a vendor (electronics) or the COTS suppliers
@@ -6792,7 +7200,7 @@ window.G = window.G || {};
     Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (tot[cat] > have) miss.push({ cat, n: tot[cat] - have }); });
     return miss;
   };
-  P.shortText = miss => 'Needs ' + miss.map(m => m.n + ' more ' + (m.n > 1 ? D.PART_CAT[m.cat].short.toLowerCase() : D.PART_CAT[m.cat].short.toLowerCase().replace(/s$/, ''))).join(', ') + ' (Shop)';
+  P.shortText = miss => 'Needs ' + miss.map(m => m.n + ' more ' + (m.n > 1 ? D.PART_CAT[m.cat].short.toLowerCase() : D.PART_CAT[m.cat].short.toLowerCase().replace(/s$/, ''))).join(', ') + ' (Inventory)';
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
   P.kitsUsed = function (S, cat) {
     let used = 0;
@@ -6951,7 +7359,7 @@ window.G = window.G || {};
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
     G.Career.inbox(S, rookie ? 'Rookie Kit of Parts' : 'Kit of Parts', 'This season\'s ' + (rookie ? 'rookie kit (bigger than the yearly kit every team gets)' : 'kit') + ' is in: ' + P.kopText(kit) + ' and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
       (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
-      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Shop, and in season it often sells out.', 'dev');
+      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
   };
   // ======================= product launch events =======================
   const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
@@ -7032,7 +7440,7 @@ window.G = window.G || {};
       L.title = V.name + ' launch: ' + prods.map(p => p.name).join(' & ');
       const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + Math.round(p.oldPerf * 100) + ' → ' + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
         '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
-        '\n\nOn sale now in the Shop. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
+        '\n\nOn sale now in the Inventory tab. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
       G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
       (S.launchQueue = S.launchQueue || []).push(L);
     });
@@ -7638,7 +8046,12 @@ window.G = window.G || {};
       }
       const ss = m && m.ss[a];
       if (ss) {
-        for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
+        if (ss.fc) ss.fc.forEach((f, k) => {
+          const g = k * 60 * Math.PI / 180, n = f.lv[0] + f.lv[1] + f.lv[2] + f.lv[3];
+          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? 0.13 : 0.11, COL.algae); }
+          if (n) { const p = P(sym, a, 4.49 + Math.cos(g) * 1.16, 4.03 + Math.sin(g) * 1.16); text(ctx, s, String(n), p.x, p.y, n >= 11 ? '#3ecf8e' : '#f3efe6', 8); }
+        });
+        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
         text(ctx, s, ss.lv[3] + '·' + ss.lv[2] + '·' + ss.lv[1] + '·' + ss.lv[0], c.x, c.y, '#fff', 9);
       } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 9);
       // coral stations in the two corners of the alliance wall
@@ -7694,10 +8107,16 @@ window.G = window.G || {};
       for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
       apoly(ctx, s, sym, a, [[0.05, 0.05], [1.45, 0.05], [0.05, 1.65]], als(a), alc(a), 2);
       atext(ctx, s, sym, a, 'OUTPOST', 0.5, 0.45, alc(a), 7);
-      if (m && m.ss[a] && m.ss[a].pool > 0) { const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8); }
+      if (m && m.ss[a] && m.ss[a].pool > 0) {
+        const zr = seeded(a === 'red' ? 71 : 72), nb = Math.min(48, Math.ceil(m.ss[a].pool / 2));
+        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+        const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8);
+      }
     });
     const r = seeded(2026);
-    for (let i = 0; i < 80; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    const nN = m && m.neutral != null ? Math.min(120, Math.ceil(m.neutral / 3)) : 80;
+    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    if (m && m.neutral != null) text(ctx, s, 'neutral zone fuel ' + Math.round(m.neutral), FW / 2, 0.22, COL.fuel, 8);
   };
 
   // ------------------------------------------------------------------
@@ -8027,14 +8446,14 @@ window.G = window.G || {};
   });
 
   // ---------------- components ----------------
-  UI.bar = (v, max, col, mark) => '<div class="bar"><i style="width:' + U.clamp(100 * v / (max || 100), 0, 100) + '%;background:' + (col || 'var(--accent)') + '"></i>' + (mark != null ? '<b style="left:' + U.clamp(100 * mark / (max || 100), 0, 100) + '%"></b>' : '') + '</div>';
+  UI.bar = (v, max, col, mark) => '<div class="bar"><i style="width:' + U.clamp(100 * v / (max || 100), 0, 100) + '%;background:' + (col || 'var(--data)') + '"></i>' + (mark != null ? '<b style="left:' + U.clamp(100 * mark / (max || 100), 0, 100) + '%"></b>' : '') + '</div>';
   UI.stat = (n, v, ceil, col) => '<div class="statrow"><span class="n">' + h(n) + '</span>' + UI.bar(v, 100, col, ceil) + '<span class="v">' + Math.round(v) + '</span></div>';
   UI.card = (title, body, extra, cls) => '<div class="card ' + (cls || '') + '"><div class="ct">' + title + '<span class="sp"></span>' + (extra || '') + '</div>' + body + '</div>';
   UI.tag = (t, k) => '<span class="tag ' + (k || '') + '">' + h(t) + '</span>';
   // Blue banner (simplified FRC style): emblem, award, year, event
-  UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (b.gold ? '★' : b.award === 'Impact Award' ? '✦' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div><div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
+  UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (/Impact/.test(b.award) ? '✦' : b.gold ? '★' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div><div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
   UI.bannerWall = (list, isNew) => '<div class="banners">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
-  UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--accent)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
+  UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
     UI.job(() => { const c = document.getElementById(id); if (c) G.Render.robotSide(c.getContext('2d'), c.width, c.height, look, a, team); });
@@ -8076,7 +8495,7 @@ window.G = window.G || {};
         '<div class="xs muted" style="padding:8px 10px"><span class="t">Other screens open again after you leave the event from its results page.</span></div></div>';
     }
     const unread = S.inbox.filter(m => !m.read).length;
-    const items = [['hq', 'hq', 'Headquarters'], ['inbox', 'inbox', 'Inbox', unread], ['garage', 'garage', 'Garage'], ['design', 'design', 'Design Office'], ['parts', 'parts', 'Shop'], ['know', 'know', 'Tech Knowledge'],
+    const items = [['hq', 'hq', 'Headquarters'], ['inbox', 'inbox', 'Inbox', unread], ['garage', 'garage', 'Garage'], ['design', 'design', 'Design Office'], ['parts', 'parts', 'Inventory'], ['know', 'know', 'Tech Knowledge'],
       ['team', 'team', 'Team'], ['mentors', 'mentors', 'Mentors'], ['workshop', 'workshop', 'Workshop'], ['finance', 'finance', 'Finance'], ['calendar', 'calendar', 'Calendar']];
     if (S.history.length || G.Career.banners(S).length) items.push(['history', 'history', 'History']);
     return '<div class="side">' + items.map(i => '<div class="nav ' + (cur === i[0] ? 'on' : '') + '" data-act="nav" data-arg="' + i[0] + '"><span class="ic">' + UI.icon(i[1], 18) + '</span><span class="t">' + i[2] + '</span>' + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>').join('') + '</div>';
@@ -8114,6 +8533,7 @@ window.G = window.G || {};
   UI.launchModal = function () {
     const S = G.S, L = S.launchQueue && S.launchQueue[0];
     if (!L) return UI.regReminder();
+    if (L.kind) return UI.techModal(L, S.launchQueue.length - 1);
     const V = D.VENDORS[L.v], more = S.launchQueue.length - 1;
     const prod = p => '<div class="card flat mb" style="border-left:3px solid ' + V.color + '"><div class="row"><b>' + h(p.name) + '</b> ' + UI.tag('NEW', 'acc') + '<span class="sp"></span><b>' + U.money(p.price) + '</b><span class="xs muted">each</span></div>' +
       '<div class="sm muted mt">' + h(p.tag) + '</div>' +
@@ -8123,8 +8543,22 @@ window.G = window.G || {};
       '<p class="muted">' + h(L.intro) + '</p>' + L.prods.map(prod).join('') +
       '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + L.talk.map(([t, w]) => '<div class="sm mt">“' + h(t) + '” <span class="xs muted">— ' + h(w) + '</span></div>').join('') +
       '<div class="hint mt">' + h(L.take) + '</div>' +
-      '<div class="row mt"><span class="xs muted">Also in your inbox.</span><span class="sp"></span>' + (more ? '<button class="btn" data-act="launchNext">Next launch (' + more + ' more)</button>' : '<button class="btn" data-act="launchNext">Close</button>') + '<button class="btn primary" data-act="launchShop">Open the Shop</button></div>');
+      '<div class="row mt"><span class="xs muted">Also in your inbox.</span><span class="sp"></span>' + (more ? '<button class="btn" data-act="launchNext">Next launch (' + more + ' more)</button>' : '<button class="btn" data-act="launchNext">Close</button>') + '<button class="btn primary" data-act="launchShop">Open the Inventory</button></div>');
   };
+  // Offseason: the state of the art moves (rule and vendor changes in May, new designs in July-September)
+  UI.techModal = function (L, more) {
+    const rules = L.kind === 'rules', col = rules ? 'var(--warn)' : 'var(--info)';
+    const item = i => '<div class="card flat mb" style="border-left:3px solid ' + col + '"><div class="row wrap"><b>' + h(i.title) + '</b> ' + UI.tag(i.tag, rules ? 'warn' : 'info') + '<span class="sp"></span>' + UI.tag(i.name) + '</div>' +
+      '<div class="sm muted mt">' + h(i.body) + '</div>' +
+      '<div class="row mt"><div class="sp">' + UI.bar(i.xp1, Math.max(i.xp0, 1), i.l1 < i.l0 ? 'var(--bad)' : 'var(--warn)') + '</div><span class="sm b nowrap">' + (i.l1 < i.l0 ? 'Level ' + i.l0 + ' → <span class="bad">' + i.l1 + '</span>' : 'Level ' + i.l0 + ' (kept)') + '</span></div>' +
+      '<div class="xs muted">Know-how −' + i.pct + '%: ' + i.xp0 + ' → ' + i.xp1 + ' XP' + (i.guard ? ' · <span class="good">your specialist mentor halved the loss</span>' : '') + (i.xp0 === 0 ? ' · nothing to lose here yet' : '') + '</div></div>';
+    UI.modal('<div class="xs b" style="color:' + col + '">' + (rules ? 'NEXT SEASON · ROBOT RULES AND VENDOR UPDATES' : 'SPOTTED ONLINE · ' + h(String(L.month).toUpperCase())) + '</div><h2>' + h(L.title) + '</h2>' +
+      '<p class="muted">' + h(L.intro) + '</p>' + L.items.map(item).join('') +
+      '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + L.talk.map(q => '<div class="sm mt">“' + h(q[0]) + '” <span class="xs muted">— ' + h(q[1]) + '</span></div>').join('') +
+      '<div class="hint mt">' + h(L.take) + '</div>' +
+      '<div class="row mt"><span class="xs muted">Also in your inbox.</span><span class="sp"></span>' + (more ? '<button class="btn" data-act="launchNext">Next (' + more + ' more)</button>' : '<button class="btn" data-act="launchNext">Close</button>') + '<button class="btn primary" data-act="launchKnow">Tech Knowledge</button></div>');
+  };
+  UI.A.launchKnow = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.go('know'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
   UI.A.launchNext = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); else { UI.closeModal(); UI.regReminder(); } };
   UI.A.launchShop = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.go('parts'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
   // October: regional registration opens for next season
@@ -8281,7 +8715,7 @@ window.G = window.G || {};
       const d = ev.def;
       const cost = d.kind === 'champs' ? 'Registration ' + U.money(D.FEES.champs) + ' + travel ' + U.money(C.travelCost(S, d)) : d.kind === 'einstein' ? '' : 'Travel ' + U.money(C.travelCost(S, d));
       const ap = C.arrivalPreview(S, d);
-      const arr = ap ? ' · Robot arrives at ' + (ap.notes.length ? '<span class="warn">about ' + ap.cond + '%</span> (' + h(ap.notes.join(', ')) + ')' + (ap.spares > 0 ? ' — buy ' + ap.spares + ' spare part' + (ap.spares > 1 ? 's' : '') + ' in the Workshop first' : '') : '<span class="good">100%</span>') : '';
+      const arr = ap ? ' · Robot arrives at ' + (ap.notes.length ? '<span class="warn">about ' + ap.cond + '%</span> (' + h(ap.notes.join(', ')) + ')' + (ap.spares > 0 ? ' — buy ' + ap.spares + ' spare part' + (ap.spares > 1 ? 's' : '') + ' in the Inventory tab first' : '') : '<span class="good">100%</span>') : '';
       const fat = d.kind !== 'einstein' && C.inSeason(S) ? ' · Team fatigue <b class="' + (S.fatigue > 40 ? 'warn' : '') + '">' + Math.round(S.fatigue) + ' (' + C.fatigueLabel(S.fatigue) + ')</b>' : '';
       return box('This week: ' + h(d.name), cost + arr + fat, '<button class="btn primary lg" data-act="goEvent">Go to event ▶</button>' + (d.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip</button>' : ''));
     }
@@ -8361,7 +8795,7 @@ window.G = window.G || {};
       o += '<div class="botimg">' + UI.sideCanvas(G.Robot.lookOf(S, bi), 'blue', S.team.num, 340, 160) + '</div>' +
         '<div class="kv"><span class="k">Power</span><span>' + G.Cap.power(year, cap) + '</span><span class="k">Weight</span><span class="' + (w > 125 ? 'bad b' : '') + '">' + w + ' / 125 lb</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condOf(R, bi)) + '%</span></div>' +
         (fam != null ? '<div class="statrow wide mt"><span class="n">Driver familiarity</span>' + UI.bar(fam * 100, 100, UI.colorFor(fam * 100)) + '<span class="v">' + Math.round(fam * 100) + '%</span></div>' : '') +
-        (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Shop).</div>' : '');
+        (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Inventory).</div>' : '');
     } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build subsystems (Design Office: Build copy) or fit stored ones.</div></div>';
     o += '<table class="t slots mt">' + G.Seasons[year].subs.filter(sd => sd.id !== 'soft').map(sd => {
       const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u);
@@ -8384,6 +8818,7 @@ window.G = window.G || {};
         o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A simple drivetrain from parts on the shelf, built in a few days without a project slot. Programmers and drivers can start before the competition robot drives: ' +
           (G.Shop.lvl(S, 'pfield') ? 'counts as half a second robot on your Practice Field.' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field (code, autos, vision and drivetrain projects, and driver practice).') + '</div><div class="row wrap gap4 mt">' +
           D.CHASSIS_CONCEPTS.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid); if (!c) return ''; const q = G.Robot.quote(S, { type: 'testChassis', concept: cid }); return '<button class="btn sm" data-act="startChassis" data-arg="' + cid + '"' + (q.err ? ' disabled title="' + h(q.err) + '"' : '') + '>' + h(c.name) + ' · ' + q.hours + ' h · ' + U.money(q.cost) + '</button>'; }).join('') + '</div>' +
+          (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f).map(k => G.Seasons.concept(R.year, 'drive', k).name); return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '% (same way of driving). Any chassis adds defense drills for the drivers.</div>'; })() +
           (G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err ? '<div class="xs warn mt">' + h(G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err) + '</div>' : '') + '</div></div>';
       }
       const run2 = S.projects.find(p => p.type === 'practiceBot');
@@ -8515,12 +8950,13 @@ window.G = window.G || {};
     if (!th.total) return compact ? '' : '<div class="sm muted">No testing time this turn.</div>';
     const unit = th.unit, conf = G.Robot.eventStart(S, { year: S.year }).conf, pw = S.practiceWeeks || 0;
     const devN = S.projects.filter(th.limited ? G.Robot.chassisTestable : G.Robot.testable).length, cap = G.Robot.testCap(S), devUse = Math.round(th.dev - G.Robot.testPlan(S, th.dev, C.hoursPlan(S).give, th.limited).idle);
-    if (compact) return '<div class="sm mt"><span class="muted">Testing ' + th.total + ' h:</span> <span class="info">' + th.dev + ' h dev</span> · <span class="acc">' + th.drive + ' h driving</span> · confidence ' + Math.round(conf * 100) + '%</div>';
+    if (compact) return '<div class="sm mt"><span class="muted">Testing ' + th.total + ' h:</span> <span class="info">' + th.dev + ' h dev</span> · <span class="dat">' + th.drive + ' h driving</span> · confidence ' + Math.round(conf * 100) + '%</div>';
     const pct = v => Math.round(100 * v / Math.max(1, th.total));
     let o = (th.limited ? '<div class="hint mb">' + UI.icon('garage', 14) + ' <b>Test chassis</b>: no Practice Field, so these hours are in the shop or parking lot. Development testing works on robot code, autos, vision and drivetrain projects only, at half the cost; driver practice counts ' + Math.round(D.CHASSIS_ELEM * 100) + '%. A Practice Field (Workshop) unlocks full testing.</div>' : '') +
       '<div class="row wrap mb"><div><span class="hnum">' + th.total + ' h</span> <span class="xs muted">testing this ' + unit + '</span></div><span class="sp"></span>' +
       '<div class="row wrap gap4">' + C.TEST_SPLITS.map(v => '<button class="btn sm ' + (Math.abs((S.testSplit == null ? 0.5 : S.testSplit) - v) < 0.01 ? 'sel' : '') + '" data-act="testSplit" data-arg="' + v + '"' + (th.canDrive ? '' : ' disabled') + '>' + (v === 0 ? 'All dev' : v === 1 ? 'All driving' : Math.round((1 - v) * 100) + ' / ' + Math.round(v * 100)) + '</button>').join('') + '</div></div>' +
-      '<div class="hbar"><span style="width:' + pct(th.dev) + '%;background:var(--info)" title="Development testing ' + th.dev + ' h"></span><span style="width:' + pct(th.drive) + '%;background:var(--accent)" title="Driver practice ' + th.drive + ' h"></span></div>';
+      '<div class="hbar"><span style="width:' + pct(th.dev) + '%;background:var(--info)" title="Development testing ' + th.dev + ' h"></span><span style="width:' + pct(th.drive) + '%;background:var(--data)" title="Driver practice ' + th.drive + ' h"></span></div>' +
+      '<div class="row xs muted mt"><span class="cdot" style="background:var(--info)"></span>Development testing<span class="cdot" style="background:var(--data);margin-left:12px"></span>Driver practice</div>';
     // development testing
     let dv = '<b class="info">Development testing · ' + th.dev + ' h</b><div class="xs muted">Test upgrades on the field: projects finish faster (up to +' + Math.round(D.TEST_GAIN * D.TEST_PER_PROJ * 100) + '% a ' + unit + ') and come out better (bigger gains, more reliable). Each project can use up to ' + cap + ' h a ' + unit + ', and only about ' + Math.round(D.TEST_SHARE * 100) + '% of the build hours it gets, so bigger programs can use more. ' + U.money(D.TEST_COST) + ' per hour in parts.</div>';
     if (th.dev) {
@@ -8528,14 +8964,24 @@ window.G = window.G || {};
       else dv += '<div class="xs mt">' + devN + ' project' + (devN > 1 ? 's' : '') + ' can use ' + devUse + ' h · about ' + U.money(devUse * D.TEST_COST * (th.limited ? D.CHASSIS_TEST_COST : 1)) + '</div>' + (devUse < th.dev ? '<div class="xs warn">' + (th.dev - devUse) + ' h can\'t be used: your projects aren\'t getting enough build hours to test that much. Shift time to driving or run more projects.</div>' : '');
     }
     // driver practice
-    let dr = '<b class="acc">Driver practice · ' + th.drive + ' h</b><div class="xs muted">Builds drive-team skills and confidence (faster cycles, cleaner alignment, fewer fouls, surer climbs). Cheap: about ' + D.DRILL_SPARES + ' spare parts per hour and a little battery wear.</div>';
+    let dr = '<b class="dat">Driver practice · ' + th.drive + ' h</b><div class="xs muted">Builds drive-team skills and confidence (faster cycles, cleaner alignment, fewer fouls, surer climbs). Cheap: about ' + D.DRILL_SPARES + ' spare parts per hour and a little battery wear.</div>';
     if (!th.canDrive) dr += '<div class="xs warn mt">No robot to drive yet. All testing time goes to development.</div>';
     else {
-      dr += '<div class="statrow wide mt"><span class="n">Practice ' + pw.toFixed(1) + '/' + D.DRILL_CAP + '</span>' + UI.bar(pw, D.DRILL_CAP, 'var(--accent)') + '<span class="v">' + Math.round(conf * 100) + '%</span></div><div class="xs muted">Event-start confidence ' + Math.round(conf * 100) + '% (resets at Kickoff; a typical team sits around 60%).' + (pw >= D.DRILL_CAP - 0.05 ? ' <span class="good">Fully practiced: extra hours now only build skills.</span>' : '') + '</div>';
-      if (th.elem < 0.99) dr += '<div class="xs warn">Game elements fill ' + Math.round(G.Parts.elemFill(S, G.Parts.elemYear(S)) * 100) + '% of your practice field: driver practice is ' + Math.round(th.elem * 100) + '% effective (<a href="#" data-act="partsElem">Shop → Game elements</a>).</div>';
+      dr += '<div class="statrow wide mt"><span class="n">Practice ' + pw.toFixed(1) + '/' + D.DRILL_CAP + '</span>' + UI.bar(pw, D.DRILL_CAP, 'var(--data)') + '<span class="v">' + Math.round(conf * 100) + '%</span></div><div class="xs muted">Event-start confidence ' + Math.round(conf * 100) + '% (resets at Kickoff; a typical team sits around 60%).' + (pw >= D.DRILL_CAP - 0.05 ? ' <span class="good">Fully practiced: extra hours now only build skills.</span>' : '') + '</div>';
+      if (th.elem < 0.99) dr += '<div class="xs warn">Game elements fill ' + Math.round(G.Parts.elemFill(S, G.Parts.elemYear(S)) * 100) + '% of your practice field: driver practice is ' + Math.round(th.elem * 100) + '% effective (<a href="#" data-act="partsElem">Inventory → Game elements</a>).</div>';
       { const bi = G.Robot.driveBot(S), R = S.robot, fam = bi >= 0 ? G.Robot.famAvg(R, bi) : null;
         if (bi >= 0) dr += '<div class="xs mt">Drivers practice on <b>' + h(R.bots[bi].name) + '</b>' + (bi === (R.comp || 0) ? ' (the competition robot)' : ' <span class="warn">(not the competition robot)</span>') + (fam != null ? ' · familiarity ' + Math.round(fam * 100) + '%' : '') + ' · <a href="#" data-act="nav" data-arg="garage">Garage</a></div>';
-        if (th.drive && S.parts.spares <= 0 && bi >= 0) dr += '<div class="xs bad">Out of spare parts: practice will wear ' + h(R.bots[bi].name) + '.</div>'; }
+        if (th.drive && S.parts.spares <= 0 && bi >= 0) dr += '<div class="xs bad">Out of spare parts: practice will wear ' + h(R.bots[bi].name) + '.</div>';
+        if (R && R.year === S.year) {
+          const dd = S.defDrill || 0, two = G.Robot.twoBots(S);
+          if (two || dd > 0) dr += '<div class="statrow wide mt"><span class="n">Defense drills</span>' + UI.bar(dd * 100, 100, 'var(--info)') + '<span class="v">' + Math.round(dd * 100) + '%</span></div><div class="xs muted">' + (two ? 'With two robots running, one plays defender in practice' : 'Needs a second running robot (a test chassis is enough)') + ': at 100% your drivers lose ' + Math.round(D.DEF_DRILL_EFFECT * 100) + '% less speed, cycle time and accuracy to a defender. Resets at Kickoff.</div>';
+          else dr += '<div class="xs muted mt">A second running robot (a test chassis is enough) adds <b>defense drills</b>: drivers learn to keep cycling against a defender.</div>';
+        } }
+    }
+    if (S.robot && S.robot.year === S.year && S.phase !== 'off' && G.Robot.runnable(S.robot, G.Robot.other(S.robot))) {
+      const R = S.robot, cd = G.Robot.compDrive(S), od = R.bots[G.Robot.other(R)].subs.drive, fam = k => D.DRIVE_FAMILY[k];
+      dv += G.Robot.chassisMatch(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' Path planning: ' + h(R.bots[G.Robot.other(R)].name) + ' drives like the competition robot (' + fam(od.concept) + '), so auto routines and auto upgrades develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster, and the team gains Autonomous Pathing XP every week.</div>'
+        : cd ? '<div class="xs muted mt">Path planning: ' + h(R.bots[G.Robot.other(R)].name) + ' is a ' + fam(od.concept) + ' drive and the competition robot is ' + fam(cd) + ', so paths tested on it don\'t carry over. (Tank: Kitbot and West Coast. Holonomic: Mecanum and Swerve.)</div>' : '';
     }
     o += '<div class="grid g2 mt">' + '<div>' + dv + '</div><div>' + dr + '</div></div>';
     const lt = S.lastTest;
@@ -8600,7 +9046,7 @@ window.G = window.G || {};
       const want = G.Parts.kits(year, subId, c), wantTxt = Object.keys(want).map(k => want[k] + ' ' + D.PART_CAT[k].short.toLowerCase().replace(/s$/, want[k] > 1 ? 's' : '') + ' (' + Math.min(want[k], G.Parts.kitsFree(S, k)) + ' free)').join(' + ');
       const kitTag = Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '';
       return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button></div>' +
-        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Shop</a></div>' : '') + '</div>';
+        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
     }).join('') + '</div>';
     UI.modal(o, { wide: true });
   };
@@ -8734,7 +9180,7 @@ window.G = window.G || {};
     const S = G.S;
     let o = UI.head('Workshop', 'workshop', 'Facilities make every project faster and better. They wear down: renovate to restore them, upgrade for more. Upkeep is charged per level at Kickoff.', 'workshop');
     o += '<div class="card mb"><div class="ct">Facilities<span class="sp"></span>' + UI.tag('+' + G.Shop.facilitySlots(S) + ' project slots', G.Shop.facilitySlots(S) ? 'acc' : '') + ' ' + UI.tag('Upkeep ' + U.money(G.Shop.upkeep(S)) + '/season') + '</div><div class="grid g2">' + D.EQUIP.map(e => facilityBox(S, e)).join('') + '</div></div>';
-    o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Motors, electronics, mechanism kits, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Shop</button></div>';
+    o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Motors, electronics, mechanism kits, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Inventory</button></div>';
     return o;
   } };
   function facilityBox(S, e) {
@@ -8771,7 +9217,7 @@ window.G = window.G || {};
     if (y != null) o += line(y, P.inSeason(S) ? 'This season' : 'Last season');
     if (ny != null && (P.elemPending(S, ny).length || P.elemSets(S, ny).length)) o += line(ny, 'Next season');
     if (y == null && (ny == null || !P.elemPending(S, ny).length)) o += '<div class="xs muted">No game elements yet.</div>';
-    return o + '<div class="row mt"><button class="btn sm" data-act="partsElem">Game elements in the Shop</button></div>';
+    return o + '<div class="row mt"><button class="btn sm" data-act="partsElem">Game elements in the Inventory</button></div>';
   };
   UI.A.buyEq = id => { if (!UI.err(G.Career.buyEquip(G.S, id))) { UI.toast('Done — ' + G.Shop.item(id).levels[G.Shop.lvl(G.S, id) - 1].name + ' ready', 'good'); UI.render(); } };
   UI.A.renoEq = id => { const cost = G.Shop.renoCost(G.S, id); if (!UI.err(G.Shop.renovate(G.S, id))) { UI.toast('Renovated for ' + U.money(cost) + ' — back to 100%', 'good'); UI.render(); } };
@@ -8834,7 +9280,7 @@ window.G = window.G || {};
   // CALENDAR
   // =====================================================================
   // Program-year calendar: every turn from May to the season review, with filters
-  const CAL_CATS = [['event', 'Events', 'var(--accent)'], ['dev', 'Development', 'var(--info)'], ['sponsor', 'Sponsors', 'var(--warn)'], ['program', 'Program', 'var(--good)'], ['money', 'Money', '#c9a7ff']];
+  const CAL_CATS = [['event', 'Events', 'var(--data)'], ['dev', 'Development', 'var(--info)'], ['sponsor', 'Sponsors', 'var(--warn)'], ['program', 'Program', 'var(--good)'], ['money', 'Money', '#c9a7ff']];
   UI.programCalendar = function (S) {
     const f = UI.st.calF = UI.st.calF || { event: true, dev: true, sponsor: true, program: true, money: true };
     const slots = G.Career.calendar(S), months = [];
@@ -8888,16 +9334,48 @@ window.G = window.G || {};
   // HISTORY
   // =====================================================================
   UI.S.history = { html() {
-    const S = G.S;
+    const S = G.S, C = G.Career, s = S.season || {};
     let o = UI.head('History', 'history', 'Legacy points: ' + S.legacy, 'basics');
-    const bn = G.Career.banners(S);
-    o += UI.card('Banner wall ' + UI.tag(bn.length + ' banner' + (bn.length === 1 ? '' : 's'), bn.length ? 'acc' : ''), bn.length ? UI.bannerWall(bn) : '<p class="muted">No banners yet. Win an event or the Impact Award to hang your first blue banner.</p>', '', 'mb');
+    const evRow = e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '—') + '</td><td>' + h(e.record) + '</td><td>' + h(e.finish) + '</td><td class="sm">' + h((e.awardNames || []).join(', ')) + '</td></tr>';
+    const evHead = '<tr><th>Event</th><th>Rank</th><th>Record</th><th>Playoffs</th><th>Awards</th></tr>';
+    // ---- this season so far (finished regionals and the Championship), with what is still to come
+    if (C.inSeason(S) && s.year === S.year && !S.history.some(x => x.year === S.year)) {
+      const up = S.regionals.filter(r => S.registered.includes(r.id) && !S.eventsDone[r.id]).sort((a, b) => a.week - b.week);
+      const avg = s.qualMatches ? (s.rpSum / s.qualMatches).toFixed(2) : '—', pool = C.poolTotal(S);
+      const wins = (s.events || []).filter(e => e.won).length;
+      o += UI.card(h(C.seasonName(S)) + ' ' + UI.tag('this season', 'acc') + (s.worldChamp ? ' ' + UI.tag('WORLD CHAMPIONS', 'acc') : s.divWin ? ' ' + UI.tag('Division winner', 'acc') : s.champsQualified ? ' ' + UI.tag('Championship: qualified', 'good') : ''),
+        ((s.events || []).length ? '<table class="t">' + evHead + s.events.map(evRow).join('') + '</table>' : '<p class="muted">No event played yet this season.</p>') +
+        (up.length ? '<div class="sm muted mt">Still to come: ' + up.map(r => 'Week ' + r.week + ' ' + h(r.name)).join(' · ') + '</div>' : '') +
+        '<div class="kv mt"><span class="k">Events played</span><span>' + (s.events || []).length + (wins ? ' · ' + wins + ' won' : '') + '</span><span class="k">Average ranking points</span><span>' + avg + '</span>' +
+        '<span class="k">Regional Pool</span><span>' + pool + ' / ' + C.poolThreshold(S) + ' pts (best two events)</span>' +
+        '<span class="k">Championship</span><span>' + (s.champsQualified ? '<span class="good">Qualified</span> · ' + h(s.champsReason || '') : 'Not qualified yet: win a regional, an Impact, Engineering Inspiration or Rookie All-Star award, or reach the pool cut-off') + '</span></div>', '', 'mb');
+    }
+    // ---- Championship honours: World Champions and the FIRST Impact Award, each with its celebration
+    const bn = C.banners(S), world = bn.filter(b => b.world), rest = bn.filter(b => !b.world);
+    const seasonOf = gy => (S.season && S.season.year === gy && !S.history.some(x => x.year === gy) ? S.season : S.history.find(x => x.year === gy));
+    if (world.length) {
+      o += UI.card(UI.it('trophy', 'Championship honours ') + UI.tag(world.length + ' banner' + (world.length === 1 ? '' : 's'), 'acc'),
+        '<div class="wbanners">' + world.map(b => {
+          const hs = seasonOf(b.gy) || {}, has = b.key === 'wc' ? !!hs.wc : !!(hs.cmpImpact && hs.cmpImpact.cele);
+          return '<div class="wbn">' + UI.banner(b) + (has ? '<button class="btn sm" data-act="replayCele" data-arg="' + b.key + '|' + b.gy + '">' + UI.icon('play', 12) + ' Celebration</button>' : '<span class="xs dim">from an older save</span>') + '</div>';
+        }).join('') + '</div>' +
+        (S.hallOfFame != null ? '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Hall of Fame</b>: as a FIRST Impact Award winner your team is invited to every Championship.</div>' : ''), '', 'mb');
+    }
+    o += UI.card('Banner wall ' + UI.tag(rest.length + ' banner' + (rest.length === 1 ? '' : 's'), rest.length ? 'acc' : ''), rest.length ? UI.bannerWall(rest) : '<p class="muted">' + (world.length ? 'No regional or division banners yet.' : 'No banners yet. Win an event or the Impact Award to hang your first blue banner.') + '</p>', '', 'mb');
     S.history.slice().reverse().forEach(hs => {
-      o += UI.card(h(G.Career.seasonName(S, hs.year)) + (hs.worldChamp ? ' ' + UI.tag('WORLD CHAMPIONS', 'acc') : hs.divWin ? ' ' + UI.tag('Division winner', 'acc') : hs.champs ? ' ' + UI.tag('Championship', 'good') : ''),
-        '<table class="t"><tr><th>Event</th><th>Rank</th><th>Record</th><th>Playoffs</th><th>Awards</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '—') + '</td><td>' + h(e.record) + '</td><td>' + h(e.finish) + '</td><td class="sm">' + h(e.awardNames.join(', ')) + '</td></tr>').join('') + '</table><div class="sm muted mt">Legacy +' + hs.legacy + ' · avg RP ' + hs.avgRP.toFixed(2) + ' · ended with ' + U.money(hs.money) + '</div>', '', 'mb');
+      const ci = hs.cmpImpact && hs.cmpImpact.result;
+      o += UI.card(h(C.seasonName(S, hs.year)) + (hs.worldChamp ? ' ' + UI.tag('WORLD CHAMPIONS', 'acc') : hs.worldFinalist ? ' ' + UI.tag('World finalists', 'acc') : hs.divWin ? ' ' + UI.tag('Division winner', 'acc') : hs.champs ? ' ' + UI.tag('Championship', 'good') : '') +
+        (ci ? ' ' + UI.tag(ci === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Finalist', 'info') : ''),
+        '<table class="t">' + evHead + hs.events.map(evRow).join('') + '</table><div class="sm muted mt">Legacy +' + hs.legacy + ' · avg RP ' + hs.avgRP.toFixed(2) + ' · ended with ' + U.money(hs.money) + '</div>', '', 'mb');
     });
     return o;
   } };
+  UI.A.replayCele = arg => {
+    const S = G.S, parts = String(arg).split('|'), gy = Number(parts[1]);
+    const hs = (S.season && S.season.year === gy && !S.history.some(x => x.year === gy) ? S.season : S.history.find(x => x.year === gy)) || {};
+    if (parts[0] === 'wc') UI.worldChampModal(hs.wc, true);
+    else UI.impactCele(hs.cmpImpact && hs.cmpImpact.cele, true);
+  };
 })();
 
 </script>
@@ -9059,12 +9537,43 @@ window.G = window.G || {};
   const Ev = () => G.S.event;
   const me = () => G.S.team.num;
   const tname = n => n === me() ? G.S.team.name : (G.S.teams[n] ? G.S.teams[n].name : '');
+  // "Alliance 3"; on Einstein every alliance is a division champion: "Newton · Alliance 3" (short: "Newton (A3)")
+  const alName = (ev, i) => (i == null || i < 0 ? '' : (ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? ev.divNames[i] + ' · ' : '') + 'Alliance ' + (i + 1));
+  const alShort = (ev, i) => (i == null || i < 0 ? '' : ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? ev.divNames[i] + ' (A' + (i + 1) + ')' : 'Alliance ' + (i + 1));
+  UI.alName = alName;
+  const wl = r => '<b class="' + (r.win === 1 ? 'good' : r.win === 0 ? 'bad' : 'warn') + '">' + (r.win === 1 ? 'W' : r.win === 0 ? 'L' : 'T') + '</b>';
+  // What comes next for the player, shown big on the event page and next to the match buttons.
+  // Quals: the match number and your alliance. Playoffs: the match, the opposing alliance and your last playoff result.
+  // cur: the match on the pre-match page (omit on the event page, where the next one is looked up).
+  function nextStrip(ev, cur) {
+    const pa = G.Ev.playerAlliance(ev);
+    let main = '', side = '', last = '';
+    if (cur ? !cur.playoff : ev.stage === 'quals') {
+      const mt = cur || ev.quals.slice(ev.qi).find(G.Ev.hasPlayer);
+      if (!mt) return '';
+      const a = mt.red.includes(me()) ? 'red' : 'blue', lr = ev.playerResults[ev.playerResults.length - 1], rk = ev.rank[me()];
+      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">Q' + mt.n + '</b><span class="nx-of">of ' + ev.quals.length + '</span>';
+      side = 'You are <b class="' + a + '">' + a.toUpperCase() + '</b> with ' + mt[a].filter(t => t !== me()).join(' and ') + ' · against ' + mt[a === 'red' ? 'blue' : 'red'].join(', ');
+      last = (lr ? 'Last: ' + h(String(lr.id)) + ' ' + wl(lr) + ' ' + lr.our + '–' + lr.their : 'Your first match here') + (rk && rk.played ? ' · rank ' + U.ord(G.Ev.rankOf(ev, me())) + ' (' + rk.w + '-' + rk.l + '-' + rk.t + ')' : '');
+    } else if (ev.po && pa >= 0 && (cur || ev.stage === 'playoffs')) {
+      // on the event page, the other alliances' earlier matches are played first so the opponent is known
+      const m = cur ? ev.po.matches.find(x => x.id === cur.id) : (G.Ev.playerEliminated(ev) ? null : G.Ev.simPlayoffsUntilPlayer(ev));
+      if (!m) return '';
+      const sd = m.red === pa ? 'red' : 'blue', opp = sd === 'red' ? m.blue : m.red;
+      const lp = ev.playerResults.filter(r => !/^Q\d/.test(String(r.id))).slice(-1)[0];
+      const game = m.bo3 ? 'Best of 3 · Game ' + (m.games.filter(g => !g.replay).length + 1) : h(m.round);
+      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">' + (m.id === 'F' ? 'Finals' : h(m.id)) + '</b><span class="nx-vs">against <b>' + h(alName(ev, opp)) + '</b></span><span class="nx-of">' + game + '</span>';
+      side = 'You are <b>' + h(alName(ev, pa)) + '</b> on <b class="' + sd + '">' + sd.toUpperCase() + '</b>' + (opp != null && ev.alliances[opp] ? ' · their captain: ' + ev.alliances[opp][0] + ' ' + h(tname(ev.alliances[opp][0])) : '');
+      last = lp ? 'Last playoff match: ' + h(String(lp.id)) + ' ' + wl(lp) + ' ' + lp.our + '–' + lp.their : 'Your first playoff match';
+    } else return '';
+    return '<div class="nextbar' + (cur ? ' stack' : '') + '"><div class="nx-main">' + main + '</div><div class="nx-side">' + side + '</div><div class="nx-last">' + last + '</div></div>';
+  }
   const tlink = (n) => '<a href="#" data-act="scoutTeam" data-arg="' + n + '" class="' + (n === me() ? 'b' : '') + '" style="' + (n === me() ? 'color:var(--accent2)' : 'color:inherit') + '">' + n + '</a>';
 
   // =====================================================================
   // EVENT HUB
   // =====================================================================
-  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (ev && ev.stage === 'done' && ev.result && ev.result.won && ev.kind === 'einstein' && !ev.wcShown) return UI.worldChampModal(ev); if (ev && ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
+  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
@@ -9105,7 +9614,7 @@ window.G = window.G || {};
       '<div class="grid g2"><div>' + (conds || '<p class="muted">Nothing built yet.</p>') + '</div><div class="col">' +
       '<div class="sm muted">Before each match the pit crew repairs the robot. One spare part restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. With no spares left, repairs stop at 60%.</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySparesEvent" data-arg="' + n + '">Buy ' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
-      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Workshop.</div></div></div></div>';
+      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
   }
   UI.A.buySparesEvent = function (n) {
     if (UI.err(G.Career.buySpares(G.S, Number(n), true))) return;
@@ -9156,7 +9665,7 @@ window.G = window.G || {};
     let o = '<div class="grid g2"><div class="card hl"><div class="ct">Qualification matches ' + UI.tag(left + ' left for you', 'acc') + '</div>';
     if (next) {
       const gap = ev.quals.indexOf(next) - ev.qi;
-      o += '<div class="mb">Next: <b>Qual ' + next.n + '</b> ' + matchTeamsLine(next) + '</div><div class="sm muted mb">' + (gap > 0 ? gap + ' other match' + (gap > 1 ? 'es' : '') + ' before yours (pit time for repairs).' : 'You\'re up next.') + '</div>' +
+      o += nextStrip(ev) + '<div class="mb sm">' + matchTeamsLine(next) + '</div><div class="sm muted mb">' + (gap > 0 ? gap + ' other match' + (gap > 1 ? 'es' : '') + ' before yours (pit time for repairs).' : 'You\'re up next.') + '</div>' +
         '<div class="row wrap"><button class="btn primary" data-act="nextQual">Prepare match ▶</button><button class="btn" data-act="simQual">Simulate it</button><button class="btn" data-act="simAllQuals">Simulate all remaining</button></div>';
     } else o += '<p>All your qualification matches are done.</p><button class="btn primary" data-act="finishQuals">Continue</button>';
     o += '</div><div class="card"><div class="ct">Your results</div>' + resultsList(ev) + '</div></div>';
@@ -9226,7 +9735,7 @@ window.G = window.G || {};
   // ---------------- playoffs ----------------
   function bmatch(ev, id) {
     const m = ev.po.matches.find(x => x.id === id), pa = G.Ev.playerAlliance(ev);
-    const al = i => i == null ? '<span class="dim">TBD</span>' : 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
+    const al = i => i == null ? '<span class="dim">TBD</span>' : (ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? h(ev.divNames[i]) + ' ' : '') + 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
     const sc = (side) => m.games.map(g => '<span' + (g.tb ? ' title="Tied: won on ' + h(g.tb) + '"' : g.replay ? ' title="Tied on every tiebreaker: replayed"' : '') + '>' + (side === 'red' ? g.red : g.blue) + (g.tb && g.winner === side ? '*' : g.replay ? 'ʳ' : '') + '</span>').join(' / ');
     const cls = (i) => m.winner == null ? '' : m.winner === i ? 'w' : 'l';
     return '<div class="bm ' + (m.red === pa || m.blue === pa ? 'me' : '') + '"><div class="xs muted">' + id + (m.bye ? ' (bye)' : '') + '</div><div class="al ' + cls(m.red) + '"><span class="red">' + al(m.red) + '</span><span>' + sc('red') + '</span></div><div class="al ' + cls(m.blue) + '"><span class="blue">' + al(m.blue) + '</span><span>' + sc('blue') + '</span></div></div>';
@@ -9237,9 +9746,9 @@ window.G = window.G || {};
   };
   function playoffView(ev) {
     const pa = G.Ev.playerAlliance(ev);
-    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are Alliance ' + (pa + 1) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
+    let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are ' + h(alName(ev, pa)) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
     if (pa >= 0) o += '<div class="sm mb">Alliance: ' + ev.alliances[pa].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>';
-    if (pa >= 0 && !G.Ev.playerEliminated(ev)) o += '<div class="row wrap"><button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button></div>';
+    if (pa >= 0 && !G.Ev.playerEliminated(ev)) o += nextStrip(ev) + '<div class="row wrap"><button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button></div>';
     else o += '<div class="row wrap"><button class="btn primary" data-act="simRestPO">Simulate remaining playoffs</button></div>';
     o += '</div>' + UI.bracket(ev);
     return o;
@@ -9255,7 +9764,8 @@ window.G = window.G || {};
   UI.matchLabel = function (ev, obj) {
     if (!obj) return '';
     if (!obj.playoff) return 'Qualification ' + obj.n + ' of ' + ev.quals.length;
-    const rp = obj.replay ? ' (replay)' : '';
+    const pm = ev && ev.po && ev.po.matches.find(x => x.id === obj.id);
+    const rp = (obj.replay ? ' (replay)' : '') + (pm && pm.red != null && pm.blue != null ? ' · ' + alShort(ev, pm.red) + ' vs ' + alShort(ev, pm.blue) : '');
     if (ev.kind === 'einstein' || obj.id === 'F') return (ev.kind === 'einstein' && obj.id !== 'F' ? 'Einstein ' : '') + (obj.id === 'F' ? 'Finals · Game ' + ((obj.game || 0) + 1) : 'Playoff Match ' + String(obj.id).replace('M', '')) + rp;
     return 'Playoff Match ' + String(obj.id).replace('M', '') + rp;
   };
@@ -9287,6 +9797,15 @@ window.G = window.G || {};
   function finishIfDone(ev) { if (ev.po && ev.po.done && ev.stage !== 'done') G.Ev.finishEvent(ev); }
 
   // ---------------- done ----------------
+  // The FIRST Impact Award is announced on Einstein. A team that did not advance hears it when its division is over.
+  function impactLine(ev) {
+    const S = G.S, ci = S.season && S.season.cmpImpact;
+    if (!ci || !(ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein))) return '';
+    G.Career.settleImpact(S, 'all');
+    const nm = n => (n === me() ? '<b class="acc">' + n + ' ' + h(S.team.name) + '</b>' : n + ' ' + h(tname(n)));
+    return '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>FIRST Impact Award</b> (announced on Einstein): ' + nm(ci.winner) + '. Finalists: ' + ci.finalists.map(nm).join(', ') + '.' +
+      (ci.out ? '' : ci.eligible ? ' Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + ' regional Impact winners.' : S.hallOfFame != null ? '' : ' Only this season\'s regional Impact Award winners are judged.') + '</div>';
+  }
   function doneView(ev) {
     const r = ev.result || {};
     const bn = G.Career.eventBanners(Object.assign({ kind: ev.kind }, r), ev.year);
@@ -9296,6 +9815,7 @@ window.G = window.G || {};
     o += '<div class="kv mt">' + (r.rank ? '<span class="k">Qualification rank</span><span>' + U.ord(r.rank) + ' of ' + r.size + '</span><span class="k">Record</span><span>' + h(r.record) + '</span><span class="k">Ranking score</span><span>' + (r.avgRP || 0).toFixed(2) + '</span>' : '') +
       (r.alliance ? '<span class="k">Alliance</span><span>#' + r.alliance + ' (' + h(r.role) + ')</span>' : '') + '<span class="k">OPR</span><span>' + r.opr + '</span>' + (r.pool ? '<span class="k">Pool points</span><span>' + r.pool + '</span>' : '') + '</div>';
     if (r.winners && r.winners.length) o += '<div class="sm mt">Event winners: ' + r.winners.map(tlink).join(', ') + '</div>';
+    o += impactLine(ev);
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>';
     o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
     if (ev.po) o += '<div class="mt">' + UI.bracket(ev) + '</div>';
@@ -9376,13 +9896,19 @@ window.G = window.G || {};
     const a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const Sz = G.Seasons[ev.year], plan = ev.plan, opr = G.Ev.opr(ev);
     const title = UI.st.match.kind === 'qual' ? 'Qualification ' + obj.n : obj.id + ' · ' + UI.st.match.m.round + (UI.st.match.m.bo3 ? ' · game ' + (obj.game + 1) : '');
-    let o = '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance.</div>';
+    const pmm = UI.st.match.kind === 'po' ? UI.st.match.m : null, alTag = sd => (pmm ? ' · ' + h(alShort(ev, sd === 'red' ? pmm.red : pmm.blue)) : '');
+    let o = '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance' + (pmm ? ': <b>' + h(alName(ev, a === 'red' ? pmm.red : pmm.blue)) + '</b>, against <b>' + h(alName(ev, a === 'red' ? pmm.blue : pmm.red)) + '</b>' : '') + '.</div>';
     const ds = ev.defStats;
     if (Sz.meta) o += '<div class="hint mb"><b>Strategy:</b> ' + h(Sz.meta.note) + (ds && ds.n >= 10 ? ' So far at this event, ' + Math.round(100 * ds.d / ds.n) + '% of alliances have played a defender.' : '') + '</div>';
     if (ev.year === 2024) {
       const fs = ev.feedStats, read = Math.round(100 * G.Career.metaInsight(S));
       o += '<div class="xs muted mb"><b>Note feeding:</b> ' + (fs && fs.n >= 6 ? Math.round(100 * fs.f / fs.n) + '% of alliances at this event feed notes across the field to hoard them for Amplify. ' : 'some alliances lob notes across the field to hoard them for Amplify. ') +
         'Your alliance runs it better with a stronger strategy read: <b>' + read + '%</b> (Strategy mentor, drive coach, driver practice and events scouted).</div>';
+    }
+    if (ev.year === 2026) {
+      const fs = ev.feedStats, read = Math.round(100 * G.Career.metaInsight(S));
+      o += '<div class="xs muted mb"><b>Fuel hoarding:</b> ' + (fs && fs.n >= 6 ? Math.round(100 * fs.f / fs.n) + '% of alliances at this event keep working while their hub is inactive: they sweep the neutral zone and lob the fuel back into their own zone, so the next scoring shift starts with short cycles. ' : 'some alliances sweep the neutral zone while their hub is inactive and lob the fuel back into their own zone for the next scoring shift. ') +
+        'Your alliance runs it more often and more cleanly with a stronger strategy read: <b>' + read + '%</b> (Strategy mentor, drive coach, driver practice and events scouted). "Shoot on sight" turns it off for your robot.</div>';
     }
     if (Sz.meta && Sz.meta.faults) { o += '<div class="xs muted mb">' + h(Sz.meta.faults) + ' Brief comms drops are common for every robot; well-built electronics, a healthy robot and avoiding contact keep them short.</div>'; }
     const teamCard = (t, side) => {
@@ -9394,7 +9920,7 @@ window.G = window.G || {};
       }
       return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' + sug + '</div>';
     };
-    o += '<div class="grid g3"><div>' + '<h3>Red alliance</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
+    o += '<div class="grid g3"><div>' + '<h3>Red alliance' + alTag('red') + '</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
     // plan
     const sel = (k, opts, cur) => '<select class="inp" data-chg="plan" data-k="' + k + '">' + opts.map(x => '<option value="' + x[0] + '" ' + (String(cur) === String(x[0]) ? 'selected' : '') + '>' + x[1] + '</option>').join('') + '</select>';
     const roles = [['score', 'Score'], ['defend', 'Play defense']].concat(ev.year === 2026 ? [['feed', 'Feed fuel to partners']] : []);
@@ -9413,8 +9939,9 @@ window.G = window.G || {};
       '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
+    o += '<div class="mt">' + nextStrip(ev, obj) + '</div>';
     o += '<div class="row mt"><button class="btn primary lg" data-act="watch">Watch ▶</button><button class="btn" data-act="simThis">Simulate</button><span class="sp"></span><button class="btn ghost" data-act="nav" data-arg="event">Back</button></div></div>';
-    o += '<div><h3>Blue alliance</h3>' + obj.blue.map(t => teamCard(t, 'blue')).join('') + '</div></div>';
+    o += '<div><h3>Blue alliance' + alTag('blue') + '</h3>' + obj.blue.map(t => teamCard(t, 'blue')).join('') + '</div></div>';
     return o;
   } };
   UI.A.plan = (v, el) => { const k = el.dataset.k; const ev = Ev(); ev.plan[k] = (k === 'endLevel' || k === 'defTarget') ? (v === '' ? null : Number(v)) : v; UI.render(); };
@@ -9577,7 +10104,7 @@ window.G = window.G || {};
   // =====================================================================
   // MATCH RESULT
   // =====================================================================
-  UI.S.mresult = { nav: 'event', after() { const ev = Ev(), R = UI.st.lastResult; if (ev && ev.kind === 'einstein' && UI.wonEvent(ev, R) && !ev.wcShown) UI.worldChampModal(ev); }, html() {
+  UI.S.mresult = { nav: 'event', html() {
     const R = UI.st.lastResult; if (!R) return '<button class="btn" data-act="nav" data-arg="event">Back</button>';
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
@@ -9590,9 +10117,16 @@ window.G = window.G || {};
     o += '<div class="card"><div class="ct">Robots</div><table class="t"><tr><th>Team</th><th class="num">Pts</th><th class="num">Cycles</th><th class="num">Acc</th><th>Endgame</th><th>Issues</th></tr>' + res.robots.map(r => '<tr class="' + (r.team === me() ? 'me' : '') + '"><td class="' + r.a + '">' + r.team + '</td><td class="num">' + r.pts + '</td><td class="num">' + r.cycles + '</td><td class="num">' + (r.shots ? Math.round(100 * r.hits / r.shots) + '%' : '—') + '</td><td class="xs">' + (r.end ? (r.end.lvl ? G.Seasons[ev ? ev.year : G.S.year].endNames[r.end.lvl] : r.end.failed ? 'failed' : 'park') : '—') + '</td><td class="xs warn">' + h(r.faults.concat(r.fouls ? [r.fouls + ' foul' + (r.fouls > 1 ? 's' : '')] : []).join(', ')) + (r.autoOK === false ? ' <span class="dim">auto miss</span>' : '') + '</td></tr>').join('') + '</table></div></div>';
     if (G.S.robot) { const RB = G.S.robot; o += '<div class="card mt"><div class="ct">Robot condition after the match</div><div class="grid g3">' + Object.keys(RB.subs).filter(k => k !== 'soft' && RB.subs[k].ver).map(k => UI.stat(G.Seasons.sub(RB.year, k).name, RB.subs[k].cond, null, UI.colorFor(RB.subs[k].cond))).join('') + '</div><div class="xs muted">Pit repairs happen automatically before your next match (more time between matches = more repairs; uses spare parts).</div></div>'; }
     if (UI.wonEvent(ev, R)) o = '<div class="card hl mb"><div class="row">' + UI.icon('trophy', 26) + '<div><div class="lg b acc">' + (ev.kind === 'einstein' ? 'WORLD CHAMPIONS!' : ev.kind === 'champs' ? 'Division Champions!' : 'Event winners!') + '</div><div class="sm muted">' + h(ev.name) + '</div></div></div></div>' + o;
+    if (ev && ev.stage !== 'done') o += '<div class="mt">' + nextStrip(ev) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="nav" data-arg="event">Continue ▶</button></div>';
     return o;
-  }, after() { const R = UI.st.lastResult, ev = Ev(); if (R && !R.party && UI.wonEvent(ev, R)) { R.party = true; UI.confetti(); } } };
+  }, after() {
+    const R = UI.st.lastResult, ev = Ev();
+    if (!R || !ev || !UI.wonEvent(ev, R)) return;
+    // the match that won Einstein: straight to the World Champions celebration
+    if (ev.kind === 'einstein' && !ev.wcShown && G.S.season.wc) { ev.wcShown = true; ev.party = true; R.party = true; return UI.worldChampModal(G.S.season.wc); }
+    if (!R.party) { R.party = true; UI.confetti(); }
+  } };
   // This result is the match that won the event for the player's alliance
   // ---------------- World Champions celebration ----------------
   const TROPHY = '<svg class="wc-trophy" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="wcg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#9c700c"/><stop offset=".42" stop-color="#ffe9a0"/><stop offset=".58" stop-color="#f5c542"/><stop offset="1" stop-color="#8a6209"/></linearGradient>' +
@@ -9601,70 +10135,125 @@ window.G = window.G || {};
     '<path d="M34 16h52v20c0 21-11 35-26 37-15-2-26-16-26-37z" fill="url(#wcg)"/><g clip-path="url(#wcc)"><rect class="wc-glint" x="-40" y="0" width="30" height="80" fill="url(#wcs)" transform="skewX(-20)"/></g>' +
     '<path d="M60 27l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L60 45.6l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff6d1"/>' +
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
-  const WC_PICK = (arr, n) => { const a = arr.slice(), out = []; while (a.length && out.length < n) out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]); return out; };
-  UI.worldChampModal = function (ev) {
-    const S = G.S, r = ev.result || {}; ev.wcShown = true; ev.party = true;
-    const gyear = ev.year, Sz = G.Seasons[gyear] || {}, pa = G.Ev.playerAlliance(ev), al = pa >= 0 ? ev.alliances[pa] : [me()];
-    const fict = G.Career.isFictional(S), year = G.Career.calYear(S, gyear); // random career order: the career's own timeline
-    // streak: consecutive earlier seasons that also ended in a world title (this one is already counted in S.worldChamps)
-    let streak = 1; for (let i = S.history.length - 1; i >= 0 && S.history[i].worldChamp; i--) streak++;
-    // the streak's game years for the headline: "2023–2024" when they follow each other, else "2025 & 2023" (random game order)
-    const syears = S.history.slice(S.history.length - (streak - 1)).map(x => G.Career.calYear(S, x.year)).concat([year]);
-    const consec = syears.every((y, i) => !i || y === syears[i - 1] + 1);
-    const yearTxt = streak < 2 ? String(year) : consec ? syears[0] + '–' + syears[syears.length - 1] : syears.slice(0, -1).join(', ') + ' & ' + syears[syears.length - 1];
-    const titles = Math.max(1, S.worldChamps || 1);
+  const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
+  const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
+  // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
+  UI.worldChampModal = function (d, replay) {
+    if (!d) return;
+    const B = x => '<b class="wc-name">' + h(x) + '</b>';
+    const streak = d.streak, titles = d.titles, year = d.year, me0 = d.team.num;
+    const consec = d.syears.every((y, i) => !i || y === d.syears[i - 1] + 1);
+    const yearTxt = streak < 2 ? String(year) : consec ? d.syears[0] + '–' + d.syears[d.syears.length - 1] : d.syears.slice(0, -1).join(', ') + ' & ' + d.syears[d.syears.length - 1];
     const label = streak === 2 ? 'BACK-TO-BACK WORLD CHAMPIONS' : streak === 3 ? 'THREE-PEAT WORLD CHAMPIONS' : streak > 3 ? streak + '-IN-A-ROW WORLD CHAMPIONS' : 'WORLD CHAMPIONS';
-    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'red' : 'blue', opp = F ? (side === 'red' ? F.blue : F.red) : null;
-    const fw = F ? F.games.filter(g => !g.replay && g.winner === side).length : 0, fl = F ? F.games.filter(g => !g.replay && g.winner && g.winner !== side && g.winner !== 'tie').length : 0;
-    const oppCap = opp != null && ev.alliances[opp] ? ev.alliances[opp][0] : null;
-    const dt = G.Career.driveTeam(S), drv = dt.driver && dt.driver.name, op = dt.operator && dt.operator.name, coach = dt.coach && dt.coach.name;
-    const partners = al.filter(t => t !== me()), sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name;
-    const role = ['captain', 'first pick', 'second pick', 'backup'][al.indexOf(me())] || 'alliance member';
-    // the story
-    const first = titles === 1, rookieYear = S.team.rookieYear && S.team.rookieYear === year;
-    const story = [
-      (streak === 2 ? 'Last season\'s champions did it again: back-to-back world titles are rarer than a perfect auto.' : streak > 2 ? streak + ' world titles in a row. People will be telling this story at Kickoff for years.' : first ? 'From the game reveal in January to the last buzzer on Einstein, this is the season every team dreams about.' : 'Title number ' + titles + '. The trophy case needs more room.'),
-      rookieYear ? 'In your rookie season, no less: the whole pit area is talking about it.' : '',
-      'As ' + role + ' of the ' + (S.champsDiv || 'division') + ' champions, your alliance won the Einstein finals ' + fw + '–' + fl + ' in ' + h(Sz.name || 'this game') + '.',
-      drv ? h(drv) + ' at the controls' + (op ? ', ' + h(op) + ' on the mechanisms' : '') + (coach ? ', ' + h(coach) + ' calling the plays' : '') + ', and a whole team in the stands that can barely speak.' : ''
-    ].filter(Boolean).join(' ');
-    // what people are saying
-    const pool = [
-      ['Ladies and gentlemen, your ' + year + ' FIRST World Champions' + (streak === 2 ? '… for the second year in a row' : streak > 2 ? '… for the ' + U.ord(streak) + ' year in a row' : '') + '!', 'the Einstein emcee'],
-      drv ? ['I can\'t feel my hands. Did we actually just win that?', h(drv) + ', driver'] : null,
-      op ? ['Every cycle in that final, we had practised a hundred times. It still felt like a dream.', h(op) + ', operator'] : null,
-      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', 'your lead mentor'],
-      partners[0] ? ['Best alliance we have ever been part of. Thank you for picking us.', 'Team ' + partners[0] + ' ' + h((S.teams[partners[0]] || {}).name || '')] : null,
-      partners[1] ? ['We are going to need a bigger trailer for the ride home.', 'Team ' + partners[1] + ' ' + h((S.teams[partners[1]] || {}).name || '')] : null,
-      oppCap ? ['Hardest finals we have ever played. Congratulations, you earned every point.', 'Team ' + oppCap + ' ' + h((S.teams[oppCap] || {}).name || '') + ', Einstein finalists'] : null,
-      sponsor ? ['We are hanging the banner photo in our lobby. Next season is on us.', h(sponsor)] : null,
-      ['We are adding a trophy case. A bigger one.', 'your school principal'],
-      ['A rookie team asked for a photo with your robot. Then twenty more did.', 'the pit announcer'],
-      streak >= 2 ? ['Back-to-back? Somebody check their code for a cheat mode.', 'a forum comment with 1,200 upvotes'] : ['Who ARE these people? Bookmarking their team page right now.', 'a forum comment'],
-      ['The robot is fine. The drive team is not fine. Nobody is fine. It is wonderful.', 'your pit crew']
-    ].filter(Boolean);
-    const quotes = [pool[0]].concat(WC_PICK(pool.slice(1), 3));
-    const egg = D.REAL_CHAMPS[gyear];
-    const eggTxt = egg ? 'In the real ' + gyear + ' season (' + (Sz.name || 'that game') + '), Einstein was won by the ' + egg.div + ' division alliance: ' + egg.teams.map(t => t[0] + ' ' + t[1]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' + (egg.teams.some(t => t[0] === S.team.num) ? ' Your team number is on that list too. Coincidence?' : '') : '';
+    const role = ['captain', 'first pick', 'second pick', 'backup'][d.alliance.findIndex(x => x.num === me0)] || 'alliance member';
+    // the line under the headline: history made, a title won back, or last year's final put right
+    const note = streak >= 3 ? (NUMW[streak] || streak) + ' in a row · no one has done it in decades'
+      : streak === 2 ? 'Only a few teams in FRC history have done it'
+        : titles > 1 ? U.ord(titles) + ' world title' + (d.lastTitleYear ? ' · first since ' + d.lastTitleYear : '') + (d.lastFinalist ? ' · finalists last year' : '')
+          : d.lastFinalist ? 'Finalists last year · champions now' : '';
+    const lead = streak === 2 ? 'Last season\'s champions did it again. Only a few teams have done it before in FRC history.'
+      : streak >= 3 ? (NUMW[streak] || streak) + ' world titles in a row. No one has done it in the past decades.'
+        : titles > 1 ? 'World Champions again: this is your ' + U.ord(titles) + ' title' + (d.lastTitleYear ? ', and the first since ' + d.lastTitleYear : '') + '. Winning it once is a great season. Winning it again is a program.' + (d.lastFinalist ? ' It also settles last year\'s lost final.' : '')
+          : d.lastFinalist ? 'A year ago you stood on Einstein and watched the confetti fall on the other alliance. This time it is yours.'
+            : 'From the game reveal in January to the last buzzer on Einstein, this is the season every team dreams about.';
+    const story = h(lead) + (d.rookie ? ' In your rookie season, no less: the whole pit area is talking about it.' : '') +
+      ' As ' + role + ' of the ' + h(d.div || 'division') + ' champions, your alliance won the Einstein finals ' + d.fw + '–' + d.fl + (d.opp ? ' against ' + h((d.opp.div ? d.opp.div + ' ' : '') + 'captain ' + d.opp.num + ' ' + d.opp.name) : '') + ' in ' + h(d.game || 'this game') + '. ' +
+      B(d.driver) + ' at the controls' + (d.coach ? ' and ' + B(d.coach) + ' calling every play' + (d.coachIsMentor ? ' from behind the glass' : '') : '') + ', with a whole team in the stands that can barely speak.';
+    const egg = D.REAL_CHAMPS[d.gyear];
+    const eggTxt = egg ? 'In the real ' + d.gyear + ' season (' + (d.game || 'that game') + '), Einstein was won by the ' + egg.div + ' division alliance: ' + egg.teams.map(t => t[0] + ' ' + t[1]).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' + (egg.teams.some(t => t[0] === me0) ? ' Your team number is on that list too. Coincidence?' : '') : '';
     // twinkling stars around the trophy and title only (never behind the text further down)
     const stars = Array.from({ length: 14 }, (_, i) => { const left = i % 2 ? 4 + (i * 7) % 22 : 74 + (i * 5) % 22; return '<i class="wc-star" style="left:' + left + '%;top:' + (14 + (i * 37) % 190) + 'px;animation-delay:' + (i * 0.23).toFixed(2) + 's"></i>'; }).join('');
-    const d = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
     UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
-      d(0.05) + TROPHY + '</div>' +
-      d(0.35, 'wc-kicker') + 'EINSTEIN · ' + (fict ? '' : h(String(gyear)) + ' ') + h((Sz.name || '').toUpperCase()) + (titles > 1 && streak < 2 ? ' · ' + titles + '-TIME CHAMPIONS' : '') + '</div>' +
-      d(0.5, 'wc-team') + S.team.num + ' · ' + h(String(S.team.name).toUpperCase()) + '</div>' +
-      d(0.65, 'wc-you') + 'YOU ARE THE</div>' +
+      dl(0.05) + TROPHY + '</div>' +
+      dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.65, 'wc-you') + 'YOU ARE THE</div>' +
       '<div class="wc-title">' + yearTxt + ' ' + label + '</div>' +
-      d(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (S.champsDiv || '') }, true) + '</div>' +
-      d(1.2, 'wc-msg') + story + '</div>' +
-      d(1.4, 'wc-al') + al.map((t, i) => '<span class="wc-chip' + (t === me() ? ' me' : '') + '"><b>' + t + '</b> ' + h(t === me() ? S.team.name : ((S.teams[t] || {}).name || '')) + '<small>' + ['Captain', '1st pick', '2nd pick', 'Backup'][i] + '</small></span>').join('') + '</div>' +
-      d(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + quotes.map(q => '<div class="wc-q">“' + q[0] + '”<span>— ' + q[1] + '</span></div>').join('') + '</div>' +
-      d(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + ' Celebrate!</button></div>' +
-      (eggTxt ? d(2.0, 'wc-egg') + '<b>Easter egg</b> · ' + h(eggTxt) + '</div>' : '') +
-      '</div>', { wide: true, lock: true, cls: 'wcm' });
-    UI.confetti(7000); setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200);
+      (note ? dl(0.9, 'wc-note') + h(note) + '</div>' : '') +
+      dl(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (d.div || '') }, !replay) + '</div>' +
+      dl(1.2, 'wc-msg') + story + '</div>' +
+      dl(1.4, 'wc-al') + d.alliance.map((t, i) => '<span class="wc-chip' + (t.num === me0 ? ' me' : '') + '"><b>' + t.num + '</b> ' + h(t.name) + '<small>' + ['Captain', '1st pick', '2nd pick', 'Backup'][i] + '</small></span>').join('') + '</div>' +
+      dl(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + (d.quotes || []).map(cq).join('') + '</div>' +
+      dl(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + (replay ? ' Close' : ' Celebrate!') + '</button></div>' +
+      (eggTxt ? dl(2.0, 'wc-egg') + '<b>Easter egg</b> · ' + h(eggTxt) + '</div>' : '') +
+      '</div>', { wide: true, lock: !replay, cls: 'wcm' });
+    UI.confetti(replay ? 4500 : 7000); if (!replay) { setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200); }
   };
-  UI.A.wcClose = () => UI.closeModal();
+  UI.A.wcClose = () => { UI.closeModal(); const ev = Ev(); if (ev && UI.screen === 'event') UI.ceremony(ev); };
+
+  // ---------------- FIRST Impact Award (Championship) ----------------
+  const LAUREL = '<svg class="ic-medal" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="icg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff7d6"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#b8860b"/></linearGradient></defs>' +
+    [-1, 1].map(sx => '<g transform="translate(60 62) scale(' + sx + ' 1)">' + [0, 1, 2, 3, 4, 5, 6].map(i => { const deg = 244 - i * 22, a = deg * Math.PI / 180, x = Math.cos(a) * 43, y = -Math.sin(a) * 43; return '<ellipse class="ic-leaf" style="animation-delay:' + (0.2 + i * 0.08) + 's" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" rx="9.5" ry="4.2" transform="rotate(' + (-(deg + 90) - 28) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')" fill="url(#icg)"/>'; }).join('') + '</g>').join('') +
+    '<circle cx="60" cy="58" r="25" fill="#0b3f78" stroke="url(#icg)" stroke-width="4"/><path d="M60 40l5.3 10.8 11.9 1.7-8.6 8.4 2 11.9L60 67.2l-10.6 5.6 2-11.9-8.6-8.4 11.9-1.7z" fill="url(#icg)"/>' +
+    '<path d="M46 96l14-8 14 8v14l-14-7-14 7z" fill="#0a74c7" stroke="url(#icg)" stroke-width="2"/></svg>';
+  // d: the snapshot made when the award was announced (Career.impactCele), kind 'winner' or 'finalist'
+  UI.impactCele = function (d, replay) {
+    if (!d) return;
+    const B = x => '<b class="wc-name">' + h(x) + '</b>', win = d.kind === 'winner';
+    const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    const sparks = Array.from({ length: 12 }, (_, i) => '<i class="ic-spark" style="left:' + (6 + (i * 29) % 88) + '%;animation-delay:' + (i * 0.37).toFixed(2) + 's;animation-duration:' + (4 + (i % 4)) + 's"></i>').join('');
+    const sp = d.speakers || [];
+    const story = (win
+      ? 'After Einstein Final 1 the head judge read one team number, and it was yours. The FIRST Impact Award goes to the team that best shows what the program is for: not the robot, but everything around it. '
+      : 'Before Einstein Final 1 the judges named six teams from the whole world as FIRST Impact Award Finalists, and yours was one of them. ') +
+      (sp.length ? B(sp[0]) + (sp[1] ? ' and ' + B(sp[1]) : '') + ' presented your story to the judges' + (d.mentor ? ', coached by ' + B(d.mentor) : '') + '. ' : '') +
+      'Behind it: ' + [d.outreach ? d.outreach + ' outreach event' + (d.outreach === 1 ? '' : 's') + ' this season' : '', d.programs ? d.programs + ' feeder program' + (d.programs > 1 ? 's' : '') : '', (d.seasons > 1 ? d.seasons + ' seasons' : 'a season') + ' of steady work'].filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1') + '.' +
+      (win ? ' Your team joins the <b>Hall of Fame</b> and is invited to every future Championship.' : ' A blue banner goes on your wall, and the judges will remember the name.');
+    const others = win ? (d.finalists || []) : (d.finalists || []);
+    UI.modal('<div class="wc ic"><div class="ic-halo"></div>' + sparks +
+      dl(0.05) + LAUREL + '</div>' +
+      dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.65, 'wc-you') + (win ? 'YOU WON THE' : 'YOU ARE A') + '</div>' +
+      '<div class="wc-title ic-title">' + (win ? 'FIRST IMPACT AWARD' : 'FIRST IMPACT AWARD FINALIST') + '</div>' +
+      dl(0.9, 'wc-note') + (win ? 'The most prestigious award in the program · Hall of Fame' : 'One of six in the world') + '</div>' +
+      dl(1.0, 'wc-bn') + UI.banner({ gold: win, award: win ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: d.year, event: 'FIRST Championship' }, !replay) + '</div>' +
+      dl(1.2, 'wc-msg') + story + '</div>' +
+      dl(1.4, 'wc-al') + '<span class="wc-chip me"><b>' + d.score + '</b> Impact rating<small>out of 100</small></span><span class="wc-chip"><b>' + d.outreach + '</b> outreach events<small>this season</small></span><span class="wc-chip"><b>' + d.programs + '</b> feeder programs<small>running</small></span></div>' +
+      (others.length ? dl(1.5, 'ic-list') + (win ? 'Finalists: ' : 'The six Finalists: ') + others.map(t => (t.num === d.team.num ? '<b class="wc-name">' + t.num + ' ' + h(t.name) + '</b>' : t.num + ' ' + h(t.name))).join(' · ') + (win ? '' : '. Winner: ' + d.winner.num + ' ' + h(d.winner.name)) + '</div>' : '') +
+      dl(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + (d.quotes || []).map(cq).join('') + '</div>' +
+      dl(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + (replay ? ' Close' : win ? ' Celebrate!' : ' Continue') + '</button></div>' +
+      '</div>', { wide: true, lock: !replay, cls: 'wcm icm' });
+    UI.confetti(win ? 6000 : 3500); if (win && !replay) setTimeout(() => UI.confetti(5000), 2400);
+  };
+  // The announcement when your team is not the one being called (Einstein only)
+  function impactAnnounce(stage) {
+    const S = G.S, ci = S.season.cmpImpact, nm = n => n + ' ' + h(n === me() ? S.team.name : tname(n) || ((S.teams[n] || {}).name || ''));
+    const body = stage === 'fin'
+      ? '<div class="xs b acc">AWARDS · BEFORE EINSTEIN FINAL 1</div><h2>FIRST Impact Award Finalists</h2><p class="muted">The judges call six teams from around the world onto the field. Each of them hangs a blue banner tonight.</p>' +
+        '<div class="col">' + ci.finalists.map(n => '<div class="card flat">' + UI.icon('trophy', 14) + ' <b>' + nm(n) + '</b></div>').join('') + '</div>' +
+        '<p class="sm muted mt">' + (ci.eligible ? 'Your team is not among the six. One award is still to come: the winner is announced after Final 1.' : 'The winner is announced after Final 1.') + '</p>'
+      : '<div class="xs b acc">AWARDS · AFTER EINSTEIN FINAL 1</div><h2>FIRST Impact Award</h2><p class="muted">The most prestigious award in the program goes to…</p>' +
+        '<div class="card hl" style="text-align:center"><div class="xl b">' + nm(ci.winner) + '</div><div class="sm muted">Hall of Fame · ' + G.Career.calYear(S) + '</div></div>' +
+        '<p class="sm muted mt">' + (ci.out === 'finalist' ? 'Your team stays a Finalist, with a blue banner of its own.' : ci.eligible ? 'Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + '.' : 'Win a regional Impact Award to be judged here next time.') + '</p>';
+    UI.modal(body + '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="wcClose">Back to the field</button></div>', { lock: true });
+  }
+  // Championship ceremonies in order. On Einstein: Finalists before Final 1, the winner after Final 1, then (if you won
+  // it all) the World Champions celebration. In a division that ended without Einstein: your own awards only.
+  UI.ceremony = function (ev) {
+    const S = G.S, C = G.Career, ci = S.season && S.season.cmpImpact;
+    if (document.getElementById('modal')) return false;
+    const seen = ev.ciSeen = ev.ciSeen || {};
+    if (ev.kind === 'einstein') {
+      const F = ev.po && ev.po.matches.find(x => x.id === 'F'), done = ev.stage === 'done';
+      if (ci && !seen.fin && (done || (F && F.red != null && F.blue != null))) {
+        seen.fin = true; C.settleImpact(S, 'fin'); G.Save.write('auto');
+        if (ci.out === 'finalist') UI.impactCele(ci.cele); else impactAnnounce('fin');
+        return true;
+      }
+      if (ci && !seen.win && (done || (F && F.games.length >= 1))) {
+        seen.win = true; C.settleImpact(S, 'win'); G.Save.write('auto');
+        if (ci.out === 'winner') UI.impactCele(ci.cele); else impactAnnounce('win');
+        return true;
+      }
+      if (done && ev.result && ev.result.won && !ev.wcShown && S.season.wc) { ev.wcShown = true; ev.party = true; UI.worldChampModal(S.season.wc); return true; }
+    } else if (ev.kind === 'champs' && ev.stage === 'done' && !S.pendingEinstein && ci) {
+      C.settleImpact(S, 'all');
+      if (ci.out && !seen.own) { seen.own = true; G.Save.write('auto'); UI.impactCele(ci.cele); return true; }
+    }
+    return false;
+  };
   UI.wonEvent = (ev, R) => !!(ev && R && R.kind !== 'qual' && ev.result && ev.result.won && R.obj && R.obj.id === 'F');
 })();
 
@@ -9772,6 +10361,19 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.4', title: 'The Championship stage, a moving state of the art and deeper games', notes: [
+      'FIRST Impact Award at the Championship. Win a regional Impact Award and your team is judged again against the world\'s best programs: six Finalists are named before Einstein Final 1 and the winner after it. Both hang a blue banner. The winner gets its own celebration, joins the Hall of Fame and is invited to every future Championship. Division events no longer hand out Impact, Engineering Inspiration or Rookie All-Star awards.',
+      'World Champions celebration, refined: the driver and the drive coach are named and highlighted, and the message knows your history (finalists last year, champions again after a gap, back-to-back: "only a few teams have done it before in FRC history", three or more in a row: "no one has done it in the past decades"). History lists Championship honours on their own and can replay each celebration, and shows this season\'s finished events while the season runs.',
+      'Event pages show where you stand at a glance: a "Next" strip on the event page and beside the match buttons with the match number (Q12 of 60), and in playoffs your alliance number, the alliance you face and your last playoff result (for example "Next M10 against Alliance 1 · last: M7 W 95–80"). Einstein shows each alliance\'s division, and its OPR now starts from the division numbers instead of zero.',
+      'The state of the art moves on. From your second season, each offseason starts with two rule or vendor changes for next season (new wiring rules, a new code architecture, new vision software…), and one month between July and September brings three new designs spotted online. Each makes part of your know-how outdated: the area loses 25% (rules) or 15% (designs) of its XP, counted from at most a little over the top level, so no area stays maxed for free. A mentor who specializes in the area halves the loss. Each arrives as a pop-up and an inbox post.',
+      '2024 CRESCENDO: every shooter can score the Amp without an amp mechanism. Fixed subwoofer shooters do it slowly with a low success rate, pivot and turret shooters at a moderate rate; an amp bar or amp elevator is still far better. Concept cards say so.',
+      '2025 REEFSCAPE: the Reef has six faces with their own branches (two coral per face at L2, L3 and L4, an L1 trough, one algae each). Robots fill the faces nearest their stations first and then drive around to the far side, so the last branches cost longer cycles. The field shows the coral on each face.',
+      '2026 REBUILT: fuel is tracked on the field (neutral zone, each alliance zone, depots), scored fuel returns to the neutral zone and a thin neutral zone is slower to sweep. The hoarding meta is in: while their hub is inactive, alliances sweep the neutral zone and lob fuel back into their own zone, then refill a few steps from the hub when it lights up (about 10–15% more fuel for alliances that run it well). AI alliances pick it up over the season; yours follows your strategy read, as with note feeding in 2024.',
+      'A second robot now teaches more. With two robots running (a test chassis is enough), driver practice includes defense drills: at 100% your drivers lose 35% less speed, cycle time and accuracy to a defender. If the second robot drives like the competition robot (tank: Kitbot or West Coast; holonomic: Mecanum or Swerve), auto routines and auto upgrades develop 20% faster and the team gains Autonomous Pathing XP every week.',
+      'New event incidents: a loose bumper that falls off mid-match (the referee disables the robot; this replaces the old bumper-swap incident), vision not calibrated (only with vision on the robot), wrong code on the robot, a tool left inside that blocks a mechanism, and a joystick left unplugged that costs the first 20 seconds of teleop.',
+      'Shop is now called Inventory. Buying mechanical COTS on a full shelf replaces the most worn one, like electronics; replaced parts are sold automatically when they are still sellable. Fixed: in the offseason a part could show "in stock" and still refuse the purchase.',
+      'Tutorial tours run once per game instead of every season. Bars, scales and scouting highlights use fixed colours instead of the team colour (the testing-hours bar has a legend now).'
+    ] },
     { v: '2.3', title: 'Layout polish, smarter spare parts and a bigger Kickoff kit', notes: [
       'Shop → Electronics: products line up in three columns under their vendor (Apex Motion, Lumen Robotics, Kit of Parts), newest version first. A vendor without a version of a part shows an empty slot instead of shifting the others.',
       'Calendar: every month card is the same size and scrolls inside, empty months say so, and the Week 0 scrimmage card now sits above Week 1 in Regional registration.',
@@ -9951,7 +10553,7 @@ window.G = window.G || {};
 </script>
 <script>/* js/ui/screens-parts.js */
 'use strict';
-/* FRC Manager — Shop screen: what the robots use, the electronics store (two vendors), mechanical COTS,
+/* FRC Manager — Inventory screen (parts shop): what the robots use, the electronics store (two vendors), mechanical COTS,
    game elements (with next season's preorders), spare parts and batteries */
 (function () {
   const U = G.U, D = G.Data, h = U.esc, UI = G.UI, P = () => G.Parts;
@@ -9963,7 +10565,7 @@ window.G = window.G || {};
   UI.S.parts = { html() {
     const S = G.S, tab = UI.st.partsTab || 'robot';
     const season = P().inSeason(S);
-    let o = UI.head('Shop', 'parts', 'Motors, electronics and mechanisms for your robots. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
+    let o = UI.head('Inventory', 'parts', 'Motors, electronics and mechanisms for your robots. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
     const ny = P().nextYear(S);
     o += UI.tabs(tab, [['robot', 'Your robots', 'garage'], ['elec', 'Electronics', 'chip'], ['cots', 'Mechanical COTS', 'gear'], ['elem', 'Game elements', 'elements']].concat(ny != null ? [['pre', 'Preorder', 'truck']] : []).concat([['sell', 'Sell', 'money'], ['spares', 'Spares & batteries', 'battery']]), 'partsTab');
     if (tab === 'robot') o += robotTab(S);
@@ -10085,7 +10687,7 @@ window.G = window.G || {};
   UI.A.buyProd = arg => {
     const [id, n] = arg.split('|'), r = G.Parts.buy(G.S, id, Number(n));
     if (typeof r === 'string') return UI.err(r);
-    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' worn part' + (r.replaced > 1 ? 's' : '') + ')' : ''), 'good');
+    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
     UI.render();
   };
 
@@ -10094,9 +10696,9 @@ window.G = window.G || {};
     let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Mechanical parts come from many suppliers and always fit. Drive gearboxes, cameras and pneumatics are used like electronics. <b>Mechanism kits are optional:</b> each concept can use a set (a turret shooter: a turret kit and a shooter kit; a traversal climber: up to 4 climber kits). A full set makes the build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster, uses ' + Math.round((1 - D.KIT_COST) * 100) + '% less material and removes first-build penalties; a partial set gives part of that. Kits stay in the subsystem they were built into (on either robot or in storage); take a stored subsystem apart in the Garage to free them. Kits wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own.</div>';
     o += '<div class="grid g3">' + D.COTS_CATS.map(cat => {
       const c = D.PART_CAT[cat], p = P().prod(cat + 'C'), price = P().price(S, p), have = P().count(S, cat), ok = P().inStock(S, p.id) || !P().inSeason(S);
-      const free = c.kit ? P().kitsFree(S, cat) : null, full = have >= c.max;
+      const free = c.kit ? P().kitsFree(S, cat) : null, room = P().buyRoom(S, p.id), full = room <= 0, swap = !full && have >= c.max;
       return '<div class="pcard" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + stockTag(S, p.id) + '</div><div class="xs muted">' + h(c.desc) + (c.kit ? ' Helps ' + h(Object.keys(D.KIT_FOR_AREA).filter(k => D.KIT_FOR_AREA[k] === cat).map(k => D.AREA[k].name.toLowerCase()).join(' and ')) + ' builds.' : '') + '</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + '>' + (full ? 'Full' : 'Buy') + '</button></div></div>';
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button></div></div>';
     }).join('') + '</div>';
     o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + ' <span class="xs muted">cheap, basic, always in stock</span></h2><div class="grid g3">' + P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec).map(x => prodCard(S, x)).join('') + '</div>';
     return o;
@@ -10168,7 +10770,7 @@ window.G = window.G || {};
       { sel: '.nav[data-arg="inbox"]', icon: 'inbox', title: 'Inbox', points: ['News, results and decisions.', 'Some messages take an optional <b>reply</b> with a small effect.'] },
       { sel: '.nav[data-arg="design"]', screen: 'design', icon: 'design', title: 'Design Office', points: ['Pick a <b>concept</b> for each subsystem, then upgrade it. <b>Build copy</b> makes more of a finished design.', 'Projects share the team hours. Give a project <b>extra hours</b> to raise its quality.', 'Leave about <b>10% idle</b> each week to keep fatigue steady.'] },
       { sel: '.nav[data-arg="garage"]', screen: 'garage', icon: 'garage', title: 'Garage: two robots', points: ['<b>Robot 1</b> and <b>Robot 2</b>: pick which one competes and which one the drivers practice on.', 'Fit built subsystems to either robot; spares wait in storage.', 'Drivers need practice with each new mechanism (<b>familiarity</b>).'] },
-      { sel: '.nav[data-arg="parts"]', screen: 'parts', icon: 'parts', title: 'Shop', points: ['Every build needs motors and electronics. Kickoff brings a small free kit.', 'Two vendors: <b>Apex</b> (premium) and <b>Lumen</b> (value). Mixing them costs a little.', 'In season, parts often <b>sell out</b>: stock up before Kickoff.'] },
+      { sel: '.nav[data-arg="parts"]', screen: 'parts', icon: 'parts', title: 'Inventory', points: ['Every build needs motors and electronics. Kickoff brings a small free kit.', 'Two vendors: <b>Apex</b> (premium) and <b>Lumen</b> (value). Mixing them costs a little.', 'In season, parts often <b>sell out</b>: stock up before Kickoff.'] },
       { sel: '.nav[data-arg="workshop"]', icon: 'workshop', title: 'Workshop', points: ['Facilities speed up projects and add project slots.', 'They wear down: renovate or upgrade.'] },
       { sel: '.nav[data-arg="team"]', icon: 'team', title: 'Team', points: ['Choose the drive team.', 'Outreach and fundraising (each repeat in a month pays less).'] },
       { sel: '.nav[data-arg="finance"]', icon: 'finance', title: 'Finance', points: ['Sign sponsors in October; they pay at Kickoff.', 'In season you may go into debt; under ' + U.money(D.STEM_FUND.below) + ' the STEM fund can help.'] },
@@ -10179,7 +10781,7 @@ window.G = window.G || {};
       { icon: 'event', title: 'Your first event', body: 'An event runs in stages:', diagram: flow([['spare', 'Practice'], ['play', 'Qualifications'], ['team', 'Alliance selection'], ['trophy', 'Playoffs']]) },
       { sel: '.card .ct', icon: 'spare', title: 'Practice day', points: ['Spend practice blocks on tuning, driver reps, auto, scouting or a <b>Systems Shakedown</b> (rebuilds the robot to 100%).'] },
       { sel: '.card.mt .ct', icon: 'spare', title: 'Pit crew', points: ['Repairs between matches use <b>spare parts</b>. Buying them here costs double.', 'A spare subsystem in storage identical to the robot\'s can be <b>swapped in</b> to restore it to 100%.'] },
-      { icon: 'fatigue', title: 'Fatigue at events', points: ['Team fatigue is locked in when the event starts.', 'Tired teams make mistakes: wrong auto, flat battery, mixed-up scouting. See the <b>Incidents</b> and <b>Scouting</b> tabs.'] }
+      { icon: 'fatigue', title: 'Fatigue at events', points: ['Team fatigue is locked in when the event starts.', 'Tired teams make mistakes: wrong auto, flat battery, a loose bumper, mixed-up scouting. See the <b>Incidents</b> and <b>Scouting</b> tabs.'] }
     ],
     match: () => [
       { icon: 'play', title: 'Your first match', points: ['Set the plan: pace, role (score / defend / feed), target and endgame.', 'Watch it live or simulate it.'] },
@@ -10189,11 +10791,11 @@ window.G = window.G || {};
   const Tut = UI.Tut = { cur: null };
   Tut.enabled = () => !G.Save.settings().noTut;
   Tut.setEnabled = on => { const st = G.Save.settings(); st.noTut = !on; G.Save.saveSettings(st); };
-  // start(id, force): season tours run every season; event and match tours only the first time
+  // start(id, force): every tour runs once per game (save); "Show the tour again" in How to play forces it
   Tut.start = function (id, force) {
     if (!force && !Tut.enabled()) return false;
     const S = G.S;
-    if (!force && S && id !== 'season') { S.tutSeen = S.tutSeen || {}; if (S.tutSeen[id]) return false; S.tutSeen[id] = true; }
+    if (!force && S) { S.tutSeen = S.tutSeen || {}; if (S.tutSeen[id]) return false; S.tutSeen[id] = true; }
     Tut.cur = { id, steps: TOURS[id](), i: 0 };
     setTimeout(Tut.show, 60);
     return true;
@@ -10258,21 +10860,23 @@ window.G = window.G || {};
       { icon: 'garage', t: 'Copies and fabrication', d: flow([['design', 'Design + prototype'], ['bolt', 'Build copy'], ['garage', 'Robot 2 or a spare']]), li: ['<b>Build copy</b> makes another unit of a finished design: about a quarter of the first build\'s hours and 60% of its materials, plus its own electronics and kits.', 'Copies go to the robot that lacks the latest version (the second robot first), otherwise to storage as a spare.', 'Copies and full robot copies are <b>fabrication</b>: they use team hours but no project slot.'] },
       { icon: 'clock', t: 'Extra hours', d: flow([['clock', 'Planned hours'], ['bolt', '+ extra hours'], ['check', 'Better result']]), li: ['Set <b>extra hours</b> (in steps of 1 h) on any project: they use hours that would sit idle.', 'Quality rises with diminishing returns: doubling a project gets about 80% of the maximum bonus.', 'Builds start with better stats, upgrades gain more and add less weight, hardening goes further. You can\'t lighten anything below 40% of its design weight.'] },
       { icon: 'fatigue', t: 'Fatigue (in season)', li: ['Fatigue settles around <b>30</b>. Leaving about <b>10% of the week\'s hours idle</b> holds it there.', 'Busier weeks, <b>overtime</b> (+10) and <b>competition weeks</b> (+9) raise it; idle time and team nights lower it. The offseason resets it.', 'It only matters at events: tired teams have more <b>incidents</b> and less reliable <b>scouting</b>.'] },
-      { icon: 'pfield', t: 'Testing hours', li: ['A Practice Field gives weekly testing hours: development testing (faster, better upgrades) or driver practice (skills and confidence).', 'Driver practice needs this game\'s field elements (Shop → Game elements) for full value, and builds familiarity with the robot they practice on.'] },
+      { icon: 'pfield', t: 'Testing hours', li: ['A Practice Field gives weekly testing hours: development testing (faster, better upgrades) or driver practice (skills and confidence).', 'Driver practice needs this game\'s field elements (Inventory → Game elements) for full value, and builds familiarity with the robot they practice on.'] },
+      { icon: 'incident', t: 'The state of the art moves', li: ['From your second season, each offseason opens with two <b>rule or vendor changes</b> for next season, and one month between July and September brings three <b>new designs spotted online</b>.', 'Each makes one knowledge area partly outdated: −25% XP for rule and vendor changes, −15% for new designs (banked XP far above the top level doesn\'t protect it).', 'A mentor who specializes in the area halves the loss. Research wins it back.'] },
       { icon: 'know', t: 'Tech Knowledge', li: ['Building and competing with a concept earns knowledge; research earns it directly.', 'Higher levels mean higher ceilings, fewer hours and better reliability in later games.'] }
     ] },
     { id: 'garage', icon: 'garage', name: 'Garage & two robots', desc: 'Robot 1 and 2, familiarity, storage, spares', secs: [
       { icon: 'garage', t: 'Two robots', li: ['Every season you have <b>Robot 1</b> and <b>Robot 2</b>. Either can be the <b>competition robot</b>: it gets the best electronics and goes to events.', 'Fit built subsystems to either robot in the Garage, swap them between robots, or take them off into storage.', 'A second robot gives up to +6 testing hours a week (with a Practice Field), up to 25% more effective driver practice on it (the competition robot can be worked on meanwhile), better tuning at events, and its identical subsystems are spares at events. These scale with how many of the competition robot\'s subsystems it copies: a bare chassis gives little.', 'It costs a lot: a full second set of electronics plus copies of every subsystem. Usually only well-funded teams with big inventories can justify it, rarely in a first season.'] },
       { icon: 'clock', t: 'Test chassis', li: ['Early in the season, build a <b>test chassis</b> on the second robot (Garage): a Kitbot Tank, Mecanum or West Coast Drive from parts on the shelf, a day or two of work and no project slot.', 'Without a Practice Field it gives ' + G.Data.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot: development testing for robot code, autos, vision and drivetrain projects (half the usual cost), and driver practice (at ' + Math.round(G.Data.CHASSIS_ELEM * 100) + '% quality). With a Practice Field it counts as half a second robot.', 'Programmers and drivers start before the competition robot drives. Practising on a different drivetrain only partly carries over to the competition robot\'s.'] },
+      { icon: 'shield', t: 'Second robot drills', li: ['With two robots running, driver practice includes <b>defense drills</b>: one robot plays defender. At 100% your drivers lose 35% less speed, cycle time and accuracy to a defender in matches. It resets at Kickoff.', 'A second robot that drives like the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) lets programmers test paths early: auto routines and auto upgrades develop 20% faster, plus Autonomous Pathing XP every week.'] },
       { icon: 'team', t: 'Driver familiarity', d: flow([['bolt', 'New mechanism about 35%'], ['play', 'Practice and matches'], ['check', 'Up to 100%']]), li: ['The drive team knows each subsystem they have driven. In matches a subsystem gives 85–100% of its stats depending on familiarity.', 'A new version of the same mechanism costs a few percent; switching concept costs 20–65% (a dumper to a turret, or tank to swerve, is a big change).', 'Weekly shop driving, driver practice, event practice blocks and matches win it back. Choose which robot the drivers practice on: practicing on an older robot keeps them familiar with the old parts.'] },
       { icon: 'box', t: 'Storage and spares', li: ['Up to 2 built units of each subsystem fit in storage. When a build would overflow it, the oldest is taken apart (the build quote warns you).', '<b>Take apart</b> any stored unit for spare parts; its mechanism kits go back on the shelf.', 'A spare identical to the competition robot\'s (same concept and version), in storage or on the other robot, goes to events: swap it in between matches to restore that subsystem to 100%.'] }
     ] },
-    { id: 'parts', icon: 'parts', name: 'Shop', desc: 'Vendors, stock, wear, kits, game elements', secs: [
+    { id: 'parts', icon: 'parts', name: 'Inventory', desc: 'Vendors, stock, wear, kits, game elements', secs: [
       { icon: 'chip', t: 'Two electronics vendors', li: ['<b>Apex Motion</b>: top performance, premium prices. <b>Lumen Robotics</b>: dependable and cheaper.', 'Motors, encoders, control hubs and swerve modules come from one of them. Drivetrains always need these.', '<b>Mixing</b> both on the competition robot: hardware and software projects take 10% longer, and the robot loses a little reliability and speed. Use "Apex first" or "Lumen first" to keep one system.', 'Every fall, 1–4 months before Kickoff, each vendor holds a launch event with at least one new product (a pop-up and an inbox post). The previous version stays on sale through the next season; no line goes past version III.'] },
       { icon: 'box', t: 'Kit of Parts and stock', d: flow([['truck', 'Offseason: everything in stock'], ['bolt', 'Kickoff: free kit'], ['incident', 'In season: often sold out']]), li: ['Every team gets a free kit at every Kickoff: 4 brushed motors, 2 low-profile encoders, 2 kitbot gearboxes and game pieces. Only rookies get a control hub, in a bigger first-season kit; veteran teams start with one leftover kit hub.', 'In season, electronics are often <b>sold out</b> for the week. Stock up before Kickoff.', 'More <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub, kitbot gearboxes) can be bought any time: very cheap and never sold out, but much slower. Next to Apex or Lumen parts they cost 5% more project hours and a little performance. They can\'t be resold.'] },
       { icon: 'garage', t: 'What builds use', li: ['A swerve drive uses 4 modules, 8 motors and 4 encoders; tank drives 4–6 motors and 2 gearboxes; most mechanisms 1–3 motors.', 'Each robot needs one control hub; a <b>second robot</b> needs its own set of electronics.', 'Parts are reusable: the best ones go on the competition robot, the rest on the other robot.'] },
       { icon: 'spare', t: 'Wear and slots', li: ['Parts wear in matches and practice. Worn parts barely slow the robot but fail more often.', 'Each part type has a slot limit; buying more replaces your most worn parts.'] },
-      { icon: 'money', t: 'Selling parts', li: ['Sell parts you no longer need in <b>Shop → Sell</b>: about 55% of today\'s list price at full condition, less as they wear.', 'Only parts above 60% condition can be sold. Kit parts can\'t, and you can\'t sell below what your robots need.', 'Handy when switching vendors: sell the old set while it still has value.'] },
+      { icon: 'money', t: 'Selling parts', li: ['Sell parts you no longer need in <b>Inventory → Sell</b>: about 55% of today\'s list price at full condition, less as they wear.', 'Only parts above 60% condition can be sold. Kit parts can\'t, and you can\'t sell below what your robots need.', 'Handy when switching vendors: sell the old set while it still has value.'] },
       { icon: 'elevator', t: 'Mechanism kits (optional)', li: ['Each concept can use a set of COTS kits: a turret shooter takes a turret kit and a shooter kit, a traversal climber up to 4 climber kits, a tall elevator 2 stage kits.', 'A full set makes the build 28% faster, uses 25% less material and removes the first-build penalty; a partial set gives part of that. Copies use kits too.', 'Kits stay in the subsystem they were built into. Take a stored subsystem apart to get them back. They wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own.'] },
       { icon: 'elements', t: 'Game elements', li: ['Without a Practice Field the kit game pieces are all you need. With one, sets fill it up to its size: Level 1 fits a quarter set, Level 2 a half set, Level 3 a full set.', 'Preordered sets show as <b>pending</b> right away and arrive at Kickoff.', 'They wear with driver practice. Store up to two fields\' worth.', 'In season they often sell out: <b>preorder</b> next season\'s elements in the offseason (they arrive at Kickoff).'] },
       { icon: 'battery', t: 'Spare parts and batteries', li: ['Spare parts fix the robot at home and in the pits. They are cleared out at each Kickoff.', 'Turn on <b>auto-restock</b> to buy what the next event will need.', 'Batteries wear one match at a time; new ones replace the most worn.'] }
@@ -10286,7 +10890,7 @@ window.G = window.G || {};
       { icon: 'team', t: 'Students and the drive team', li: ['Driver, operator, human player and coach use different skills. They improve with matches and practice.', 'Seniors graduate in June; new students join in September.'] },
       { icon: 'mentors', t: 'Mentors', li: ['Design and fabrication mentors add project slots; each role has its own benefits.'] },
       { icon: 'outreach', t: 'Outreach and fundraising', li: ['Up to 3 activities a week (12 a month in the offseason), each type once a week.', 'Repeating an activity <b>in the same month</b> pays less; it resets every month.', 'Facilities, sponsors, mentors and the trailer unlock more activities.'] },
-      { icon: 'trophy', t: 'Impact Award', li: ['Needs a submission (Design Office) and a strong Impact rating built over several seasons of outreach.'] },
+      { icon: 'trophy', t: 'Impact Award', li: ['Needs a submission (Design Office) and a strong Impact rating built over several seasons of outreach.', 'Regional winners are judged again at the Championship for the <b>FIRST Impact Award</b>: six Finalists are named before Einstein Final 1 and the winner after it. Both earn a blue banner; the winner joins the Hall of Fame and is invited to every future Championship.'] },
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
@@ -10301,7 +10905,7 @@ window.G = window.G || {};
     { id: 'events', icon: 'event', name: 'At events', desc: 'Practice, scouting, incidents, playoffs', secs: [
       { icon: 'spare', t: 'Practice day', li: ['Tuning, driver reps, auto validation, scouting focus, installing upgrades, or a <b>Systems Shakedown</b> that finds hidden faults and rebuilds the robot to 100%.'] },
       { icon: 'scout', t: 'Scouting credibility', li: ['Your scouts\' data is usually right (90%+ at normal fatigue). Tired scouts log the wrong robot now and then.', 'A Strategy mentor, event experience and Scouting Focus practice raise it.'] },
-      { icon: 'incident', t: 'Incidents', li: ['Drive-team and pit-crew mistakes: battery not swapped, wrong auto, loose connector, unfinished repairs.', 'At normal fatigue: at most one per event. Tired teams have many more. See the Incidents tab.', 'Fatigue is fixed for the whole event (Championship division and Einstein count as one).'] },
+      { icon: 'incident', t: 'Incidents', li: ['Drive-team and pit-crew mistakes: battery not swapped, wrong auto or wrong code, a loose bumper (robot disabled), a tool left inside, an unplugged joystick, uncalibrated vision, unfinished repairs.', 'At normal fatigue: at most one per event. Tired teams have many more. See the Incidents tab.', 'Fatigue is fixed for the whole event (Championship division and Einstein count as one).'] },
       { icon: 'team', t: 'Alliance selection and playoffs', li: ['Top 8 seeds pick alliances; playoffs are double elimination. The pick list uses your scouting data.'] }
     ] },
     { id: 'matches', icon: 'play', name: 'Matches', desc: 'Coach calls, defense, faults', secs: [

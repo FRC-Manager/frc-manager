@@ -238,6 +238,52 @@
     2026: { div: 'Daly', teams: [[4414, 'HighTide'], [1323, 'MadTown Robotics'], [4065, 'Nerds of Prey'], [1538, 'The Holy Cows']] }
   };
 
+  // ---------- The state of the art moves on (offseason, from the second season) ----------
+  // Rule and vendor changes arrive at the start of each offseason and hit next season; new designs spread online in one
+  // month between July and September. Each one makes part of the team's know-how outdated: the area loses a share of
+  // its XP (counted from at most TECH_CAP × the top level, so banked XP is no shield). A specialist mentor halves the loss.
+  D.TECH_RULE_PCT = 0.25; D.TECH_DESIGN_PCT = 0.15; D.TECH_CAP = 1.25; D.TECH_RULES_N = 2; D.TECH_DESIGNS_N = 3;
+  D.TECH_RULES = [
+    { id: 'wiring', area: 'elec', tag: 'Robot rules', title: 'New wiring rules', body: 'Next season\'s robot rules rewrite the electrical section: new wire-gauge tables, every branch circuit protected on its own, and the main breaker has to sit where a referee can reach it. Half of your wiring standard is now a history lesson.',
+      talk: [['Our inspection checklist just became a collector\'s item.', 'an electrical mentor'], ['So the zip-tie budget goes up. Again.', 'a team treasurer']] },
+    { id: 'codearch', area: 'autoPath', tag: 'Vendor update', title: 'New code architecture', body: 'The control-system library was rebuilt around a new command framework and a new path-following interface. Last season\'s autonomous code no longer compiles, and the migration guide runs to forty pages.',
+      talk: [['Deprecated. Deprecated. Deprecated. Removed.', 'your lead programmer, reading the changelog'], ['I liked the old trajectory follower. It knew me.', 'a student on Team {t}']] },
+    { id: 'vissoft', area: 'vision', tag: 'Vendor update', title: 'New vision software', body: 'The vision coprocessor software everyone runs got a full rewrite: new pipelines, a new calibration tool and a new coordinate convention. Your tuned settings do not carry over.',
+      talk: [['The new coordinate system is "more intuitive". Our robot now aims at the ceiling.', 'a programmer on Team {t}'], ['Calibration takes ten minutes now. Finding the calibration board took two hours.', 'a vision lead']] },
+    { id: 'swervefw', area: 'swerve', tag: 'Vendor update', title: 'Swerve firmware overhaul', body: 'Both module vendors moved to new motor-controller firmware with a different control mode and odometry timing. Your drive constants need tuning again from scratch.',
+      talk: [['Every gain we tuned last year is now a suggestion.', 'a controls mentor'], ['It drives great. Sideways. Only sideways.', 'a driver on Team {t}']] },
+    { id: 'bumper', area: 'intake', tag: 'Robot rules', title: 'Bumper and frame rule change', body: 'Bumpers sit in a different height zone next season and robots may reach less far beyond the frame. Last year\'s intake geometry no longer fits inside the rules.',
+      talk: [['We spent two seasons perfecting that intake. The new rules moved the bumper two inches.', 'a design mentor'], ['On the bright side, bumpers are still red and blue.', 'a forum comment']] },
+    { id: 'height', area: 'climb', tag: 'Robot rules', title: 'New height and extension limits', body: 'A lower height limit, and no reaching above the robot before the endgame. Tall telescoping climbers need a rethink, and so do the hooks that go with them.',
+      talk: [['Our climber is now four inches too proud of itself.', 'a mentor on Team {t}'], ['Measure twice, read the rule three times, cut once.', 'a fabrication mentor']] }
+  ];
+  D.TECH_DESIGNS = [
+    { id: 'pivot', area: 'arm', title: 'A new pivot design', body: 'A top team posted the CAD of a pivot driven through a dead-axle chain stage, with the encoder on the output shaft: half the backlash and a third of the parts. Every arm built the old way suddenly looks a season old.' },
+    { id: 'rigging', area: 'elevator', title: 'New elevator rigging', body: 'An offseason reveal showed a continuous-rigged elevator with a spring tensioner that never needs re-tying. The build thread has 900 replies and counting.' },
+    { id: 'visalg', area: 'vision', title: 'A new vision algorithm', body: 'An open-source pose estimator that fuses several tags with the gyro landed over the summer. Teams report localization twice as steady as last season\'s best.' },
+    { id: 'intake', area: 'intake', title: 'A new intake geometry', body: 'Somebody worked out a compliant-wheel intake that centers the game piece by itself. Slow-motion videos of it are everywhere.' },
+    { id: 'hood', area: 'shooter', title: 'A new shooter layout', body: 'A twin-flywheel shooter with a motorized hood and a feeder that pre-spins the piece: tighter groups from farther out, and the drawings are public.' },
+    { id: 'turret', area: 'turret', title: 'A new turret build', body: 'A printed-ring turret with an internal cable chain and 540 degrees of travel, published with full drawings. Slip rings are suddenly old news.' },
+    { id: 'indexer', area: 'index', title: 'A new indexer', body: 'A serializer built around a star wheel that makes jams close to impossible went viral after an offseason event.' },
+    { id: 'climber', area: 'climb', title: 'A new climber', body: 'A spring-driven climber with latching hooks: up in under two seconds, and it stays up when the power is cut.' },
+    { id: 'swervemod', area: 'swerve', title: 'A new swerve module layout', body: 'An inverted module with smaller wheels and the motors tucked inside the frame rail. Lower, lighter, and it corners like it is on rails.' },
+    { id: 'planner', area: 'autoPath', title: 'A new path planner', body: 'A trajectory optimizer that replans around other robots on the fly was released as a free library. Hand-drawn paths look quaint now.' }
+  ];
+  D.TECH_TALK = {
+    rules: [['Reading the manual front to back this year. I say that every year.', 'a mentor on Team {t}'], ['Whoever wrote that rule has clearly met our robot.', 'a student on Team {t}'], ['Update the checklist, update the wiki, update the students. In that order.', 'a lead mentor'], ['Good news: everyone else has to relearn it too.', 'a forum regular']],
+    designs: [['Saved the CAD. Told nobody. Everybody had already saved the CAD.', 'a design student on Team {t}'], ['We are not copying it. We are being inspired by it. Precisely.', 'a mentor on Team {t}'], ['Open build threads are the best and worst thing to happen to my sleep.', 'a lead mentor'], ['Our version is the same, but with more zip ties.', 'Team {t}'], ['I gave it a week before somebody printed it in team colors. It took two days.', 'a forum regular']]
+  };
+  D.TECH_INTRO = {
+    rules: ['The season is barely over and next year\'s paperwork is already here. Two changes will reach your shop before Kickoff:', 'Summer homework arrived early. The robot rules and the vendors both moved, and your notes did not move with them:', 'Every offseason somebody changes the ground under the robot. This year it is these two:'],
+    designs: ['Offseason reveal threads are in full swing, and a few ideas are spreading faster than anyone can build them:', 'It was a busy month online. Three designs showed up that everybody will be running by Kickoff:', 'The best teams published their homework, and it raises the bar for everyone else:']
+  };
+  // ---------- Second robot drills ----------
+  D.DEF_DRILL_HOURS = 18;   // driver-practice hours with two running robots for full "playing through defense" skill (resets each season)
+  D.DEF_DRILL_EFFECT = 0.35; // a fully drilled drive team loses this much less to a defender (speed, cycle time, accuracy)
+  D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%
+  D.CHASSIS_PATH_XP = 3;    // ... and adds Autonomous Pathing XP every week it runs
+  D.DRIVE_FAMILY = { kit: 'tank', wcd: 'tank', mec: 'holonomic', swerve: 'holonomic' };
+
   // ---------- Feeder programs ----------
   // attr: skill bonus for a recruit who comes from a fully grown program with this focus; size: extra recruits per year;
   // impact: weight in the Impact rating's "feeder programs" part (3 established balanced programs = full marks)

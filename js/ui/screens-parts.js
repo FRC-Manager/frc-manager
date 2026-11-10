@@ -1,5 +1,5 @@
 'use strict';
-/* FRC Manager — Shop screen: what the robots use, the electronics store (two vendors), mechanical COTS,
+/* FRC Manager — Inventory screen (parts shop): what the robots use, the electronics store (two vendors), mechanical COTS,
    game elements (with next season's preorders), spare parts and batteries */
 (function () {
   const U = G.U, D = G.Data, h = U.esc, UI = G.UI, P = () => G.Parts;
@@ -11,7 +11,7 @@
   UI.S.parts = { html() {
     const S = G.S, tab = UI.st.partsTab || 'robot';
     const season = P().inSeason(S);
-    let o = UI.head('Shop', 'parts', 'Motors, electronics and mechanisms for your robots. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
+    let o = UI.head('Inventory', 'parts', 'Motors, electronics and mechanisms for your robots. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
     const ny = P().nextYear(S);
     o += UI.tabs(tab, [['robot', 'Your robots', 'garage'], ['elec', 'Electronics', 'chip'], ['cots', 'Mechanical COTS', 'gear'], ['elem', 'Game elements', 'elements']].concat(ny != null ? [['pre', 'Preorder', 'truck']] : []).concat([['sell', 'Sell', 'money'], ['spares', 'Spares & batteries', 'battery']]), 'partsTab');
     if (tab === 'robot') o += robotTab(S);
@@ -133,7 +133,7 @@
   UI.A.buyProd = arg => {
     const [id, n] = arg.split('|'), r = G.Parts.buy(G.S, id, Number(n));
     if (typeof r === 'string') return UI.err(r);
-    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' worn part' + (r.replaced > 1 ? 's' : '') + ')' : ''), 'good');
+    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
     UI.render();
   };
 
@@ -142,9 +142,9 @@
     let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Mechanical parts come from many suppliers and always fit. Drive gearboxes, cameras and pneumatics are used like electronics. <b>Mechanism kits are optional:</b> each concept can use a set (a turret shooter: a turret kit and a shooter kit; a traversal climber: up to 4 climber kits). A full set makes the build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster, uses ' + Math.round((1 - D.KIT_COST) * 100) + '% less material and removes first-build penalties; a partial set gives part of that. Kits stay in the subsystem they were built into (on either robot or in storage); take a stored subsystem apart in the Garage to free them. Kits wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own.</div>';
     o += '<div class="grid g3">' + D.COTS_CATS.map(cat => {
       const c = D.PART_CAT[cat], p = P().prod(cat + 'C'), price = P().price(S, p), have = P().count(S, cat), ok = P().inStock(S, p.id) || !P().inSeason(S);
-      const free = c.kit ? P().kitsFree(S, cat) : null, full = have >= c.max;
+      const free = c.kit ? P().kitsFree(S, cat) : null, room = P().buyRoom(S, p.id), full = room <= 0, swap = !full && have >= c.max;
       return '<div class="pcard" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + stockTag(S, p.id) + '</div><div class="xs muted">' + h(c.desc) + (c.kit ? ' Helps ' + h(Object.keys(D.KIT_FOR_AREA).filter(k => D.KIT_FOR_AREA[k] === cat).map(k => D.AREA[k].name.toLowerCase()).join(' and ')) + ' builds.' : '') + '</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + '>' + (full ? 'Full' : 'Buy') + '</button></div></div>';
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button></div></div>';
     }).join('') + '</div>';
     o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + ' <span class="xs muted">cheap, basic, always in stock</span></h2><div class="grid g3">' + P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec).map(x => prodCard(S, x)).join('') + '</div>';
     return o;

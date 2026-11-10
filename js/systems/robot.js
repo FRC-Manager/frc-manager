@@ -121,6 +121,19 @@
     const o = R.bots[Robot.other(R)].subs;
     return ks.filter(k => o[k] && o[k].ver && o[k].concept === R.subs[k].concept).length / ks.length;
   };
+  // The competition drivetrain concept (built, or being built) and whether the second robot drives the same way:
+  // tank (Kitbot, West Coast) or holonomic (Mecanum, Swerve). A matching test chassis lets programmers develop paths early.
+  Robot.compDrive = function (S) {
+    const R = S.robot; if (!R || !R.design) return null;
+    const p = S.projects.find(x => x.type === 'build' && x.sub === 'drive');
+    return p ? p.concept : R.design.drive && R.design.drive.ver ? R.design.drive.concept : null;
+  };
+  Robot.chassisMatch = function (S) {
+    const R = S.robot; if (!R || !R.bots || R.year !== S.year || S.phase === 'off') return false;
+    const o = R.bots[Robot.other(R)].subs.drive, cd = Robot.compDrive(S);
+    return !!(o && o.ver && cd && D.DRIVE_FAMILY[o.concept] && D.DRIVE_FAMILY[o.concept] === D.DRIVE_FAMILY[cd]);
+  };
+  Robot.isPathProject = p => p.type === 'auto' || (p.type === 'upgrade' && p.sub === 'soft' && p.focus === 'auto');
   Robot.ceil = function (S, year, subId, c, stat) {
     let v = (c.ceil[stat] || 0) + 3 * lvlFor(S, subId, c, stat);
     // better motors, swerve modules and sensors raise ceilings (parts on the competition robot)
@@ -394,7 +407,7 @@
       case 'vision': {
         const l = R.visionLvl;
         if (l >= 2) err = 'Vision maxed';
-        else if (G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Shop)';
+        else if (G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Inventory)';
         hours = 120 * (l + 1) * swMult(S); cost = 200;
         name = 'Vision Level ' + (l + 1) + (l === 0 ? ' (auto-aim)' : ' (shoot on the move)');
         break;
@@ -548,9 +561,11 @@
     const tp = Robot.testPlan(S, devH || 0, a.give, limited), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
     let bonus = 0;
     let polished = 0;
+    const pathBoost = Robot.chassisMatch(S) ? D.CHASSIS_PATH : 0; // paths tried on a second robot that drives the same way
+    if (pathBoost && hours > 0 && S.phase !== 'off') Robot.addXP(S, 'autoPath', D.CHASSIS_PATH_XP);
     S.projects.forEach(p => {
       const h = a.give[p.id] || 0, t = tp.give[p.id] || 0, ph = a.pol[p.id] || 0;
-      const extra = h * a.mult(p) * t * perH; // testing catches problems early: less rework
+      const extra = h * a.mult(p) * (t * perH + (pathBoost && Robot.isPathProject(p) ? pathBoost : 0)); // testing catches problems early: less rework
       p.done += h * a.mult(p) + extra; p.lastHours = Math.round(h + ph);
       p.polish = (p.polish || 0) + ph * a.mult(p); p.lastPolish = ph; polished += ph;
       p.test = (p.test || 0) + t; p.lastTest = t; bonus += extra;
@@ -817,8 +832,15 @@
       tune: ev ? ev.tune : 0.5, conf: ev ? ev.conf : 0.5, tuneAuto: ev ? ev.tuneAuto : 0,
       cond: Robot.condAvg(S), batt: ev && ev.batt != null ? ev.batt : 1, hidden: Math.max(0, Robot.hidden(S) - (ev ? ev.shake * 0.5 : 0)),
       power: G.Cap.power(R.year, cap),
-      autoFail: !!(ev && ev.incNext && ev.incNext.autoFail)
+      autoFail: !!(ev && ev.incNext && (ev.incNext.autoFail || ev.incNext.codeBad)),
+      defSkill: R.year === S.year ? S.defDrill || 0 : 0
     };
+    const inc = (ev && ev.incNext) || {};
+    if (inc.visionOff) { cap.accuracy = Math.round(cap.accuracy * 0.82); cap.vision = Math.round((cap.vision || 0) * 0.5); } // camera calibration skipped
+    if (inc.codeBad) { cap.scoreSpd = Math.round(cap.scoreSpd * 0.8); cap.intake = Math.round(cap.intake * 0.88); }            // wrong code: half the controls dead
+    if (inc.disableAt) out.disableAt = inc.disableAt;
+    if (inc.toolIn) out.toolIn = inc.toolIn;
+    if (inc.teleDelay) out.teleDelay = inc.teleDelay;
     if (ev && ev.incNext && ev.incNext.hidden) out.hidden += ev.incNext.hidden;
     return out;
   };
