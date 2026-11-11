@@ -297,7 +297,7 @@
     if (ev.kind === 'scrimmage') return;
     const f = ev.fatigue == null ? D.FATIGUE_BASE : ev.fatigue, n = ev.incidents.length;
     if (f <= D.INCIDENT_FREE && n >= 1) return;
-    const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12);
+    const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12) * G.Career.techCheck(S); // a Technician runs the pre-match checklist
     if (!G.R.chance(perMatch)) return;
     const inc = G.R.wpick(INCIDENTS.filter(x => !x.req || x.req(S, ev)), x => x.w);
     inc.apply(ev, S);
@@ -583,6 +583,14 @@
     }
     res.replay = true; // tied on every tiebreaker
   };
+  // Pit time before a playoff match, in match slots: the matches the other alliances play between two of yours in bracket
+  // order (an upper-bracket winner waits longer than a lower-bracket alliance on back-to-back matches), plus the scheduled
+  // break before and between finals matches. The first playoff match follows alliance selection and lunch.
+  Ev.poTurnaround = function (ev) {
+    if (ev.poLast == null) return 6;
+    const nm = Ev.nextPlayoff(ev);
+    return Math.min(8, Math.max(0, ev.matchCount - ev.poLast) + 1 + (nm && nm.id === 'F' ? 2 : 0));
+  };
   Ev.applyPlayoff = function (ev, m, res) {
     const obj = Ev.poMatchObj(ev, m);
     Ev.breakTie(ev, res);
@@ -591,7 +599,7 @@
     m.games.push({ red: res.red.score, blue: res.blue.score, winner: res.winner, res, replay: !!res.replay, tb: res.tiebreak || null });
     m.res = res; m.redT = obj.red; m.blueT = obj.blue;
     ev.matchCount++;
-    if (obj.red.includes(G.S.team.num) || obj.blue.includes(G.S.team.num)) G.Career.afterPlayerMatch(G.S, ev, obj, res);
+    if (obj.red.includes(G.S.team.num) || obj.blue.includes(G.S.team.num)) { G.Career.afterPlayerMatch(G.S, ev, obj, res); ev.poLast = ev.matchCount; }
     let w = null;
     if (m.bo3) {
       const rw = m.games.filter(x => x.winner === 'red').length, bw = m.games.filter(x => x.winner === 'blue').length;

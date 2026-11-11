@@ -107,6 +107,8 @@
   Robot.isLatest = (R, k, u) => !!(u && u.ver && R.design[k] && u.concept === R.design[k].concept && u.ver >= R.design[k].ver);
   Robot.runnable = (R, bi) => !!(R && R.bots && R.bots[bi] && R.bots[bi].subs.drive && R.bots[bi].subs.drive.ver);
   Robot.twoBots = S => !!(S.robot && S.robot.bots && Robot.runnable(S.robot, 0) && Robot.runnable(S.robot, 1));
+  // The robot that is not the competition robot runs this season (a test chassis counts), even before the competition robot drives
+  Robot.secondRuns = S => { const R = S.robot; return !!(R && R.bots && R.year === S.year && S.phase !== 'off' && Robot.runnable(R, Robot.other(R))); };
   // The robot the drivers practice on (their pick if it can drive, otherwise the other one; -1 if neither can)
   Robot.driveBot = function (S) {
     const R = S.robot; if (!R || !R.bots) return -1;
@@ -395,8 +397,8 @@
         name = sd.name + ' upgrade (' + (D.STAT[spec.focus] || spec.focus) + ')';
         break;
       }
-      case 'harden': { const c = G.Seasons.concept(year, spec.sub, des.concept); hours = (40 + 10 * c.cx) * hwMult(S, spec.sub); cost = 100 + 50 * c.cx; name = sd.name + ' hardening'; break; }
-      case 'light': { hours = 40 * hwMult(S, spec.sub); cost = 150; name = sd.name + ' lightweighting'; break; }
+      case 'harden': { const c = G.Seasons.concept(year, spec.sub, des.concept); hours = (40 + 10 * c.cx) * hwMult(S, spec.sub) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 100 + 50 * c.cx; name = sd.name + ' hardening'; break; }
+      case 'light': { hours = 40 * hwMult(S, spec.sub) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 150; name = sd.name + ' lightweighting'; break; }
       case 'auto': {
         const t = R.autoTier;
         if (t >= 3) err = 'Best auto already';
@@ -690,7 +692,7 @@
         const cur = R.bots[bi].subs.drive, at = cur && cur.ver ? (R.store.push(u), -1) : tryInstall(S, bi, 'drive', u);
         G.Career.inbox(S, 'Test chassis ready', 'A ' + c.name + ' test chassis is ' + (at >= 0 ? 'running as ' + where(at) : 'in storage (no free electronics or drivetrain slot for it)') + '. ' +
           (G.Shop.lvl(S, 'pfield') ? 'It adds testing hours on your Practice Field' : 'Without a Practice Field it still gives ' + D.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot: code, autos, vision and drivetrain projects, and driver practice') +
-          '. Programmers and drivers can start before the competition robot drives. Practising on a different drivetrain only partly carries over to the competition robot\'s.', 'dev');
+          '. Programmers and drivers can start before the competition robot drives, and the electrical team gets a full control system to wire and debug: every week it runs adds to the electrical shakedown (fewer brownouts and comms dropouts at your first events). Practising on a different drivetrain only partly carries over to the competition robot\'s.', 'dev');
         break;
       }
       case 'upgrade': {
@@ -723,7 +725,7 @@
       }
       case 'harden': {
         const d = R.design[p.sub], t = targetUnit(R, p.sub);
-        d.rel = Math.round(d.rel + (96 - d.rel) * (0.35 + 0.15 * px));
+        d.rel = Math.round(d.rel + (96 - d.rel) * Math.min(0.9, (0.35 + 0.15 * px) * (1 + G.Shop.fx(S, 'weld', 'weld')))); // a welding station makes hardening go further
         if (t) { t.rel = Math.max(t.rel, d.rel); t.hidden = 0; t.cond = 100; }
         G.Career.inbox(S, 'Hardening complete', G.Seasons.sub(year, p.sub).name + ' reliability is now ' + d.rel + (t ? ' and hidden faults were cleared.' : '.'), 'dev');
         Robot.addXP(S, 'elec', 15);
@@ -732,10 +734,10 @@
       case 'light': {
         // diminishing returns: a subsystem can't be lightened below 40% of its concept weight
         const d = R.design[p.sub], t = targetUnit(R, p.sub), cw = (G.Seasons.concept(year, p.sub, d.concept) || {}).w || d.w;
-        const dw = Math.min(rng.range(2, 6) * (1 + 0.5 * px), Math.max(0, d.w - Math.max(1, 0.4 * cw)));
+        const wf = G.Shop.fx(S, 'weld', 'weld'), dw = Math.min(rng.range(2, 6) * (1 + 0.5 * px) * (1 + wf), Math.max(0, d.w - Math.max(1, 0.4 * cw)));
         d.w = Math.max(1, d.w - dw);
         if (t) t.w = Math.min(t.w, d.w);
-        if (rng.chance(0.2)) { d.rel = Math.max(20, d.rel - 3); if (t) t.rel = Math.max(20, t.rel - 3); }
+        if (rng.chance(0.2 * (1 - wf))) { d.rel = Math.max(20, d.rel - 3); if (t) t.rel = Math.max(20, t.rel - 3); }
         G.Career.inbox(S, 'Lightweighting complete', 'Removed ' + dw.toFixed(1) + ' lb from the ' + G.Seasons.sub(year, p.sub).name + '. Competition robot weight: ' + Robot.weight(S) + ' lb.', 'dev');
         break;
       }
@@ -833,7 +835,8 @@
       cond: Robot.condAvg(S), batt: ev && ev.batt != null ? ev.batt : 1, hidden: Math.max(0, Robot.hidden(S) - (ev ? ev.shake * 0.5 : 0)),
       power: G.Cap.power(R.year, cap),
       autoFail: !!(ev && ev.incNext && (ev.incNext.autoFail || ev.incNext.codeBad)),
-      defSkill: R.year === S.year ? S.defDrill || 0 : 0
+      defSkill: R.year === S.year ? S.defDrill || 0 : 0,
+      elecK: 1 - (1 - (R.year === S.year ? G.Career.elecShakeK(S) : 0)) * (1 - G.Shop.fx(S, 'ebench', 'elec')) // second-robot shakedown and the electronics workbench
     };
     const inc = (ev && ev.incNext) || {};
     if (inc.visionOff) { cap.accuracy = Math.round(cap.accuracy * 0.82); cap.vision = Math.round((cap.vision || 0) * 0.5); } // camera calibration skipped
@@ -873,7 +876,7 @@
   };
   Robot.pitRepair = function (S, turnaround, bonus) {
     const R = S.robot;
-    let pts = (6 + 5 * Math.min(turnaround, 8)) * G.Shop.repairMult(S) * (1 + G.Career.mentorSkill(S, 'fab') / 200) * (bonus || 1);
+    let pts = (6 + 5 * Math.min(turnaround, 8)) * G.Shop.repairMult(S) * (1 + G.Career.mentorSkill(S, 'fab') / 200) * G.Career.techRepair(S) * (bonus || 1);
     let used = 0;
     const subs = Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver).map(k => R.subs[k]).sort((a, b) => a.cond - b.cond);
     for (const s of subs) {

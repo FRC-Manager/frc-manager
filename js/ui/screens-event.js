@@ -13,6 +13,11 @@
   // What comes next for the player, shown big on the event page and next to the match buttons.
   // Quals: the match number and your alliance. Playoffs: the match, the opposing alliance and your last playoff result.
   // cur: the match on the pre-match page (omit on the event page, where the next one is looked up).
+  // "Final 2": the finals game played last (a fully tied game is replayed under the same number)
+  function lastFinalName(ev) {
+    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), g = F ? F.games : [];
+    return 'Final ' + Math.max(1, g.filter(x => !x.replay).length + (g.length && g[g.length - 1].replay ? 1 : 0));
+  }
   function nextStrip(ev, cur) {
     const pa = G.Ev.playerAlliance(ev);
     let main = '', side = '', last = '';
@@ -29,10 +34,10 @@
       if (!m) return '';
       const sd = m.red === pa ? 'red' : 'blue', opp = sd === 'red' ? m.blue : m.red;
       const lp = ev.playerResults.filter(r => !/^Q\d/.test(String(r.id))).slice(-1)[0];
-      const game = m.bo3 ? 'Best of 3 · Game ' + (m.games.filter(g => !g.replay).length + 1) : h(m.round);
-      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">' + (m.id === 'F' ? 'Finals' : h(m.id)) + '</b><span class="nx-vs">against <b>' + h(alName(ev, opp)) + '</b></span><span class="nx-of">' + game + '</span>';
+      const game = m.bo3 ? 'Best of 3' : h(m.round);
+      main = '<span class="nx-k">' + (cur ? 'This match' : 'Next') + '</span><b class="nx-id">' + (m.id === 'F' ? 'Final ' + (m.games.filter(g => !g.replay).length + 1) : h(m.id)) + '</b><span class="nx-vs">against <b>' + h(alName(ev, opp)) + '</b></span><span class="nx-of">' + game + '</span>';
       side = 'You are <b>' + h(alName(ev, pa)) + '</b> on <b class="' + sd + '">' + sd.toUpperCase() + '</b>' + (opp != null && ev.alliances[opp] ? ' · their captain: ' + ev.alliances[opp][0] + ' ' + h(tname(ev.alliances[opp][0])) : '');
-      last = lp ? 'Last playoff match: ' + h(String(lp.id)) + ' ' + wl(lp) + ' ' + lp.our + '–' + lp.their : 'Your first playoff match';
+      last = lp ? 'Last playoff match: ' + h(lp.id === 'F' ? lastFinalName(ev) : String(lp.id)) + ' ' + wl(lp) + ' ' + lp.our + '–' + lp.their : 'Your first playoff match';
     } else return '';
     return '<div class="nextbar' + (cur ? ' stack' : '') + '"><div class="nx-main">' + main + '</div><div class="nx-side">' + side + '</div><div class="nx-last">' + last + '</div></div>';
   }
@@ -41,12 +46,39 @@
   // =====================================================================
   // EVENT HUB
   // =====================================================================
+  // The Championship has its own look: the division's colour on its pages, gold and stars on Einstein
+  function evTheme(ev) {
+    if (!ev || (ev.kind !== 'champs' && ev.kind !== 'einstein')) return false;
+    const col = UI.divColor(G.S.champsDiv || 'Newton'), cls = ev.kind === 'einstein' ? 'ev-einstein' : 'ev-champs';
+    UI.job(() => { const mn = document.getElementById('main'); if (mn) { mn.classList.add(cls); mn.style.setProperty('--div', col); } });
+    return true;
+  }
+  function evHero(ev, kpi) {
+    const S = G.S, season = h(G.Career.seasonName(S, ev.year)).toUpperCase(), div = S.champsDiv || 'Newton';
+    evTheme(ev);
+    if (ev.kind === 'champs') return '<div class="ehero champs" style="--div:' + UI.divColor(div) + '"><div class="eh-beam"></div><div class="row"><div><div class="eh-k">FIRST CHAMPIONSHIP · ' + season + '</div><div class="eh-t">' + h(div.toUpperCase()) + ' DIVISION</div>' +
+      '<div class="eh-s">' + ev.teams.length + ' teams · the winning alliance plays for the world title on Einstein</div></div><span class="sp"></span>' + kpi + '</div></div>';
+    const F = ev.po && ev.po.matches.find(x => x.id === 'F'), pa = G.Ev.playerAlliance(ev), losses = i => (ev.po ? ev.po.matches.filter(m => !m.bo3 && m.loser === i).length : 0);
+    const chips = (ev.alliances || []).map((al, i) => {
+      const dn = (ev.divNames || [])[i] || 'Alliance ' + (i + 1), champ = !!(F && F.winner === i), out = !champ && (losses(i) >= 2 || !!(F && F.loser === i));
+      return '<span class="eh-div' + (champ ? ' champ' : out ? ' out' : '') + (i === pa ? ' me' : '') + '" style="--div:' + UI.divColor(dn) + '" title="' + h(al.map(t => t + ' ' + tname(t)).join(', ')) + '"><i></i>' + h(dn) + (i === pa ? ' · you' : '') + (champ ? ' ★' : '') + '</span>';
+    }).join('');
+    return '<div class="ehero einstein"><div class="eh-stars"></div><div class="row"><div><div class="eh-k">FIRST CHAMPIONSHIP · ' + season + ' · WORLD FINALS' + (ev.watch ? ' · FROM THE STANDS' : '') + '</div><div class="eh-t gold">EINSTEIN FIELD</div>' +
+      '<div class="eh-s">Eight division champions · double elimination · one World Champion alliance</div></div><span class="sp"></span><span class="eh-cup">' + UI.icon('trophy', 46) + '</span></div><div class="eh-divs">' + chips + '</div></div>';
+  }
+  // the slim version for the match pages
+  function evRibbon(ev) {
+    if (!evTheme(ev)) return '';
+    const div = G.S.champsDiv || 'Newton';
+    return ev.kind === 'einstein' ? '<div class="eribbon einstein">' + UI.icon('trophy', 14) + ' EINSTEIN FIELD · WORLD FINALS</div>' : '<div class="eribbon champs" style="--div:' + UI.divColor(div) + '"><i></i>' + h(div.toUpperCase()) + ' DIVISION · FIRST CHAMPIONSHIP</div>';
+  }
   UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
-    let o = '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' +
-      (rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '') + '</div>';
+    const kpi = rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '';
+    let o = ev.kind === 'champs' || ev.kind === 'einstein' ? evHero(ev, kpi)
+      : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
     const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
     o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
     if (stage === 'practice') o += practiceView(ev);
@@ -54,7 +86,7 @@
     else if (ev.stage === 'selection') o += selectionView(ev);
     else if (ev.stage === 'playoffs') o += playoffView(ev);
     else o += doneView(ev);
-    if (ev.stage !== 'done' && S.robot) o += pitCard(ev);
+    if (ev.stage !== 'done' && S.robot && !ev.watch) o += pitCard(ev);
     if (stage !== 'practice' && ev.kind !== 'einstein') o += tabs(ev);
     return o;
   } };
@@ -201,18 +233,78 @@
   UI.A.selRespond = function (a) { G.Ev.playerRespond(Ev(), a === '1'); UI.render(); };
 
   // ---------------- playoffs ----------------
+  const DIVC = { Archimedes: '#e5484d', Curie: '#ff8a3d', Daly: '#f5c542', Galileo: '#30c27a', Hopper: '#22b8c8', Johnson: '#3e8cff', Milstein: '#9b6bff', Newton: '#ff5fa2' };
+  UI.divColor = d => DIVC[d] || '#8a96a3';
+  // One alliance line in the bracket: on Einstein its division with the division colour, the alliance number and captain.
+  // An open slot says where it is filled from ("Winner of M7"), as on the official bracket.
+  function bal(ev, i, src) {
+    if (i == null) return '<span class="dim">' + (src && (src.W || src.L) ? (src.W ? 'Winner of ' : 'Loser of ') + (src.W || src.L) : 'TBD') + '</span>';
+    const dn = ev.kind === 'einstein' && ev.divNames && ev.divNames[i];
+    if (dn) return '<span title="' + h(ev.alliances[i].map(t => t + ' ' + tname(t)).join(', ')) + '"><i class="ddot" style="background:' + UI.divColor(dn) + '"></i>' + h(dn) + ' <span class="xs muted">A' + (i + 1) + '</span></span>';
+    return 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
+  }
   function bmatch(ev, id) {
-    const m = ev.po.matches.find(x => x.id === id), pa = G.Ev.playerAlliance(ev);
-    const al = i => i == null ? '<span class="dim">TBD</span>' : (ev.kind === 'einstein' && ev.divNames && ev.divNames[i] ? h(ev.divNames[i]) + ' ' : '') + 'A' + (i + 1) + ' <span class="xs muted">' + ev.alliances[i][0] + '</span>';
+    const m = ev.po.matches.find(x => x.id === id), pa = G.Ev.playerAlliance(ev), B = G.Ev.BR.find(x => x.id === id) || {};
     const sc = (side) => m.games.map(g => '<span' + (g.tb ? ' title="Tied: won on ' + h(g.tb) + '"' : g.replay ? ' title="Tied on every tiebreaker: replayed"' : '') + '>' + (side === 'red' ? g.red : g.blue) + (g.tb && g.winner === side ? '*' : g.replay ? 'ʳ' : '') + '</span>').join(' / ');
     const cls = (i) => m.winner == null ? '' : m.winner === i ? 'w' : 'l';
-    return '<div class="bm ' + (m.red === pa || m.blue === pa ? 'me' : '') + '"><div class="xs muted">' + id + (m.bye ? ' (bye)' : '') + '</div><div class="al ' + cls(m.red) + '"><span class="red">' + al(m.red) + '</span><span>' + sc('red') + '</span></div><div class="al ' + cls(m.blue) + '"><span class="blue">' + al(m.blue) + '</span><span>' + sc('blue') + '</span></div></div>';
+    return '<div class="bm ' + (m.red === pa || m.blue === pa ? 'me' : '') + (m.winner == null && m.red != null && m.blue != null ? ' next' : '') + '"><div class="xs muted">Match ' + id.slice(1) + (m.bye ? ' (bye)' : '') + '</div><div class="al ' + cls(m.red) + '"><span class="red">' + bal(ev, m.red, B.red) + '</span><span>' + sc('red') + '</span></div><div class="al ' + cls(m.blue) + '"><span class="blue">' + bal(ev, m.blue, B.blue) + '</span><span>' + sc('blue') + '</span></div></div>';
   }
+  // The finals are best of three: one box per game (Final 3 only at one win each), plus the state of the series
+  function bfinals(ev) {
+    const m = ev.po.matches.find(x => x.id === 'F'), pa = G.Ev.playerAlliance(ev), mine = m.red === pa || m.blue === pa, known = m.red != null && m.blue != null;
+    const al = (i, side) => bal(ev, i, { W: side === 'red' ? 'M11' : 'M13' });
+    const box = (label, g, note, later) => {
+      const dec = g && !g.replay && (g.winner === 'red' || g.winner === 'blue');
+      const row = side => '<div class="al ' + (dec ? (g.winner === side ? 'w' : 'l') : '') + '"><span class="' + side + '">' + al(m[side], side) + '</span><span>' + (g ? g[side] + (g.tb && g.winner === side ? '*' : '') : '') + '</span></div>';
+      return '<div class="bm ' + (mine ? 'me' : '') + (later ? ' tbd' : '') + '"><div class="xs muted">' + label + (note ? ' · ' + note : '') + '</div>' + row('red') + row('blue') + '</div>';
+    };
+    const wins = side => m.games.filter(g => !g.replay && g.winner === side).length, rw = wins('red'), bw = wins('blue');
+    let n = 0, o = '';
+    m.games.forEach(g => { if (!g.replay) n++; o += box('Final ' + (g.replay ? n + 1 : n), g, g.replay ? 'tied, replayed' : g.tb ? 'tied, won on ' + h(g.tb) : ''); });
+    if (m.winner == null) for (let k = n + 1; k <= 3; k++) o += box('Final ' + k, null, k === 3 && !(rw === 1 && bw === 1) ? 'if needed' : k === n + 1 && known ? 'next' : '', k > n + 1 || !known);
+    const lead = rw === bw ? null : rw > bw ? m.red : m.blue, hi = Math.max(rw, bw), lo = Math.min(rw, bw);
+    const series = !n ? '' : '<div class="xs b mb">' + (m.winner != null ? 'A' + (m.winner + 1) + ' wins the finals ' + hi + '–' + lo : lead == null ? 'Series tied ' + rw + '–' + bw : 'A' + (lead + 1) + ' leads ' + hi + '–' + lo) + '</div>';
+    return (series || '<div class="xs muted mb">Upper bracket winner against lower bracket winner</div>') + o;
+  }
+  // Double elimination in the official layout: rounds from left to right, the upper bracket on top, the lower bracket
+  // (alliances with one loss) below, and both meet in the finals. The lines show where each winner plays next.
   UI.bracket = function (ev) {
-    const col = (t, ids) => '<div><div class="xs muted mb">' + t + '</div>' + ids.map(i => bmatch(ev, i)).join('') + '</div>';
-    return '<div class="bracket">' + col('Upper R1', ['M1', 'M2', 'M3', 'M4']) + col('Lower R1 · Upper R2', ['M5', 'M6', 'M7', 'M8']) + col('Lower R2 · Upper Final', ['M9', 'M10', 'M11']) + col('Lower R3 · Lower Final', ['M12', 'M13']) + col('Finals (best of 3)', ['F']) + '</div>';
+    const RH = 35, UP = 8 * RH, GAP = 32, H = UP + GAP + 4 * RH, done = id => { const m = ev.po.matches.find(x => x.id === id); return m && m.winner != null; };
+    const cell = (id, col, r0) => '<div class="bk-c" style="grid-column:' + col + ';grid-row:' + r0 + ' / span 2">' + bmatch(ev, id) + '</div>';
+    const lo = UP + GAP, fy = H / 2;
+    // viewBox is 600 wide (100 per round); the lines run between the centres of the match boxes and are hidden behind them
+    const P = [['M1', 'M50,35 H100 V70 H150'], ['M2', 'M50,105 H100 V70 H150'], ['M3', 'M50,175 H100 V210 H150'], ['M4', 'M50,245 H100 V210 H150'],
+      ['M7', 'M150,70 H300 V140 H350'], ['M8', 'M150,210 H300 V140 H350'], ['M11', 'M350,140 H500 V' + fy + ' H550'],
+      ['M5', 'M150,' + (lo + 35) + ' H250'], ['M6', 'M150,' + (lo + 105) + ' H250'], ['M10', 'M250,' + (lo + 35) + ' H300 V' + (lo + 70) + ' H350'], ['M9', 'M250,' + (lo + 105) + ' H300 V' + (lo + 70) + ' H350'],
+      ['M12', 'M350,' + (lo + 70) + ' H450'], ['M13', 'M450,' + (lo + 70) + ' H500 V' + fy + ' H550']];
+    return '<div class="bk-wrap"><div class="bk' + (ev.kind === 'einstein' ? ' ein' : '') + '">' +
+      '<div class="bk-hd">' + ['Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5', 'Finals · best of 3'].map(t => '<span>' + t + '</span>').join('') + '</div>' +
+      '<div class="bk-band">UPPER BRACKET</div>' +
+      '<div class="bk-grid" style="grid-template-rows:repeat(8,' + RH + 'px) ' + GAP + 'px repeat(4,' + RH + 'px)">' +
+      '<svg class="bk-lines" viewBox="0 0 600 ' + H + '" preserveAspectRatio="none" style="grid-column:1 / -1;grid-row:1 / -1" aria-hidden="true">' + P.map(p => '<path class="' + (done(p[0]) ? 'on' : '') + '" d="' + p[1] + '"/>').join('') + '</svg>' +
+      cell('M1', 1, 1) + cell('M2', 1, 3) + cell('M3', 1, 5) + cell('M4', 1, 7) + cell('M7', 2, 2) + cell('M8', 2, 6) + cell('M11', 4, 4) +
+      '<div class="bk-band lo" style="grid-column:1 / 6;grid-row:9">LOWER BRACKET · one loss already, the next one ends the event</div>' +
+      cell('M5', 2, 10) + cell('M6', 2, 12) + cell('M10', 3, 10) + cell('M9', 3, 12) + cell('M12', 4, 11) + cell('M13', 5, 11) +
+      '<div class="bk-c fin" style="grid-column:6;grid-row:1 / -1">' + bfinals(ev) + '</div>' +
+      '</div></div></div>';
+  };
+  function watchView(ev) {
+    const S = G.S, F = ev.po.matches.find(x => x.id === 'F'), set = F.red != null && F.blue != null, ci = S.season && S.season.cmpImpact, n = F.games.filter(g => !g.replay).length;
+    const next = !set ? 'The six Finalists are named when both finalists are known, right before Final 1.' : !F.games.length ? 'The finalists are set. The winner of the FIRST Impact Award is announced after Final 1.' : 'The FIRST Impact Award has been presented. The finals continue.';
+    return '<div class="card hl mb"><div class="ct">Einstein, from the stands ' + (ci && ci.eligible ? UI.tag('FIRST Impact Award candidate', 'acc') : '') + '</div>' +
+      '<div class="sm mb">Your matches are over, but your team is here for the <b>FIRST Impact Award</b>, presented on this field. ' + next + (S.champsDiv ? ' The ' + h(S.champsDiv) + ' champions play for your division.' : '') + '</div>' +
+      '<div class="row wrap">' + (!set ? '<button class="btn primary" data-act="watchPO" data-arg="finals">Watch until the finals ▶</button>' : '<button class="btn primary" data-act="watchPO" data-arg="one">Watch Final ' + (n + 1) + ' ▶</button>') +
+      '<button class="btn" data-act="simRestPO">Simulate the rest</button></div></div>' + UI.bracket(ev);
+  }
+  // In the stands: play the other alliances' matches up to the finals, or one finals game at a time (the ceremonies follow the finals)
+  UI.A.watchPO = function (mode) {
+    const ev = Ev(); let m;
+    if (mode === 'finals') { while ((m = G.Ev.nextPlayoff(ev)) && m.id !== 'F') G.Ev.applyPlayoff(ev, m, G.Ev.runHeadless(ev, G.Ev.poMatchObj(ev, m))); }
+    else if ((m = G.Ev.nextPlayoff(ev))) G.Ev.applyPlayoff(ev, m, G.Ev.runHeadless(ev, G.Ev.poMatchObj(ev, m)));
+    finishIfDone(ev); G.Save.write('auto'); UI.render();
   };
   function playoffView(ev) {
+    if (ev.watch) return watchView(ev);
     const pa = G.Ev.playerAlliance(ev);
     let o = '<div class="card hl mb"><div class="ct">Playoffs' + (pa >= 0 ? ' — you are ' + h(alName(ev, pa)) + ' ' + UI.tag(G.Ev.playoffStatus(ev), 'acc') + ' ' + lossTag(ev) : ' ' + UI.tag('not selected', 'bad')) + '</div>';
     if (pa >= 0) o += '<div class="sm mb">Alliance: ' + ev.alliances[pa].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>';
@@ -274,17 +366,41 @@
     return '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>FIRST Impact Award</b> (announced on Einstein): ' + nm(ci.winner) + '. Finalists: ' + ci.finalists.map(nm).join(', ') + '.' +
       (ci.out ? '' : ci.eligible ? ' Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + ' regional Impact winners.' : S.hallOfFame != null ? '' : ' Only this season\'s regional Impact Award winners are judged.') + '</div>';
   }
+  // Einstein finishing page: the FIRST Impact Award winner and the six Finalists (your team highlighted), with the celebration to replay
+  function impactCard() {
+    const S = G.S, ci = S.season && S.season.cmpImpact;
+    if (!ci) return '';
+    G.Career.settleImpact(S, 'all');
+    const row = (n, role) => '<div class="row sm mb ' + (n === me() ? 'acc b' : '') + '"><span>' + role + '</span><span class="sp"></span><span>' + n + ' ' + h(tname(n)) + '</span></div>';
+    return '<div class="card"><div class="ct">FIRST Impact Award' + (ci.cele ? '<span class="sp"></span><button class="btn sm" data-act="impactAgain">' + UI.icon('trophy', 13) + ' Celebration</button>' : '') + '</div>' +
+      row(ci.winner, 'Winner · Hall of Fame') + ci.finalists.map(n => row(n, 'Finalist')).join('') +
+      '<div class="xs muted mt">' + (ci.result === 'winner' ? 'Your team won the most prestigious award in the program. The banner is on your History wall.' : ci.result === 'finalist' ? 'Your team is one of the six Finalists. The banner is on your History wall.' : ci.eligible ? 'Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + ' regional Impact winners.' : S.hallOfFame != null ? 'Your team is already in the Hall of Fame.' : 'Only this season\'s regional Impact Award winners are judged.') + '</div></div>';
+  }
+  UI.A.impactAgain = () => { const ci = G.S.season && G.S.season.cmpImpact; if (ci && ci.cele) UI.impactCele(ci.cele, true); };
   function doneView(ev) {
     const r = ev.result || {};
     const bn = G.Career.eventBanners(Object.assign({ kind: ev.kind }, r), ev.year);
+    const S = G.S, ci = S.season && S.season.cmpImpact, settled = !!ci && (ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein));
+    if (settled) { G.Career.settleImpact(S, 'all'); if (ci.result) bn.push({ award: ci.result === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: G.Career.calYear(S, ev.year), event: 'FIRST Championship', gold: ci.result === 'winner', world: true, key: 'impact' }); }
     let o = bn.length ? '<div class="card hl mb"><div class="ct">' + (bn.length > 1 ? 'New blue banners!' : 'New blue banner!') + '<span class="sp"></span><span class="xs muted">Hung in your History banner wall</span></div>' + UI.bannerWall(bn, true) + '</div>' : '';
+    if (ev.watch) {
+      // in the stands: who won Einstein, the FIRST Impact Award and the whole bracket
+      const F = ev.po.matches.find(x => x.id === 'F'), w = F.winner, wside = F.red === w ? 'red' : 'blue', gw = F.games.filter(g => !g.replay && g.winner === wside).length, gl = F.games.filter(g => !g.replay && g.winner && g.winner !== wside && g.winner !== 'tie').length;
+      o += '<div class="grid g2"><div class="card hl"><div class="ct">Einstein finals</div><div class="xs muted b">WORLD CHAMPIONS</div><div class="xl b acc">' + h(alName(ev, w)) + '</div>' +
+        '<div class="sm mt">' + ev.alliances[w].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>' +
+        '<div class="kv mt"><span class="k">Finals</span><span>' + gw + '–' + gl + ' against ' + h(alName(ev, F.loser)) + '</span><span class="k">Your team</span><span>In the stands' + (ci && ci.result ? ', and on the field for the FIRST Impact Award' : '') + '</span></div>' +
+        '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>' + impactCard() + '</div>';
+      return o + '<div class="mt">' + UI.bracket(ev) + '</div>';
+    }
+    if (ev.kind === 'champs' && S.pendingEinstein && S.lastDivision && S.lastDivision.watch) o += '<div class="hint mb">' + UI.icon('trophy', 14) + ' Your matches are over, but your team is in the running for the <b>FIRST Impact Award</b>. It is presented on Einstein, your next stop: you watch the finals from the stands.</div>';
     o += '<div class="grid g2"><div class="card hl"><div class="ct">Event result</div>';
     o += '<div class="xl b ' + (r.won ? 'acc' : '') + '">' + h(r.finish || '') + '</div>';
     o += '<div class="kv mt">' + (r.rank ? '<span class="k">Qualification rank</span><span>' + U.ord(r.rank) + ' of ' + r.size + '</span><span class="k">Record</span><span>' + h(r.record) + '</span><span class="k">Ranking score</span><span>' + (r.avgRP || 0).toFixed(2) + '</span>' : '') +
       (r.alliance ? '<span class="k">Alliance</span><span>#' + r.alliance + ' (' + h(r.role) + ')</span>' : '') + '<span class="k">OPR</span><span>' + r.opr + '</span>' + (r.pool ? '<span class="k">Pool points</span><span>' + r.pool + '</span>' : '') + '</div>';
     if (r.winners && r.winners.length) o += '<div class="sm mt">Event winners: ' + r.winners.map(tlink).join(', ') + '</div>';
-    o += impactLine(ev);
+    if (ev.kind !== 'einstein') o += impactLine(ev);
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>';
+    if (ev.kind === 'einstein' && ci) return o + impactCard() + '</div>' + (ev.po ? '<div class="mt">' + UI.bracket(ev) + '</div>' : '');
     o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
     if (ev.po) o += '<div class="mt">' + UI.bracket(ev) + '</div>';
     return o;
@@ -365,7 +481,7 @@
     const Sz = G.Seasons[ev.year], plan = ev.plan, opr = G.Ev.opr(ev);
     const title = UI.st.match.kind === 'qual' ? 'Qualification ' + obj.n : obj.id + ' · ' + UI.st.match.m.round + (UI.st.match.m.bo3 ? ' · game ' + (obj.game + 1) : '');
     const pmm = UI.st.match.kind === 'po' ? UI.st.match.m : null, alTag = sd => (pmm ? ' · ' + h(alShort(ev, sd === 'red' ? pmm.red : pmm.blue)) : '');
-    let o = '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance' + (pmm ? ': <b>' + h(alName(ev, a === 'red' ? pmm.red : pmm.blue)) + '</b>, against <b>' + h(alName(ev, a === 'red' ? pmm.blue : pmm.red)) + '</b>' : '') + '.</div>';
+    let o = evRibbon(ev) + '<h1>' + h(title) + '</h1><div class="sub">You are on the <b class="' + a + '">' + a.toUpperCase() + '</b> alliance' + (pmm ? ': <b>' + h(alName(ev, a === 'red' ? pmm.red : pmm.blue)) + '</b>, against <b>' + h(alName(ev, a === 'red' ? pmm.blue : pmm.red)) + '</b>' : '') + '.</div>';
     const ds = ev.defStats;
     if (Sz.meta) o += '<div class="hint mb"><b>Strategy:</b> ' + h(Sz.meta.note) + (ds && ds.n >= 10 ? ' So far at this event, ' + Math.round(100 * ds.d / ds.n) + '% of alliances have played a defender.' : '') + '</div>';
     if (ev.year === 2024) {
@@ -404,7 +520,7 @@
       '<label class="row sm"><input type="checkbox" data-chg="planChk" data-k="avoid" ' + (plan.avoid ? 'checked' : '') + '> Avoid contact (fewer fouls, slower)</label></div>';
     const R = S.robot;
     o += '<div class="hr"></div><div class="sm"><b>Robot status</b></div>' + UI.condRows(S) +
-      '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
+      '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + (ev.lastTurn ? ' · pit time before this match: ' + ev.lastTurn + ' match slot' + (ev.lastTurn === 1 ? '' : 's') : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
     o += '<div class="mt">' + nextStrip(ev, obj) + '</div>';
@@ -435,6 +551,19 @@
   // =====================================================================
   // LIVE MATCH
   // =====================================================================
+  function fieldTag(ev) {
+    if (!ev || (ev.kind !== 'champs' && ev.kind !== 'einstein')) return '';
+    const div = G.S.champsDiv || 'Newton';
+    return ev.kind === 'einstein' ? '<div class="fieldtag ein">★ EINSTEIN FIELD ★</div>' : '<div class="fieldtag" style="--div:' + UI.divColor(div) + '">' + h(div.toUpperCase()) + ' DIVISION</div>';
+  }
+  // under the scoreboard in a Championship playoff match: the two alliances (on Einstein, their divisions and colours)
+  function liveVs(ev) {
+    const pm = UI.st.match && UI.st.match.kind === 'po' ? UI.st.match.m : null;
+    if (!pm || !ev || (ev.kind !== 'champs' && ev.kind !== 'einstein') || pm.red == null || pm.blue == null) return '';
+    const dot = i => { const dn = ev.kind === 'einstein' && ev.divNames && ev.divNames[i]; return dn ? '<i style="background:' + UI.divColor(dn) + '"></i>' : ''; }, pa = G.Ev.playerAlliance(ev);
+    const nm = i => h(alName(ev, i)) + (i === pa ? ' · you' : '');
+    return '<div class="vsbar"><span class="r">' + nm(pm.red) + dot(pm.red) + '</span><span class="m">' + (pm.id === 'F' ? 'FINALS · BEST OF 3' : 'MATCH ' + String(pm.id).slice(1) + ' · ' + h(String(pm.round).toUpperCase())) + '</span><span class="b">' + dot(pm.blue) + nm(pm.blue) + '</span></div>';
+  }
   UI.S.live = { nav: 'event', html() {
     const ev = Ev(), obj = curMatchObj();
     if (!obj) return '<p>No match.</p>';
@@ -448,10 +577,10 @@
       '<div class="row wrap gap4"><span class="xs muted" style="width:62px">Endgame</span>' + callBtn('endNow', '1', 'Go now') + callBtn('endTiming', 'late', 'Go late') + Sz.endNames.map((n, i) => i > 0 ? callBtn('endLevel', i, 'Aim ' + n) : '').join('') + '</div>' +
       partnerRow(ev, obj, a, callBtn) +
       '<div class="row wrap gap4"><span class="xs muted" style="width:62px">Other</span>' + callBtn('rp', '1', 'Chase bonus RP') + callBtn('rp', '0', 'Just win') + callBtn('avoid', '1', 'Avoid contact') + callBtn('avoid', '0', 'Allow contact') + callBtn('reset', '1', 'Reset robot!', 'bad') + '</div></div>';
-    return '<div class="row mb matchhead">' + UI.icon('event', 18) + '<b>' + h(UI.matchLabel(ev, obj)) + '</b><span class="xs muted">' + h(ev.name) + '</span><span class="sp"></span>' + (obj.playoff && ev.kind !== 'einstein' ? lossTag(ev) : '') + '</div>' +
-      '<div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' +
+    return evRibbon(ev) + '<div class="row mb matchhead">' + UI.icon('event', 18) + '<b>' + h(UI.matchLabel(ev, obj)) + '</b><span class="xs muted">' + h(ev.name) + '</span><span class="sp"></span>' + (obj.playoff && ev.kind !== 'einstein' ? lossTag(ev) : '') + '</div>' +
+      '<div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' + liveVs(ev) +
       '<div class="matchview"><div><div class="card" style="padding:10px"><div class="ct sm">Your robot</div><div id="myBox"></div></div><div class="card mt" style="padding:10px"><div class="ct sm">Robots</div><div id="robBox"></div></div></div>' +
-      '<div><div class="fieldwrap"><canvas id="fieldCv" width="1100" height="547"></canvas></div>' +
+      '<div><div class="fieldwrap">' + fieldTag(ev) + '<canvas id="fieldCv" width="1100" height="547"></canvas></div>' +
       '<div class="card mt" style="padding:10px"><div class="row mb"><b>Coach Calls</b> <span class="tag acc" id="callsLeft"></span><span class="sp"></span><div class="row gap4" id="spd">' +
       ['0', '1', '2', '4', '8'].map(s => '<button class="btn sm" data-act="spd" data-arg="' + s + '">' + (s === '0' ? '❚❚' : s + '×') + '</button>').join('') + '<button class="btn sm" data-act="skipLive">Skip ⏭</button></div></div>' + calls + '<div class="row mt"><span class="sp"></span><button class="btn primary hidden" id="liveDone" data-act="liveDone">Results ▶</button></div></div></div>' +
       '<div><div class="card" style="padding:10px"><div class="ct sm">Ranking points</div><div id="rpBox"></div></div><div class="card mt" style="padding:10px"><div class="ct sm">Match log</div><div class="log" id="logBox"></div></div></div></div>';
@@ -572,21 +701,30 @@
   // =====================================================================
   // MATCH RESULT
   // =====================================================================
+  // The event page's match buttons again on the result page, in the same place: play or simulate the next match without going back
+  function resultActions(ev) {
+    if (!ev) return '';
+    const more = ev.stage === 'quals' ? !!ev.quals.slice(ev.qi).find(G.Ev.hasPlayer) : ev.stage === 'playoffs' && G.Ev.playerAlliance(ev) >= 0 && !G.Ev.playerEliminated(ev) && !(ev.po && ev.po.done);
+    const btns = !more ? '<button class="btn primary" data-act="nav" data-arg="event">Continue ▶</button>'
+      : ev.stage === 'quals' ? '<button class="btn primary" data-act="nextQual">Prepare match ▶</button><button class="btn" data-act="simQual">Simulate it</button><button class="btn" data-act="simAllQuals">Simulate all remaining</button><button class="btn" data-act="nav" data-arg="event">Event page</button>'
+        : '<button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button><button class="btn" data-act="nav" data-arg="event">Event page</button>';
+    return '<div class="card hl mt">' + (more ? nextStrip(ev) : '') + '<div class="row wrap">' + btns + '</div></div>';
+  }
   UI.S.mresult = { nav: 'event', html() {
     const R = UI.st.lastResult; if (!R) return '<button class="btn" data-act="nav" data-arg="event">Back</button>';
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
     const ev = Ev();
-    let o = '<div class="row"><div><div class="xs muted">' + h(UI.matchLabel(ev, Object.assign({ playoff: R.kind !== 'qual' }, obj)).toUpperCase()) + (R.kind !== 'qual' && ev && ev.po && !ev.po.done ? ' · ' + lossTag(ev) : '') + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1>' +
+    let o = evRibbon(ev) + '<div class="row"><div><div class="xs muted">' + h(UI.matchLabel(ev, Object.assign({ playoff: R.kind !== 'qual' }, obj)).toUpperCase()) + (R.kind !== 'qual' && ev && ev.po && !ev.po.done ? ' · ' + lossTag(ev) : '') + '</div><h1 class="' + (w === 1 ? 'good' : w === 0 ? 'bad' : 'warn') + '" style="font-size:34px">' + (w === 1 ? 'VICTORY' : w === 0 ? 'DEFEAT' : 'TIE') + '</h1>' +
       (res.tiebreak ? '<div class="sm">Tied ' + res.red.score + '–' + res.blue.score + ': decided by <b>' + h(res.tiebreak) + '</b>' + (res.tieVals ? ' (' + res.tieVals.red + '–' + res.tieVals.blue + ')' : '') + ', the FRC playoff tiebreaker.</div>' : res.replay ? '<div class="sm warn">Tied on every tiebreaker (fouls, auto and endgame points): the match will be replayed.</div>' : '') + '</div><span class="sp"></span><div class="score r">' + res.red.score + '</div><div class="score b">' + res.blue.score + '</div></div>';
+    o += resultActions(ev);
     o += '<div class="grid g2 mt"><div class="card"><div class="ct">Score breakdown</div><table class="t"><tr><th></th><th class="num red">Red</th><th class="num blue">Blue</th></tr>' +
       [['Auto', 'auto'], ['Teleop', 'tele'], ['Endgame', 'end'], ['Fouls received', 'foul'], ['Total', 'score']].map(x => '<tr><td>' + x[0] + '</td><td class="num">' + res.red[x[1]] + '</td><td class="num">' + res.blue[x[1]] + '</td></tr>').join('') + '</table>' +
       (R.kind === 'qual' ? '<div class="hr"></div><div class="b">You earned ' + res[a].rp + ' RP</div>' + res[a].bonus.map(b => '<div class="sm">' + (b.ok ? '<span class="good">✔</span> ' : '<span class="dim">✘</span> ') + h(b.name) + ' <span class="muted">(' + b.val + '/' + b.thr + ')</span></div>').join('') : '') + '</div>';
     o += '<div class="card"><div class="ct">Robots</div><table class="t"><tr><th>Team</th><th class="num">Pts</th><th class="num">Cycles</th><th class="num">Acc</th><th>Endgame</th><th>Issues</th></tr>' + res.robots.map(r => '<tr class="' + (r.team === me() ? 'me' : '') + '"><td class="' + r.a + '">' + r.team + '</td><td class="num">' + r.pts + '</td><td class="num">' + r.cycles + '</td><td class="num">' + (r.shots ? Math.round(100 * r.hits / r.shots) + '%' : '—') + '</td><td class="xs">' + (r.end ? (r.end.lvl ? G.Seasons[ev ? ev.year : G.S.year].endNames[r.end.lvl] : r.end.failed ? 'failed' : 'park') : '—') + '</td><td class="xs warn">' + h(r.faults.concat(r.fouls ? [r.fouls + ' foul' + (r.fouls > 1 ? 's' : '')] : []).join(', ')) + (r.autoOK === false ? ' <span class="dim">auto miss</span>' : '') + '</td></tr>').join('') + '</table></div></div>';
     if (G.S.robot) { const RB = G.S.robot; o += '<div class="card mt"><div class="ct">Robot condition after the match</div><div class="grid g3">' + Object.keys(RB.subs).filter(k => k !== 'soft' && RB.subs[k].ver).map(k => UI.stat(G.Seasons.sub(RB.year, k).name, RB.subs[k].cond, null, UI.colorFor(RB.subs[k].cond))).join('') + '</div><div class="xs muted">Pit repairs happen automatically before your next match (more time between matches = more repairs; uses spare parts).</div></div>'; }
     if (UI.wonEvent(ev, R)) o = '<div class="card hl mb"><div class="row">' + UI.icon('trophy', 26) + '<div><div class="lg b acc">' + (ev.kind === 'einstein' ? 'WORLD CHAMPIONS!' : ev.kind === 'champs' ? 'Division Champions!' : 'Event winners!') + '</div><div class="sm muted">' + h(ev.name) + '</div></div></div></div>' + o;
-    if (ev && ev.stage !== 'done') o += '<div class="mt">' + nextStrip(ev) + '</div>';
-    o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="nav" data-arg="event">Continue ▶</button></div>';
+    o += '<div class="row mt"><span class="sp"></span><button class="btn lg" data-act="nav" data-arg="event">Back to the event page ▶</button></div>';
     return o;
   }, after() {
     const R = UI.st.lastResult, ev = Ev();
@@ -618,7 +756,7 @@
     const note = streak >= 3 ? (NUMW[streak] || streak) + ' in a row · no one has done it in decades'
       : streak === 2 ? 'Only a few teams in FRC history have done it'
         : titles > 1 ? U.ord(titles) + ' world title' + (d.lastTitleYear ? ' · first since ' + d.lastTitleYear : '') + (d.lastFinalist ? ' · finalists last year' : '')
-          : d.lastFinalist ? 'Finalists last year · champions now' : '';
+          : d.rookie ? 'Rookie team · World Champions at the first attempt' : d.lastFinalist ? 'Finalists last year · champions now' : '';
     const lead = streak === 2 ? 'Last season\'s champions did it again. Only a few teams have done it before in FRC history.'
       : streak >= 3 ? (NUMW[streak] || streak) + ' world titles in a row. No one has done it in the past decades.'
         : titles > 1 ? 'World Champions again: this is your ' + U.ord(titles) + ' title' + (d.lastTitleYear ? ', and the first since ' + d.lastTitleYear : '') + '. Winning it once is a great season. Winning it again is a program.' + (d.lastFinalist ? ' It also settles last year\'s lost final.' : '')

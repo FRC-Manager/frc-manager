@@ -282,7 +282,7 @@
         if (S.feeders < 3 && S.money > 5000) C.setFeeders(S, 3);
         let g4 = 0;
         while (g4++ < 20) {
-          const ups = D.EQUIP.map(e => ({ id: e.id, c: G.Shop.upgradeCost(S, e.id) })).filter(x => x.c != null && S.money - x.c >= (opts.reserve == null ? 25000 : opts.reserve)).sort((a, b) => a.c - b.c);
+          const ups = D.EQUIP.map(e => ({ id: e.id, c: G.Shop.upgradeCost(S, e.id) })).filter(x => x.c != null && !G.Shop.spaceBlock(S, x.id) && S.money - x.c >= (opts.reserve == null ? 25000 : opts.reserve)).sort((a, b) => a.c - b.c);
           if (!ups.length) break;
           G.Shop.upgrade(S, ups[0].id);
         }

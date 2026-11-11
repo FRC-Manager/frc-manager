@@ -3,6 +3,8 @@
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1®, or Frontier Developments.
 > Season names and point values reference the real 2022–2026 FRC games; every sponsor, regional, offseason event, and opponent team in the game is fictional or randomly generated.
 
+> **Status of this document.** This is the original design plan (v0.1), kept as it was written before the game was built. The game is now at **v2.5** and has grown well beyond it: two robots, a parts inventory, testing hours, fatigue, feeder programs, the Championship FIRST Impact Award, offseason tech changes, workshop space and more. Where the plan and the game differ, the game is right. For the game as it is, read [README.md](README.md) (see "Differences from the design plan"), the in-game **How to play** guide and the **What's new** notes on the main menu.
+
 ---
 
 ## 1. The pitch

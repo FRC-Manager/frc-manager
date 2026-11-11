@@ -33,6 +33,13 @@
   };
   C.mentorStars = (S, role) => { const ms = C.allMentors(S).filter(m => m.role === role); return ms.length ? Math.max(...ms.map(m => m.stars)) : 0; };
   C.coachCalls = function (S, playoff) { const st = C.mentorStars(S, 'coach'); return 3 + (st >= 3 ? 1 : 0) + (st >= 5 ? 1 : 0) + (playoff ? 1 : 0); };
+  // Strategy of the adult behind the glass when no student coaches: a Drive Coach mentor, a Strategy mentor at 80%, or any mentor filling in (30)
+  C.mentorCoach = S => Math.round(Math.max(C.mentorSkill(S, 'coach'), C.mentorSkill(S, 'strat') * 0.8, 30));
+  // Technician (a student): Mechanism speeds up pit repairs, Composure catches pre-match mistakes (wrong code, loose bumper, flat battery…)
+  C.techRepair = S => { const t = C.driveTeam(S).tech; return 1 + (t ? t.attr.mech / D.TECH_ROLE.repair : 0); };
+  C.techCheck = S => { const t = C.driveTeam(S).tech; return 1 - (t ? t.attr.comp / D.TECH_ROLE.check : 0); };
+  // Reputation: gains shrink as it rises, losses count in full
+  C.addRep = function (S, v) { if (v > 0) v *= D.REP_GAIN * Math.max(0.1, 1 - S.rep / D.REP_SOFT); S.rep = U.clamp(Math.round((S.rep + v) * 10) / 10, 0, 100); };
   C.coachSkill = function (S) { const dt = C.driveTeam(S); return Math.max(C.mentorSkill(S, 'coach'), dt.coachStrat); };
   C.driveTeam = function (S) {
     const by = id => S.students.find(s => s.id === id);
@@ -42,8 +49,9 @@
     const operator = by(S.driveTeam.operator) || pool.find(s => s !== driver) || fallback;
     const hp = by(S.driveTeam.hp) || pool.find(s => s !== driver && s !== operator) || fallback;
     const coachSt = S.driveTeam.coach && S.driveTeam.coach !== 'mentor' ? by(S.driveTeam.coach) : null;
+    const tech = by(S.driveTeam.tech) || null; // optional fifth member: pit repairs and the pre-match checklist
     const coachStrat = coachSt ? coachSt.attr.strat : Math.max(C.mentorSkill(S, 'coach'), C.mentorSkill(S, 'strat') * 0.8, 30);
-    return { driver, operator, hp, coach: coachSt, coachStrat: Math.round(coachStrat) };
+    return { driver, operator, hp, coach: coachSt, coachStrat: Math.round(coachStrat), tech };
   };
   C.seasonName = (S, year) => { const gy = year || S.year, s = G.Seasons[gy]; return gy ? C.calYear(S, gy) + ' ' + s.name : ''; };
   C.monthName = S => D.MONTHS[S.month];
@@ -130,7 +138,7 @@
     if (o.mode === 'career') {
       C.genOffers(S);
       G.Parts.teaser(S);
-      C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy equipment, start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.', 'info');
+      C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy facilities (Workshop) and parts (Inventory), start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.', 'info');
     } else {
       // single season: auto-sign starter sponsors, then kickoff right away
       C.genOffers(S);
@@ -146,7 +154,11 @@
     const d = pick(s => s.attr.drive * 1.2 + s.attr.comp + s.attr.aware);
     const op = pick(s => s.attr.mech * 1.5 + s.attr.comp);
     const hp = pick(s => s.attr.hp * 2);
-    S.driveTeam = { driver: d && d.id, operator: op && op.id, hp: hp && hp.id, coach: 'mentor' };
+    // coach: the best strategist left, unless the adult behind the glass (Drive Coach or Strategy mentor) is better
+    const cs = st.slice().sort((a, b) => b.attr.strat - a.attr.strat)[0], coach = cs && cs.attr.strat > C.mentorCoach(S) ? cs : null;
+    if (coach) st.splice(st.indexOf(coach), 1);
+    const tech = pick(s => s.attr.mech * 1.2 + s.attr.comp * 0.8);
+    S.driveTeam = { driver: d && d.id, operator: op && op.id, hp: hp && hp.id, coach: coach ? coach.id : 'mentor', tech: tech ? tech.id : null };
   }
   C.autoDriveTeam = autoDriveTeam;
 
@@ -198,7 +210,7 @@
     S.offers = S.offers.filter(x => x !== o);
     sp.undo = { turn: turnKey(S), offer: JSON.parse(JSON.stringify(o)), paid: 0 };
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
-    if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
+    if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = amt; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
     if (!silent) C.inbox(S, 'Signed: ' + sp.name, (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ' — ' + U.money(sp.base) + ' per season for ' + sp.length + ' season(s).' + (S.phase === 'off' ? ' First payment arrives at Kickoff.' : ''), 'money');
     return null;
   };
@@ -223,6 +235,40 @@
   C.sponsorSlots = S => {
     const n = k => S.sponsors.filter(s => s.slot === k).length;
     return { title: { n: n('title'), max: 1 }, partner: { n: n('partner'), max: C.partnerSlots(S) }, grant: { n: n('grant'), max: 1 } };
+  };
+  // ---- sponsor money at a glance (Finance): this season's base and bonuses, and what next season looks like ----
+  const bizMult = S => (S.mentors.some(m => m.role === 'biz') ? 1.1 : 1);
+  const goalPay = (sp, g) => g.bonus * (sp.perk === 'bonusBoost' ? 1.5 : 1);
+  C.goalPay = goalPay;
+  // This season: base money received, bonuses earned so far and what the open goals are still worth
+  C.sponsorSeason = function (S) {
+    const biz = bizMult(S), r = { base: 0, reached: 0, possible: 0, met: 0, goals: 0, n: 0 };
+    S.sponsors.forEach(sp => {
+      if (sp.paidYear !== S.year) return; // signed for next season: nothing paid or at stake yet
+      r.n++; r.base += sp.paidAmt != null ? sp.paidAmt : Math.round(sp.base * biz);
+      sp.goals.forEach(g => { const b = goalPay(sp, g); r.goals++; r.possible += b; if (g.met) { r.met++; r.reached += g.paid != null ? g.paid : b; } });
+    });
+    return r;
+  };
+  // Next season: base money under contract, deals that end after this season (renewal follows satisfaction) and the bonuses on offer
+  C.sponsorNext = function (S) {
+    if (S.mode !== 'career' || S.phase === 'end' || S.upcoming >= S.order.length) return null; // no season after this one
+    const biz = bizMult(S), settled = S.phase === 'off' || S.phase === 'review'; // contracts for next season are already decided
+    const r = { year: C.calYear(S, S.order[S.upcoming]), settled, biz: biz > 1, contract: 0, contractN: 0, bonus: 0, renew: [], renewBase: 0, renewBonus: 0, expected: 0, ending: [] };
+    S.sponsors.forEach(sp => {
+      const gb = U.sum(sp.goals.map(g => goalPay(sp, g)));
+      if (settled || sp.seasonsLeft >= 2) { r.contract += Math.round(sp.base * biz); r.contractN++; r.bonus += gb; }
+      else if (sp.slot === 'grant') r.ending.push(sp.name);
+      else {
+        // the same sums as the season review: renewal chance = satisfaction, new base 90%..130% of the old one
+        const p = U.clamp(sp.sat / 100, 0, 1), nb = Math.round(Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250 * biz);
+        r.renew.push({ name: sp.name, chance: p, base: nb, bonus: gb }); r.renewBase += nb; r.renewBonus += gb; r.expected += p * nb;
+      }
+    });
+    r.expected = Math.round((r.contract + r.expected) / 50) * 50;
+    const sl = C.sponsorSlots(S);
+    r.open = ['title', 'partner', 'grant'].map(k => ({ k, n: sl[k].max - sl[k].n })).filter(x => x.n > 0);
+    return r;
   };
   // How good an offer looks: yearly money, contract length, likely bonuses and perks, minus obligations and risky expectations
   C.offerValue = function (S, o) {
@@ -257,7 +303,7 @@
       const tr = G.Shop.lvl(S, 'trailer') > 0, wear = tr ? 4 : 10; // a trailer means a proper display and safe transport
       if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - wear); });
       if ((S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: wear };
-      if (sp) sp.sat = Math.min(100, sp.sat + (tr ? 13 : 10)); S.rep = Math.min(100, S.rep + 1); S.season.impact += tr ? 4 : 3;
+      if (sp) sp.sat = Math.min(100, sp.sat + (tr ? 13 : 10)); C.addRep(S, 1); S.season.impact += tr ? 4 : 3;
     }
     if (how === 'hours') { S.actHours += 30; if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
     if (how === 'skip') { if (sp) sp.sat = Math.max(0, sp.sat - 15); }
@@ -277,6 +323,7 @@
       if (!g.met && check[g.id]) {
         g.met = true;
         const bonus = g.bonus * (C.hasPerk(S, 'bonusBoost') && sp.perk === 'bonusBoost' ? 1.5 : 1);
+        g.paid = bonus;
         C.earn(S, bonus, 'Bonus: ' + sp.name + ' — ' + D.GOALS[g.id].text);
         sp.sat = Math.min(100, sp.sat + 10);
         C.inbox(S, 'Sponsor bonus: ' + U.money(bonus), sp.name + ' is thrilled: "' + D.GOALS[g.id].text + '" achieved.', 'money');
@@ -347,7 +394,7 @@
     add('off1', 'program', 'Graduation: seniors leave');
     add('off3', 'program', 'Mentor market refreshes');
     add('off4', 'program', 'New students join · school funding');
-    if (S.feeders) add('off4', 'money', 'Feeder programs ' + U.money(S.feeders * 1000));
+    if (S.feeders) add('off4', 'money', 'Feeder programs ' + U.money(C.programCost(S)));
     add('off5', 'program', 'Sponsor offers · regional registration opens');
     { const li = off ? G.Parts.buyIdx(S) : S.si; const seen = {};
       (S.vendorPlan || []).filter(r => r.idx === li && r.mo >= 4 && !seen[r.v] && (seen[r.v] = 1)).forEach(r => add('off' + r.mo, 'dev', D.VENDORS[r.v].name + ' product launch')); }
@@ -401,7 +448,10 @@
       if (r && !S.eventsDone[r.id]) return { def: Object.assign({ kind: 'regional' }, r) };
     }
     if (S.phase === 'champs' && S.season.champsQualified && !S.eventsDone['champs' + S.year] && !S.champsDeclined) return { def: { id: 'champs' + S.year, kind: 'champs', name: 'Championship — ' + (S.champsDiv || 'Newton') + ' Division', size: 64, str: 5, week: 8 } };
-    if (S.phase === 'champs' && S.pendingEinstein && !S.eventsDone['ein' + S.year]) return { def: { id: 'ein' + S.year, kind: 'einstein', name: 'Einstein Field', week: 8 } };
+    if (S.phase === 'champs' && S.pendingEinstein && !S.eventsDone['ein' + S.year]) {
+      const watch = !!(S.lastDivision && S.lastDivision.watch); // out of the tournament, on Einstein for the FIRST Impact Award
+      return { def: { id: 'ein' + S.year, kind: 'einstein', name: watch ? 'Einstein Field: finals and awards' : 'Einstein Field', week: 8, watch } };
+    }
     if (S.phase === 'off' && S.robot) {
       const o = D.OFFSEASON_EVENTS.find(x => S.offReg.includes(x.id) && x.month === D.MONTHS[S.month]);
       if (o && !S.eventsDone[o.id + S.year]) return { def: { id: o.id + S.year, kind: 'offseason', name: o.name, size: o.size, str: 3, week: 0 } };
@@ -482,6 +532,7 @@
   C.startEinstein = function (S, def) {
     const div = S.lastDivision;
     const ev = G.Ev.start({ id: def.id, kind: 'einstein', name: def.name, size: 1, year: S.year, week: 8, str: 5 });
+    ev.watch = !!div.watch; // your team is in the stands: div.alliance is the alliance that won your division
     ev.batts = S.parts.batts.map(() => 1);
     const rng = G.R;
     const myAll = div.alliance.slice();
@@ -641,7 +692,7 @@
       case 'review': C.endReview(S); break;
     }
     // new turn: random news, team chatter, (rarely) a shop incident or a school/sponsor opportunity
-    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); G.Shop.rollBoost(S); }
+    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); G.Shop.rollBoost(S); C.rollDonation(S); }
     G.Parts.rollStock(S);
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
@@ -667,6 +718,8 @@
     if (th && th.total) {
       if (r.testUsed > 0.05) C.spend(S, r.testUsed * D.TEST_COST * (th.limited ? D.CHASSIS_TEST_COST : 1), (th.limited ? 'Test chassis testing (' : 'Development testing (') + Math.round(r.testUsed) + ' h)');
       const dp = driverPractice(S, th);
+      // a running second robot (a test chassis counts) is a full control system to wire, power up and debug, weeks before the competition robot
+      if (G.Robot.secondRuns(S)) { S.elecShake = Math.min(1, (S.elecShake || 0) + th.total / D.ELEC_SHAKE_HOURS); G.Robot.addXP(S, 'elec', D.ELEC_SHAKE_XP); }
       S.lastTest = { total: th.total, dev: th.dev, devUsed: Math.round(r.testUsed), devIdle: Math.round(r.testIdle), bonus: Math.round(r.testBonus), drive: th.drive, spares: dp ? dp.spares : 0, wear: dp ? dp.wear : 0, bot: dp ? dp.bot : null };
     } else S.lastTest = null;
     G.Shop.clearMods(S);
@@ -743,7 +796,8 @@
     if (mo === 'Sep') {
       S.students.forEach(s => s.grade++);
       const fo = C.feederOutlook(S);
-      const n = Math.max(2, Math.round(4 + S.rep / 10 + S.season.outreach + fo.size + rng.int(-2, 2)));
+      const wanted = Math.max(2, Math.round(4 + S.rep / 10 + S.season.outreach + fo.size + rng.int(-2, 2)));
+      const n = Math.max(0, Math.min(wanted, D.STUDENT_CAP - S.studentsCount)), waitlist = wanted - n; // the club is full at 100 students
       S.studentsCount += n;
       const add = Math.min(12 - S.students.length, Math.max(2, Math.round(n / 2)));
       const from = {};
@@ -751,7 +805,7 @@
         const st = D.makeStudent(rng, rng.chance(0.7) ? 9 : 10, fo.talent + S.rep / 10 - 5);
         const pg = rng.chance(fo.share) ? C.pickProgram(S, rng) : null;
         if (pg) {
-          const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg) * rng.range(0.7, 1.3);
+          const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programPower(pg) * rng.range(0.7, 1.3);
           Object.keys(F.attr).forEach(k => { st.attr[k] = Math.round(U.clamp(st.attr[k] + F.attr[k] * m, 10, 85)); });
           st.pot = Math.round(U.clamp(st.pot + F.pot * m, 25, 100));
           st.from = pg.name; from[pg.name] = (from[pg.name] || 0) + 1;
@@ -761,10 +815,10 @@
       const fund = Math.round(S.schoolBase * (0.6 + 0.8 * S.support / 100));
       C.earn(S, fund, 'School funding');
       const np = (S.programs || []).length;
-      if (np) C.spend(S, np * D.FEEDER_COST, 'Feeder programs (' + np + ')');
+      if (np) C.spend(S, C.programCost(S), 'Feeder programs (' + np + ')');
       (S.programs || []).forEach(pg => { pg.years = (pg.years || 0) + 1; });
       const via = Object.keys(from).map(k => from[k] + ' from ' + k).join(', ');
-      C.inbox(S, 'New school year', n + ' new students joined (' + S.studentsCount + ' total).' + (via ? ' Core recruits: ' + via + '.' : '') + ' School funding: ' + U.money(fund) + '.' + (np ? ' Feeder programs: ' + U.money(np * D.FEEDER_COST) + '.' : ''), 'staff');
+      C.inbox(S, 'New school year', n + ' new students joined (' + S.studentsCount + ' total).' + (waitlist > 0 ? ' The team is full at ' + D.STUDENT_CAP + ' students: ' + waitlist + ' more applied and went on the waiting list.' : '') + (via ? ' Core recruits: ' + via + '.' : '') + ' School funding: ' + U.money(fund) + '.' + (np ? ' Feeder programs: ' + U.money(C.programCost(S)) + '.' : ''), 'staff');
     }
     if (mo === 'Oct') {
       C.genOffers(S);
@@ -795,15 +849,15 @@
     // spare parts are specific to each game: last season's stock is no use now
     if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev');
     S.parts.spares = 0; S.parts.spareUse = 0;
-    S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
+    S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.elecShake = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(DIVS);
     if (!S.regionals.length || S.regionals[0].year !== S.year) S.regionals = D.makeRegionals(S.year, rng);
     if (S.mode === 'career') C.markFull(S);
     // finances
     const biz = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
     S.sponsors.forEach(sp => {
-      if (sp.paidYear !== S.year) { C.earn(S, sp.base * biz, 'Sponsor: ' + sp.name); sp.paidYear = S.year; C.scheduleActivities(S, sp); }
-      sp.goals.forEach(g => g.met = false);
+      if (sp.paidYear !== S.year) { C.earn(S, sp.base * biz, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = Math.round(sp.base * biz); C.scheduleActivities(S, sp); }
+      sp.goals.forEach(g => { g.met = false; delete g.paid; });
     });
     S.mentors.forEach(m => { if (!m.paid && m.cost) C.spend(S, m.cost, 'Mentor: ' + m.name); m.paid = false; });
     C.spend(S, D.FEES.shopOps, 'Shop operations');
@@ -898,7 +952,8 @@
 
   // ======================= match hooks =======================
   C.beforePlayerMatch = function (S, ev, opts) {
-    const turn = ev.lastPlayerMatch < 0 ? 0 : (ev.stage === 'playoffs' ? 3 : G.Ev.turnaround(ev));
+    const turn = ev.lastPlayerMatch < 0 ? 0 : (ev.stage === 'playoffs' ? G.Ev.poTurnaround(ev) : G.Ev.turnaround(ev));
+    ev.lastTurn = turn;
     if (ev.lastPlayerMatch >= 0 || ev.stage === 'playoffs') {
       const sp = G.Robot.pitRepair(S, turn, opts && opts.timeout ? 2.5 : 1);
       ev.lastRepair = sp;
@@ -936,8 +991,9 @@
     const dt = C.driveTeam(S), mult = (match.playoff ? 1.5 : 1) * (ev.kind === 'champs' || ev.kind === 'einstein' ? 1.5 : 1) * (ev.kind === 'offseason' ? 2 : 1);
     if (dt.driver.attr && dt.driver.id) { studentXP(S, dt.driver, ['drive', 'aware', 'comp'], mult); dt.driver.matches++; }
     if (dt.operator.attr && dt.operator.id) { studentXP(S, dt.operator, ['mech', 'comp'], mult); dt.operator.matches++; }
-    if (dt.hp.attr && dt.hp.id) studentXP(S, dt.hp, ['hp'], mult);
-    if (dt.coach) studentXP(S, dt.coach, ['strat'], mult);
+    if (dt.hp.attr && dt.hp.id) { studentXP(S, dt.hp, ['hp'], mult); dt.hp.matches++; }
+    if (dt.coach) { studentXP(S, dt.coach, ['strat'], mult); dt.coach.matches++; }
+    if (dt.tech) { studentXP(S, dt.tech, ['mech', 'comp'], mult * 0.6); dt.tech.matches++; }
     // knowledge from using concepts
     if (S.robot && S.robot.year === ev.year) {
       Object.keys(S.robot.subs).forEach(k => {
@@ -963,16 +1019,19 @@
     const raw = S.season ? S.season.impact : 0;
     const past = S.history.slice(-3).map(x => x.impactRaw != null ? x.impactRaw : (x.awards || []).includes('impact') ? 400 : 120);
     while (past.length < 3) past.unshift(IMPACT_BASE[S.profile] || 0);
-    const stu = S.students.map(s => (s.attr.strat + s.attr.aware) / 2).sort((a, b) => b - a).slice(0, 2);
+    // Presentation: the Business mentor (60% of their skill), the two best presenters (60% of their average Strategy and Awareness) and a room to rehearse in
+    const top = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2);
+    const stu = top.map(s => (s.attr.strat + s.attr.aware) / 2), biz = C.mentorSkill(S, 'biz'), room = G.Shop.fx(S, 'meeting', 'pitch');
     const parts = {
       outreach: impSat(raw), record: impSat(U.avg(past)),
-      pitch: U.clamp(C.mentorSkill(S, 'biz') * 0.6 + (stu.length ? U.avg(stu) : 25) * 0.6, 0, 100),
+      pitch: U.clamp(biz * 0.6 + (stu.length ? U.avg(stu) : 25) * 0.6 + room, 0, 100),
       programs: Math.min(100, C.feederOutlook(S).impact / 3 * 100), rep: S.rep
     };
     let score = 0;
     Object.keys(C.IMPACT_W).forEach(k => score += parts[k] * C.IMPACT_W[k]);
     const won = !!(S.season && (S.season.awards || []).some(a => a === 'impact' || (a && a.id === 'impact')));
-    return { score, parts, raw, submitted: !!(S.season && S.season.impactDone), won };
+    const pitchBy = { biz: Math.round(biz * 0.6), bizSkill: Math.round(biz), stu: Math.round((stu.length ? U.avg(stu) : 25) * 0.6), room: Math.round(room), names: top.map(s => ({ name: s.name, v: Math.round((s.attr.strat + s.attr.aware) / 2) })) };
+    return { score, parts, raw, submitted: !!(S.season && S.season.impactDone), won, pitchBy };
   };
   // Chance to win the Impact Award at a regional: Monte Carlo over likely fields (cached per event + AI pool state).
   const impField = {};
@@ -1021,6 +1080,15 @@
     };
   };
 
+  // Electrical shakedown (0..1, built on a second robot): how much it helps at the next event. It matters most early in the
+  // season, before the competition robot has match time of its own: first event, second event, later events.
+  C.elecShakeK = function (S, n) {
+    if (!S.elecShake || !S.season) return 0;
+    const E = D.ELEC_SHAKE_EFFECT;
+    if (n == null) n = S.season.events.filter(e => e.kind !== 'scrimmage').length;
+    return S.elecShake * E[Math.min(n, E.length - 1)];
+  };
+
   // ======================= event done =======================
   // Strategy read (0..1): how well the team spots and runs a season's alternative strategies (2024 note feeding).
   // Built by management: a Strategy mentor, a drive coach with strategy skill, driver practice, and events played and scouted.
@@ -1039,7 +1107,7 @@
     }
     S.lastTune = ev.tune; S.lastConf = ev.conf;
     if (ev.kind === 'offseason') {
-      S.offResults.push(r); S.rep = Math.min(100, S.rep + 2 + (r.won ? 3 : 0));
+      S.offResults.push(r); C.addRep(S, 2 + (r.won ? 3 : 0));
       S.sponsors.forEach(s => s.sat = Math.min(100, s.sat + 3));
       S.morale = Math.min(100, S.morale + (r.won ? 8 : 3));
       C.inbox(S, 'Offseason: ' + ev.name, 'Result: ' + r.finish + '. Your students gained valuable experience (double XP).', 'event');
@@ -1048,6 +1116,13 @@
     if (ev.kind === 'scrimmage') {
       S.lastTune = Math.max(S.lastTune, ev.tune + 0.1); S.lastConf = Math.max(S.lastConf, ev.conf + 0.1);
       C.inbox(S, 'Week 0 scrimmage complete', 'Your drivers and robot got real reps. Starting tuning/confidence at your first regional is higher.', 'event');
+      return;
+    }
+    if (ev.kind === 'einstein' && ev.watch) {
+      // watched from the stands: nothing rides on the matches, the FIRST Impact Award is settled by the ceremony (or on leaving)
+      const nm = n => n + ' ' + ((S.teams[n] || {}).name || '');
+      S.pendingEinstein = false;
+      C.inbox(S, 'Einstein: the World Champions', (r.winners || []).map(nm).join(', ') + ' won the Einstein finals. Your team watched from the stands.', 'event');
       return;
     }
     if (ev.kind === 'einstein') {
@@ -1063,10 +1138,20 @@
     if (ev.kind === 'champs') {
       S.season.champsPlayoffs = r.playoffs;
       S.season.cmpImpact = C.rollChampsImpact(S);
+      if (!r.won && S.season.cmpImpact.eligible && ev.po && ev.po.done) {
+        // Out of the tournament, but this season's regional Impact Award winners are judged for the FIRST Impact Award,
+        // and that is presented on Einstein: the team goes there to watch the finals and hear the announcement.
+        const F = ev.po.matches.find(x => x.id === 'F');
+        if (F && F.winner != null) {
+          S.pendingEinstein = true;
+          S.lastDivision = { watch: true, alliance: ev.alliances[F.winner].slice(), teams: ev.teams.slice(), caps: ev.caps, opr: Object.assign({}, G.Ev.opr(ev)), tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred };
+          C.inbox(S, 'Einstein: a seat for the awards', 'Your matches are over, but as a regional Impact Award winner your team is in the running for the FIRST Impact Award. It is presented on Einstein: the six Finalists before Final 1 and the winner after it. Go to Einstein to watch the finals and hear the announcement.', 'event');
+        }
+      }
       if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, opr: Object.assign({}, G.Ev.opr(ev)), tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
     }
     // reputation & morale
-    S.rep = U.clamp(S.rep + (r.won ? 8 : r.finalist ? 4 : r.playoffs ? 2 : -1) + r.awards.length * 3, 0, 100);
+    C.addRep(S, (r.won ? 8 : r.finalist ? 4 : r.playoffs ? 2 : -1) + r.awards.length * 3);
     S.morale = U.clamp(S.morale + (r.won ? 12 : r.playoffs ? 4 : -3) + r.awards.length * 4, 0, 100);
     // champs qualification
     if (ev.kind === 'regional' && !S.season.champsQualified) {
@@ -1177,7 +1262,7 @@
       ci.told.fin = true;
       if (ci.out === 'finalist') {
         ci.result = 'finalist'; ci.cele = C.impactCele(S, 'finalist');
-        S.rep = Math.min(100, S.rep + 6); S.morale = Math.min(100, S.morale + 10); S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 8); });
+        C.addRep(S, 12); S.morale = Math.min(100, S.morale + 10); S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 8); });
         C.inbox(S, 'FIRST Impact Award Finalist!', 'On Einstein, before Final 1, the judges named the six FIRST Impact Award Finalists, and your team is one of them. A blue banner is on its way to your wall (History).', 'event');
       }
     }
@@ -1199,9 +1284,11 @@
   const techTeam = (S, rng) => { const ks = Object.keys(S.teams || {}); return ks.length ? rng.pick(ks) : String(rng.int(100, 9999)); };
   C.techHit = function (S, area, pct) {
     const xp0 = S.know[area] || 0, l0 = D.knowLevel(xp0), guard = S.mentors.some(m => m.spec === area);
-    const xp1 = Math.round(Math.min(xp0, D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP) * (1 - pct * (guard ? 0.5 : 1)));
+    // XP banked far above the top level is old know-how: only the first 125% of the top level still counts as current
+    const top = Math.round(D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP), base = Math.min(xp0, top);
+    const xp1 = Math.round(base * (1 - pct * (guard ? 0.5 : 1)));
     S.know[area] = xp1;
-    return { area, name: D.AREA[area].name, xp0, xp1, l0, l1: D.knowLevel(xp1), guard, pct: Math.round(pct * (guard ? 0.5 : 1) * 100) };
+    return { area, name: D.AREA[area].name, xp0, xp1, l0, l1: D.knowLevel(xp1), guard, pct: Math.round(pct * (guard ? 0.5 : 1) * 100), base, capped: xp0 > top };
   };
   function techNews(S, kind, picks, pct) {
     const rng = G.R, year = C.calYear(S, S.order[S.upcoming]) || '';
@@ -1211,7 +1298,7 @@
     const take = (lost.length ? 'Knowledge levels down: ' + lost.map(i => i.name + ' ' + i.l0 + ' → ' + i.l1).join(', ') + '.' : 'No knowledge level lost, but the XP is gone.') +
       (guard.length ? ' Your specialist mentor' + (guard.length > 1 ? 's' : '') + ' halved the loss in ' + guard.map(i => i.name).join(' and ') + '.' : ' A mentor who specializes in an area halves its loss.') + ' Research (Design Office) wins it back.';
     const L = { kind, title: kind === 'rules' ? 'Rule and vendor changes for ' + (year || 'next season') : 'New designs spotted online', month: D.MONTHS[S.month], year, intro: rng.pick(D.TECH_INTRO[kind]), items, talk, take };
-    const text = L.intro + '\n\n' + items.map(i => i.title + ' (' + i.tag + ') — ' + i.body + '\n→ ' + i.name + ': −' + i.pct + '% know-how (' + i.xp0 + ' → ' + i.xp1 + ' XP' + (i.l1 < i.l0 ? ', Level ' + i.l0 + ' → ' + i.l1 : '') + ')').join('\n\n') +
+    const text = L.intro + '\n\n' + items.map(i => i.title + ' (' + i.tag + ') — ' + i.body + '\n→ ' + i.name + ': ' + (i.capped ? i.xp0 + ' → ' + i.xp1 + ' XP (only ' + i.base + ' XP still counted as current, then −' + i.pct + '%' : '−' + i.pct + '% know-how (' + i.xp0 + ' → ' + i.xp1 + ' XP') + (i.l1 < i.l0 ? ', Level ' + i.l0 + ' → ' + i.l1 : '') + ')').join('\n\n') +
       '\n\nWhat people are saying:\n' + talk.map(q => '“' + q[0] + '” — ' + q[1]).join('\n') + '\n\n' + take;
     C.inbox(S, L.title, text, 'know');
     (S.launchQueue = S.launchQueue || []).push(L);
@@ -1298,6 +1385,44 @@
     if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season);
     return out;
   };
+  // The school board at the season review. More room when Program Support has reached the next tier (never taken back), and
+  // gifts when support went up this season: a free full renovation, and after a strong year one upgrade of your choice.
+  function boardReview(S, dSup) {
+    const Sh = G.Shop, b = { space: null, reno: 0, grant: false }, t0 = S.spaceTier || 0;
+    let t = t0;
+    D.SPACE_TIERS.forEach((T, i) => { if (S.support >= T.sup && i > t) t = i; });
+    if (t > t0) { S.spaceTier = t; b.space = { from: Sh.spaceOfTier(t0), to: Sh.spaceOfTier(t), name: D.SPACE_TIERS[t].name }; }
+    if (dSup >= D.BOARD.reno) D.EQUIP.forEach(e => { const f = S.shop[e.id]; if (f && f.lvl && f.cond < 99) { f.cond = 100; f.warned = 0; b.reno++; } });
+    if (dSup >= D.BOARD.grant && S.support >= D.BOARD.grantSup) { S.schoolGrant = (S.schoolGrant || 0) + 1; b.grant = true; }
+    S.season.board = b;
+    if (!b.space && !b.reno && !b.grant) return;
+    C.inbox(S, 'From the school board: your workshop', 'The board reviewed the robotics program this week (Program Support ' + Math.round(S.support) + ', ' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season).\n\n' +
+      (b.space ? '• More room: the team moves into ' + b.space.name + '. Your workshop grows from ' + b.space.from.toLocaleString('en-US') + ' to ' + b.space.to.toLocaleString('en-US') + ' sq ft.\n' : '') +
+      (b.reno ? '• Maintenance: the district\'s facilities crew will bring ' + (b.reno === 1 ? 'your worn facility' : 'all ' + b.reno + ' of your worn facilities') + ' back to full condition over the summer, at no cost to the team.\n' : '') +
+      (b.grant ? '• Equipment grant: the board will pay for one facility upgrade of your choice, up to ' + U.money(D.BOARD.cap) + '. Use it in the Workshop whenever you like.\n' : '') +
+      '\nKeep it up. Room is never taken back, but the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.', 'shop');
+  }
+  // Rare: a very satisfied sponsor donates equipment, one facility level of a kind that fits what they do, if the workshop has room
+  C.rollDonation = function (S) {
+    const Sh = G.Shop, rng = G.R, DN = D.DONATION;
+    if (!S.season || S.season.donated || S.phase === 'review' || S.phase === 'end') return null;
+    for (const sp of rng.shuffle(S.sponsors.slice())) {
+      const w = U.clamp((sp.sat - DN.sat) / (100 - DN.sat), 0, 1); // the happier the sponsor, the likelier
+      if (!w || !rng.chance(DN.chance * w)) continue;
+      const cap = DN.cap[sp.slot] || 9000, opts = (DN.types[sp.type] || []).filter(id => { const c = Sh.upgradeCost(S, id); return c != null && c <= cap && !Sh.spaceBlock(S, id); });
+      if (!opts.length) continue;
+      const id = rng.pick(opts), it = Sh.item(id), l0 = Sh.lvl(S, id), value = Sh.upgradeCost(S, id);
+      if (Sh.upgrade(S, id, { gift: true })) continue;
+      S.season.donated = true; sp.sat = Math.min(100, sp.sat + 2);
+      const L = { kind: 'donation', sponsor: sp.name, type: sp.typeName, id, name: it.name, level: it.levels[l0].name, lvl: l0 + 1, value, sqft: Sh.sizeOf(id, l0 + 1) - Sh.sizeOf(id, l0), month: C.dateLabel(S),
+        intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name)]) };
+      C.inbox(S, 'Donation from ' + sp.name + ': ' + L.level, L.intro + '\n\n' + sp.name + ' (' + sp.typeName + ') donated a ' + L.level + ' to the team: ' + it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '.\n\nSponsors do this when they are happy with the partnership and the workshop has the room: the higher their satisfaction above ' + DN.sat + ', the likelier. Keep every sponsor slot filled and never skip their activities, and it averages about one donation a year.', 'money');
+      (S.launchQueue = S.launchQueue || []).push(L);
+      return L;
+    }
+    return null;
+  };
+
   C.toReview = function (S) {
     if (S.phase === 'review') return;
     C.settleImpact(S, 'all');
@@ -1312,6 +1437,7 @@
     dSup *= dSup < 0 ? ({ easy: 0.5, normal: 1, hard: 1.5 }[S.diff] || 1) : 1;
     S.support = Math.round(U.clamp(S.support + dSup, 0, 100));
     s.supportDelta = Math.round(dSup);
+    boardReview(S, dSup);
     s.legacy = C.legacyFor(s) + (debt ? 0 : 20);
     // the school pays the bills: the balance goes back to $0, but the board remembers
     if (debt) {
@@ -1324,6 +1450,7 @@
     }
     S.legacy += s.legacy;
     // sponsors
+    S.lastSponsor = Object.assign({ year: S.year }, C.sponsorSeason(S)); // kept for the offseason: sponsors that leave take their numbers with them
     const left = [];
     S.sponsors.forEach(sp => {
       sp.goals.forEach(g => { if (!g.met) sp.sat = Math.max(0, sp.sat - 8); });
@@ -1348,7 +1475,7 @@
     S.history.push({
       year: S.year, events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
-      earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0, impactRaw: s.impact
+      earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0, impactRaw: s.impact, board: s.board || null
     });
     S.phase = 'review';
     S.champsPaid = null;
@@ -1360,7 +1487,7 @@
     const imp = 0;
     S.season = newSeasonState(null); S.season.impact = imp;
     S.offReg = [];
-    C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
+    C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
     G.Parts.teaser(S);
     C.techRules(S);
@@ -1417,9 +1544,9 @@
       S.morale = Math.min(100, S.morale + a.morale);
       msg = 'Morale +' + a.morale + (C.inSeason(S) ? ', fatigue ' + Math.round(before) + ' → ' + Math.round(S.fatigue) : ' (fatigue only matters in season)');
     } else if (a.kind === 'outreach') {
-      const imp = Math.round(a.impact * fat * trailer * 10) / 10, rp = Math.round(a.rep * fat * 10) / 10;
-      S.season.impact += imp; S.season.outreach++; S.rep = Math.min(100, S.rep + rp);
-      if (a.recruits && fat > 0.6) S.studentsCount += a.recruits;
+      const imp = Math.round(a.impact * fat * trailer * (1 + G.Shop.fx(S, 'meeting', 'outreach')) * 10) / 10, rp = Math.round(a.rep * fat * 10) / 10;
+      S.season.impact += imp; S.season.outreach++; C.addRep(S, rp);
+      if (a.recruits && fat > 0.6) S.studentsCount = Math.min(D.STUDENT_CAP, S.studentsCount + a.recruits);
       if (a.money) { const gm = Math.round(rng.range(a.money[0], a.money[1]) * fat); C.earn(S, gm, a.name); msg = U.money(gm) + ' raised, '; }
       if (a.sponsorSat) S.sponsors.forEach(sp => sp.sat = Math.min(100, sp.sat + a.sponsorSat));
       if (a.fatigue && C.inSeason(S)) S.fatigue = Math.max(5, S.fatigue + a.fatigue);
@@ -1435,7 +1562,7 @@
     return { ok: true, msg };
   };
   // Facilities are bought/upgraded through G.Shop (parts and game elements: G.Parts).
-  C.buyEquip = (S, id) => G.Shop.upgrade(S, id);
+  C.buyEquip = (S, id, opts) => G.Shop.upgrade(S, id, opts);
   C.buyBatteries = (S, n) => G.Shop.buyBatteries(S, n);
   // Spare parts cost more when bought at an event (rush delivery to the pits).
   C.spareUnitPrice = function (S, atEvent) {
@@ -1488,26 +1615,32 @@
     const list = S.programs || [];
     let mat = 0, size = 0, impact = 0;
     const attr = { drive: 0, aware: 0, comp: 0, mech: 0, hp: 0, strat: 0 };
-    list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg); mat += m; size += F.size * m; impact += F.impact * m; });
+    list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg); mat += C.programPower(pg); size += F.size * m; impact += F.impact * m * (pg.own ? D.FTC_OWN.impact : 1); });
     const talent = 3 * mat, share = Math.min(0.85, 0.2 * mat);
     // expected bonus per recruit: general talent (0.4 per point) + the focus of the program they come from
     Object.keys(attr).forEach(k => { attr[k] = talent * 0.4; });
-    if (mat) list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programMaturity(pg), w = share * m / mat; Object.keys(F.attr).forEach(k => { attr[k] += F.attr[k] * m * w; }); });
+    if (mat) list.forEach(pg => { const F = D.FEEDER_FOCUS[pg.focus] || D.FEEDER_FOCUS.balanced, m = C.programPower(pg), w = share * m / mat; Object.keys(F.attr).forEach(k => { attr[k] += F.attr[k] * m * w; }); });
     return { n: list.length, mat, size, talent, share, impact, attr };
   };
   C.pickProgram = function (S, rng) {
     const list = S.programs || []; if (!list.length) return null;
-    let r = rng.next() * U.sum(list.map(C.programMaturity));
-    for (const pg of list) { r -= C.programMaturity(pg); if (r <= 0) return pg; }
+    let r = rng.next() * U.sum(list.map(C.programPower));
+    for (const pg of list) { r -= C.programPower(pg); if (r <= 0) return pg; }
     return list[list.length - 1];
   };
-  C.addProgram = function (S, focus) {
+  // Your own FTC teams run in the FTC Team Space: one per facility level, each in a feeder program slot
+  C.programPower = pg => C.programMaturity(pg) * (pg.own ? D.FTC_OWN.power : 1);
+  C.programCost = S => (S.programs || []).reduce((s, p) => s + (p.own ? D.FTC_OWN.cost : D.FEEDER_COST), 0);
+  C.ownTeams = S => (S.programs || []).filter(p => p.own).length;
+  C.ownMax = S => Math.round(G.Shop.fx(S, 'ftc', 'ftc', null, 1));
+  C.addProgram = function (S, focus, own) {
     S.programs = S.programs || [];
     if (S.programs.length >= D.FEEDER_MAX) return 'You can run at most ' + D.FEEDER_MAX + ' feeder programs';
+    if (own && C.ownTeams(S) >= C.ownMax(S)) return C.ownMax(S) ? 'Your FTC Team Space has room for ' + C.ownMax(S) + ' team' + (C.ownMax(S) > 1 ? 's' : '') + ': upgrade it in the Workshop for another' : 'Build an FTC Team Space in the Workshop first';
     const used = new Set(S.programs.map(p => p.name)), rng = G.R;
     let name, g = 0;
-    do { name = rng.pick(D.FEEDER_SCHOOLS) + ' ' + rng.pick(D.FEEDER_KINDS); g++; } while (used.has(name) && g < 30);
-    S.programs.push({ id: U.uid('fp'), name, focus: D.FEEDER_FOCUS[focus] ? focus : 'balanced', years: 0 });
+    do { name = own ? S.team.name + ' FTC ' + 'ABCDEF'[Math.min(5, C.ownTeams(S) + g)] : rng.pick(D.FEEDER_SCHOOLS) + ' ' + rng.pick(D.FEEDER_KINDS); g++; } while (used.has(name) && g < 30);
+    S.programs.push(Object.assign({ id: U.uid('fp'), name, focus: D.FEEDER_FOCUS[focus] ? focus : 'balanced', years: 0 }, own ? { own: true } : {}));
     S.feeders = S.programs.length;
     return null;
   };

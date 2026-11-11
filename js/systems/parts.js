@@ -329,14 +329,14 @@
     const a = P.alloc(S), rng = R(), hit = 1 + Math.min(1.5, ((rr && rr.defTime) || 0) / 40);
     S.wearTick = (S.wearTick || 0) + 1;
     Object.keys(a.comp).forEach(cat => a.comp[cat].forEach(it => {
-      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit : 1));
+      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit : 1) * (1 - G.Shop.fx(S, 'ebench', 'partWear')));
     }));
   };
   P.wearPractice = function (S, hours, bi) {
     if (!S.inv || !hours) return;
     const a = P.alloc(S), use = S.robot && bi != null && bi !== (S.robot.comp || 0) ? a.prac : a.comp;
     S.wearTick = (S.wearTick || 0) + 1;
-    Object.keys(use).forEach(cat => use[cat].forEach(it => { it.h = Math.max(D.PART_MIN_HEALTH, it.h - hours * D.PART_WEAR_PRACTICE * R().range(0.6, 1.4)); }));
+    Object.keys(use).forEach(cat => use[cat].forEach(it => { it.h = Math.max(D.PART_MIN_HEALTH, it.h - hours * D.PART_WEAR_PRACTICE * R().range(0.6, 1.4) * (1 - G.Shop.fx(S, 'ebench', 'partWear'))); }));
   };
 
   // ======================= game elements =======================

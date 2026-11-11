@@ -12,20 +12,20 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (5 seasons, real or random order) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **2.4**. The main menu's **What's new** page has the version notes.
+Current version: **2.5**. The main menu's **What's new** page has the version notes.
 
-The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). In the game, a short guided tour runs each season and at your first event and match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic.
+The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic.
 
 ### The loop
 
 | Phase | What you do |
 |---|---|
-| Pre-season / offseason | Sign sponsors (Finance), hire mentors, buy facilities (Workshop), stock up on parts and preorder field elements (Shop), run research (Design Office), register for regionals (Calendar), attend offseason events, do outreach (Team) |
+| Pre-season / offseason | Sign sponsors (Finance), hire mentors, buy facilities (Workshop), stock up on parts and preorder field elements (Inventory), run research (Design Office), register for regionals (Calendar), attend offseason events, do outreach (Team) |
 | Kickoff | The game is revealed. Pick a concept (development direction) for every subsystem in the Design Office |
 | Build season | Weekly turns: projects share team hours, sponsor activities pop up, optional overtime |
 | Competition weeks 1–7 | Regionals in weeks 1–6: practice day → qualification matches → alliance selection → double-elimination playoffs → awards. Week 7 is a rest week |
-| Championship | Qualify by winning a regional, winning Impact / Engineering Inspiration, or through the Regional Pool wildcard. Then play a division and, if you win it, Einstein |
-| Season review | Program goals, Program Support, finances, graduation, knowledge decay |
+| Championship | Qualify by winning a regional, winning Impact / Engineering Inspiration, or through the Regional Pool wildcard. Last season's World Champions and Einstein finalists, and Hall of Fame teams, are invited. Then play a division and, if you win it, Einstein. A regional Impact winner that is knocked out still watches Einstein from the stands |
+| Season review | Program goals, Program Support, finances, the school board's decisions on workshop space and gifts, graduation, knowledge decay |
 
 ### Things worth knowing
 
@@ -44,12 +44,19 @@ The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). In the game, a short gui
 - **Season strategies.** In 2024 every shooter can score the Amp (fixed shooters slowly and unreliably, pivot and turret shooters moderately; amp mechanisms are far better). In 2025 the Reef has six faces with their own branches, so the last coral means driving around to the far side. In 2026 fuel is tracked across the field and alliances learn to hoard: while their hub is inactive they lob fuel from the neutral zone back into their own zone for the next scoring shift. 2022 cargo bounces out of the Hub across the whole field. 2024 alliances learn to feed notes across the field and stockpile them for Amplify (a Source defender cancels it); your alliance picks it up through its strategy read (Strategy mentor, drive coach, driver practice, events scouted), never by a button. 2025 alliances split two Coral Stations. 2026 adds a wide dumper shooter (out-scores most turrets, worse under defense), and climbs are slow and risky, so strong teams rarely bother.
 - **Falls.** A failed high climb can drop the robot (most often 2022 High/Traversal and 2026 L2/L3): it is out for the match, badly damaged, and scraps spare parts.
 - **Test chassis.** Early each season, build a simple drivetrain (Kitbot Tank, Mecanum or West Coast Drive) on the second robot from parts on the shelf: about 20–45 team hours, no project slot. Even without a Practice Field it gives 6 testing hours a week for code, autos, vision and drivetrain projects and for driver practice, so programmers and drivers start before the competition robot drives. Established teams start with enough older, worn parts for one.
-- **Testing hours.** A Practice Field unlocks weekly testing hours (8/12/16 h by level, up to +6 with a second robot), like wind-tunnel time. Split them in the Design Office between development testing ($40/h: projects finish faster and come out better) and driver practice (cheap: a few spare parts; builds drive-team skills and confidence). Small teams get the most from driving; big programs should split once their drivers are fully practiced.
+- **Testing hours.** Weekly testing hours come from a test chassis or second robot (6 h a week on a chassis alone) and from a Practice Field (8/12/16 h by level, up to +6 with a second robot), like wind-tunnel time. Split them in the Design Office between development testing ($40/h: projects finish faster and come out better) and driver practice (cheap: a few spare parts; builds drive-team skills and confidence). Small teams get the most from driving; big programs should split once their drivers are fully practiced.
 - **Robot condition at events.** Repairs use spare parts, so the robot arrives at 100% unless you're short on spares, the event is a flight away, or you did a sponsor demo with the robot that week. HQ previews the arrival condition. A Systems Shakedown on practice day rebuilds worn parts back to 100%.
 - **Blue banners.** Event wins and Impact Awards hang on your banner wall (History). Winning Einstein opens a World Champions celebration (back-to-back titles get their own headline), with an easter egg at the bottom: the alliance that won Einstein in that game's real season. In random-order careers the seasons follow their own timeline (2022, 2023, … in career order), so dates, banners and headlines read in order.
-- **FIRST Impact Award (Championship).** A team that wins a regional Impact Award is judged again at the Championship against the strongest Impact programs in the world. Six Finalists are named before Einstein Final 1 and the winner after it; both hang a blue banner, and the winner joins the Hall of Fame (invited to every future Championship) with its own celebration. History lists Championship honours separately and can replay the celebrations.
+- **FIRST Impact Award (Championship).** A team that wins a regional Impact Award is judged again at the Championship against the strongest Impact programs in the world. Six Finalists are named before Einstein Final 1 and the winner after it; both hang a blue banner, and the winner joins the Hall of Fame (invited to every future Championship) with its own celebration. A candidate that is knocked out before Einstein still goes there, watches the finals from the stands and hears the announcement. History lists Championship honours separately and can replay the celebrations.
 - **The state of the art moves on.** From the second season, each offseason starts with two rule or vendor changes (−25% XP in the area they touch) and one summer month brings three new designs spotted online (−15% each). The loss counts from at most 125% of the top level, and a mentor who specializes in the area halves it, so no area stays maxed without upkeep.
-- **Second robot drills.** Two running robots add defense drills to driver practice (up to 35% less lost to a defender), and a second robot that drives like the competition robot (tank or holonomic) speeds auto routines up by 20%.
+- **Second robot drills.** Two running robots add defense drills to driver practice (up to 35% less lost to a defender), and a second robot that drives like the competition robot (tank or holonomic) speeds auto routines up by 20%. Any second robot that runs in season (a test chassis is enough) also builds an electrical shakedown: up to 40% fewer brownouts and comms dropouts at the first event, 25% at the second, 10% after that.
+- **Workshop space.** Every facility level takes floor space in square feet, and the school decides how much room the team has: the robotics classroom (2,550 sq ft, where a rookie starts), the technology wing (3,850, where established and powerhouse teams start) or a robotics center (5,100, which fits everything). The school moves the team up at a season review when Program Support has reached 80 or 90, and never takes room back. Strong seasons also earn free renovations and an upgrade grant from the board, and satisfied sponsors donate facility levels: about one a year with every sponsor slot filled and no sponsor activity skipped.
+- **More facilities.** Electronics Workbench (fewer electrical faults, slower part wear), Welding Station (better hardening and lightweighting), Team Meeting Room (outreach and Impact presentation) and FTC Team Space (your own FTC teams as cheap, strong feeder programs).
+- **Five on the drive team.** Driver, Operator, Human Player, Coach and an optional Technician (pit repairs and pre-match checks). Awareness matters on the field; student table headers explain every skill.
+- **Official bracket and Championship look.** The playoff bracket uses the official double-elimination layout, pit time in the playoffs follows the bracket order, and Championship and Einstein pages have their own design.
+- **Reputation and team size.** Reputation is earned slowly: a gain counts for less the higher it already is, and losses count in full. The school's goals get harder at 35, 55 and 75 reputation. A team is full at 100 students.
+- **Sponsor funding at a glance.** The Finance page shows this season's base money, bonuses reached and bonuses still possible, and next season's expected base and possible max bonus (deals up for renewal count by their renewal chance).
+- **Finals game by game.** The playoff bracket shows Final 1, Final 2 and Final 3 (if needed) as separate matches with the state of the series.
 - **The Impact Award is hard.** You need a submission (Design Office) and a high Impact rating: this season's outreach, a three-season track record, your presentation (Business mentor + best communicators), feeder programs and reputation. Regional winners usually rate 80+, so it takes a few seasons of steady outreach. HQ shows your odds at every registered regional; the Team page breaks down the rating.
 - **Scouting data matters.** The Scouting tab and the pick list show what each robot actually did in qualifications: points per match, auto success, climb success, fault-free matches, fouls and defense. Pick value (used by you and by AI captains) discounts robots that break down.
 - **Each game breaks differently.** Tip-overs are common in 2023 (and 2025), brownouts in 2026. Brief comms drops happen to everyone; poor electronics and heavy contact make them more frequent, longer and sometimes match-ending.
@@ -64,7 +71,7 @@ The full design is in [GAME_DESIGN.md](GAME_DESIGN.md). In the game, a short gui
 
 ## Sharing the game
 
-Send **`dist/FRC-Manager.html`**. It is the whole game in one file (about 700 KB): the recipient double-clicks it and it opens in their browser, with no install and no internet needed.
+Send **`dist/FRC-Manager.html`**. It is the whole game in one file (about 1 MB): the recipient double-clicks it and it opens in their browser, with no install and no internet needed.
 
 - **Email:** some email services block or warn about `.html` attachments. If that happens, right-click the file → **Send to → Compressed (zipped) folder** and send the `.zip`.
 - **Saves:** each person's saves stay in their own browser. To hand someone your career, use **☰ → Export save** and send them the save code or the downloaded save file. They import it on **Load / import**.
@@ -89,11 +96,20 @@ js/sim/engine.js      match engine (10 ticks/s), shared by live view, quick sim 
 js/sim/rules.js       per-season scoring, ranking points and robot behaviour (2022–2026)
 js/sim/ai.js          capability builder + persistent AI team pool
 js/sim/event.js       schedule, rankings, OPR, alliance selection, playoffs, awards
-js/systems/robot.js   development projects, knowledge, wear and repairs
-js/systems/career.js  calendar, finance, sponsors, staff, fatigue, offseason, reviews, qualification
+js/systems/robot.js   the two robots, development projects, knowledge, driver familiarity, wear and repairs
+js/systems/career.js  calendar, finance, sponsors and donations, staff and drive team, fatigue, offseason and tech changes,
+                      feeder programs, Impact Award, season reviews and the school board, qualification
+js/systems/shop.js    facilities and workshop space, batteries, shop incidents, opportunities
 js/systems/parts.js   parts inventory, vendor releases, stock, allocation, wear, game elements
+js/systems/news.js    news, team chatter and inbox replies
 js/render/draw.js     2D fields, robots (top-down and side profile), effects
-js/ui/*.js            screens, icons, Shop screen, tours and the How to play guide
+js/ui/ui.js           main screens (HQ, Garage, Design Office, Team, Workshop, Finance, Calendar, History) and pop-ups
+js/ui/screens-event.js   events: practice, matches, bracket, Championship pages, celebrations
+js/ui/screens-menu.js    main menu, new game, settings, version notes, season review
+js/ui/screens-parts.js   the Inventory tab
+js/ui/tutorial.js     guided tours and the How to play guide
+js/ui/icons.js        icons, team colours, confetti
+js/local.js           extras for the downloaded copy (save a career to a file)
 js/dev.js             balance tools (see below)
 tools/build-single-file.ps1   builds dist/FRC-Manager.html
 tools/trailer/        60-second reveal trailer generator (open index.html, press Render MP4; index.html?vertical for 9:16)
@@ -102,23 +118,39 @@ tools/trailer/        60-second reveal trailer generator (open index.html, press
 ## Tuning
 
 - **Match pace per season**: `tempo` in each season block of `js/sim/rules.js`. Higher values mean slower collecting (`c`) and scoring (`s`).
-- **Costs and fees**: `js/data/world.js` (`FEES`, `PARTS`, `EQUIP`, `SPONSOR_TYPES`, `MENTOR_COST`).
+- **Costs and fees**: `js/data/world.js` (`FEES`, `EQUIP`, `SPONSOR_TYPES`, `MENTOR_COST`). Parts, vendors and the Kit of Parts are in `js/data/parts.js`.
+- **Workshop space and gifts**: `EQUIP_SIZE` (square feet per facility level), `SPACE_TIERS` and `SPACE_START` (the three room sizes, the Program Support each needs, and where each profile starts), `BOARD` (school board renovation and grant thresholds) and `DONATION` (sponsor donations: the satisfaction where the chance starts, the chance per turn, which facilities each sponsor type gives), all in `js/data/world.js`.
+- **Knowledge and reputation pace**: `TECH_RULE_PCT`, `TECH_DESIGN_PCT` and `TECH_CAP` (offseason tech changes), `REP_GAIN` and `REP_SOFT` (how fast reputation grows), `STUDENT_CAP`.
+- **Second robot and drive team**: `DEF_DRILL_HOURS`, `DEF_DRILL_EFFECT`, `ELEC_SHAKE_HOURS`, `ELEC_SHAKE_EFFECT`, `CHASSIS_PATH`, `TECH_ROLE`, `FTC_OWN`.
 - **Concept stats, ceilings, hours and weights**: `js/data/seasons.js`.
 - **Balance check**: open the browser console on the game page and run `G.Dev.balTest(100)`. It reports average, elite and percentile scores, bonus-RP rates, faults and climb rates for every season. `G.Dev.faultTest(150)` reports per-season failure rates (comms, brownouts, tips) by robot reliability and with or without a defender. `G.Dev.autoplay({ profile: 'established' })` plays a whole career with a simple bot; add `grind: true` for a bot that maxes outreach, fundraising and facility spending (economy and Impact checks), or `split: 0…1, probe: true, seed: n` to compare testing-hour splits (it logs a fixed-opponent performance probe at each regional).
 
-Current balance at regional level, from `G.Dev.balTest`:
+Current balance at regional level, from `G.Dev.balTest(100)` on v2.5:
 
 | Season | Avg alliance score | Bonus RP rates (average alliances) |
 |---|---|---|
-| 2022 | ~55 | Cargo ~45%, Hangar ~38% |
-| 2023 | ~75 | Sustainability ~17%, Activation ~15% |
-| 2024 | ~48 | Melody ~38%, Ensemble ~25% |
-| 2025 | ~97 | Auto ~85%, Coral ~7%, Barge ~57% |
-| 2026 | ~150 | Energized ~80%, Supercharged ~0% (≈45% for elite alliances), Traversal ~10% |
+| 2022 | ~54 | Cargo ~47%, Hangar ~38% |
+| 2023 | ~73 | Sustainability ~17%, Activation ~11% |
+| 2024 | ~44 | Melody ~25%, Ensemble ~24% |
+| 2025 | ~95 | Auto ~82%, Coral ~7%, Barge ~55% |
+| 2026 | ~166 | Energized ~80%, Supercharged ~1% (elite alliances reach it), Traversal ~0% (strong teams keep shooting) |
 
 ## Differences from the design plan
 
+[GAME_DESIGN.md](GAME_DESIGN.md) is the original v0.1 proposal and is kept as written. This README, the in-game **How to play** guide and the **What's new** notes describe the game as it is. Details that changed from the plan:
+
 - 2022 storage (1- or 2-ball) is part of the Intake concept rather than its own subsystem.
 - 2026 low-profile vs standard height is its own "Frame Profile" subsystem. Hoppers hold 8 / 20 / 45 fuel.
-- Spare parts are bought in the Workshop; there is no spare-parts project.
+- Spare parts are bought in the Inventory tab (with auto-restock); there is no spare-parts project.
 - In-season build hours are 7 per student per week (5 in the offseason).
+
+Systems added after the plan, which it does not describe:
+
+- Two robots per season and the test chassis, with driver familiarity, defense drills, path planning help and the electrical shakedown.
+- The parts inventory: two electronics vendors, stock that sells out in season, wear, mechanism kits, the Kit of Parts and game elements.
+- Testing hours, team fatigue and event incidents.
+- Feeder programs (including your own FTC teams) and the detailed Impact rating; the FIRST Impact Award at the Championship with Finalists, the Hall of Fame and watching Einstein from the stands.
+- Offseason rule changes and new designs that date tech knowledge.
+- Workshop space in three levels, the school board's renovations and upgrade grants, sponsor donations, and four more facilities (Electronics Workbench, Welding Station, Team Meeting Room, FTC Team Space).
+- A fifth drive-team role (Technician), a team size cap of 100 and slower reputation growth.
+- The official double-elimination bracket with best-of-three finals and FRC tiebreakers, and the Championship page designs.

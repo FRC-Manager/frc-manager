@@ -55,6 +55,7 @@
       // pit and drive-team slips (your robot only): a loose bumper, a blocked mechanism, a joystick left unplugged
       disableAt: en.disableAt || 0, teleDelay: en.teleDelay || 0, toolIn: en.toolIn || null,
       defSkill: en.defSkill || 0, // drilled against a defender on a second robot: loses less to defense
+      elecK: en.elecK || 0,       // electrical system shaken down on a second robot: fewer brownouts and comms dropouts
       // practiced drive teams (confidence) drive faster, line up quicker, handle pieces faster, foul less and climb more surely; 0.6 ≈ an average AI team
       drvF: 0.816 + 0.22 * drv.drive / 100 + 0.16 * (conf - 0.6), confK: conf - 0.6,
       opF: 0.86 + 0.14 * drv.mech / 100,
@@ -365,7 +366,7 @@
       if (DF.zone) {
         for (const o of m.robots) {
           if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
-          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200) * (1 - DEF_DRILL * o.defSkill), 0.6, 0.97);
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200) * (1 - DEF_DRILL * o.defSkill) * awareK(o), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
@@ -378,7 +379,7 @@
       if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1) * (1 - DEF_DRILL * t.defSkill), 0.35, 0.97);
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1) * (1 - DEF_DRILL * t.defSkill) * awareK(t), 0.35, 0.97);
         pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
@@ -398,6 +399,8 @@
   // ---------- faults ----------
   // Comms losses have their own, more frequent hazard (below); the season profile (R.faults) scales brownouts, tips and comms.
   const DEF_DRILL = (G.Data && G.Data.DEF_DRILL_EFFECT) || 0.35;
+  // Driver awareness: reads the field, so defenders cost less time and fewer fouls happen (50 is neutral, 85 about 14% better)
+  const awareK = r => 1 - ((r.drv && r.drv.aware != null ? r.drv.aware : 50) - 50) / 250;
   const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }];
   // 0 = clean, well-built electronics … about 1.5 = poor wiring, worn robot, hidden defects, tired battery
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
@@ -406,18 +409,22 @@
   function faultRoll(m, r) {
     const c = r.cap, P = PACE[r.plan.pace], FP = m.R.faults || {};
     const h = 0.0002 * (1 + (100 - c.rel) / 25) * (1 + (100 - r.cond) / 40) * (1 + r.hidden * 0.8) * m.diff * P.wear;
-    if (m.rng.next() < h * DT) { triggerFault(m, r, m.rng.wpick(FAULTS, f => f.w * (f.id === 'brown' ? FP.brown || 1 : 1)).id); return; }
-    const hb = 0.00012 * P.brown * (r.batt < 0.8 ? 2 : 1) * (c.brown || 1) * (FP.brown || 1);
+    if (m.rng.next() < h * DT) {
+      const id = m.rng.wpick(FAULTS, f => f.w * (f.id === 'brown' ? FP.brown || 1 : 1)).id;
+      if (id === 'brown' && r.elecK && m.rng.next() < r.elecK) return; // the shakedown already found this one
+      triggerFault(m, r, id); return;
+    }
+    const hb = 0.00012 * P.brown * (r.batt < 0.8 ? 2 : 1) * (c.brown || 1) * (FP.brown || 1) * (1 - r.elecK);
     if (m.rng.next() < hb * DT) { triggerFault(m, r, 'brown'); return; }
     // brief comms dropouts are common: radio resets, loose connectors, hard hits. Poor electronics and contact make them more frequent and longer.
     if (!r.fault) {
-      const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff;
+      const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff * (1 - r.elecK);
       if (m.rng.next() < hc * DT) { triggerFault(m, r, 'comms'); return; }
     }
     // tall robots tip on their own now and then (high reach, fast turns), more in tip-heavy seasons
     const tall = (c.tall || 0) + (FP.tipAll || 0); // tipAll: risk every robot shares this season (e.g. 2023 Charge Station)
     if (tall > 0 && m.rng.next() < 0.00006 * tall * (FP.tip || 1) * P.wear * (1 - r.drv.comp / 300) * DT) { triggerFault(m, r, 'tip'); return; }
-    if (m.rng.next() < 0.0006 * P.foul * (r.plan.avoid ? 0.5 : 1) * (1 - 0.6 * r.confK) * DT) foul(m, r, false);
+    if (m.rng.next() < 0.0006 * P.foul * (r.plan.avoid ? 0.5 : 1) * (1 - 0.6 * r.confK) * awareK(r) * DT) foul(m, r, false);
   }
   function triggerFault(m, r, id) {
     const rng = m.rng; let msg = '';

@@ -81,6 +81,10 @@
   // ---------- Team trailer ----------
   D.TRAILER_LONG = 0.85;    // long drives instead of flying: 15% cheaper than flights and no air-freight damage
   D.TRAILER_OUTREACH = 1.2; // robot shows on the road: +20% outreach from robot activities
+  D.STUDENT_CAP = 100;      // a school club only gets so big: more applicants go on a waiting list
+  // Reputation is earned slowly, and the last points are the hardest: a gain counts REP_GAIN x (1 - reputation / REP_SOFT). Losses count in full.
+  D.REP_GAIN = 0.7; D.REP_SOFT = 125;
+  D.TECH_ROLE = { repair: 250, check: 250 }; // Technician: Mechanism / 250 faster pit repairs, Composure / 250 fewer pre-match mistakes
 
   // Parts, vendors and game elements live in js/data/parts.js
   D.BATTERY_COST = 150; D.SPARES_COST = 120; // per spare unit
@@ -115,8 +119,46 @@
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
     { id: 'pfield', name: 'Practice Field', upkeep: 300, wear: { season: 2, off: 1.5, event: 0 },
       levels: [{ name: 'Basic practice area', cost: 2500 }, { name: 'Half field', cost: 6500 }, { name: 'Full field', cost: 12000 }],
-      fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Unlocks weekly testing hours for development testing and driver practice. Driver practice needs this season\'s game elements for full value.' }
+      fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Weekly testing hours on a real field, for development testing of any project and for driver practice (a test chassis or second robot gives testing hours too, and adds to these). Driver practice needs this season\'s game elements for full value.' },
+    { id: 'ebench', name: 'Electronics Workbench', upkeep: 150, wear: { season: 1.5, off: 1.5, event: 0 },
+      levels: [{ name: 'Soldering bench', cost: 900 }, { name: 'Electronics lab', cost: 3500 }, { name: 'PCB fabrication', cost: 9000 }],
+      fx: { elec: [0.06, 0.12, 0.18], partWear: [0.1, 0.2, 0.3] }, desc: 'Clean wiring, proper crimps and, at the top level, your own circuit boards: fewer brownouts and comms dropouts in matches, and motors and electronics wear more slowly.' },
+    { id: 'weld', name: 'Welding Station', upkeep: 300, wear: { season: 2, off: 2, event: 0 },
+      levels: [{ name: 'MIG welder and table', cost: 3000 }, { name: 'TIG welding bay', cost: 8500 }],
+      fx: { weld: [0.25, 0.4], weldRel: [2, 4] }, desc: 'Welded frames, gussets and repairs: hardening and lightweighting projects take fewer hours and do more, and new builds come out more reliable.' },
+    { id: 'meeting', name: 'Team Meeting Room', upkeep: 100, wear: { season: 1, off: 1, event: 0 },
+      levels: [{ name: 'Meeting corner', cost: 600 }, { name: 'Team classroom', cost: 2500 }, { name: 'Presentation room', cost: 6000 }],
+      fx: { outreach: [0.1, 0.18, 0.25], pitch: [6, 10, 14] }, desc: 'A place to plan, rehearse and host visitors: outreach activities count for more, and your Impact Award presenters practice here.' },
+    { id: 'ftc', name: 'FTC Team Space', upkeep: 200, wear: { season: 1.5, off: 1.5, event: 0 },
+      levels: [{ name: 'One FTC field', cost: 2500 }, { name: 'Two FTC fields', cost: 5000 }, { name: 'FTC lab with three fields', cost: 8000 }],
+      fx: { ftc: [1, 2, 3] }, desc: 'Run your own FTC teams in the building. Each one takes a feeder program slot, costs far less than an outside program and sends you much stronger recruits.' }
   ];
+  // ---------- Workshop space ----------
+  // Floor space per facility level in square feet: rough real-world footprints including working room. The trailer parks outside.
+  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], laptops: [80, 140, 200], charger: [20, 40], pitcart: [40, 80], trailer: [0],
+    pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], ftc: [300, 500, 720] };
+  // The biggest room holds every facility at its top level
+  D.SPACE_MAX = Math.ceil(D.EQUIP.reduce((s, e) => s + (D.EQUIP_SIZE[e.id] || [0])[(D.EQUIP_SIZE[e.id] || [0]).length - 1], 0) / 100) * 100;
+  // The school gives the team more room as Program Support rises. Checked once a year at the season review; room is never taken back.
+  D.SPACE_TIERS = [
+    { pct: 0.5, sup: 0, title: 'Robotics classroom', name: 'the robotics classroom' },
+    { pct: 0.75, sup: 80, title: 'Technology wing', name: 'the technology wing' },
+    { pct: 1, sup: 90, title: 'Robotics center', name: 'your own robotics center' }];
+  D.SPACE_START = { rookie: 0, established: 1, powerhouse: 1 }; // a rookie starts in the classroom, an existing program in the technology wing
+  // School board gifts at the season review, when Program Support went up: a free full renovation, and after a strong year one upgrade of your choice
+  D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000 };
+  // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
+  D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3 };
+  // A satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor has
+  // chance x (satisfaction - sat) / (100 - sat); at most one donation per season and one per offseason. Tuned by simulation so
+  // that a team with every sponsor slot filled that never skips a sponsor activity averages about one donation a year
+  // (measured over 60 automated careers: 1.0 a year overall, about 0.45 in the first year while the partnerships are new,
+  // 1.0 to 1.4 from the third year; lower for teams whose sponsors expect wins they do not get).
+  D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 },
+    types: { tech: ['laptops', 'ebench', 'printer'], eng: ['cnc', 'printer', 'ebench'], mfg: ['cnc', 'lathe', 'weld'], soft: ['laptops', 'ebench'], uni: ['meeting', 'pfield', 'laptops'], local: ['pitcart', 'charger', 'meeting'], found: ['ftc', 'meeting'] },
+    intro: ['A truck backed up to the shop door this morning. Nobody had ordered anything.', 'The email subject was "Clearing out a lab. Interested?" It took the team four seconds to answer.', 'Their engineers visited last month, looked around the shop and went very quiet. Now we know why.', 'It arrived on a pallet with a bow on it. An actual bow.'],
+    talk: [['We upgraded ours and could not stand the thought of it sitting in a warehouse.', '{s}'], ['Consider it an investment. We hire from teams like yours.', 'a manager at {s}'], ['Do we need to write a thank-you card? We are writing forty.', 'your team captain'],
+      ['Somebody measure the door. Twice.', 'your lead mentor'], ['I have already put the logo on it. Larger than last year.', 'your business lead'], ['It still has the plastic film on the screen. Nobody is allowed to peel it without a ceremony.', 'a student']] };
   D.BATT_LIMIT = [10, 10, 20]; // max batteries by Battery Station level (0, 1, 2)
   D.PROJ_CAP = 80;             // hours one project can absorb per week (×4 per offseason month, ±25% by priority)
   // Testing hours (practice field time, like a wind tunnel): split between development testing and driver practice
@@ -195,12 +237,12 @@
 
   // ---------- Mentors ----------
   D.MENTOR_ROLES = [
-    { id: 'design', name: 'Design Mentor', desc: 'Upgrade quality, +1 project slot, specialty knowledge.', hours: [8, 15], spec: true },
-    { id: 'fab', name: 'Fabrication Mentor', desc: 'Fewer project hours, more reliability, faster pit repairs, +1 project slot.', hours: [8, 15], spec: true },
-    { id: 'prog', name: 'Programming Mentor', desc: 'Faster software projects, better autos and vision.', hours: [8, 15], spec: true },
-    { id: 'strat', name: 'Strategy & Scouting Mentor', desc: 'Sharper scouting, pick-list advice, partners follow your plan more often.', hours: [4, 8] },
-    { id: 'coach', name: 'Drive Coach', desc: 'Faster driver growth, composure, +1/+2 Coach Calls per match.', hours: [4, 8] },
-    { id: 'biz', name: 'Business & Outreach Mentor', desc: '+1 sponsor slot, +10% sponsor money, Impact Award chances, fundraising.', hours: [4, 8] }
+    { id: 'design', name: 'Design Mentor', desc: 'Upgrade quality, +1 project slot. Has a specialty: that knowledge area does not fade and loses half as much to tech changes.', hours: [8, 15], spec: true },
+    { id: 'fab', name: 'Fabrication Mentor', desc: 'Fewer project hours, more reliability, faster pit repairs, +1 project slot. Has a specialty that protects one knowledge area.', hours: [8, 15], spec: true },
+    { id: 'prog', name: 'Programming Mentor', desc: 'Faster software projects, better autos and vision. Has a specialty that protects one knowledge area.', hours: [8, 15], spec: true },
+    { id: 'strat', name: 'Strategy & Scouting Mentor', desc: 'Sharper scouting, pick-list advice, partners follow your plan more often, a better read of each season\'s strategies. Can fill in as drive coach at 80% of their skill.', hours: [4, 8] },
+    { id: 'coach', name: 'Drive Coach', desc: 'Faster driver growth, composure, +1/+2 Coach Calls per match. Coaches from behind the glass unless a student strategist is better.', hours: [4, 8] },
+    { id: 'biz', name: 'Business & Outreach Mentor', desc: '+1 sponsor slot, +10% sponsor money, fundraising, and the core of your Impact presentation (60% of their skill).', hours: [4, 8] }
   ];
   D.MENTOR_COST = [0, 0, 1000, 2500, 5000, 9000]; // by stars
   D.SPEC_FOR = { design: ['shooter', 'turret', 'elevator', 'arm', 'intake', 'index', 'climb', 'swerve'], fab: ['swerve', 'elevator', 'arm', 'climb', 'elec', 'intake'], prog: ['vision', 'autoPath', 'turret', 'swerve', 'elec'] };
@@ -282,6 +324,9 @@
   D.DEF_DRILL_EFFECT = 0.35; // a fully drilled drive team loses this much less to a defender (speed, cycle time, accuracy)
   D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%
   D.CHASSIS_PATH_XP = 3;    // ... and adds Autonomous Pathing XP every week it runs
+  D.ELEC_SHAKE_HOURS = 30;  // testing hours with a second robot running until the electrical shakedown is complete (resets each season)
+  D.ELEC_SHAKE_XP = 3;      // Electrical & Reliability XP every week a second robot runs
+  D.ELEC_SHAKE_EFFECT = [0.4, 0.25, 0.1]; // fewer brownouts and comms dropouts at 100%: first event of the season, second event, later events
   D.DRIVE_FAMILY = { kit: 'tank', wcd: 'tank', mec: 'holonomic', swerve: 'holonomic' };
 
   // ---------- Feeder programs ----------
@@ -368,11 +413,11 @@
   // ---------- Starting profiles ----------
   D.PROFILES = {
     rookie: { name: 'Rookie', money: 25000, students: 15, mentors: [[1, 2], [2, 2]], know: 0, equip: [], parts: {}, rep: 20, support: 60, school: 8000,
-      desc: 'Brand-new team. Small budget, no experience — but eligible for rookie awards.' },
+      desc: 'Brand-new team. Small budget, no experience and a single robotics classroom — but eligible for rookie awards.' },
     established: { name: 'Established', money: 45000, students: 25, mentors: [[2, 3], [2, 3], [2, 3], [2, 2]], know: 1, equip: ['printer'], parts: {}, rep: 45, support: 60, school: 14000,
-      desc: 'A solid program with some experience and a 3D printer.' },
-    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: {}, rep: 75, support: 65, school: 22000,
-      desc: 'A perennial contender with deep knowledge, a CNC router and Apex swerve parts — and sponsors who expect wins.' }
+      desc: 'A solid program with some experience, a 3D printer and room in the technology wing.' },
+    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: {}, rep: 85, support: 72, school: 22000,
+      desc: 'A perennial contender with deep knowledge, a high reputation, a CNC router, a practice area and Apex swerve parts — and a school and sponsors who expect wins.' }
   };
 
   // ---------- Single-season scenarios ----------

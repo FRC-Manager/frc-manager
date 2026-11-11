@@ -22,7 +22,7 @@
   Shop.hwHoursMult = S => (1 - Shop.fx(S, 'printer', 'hours')) * (1 - Shop.fx(S, 'cnc', 'hours'));
   Shop.swHoursMult = S => 1 - Shop.fx(S, 'laptops', 'soft');
   Shop.gainMult = S => 1 + Shop.fx(S, 'cnc', 'gain');
-  Shop.buildRel = S => Shop.fx(S, 'cnc', 'rel') + Shop.fx(S, 'lathe', 'rel');
+  Shop.buildRel = S => Shop.fx(S, 'cnc', 'rel') + Shop.fx(S, 'lathe', 'rel') + Shop.fx(S, 'weld', 'weldRel');
   Shop.buildStat = S => Math.round(Shop.fx(S, 'cnc', 'stat'));
   Shop.spareMult = S => 1 - Shop.fx(S, 'lathe', 'spare');
   Shop.chargeRate = S => 0.35 + Shop.fx(S, 'charger', 'charge');
@@ -42,16 +42,37 @@
     repair: v => '+' + Math.round(v * 100) + '% pit repair speed',
     travel: v => '−' + Math.round(v * 100) + '% Local/Drive travel cost',
     tune: v => '+' + Math.round(v * 100) + ' starting tuning at events',
-    test: v => Math.round(v) + ' testing h/week'
+    test: v => Math.round(v) + ' testing h/week',
+    elec: v => '−' + Math.round(v * 100) + '% brownouts and comms dropouts',
+    partWear: v => 'motors and electronics wear ' + Math.round(v * 100) + '% slower',
+    weld: v => 'hardening and lightweighting: −' + Math.round(v * 100) + '% hours, +' + Math.round(v * 100) + '% effect',
+    weldRel: v => '+' + v.toFixed(1) + ' reliability on new builds',
+    outreach: v => '+' + Math.round(v * 100) + '% outreach points',
+    pitch: v => '+' + Math.round(v) + ' Impact presentation',
+    ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's')
   };
   Shop.effectText = function (S, id, lvl, eff) {
     const it = Shop.item(id);
-    return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, eff))).filter(Boolean).join(' · ');
+    return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, k === 'ftc' ? 1 : eff))).filter(Boolean).join(' · ');
   };
   // Project slots from facilities: whole slots, lost while a facility is below SLOT_COND condition (renovate to get it back)
   Shop.SLOT_COND = 35;
   Shop.slotOf = (S, id) => Shop.lvl(S, id) && Shop.cond(S, id) >= Shop.SLOT_COND ? Shop.fx(S, id, 'slot', null, 1) : 0;
   Shop.facilitySlots = S => D.EQUIP.reduce((n, e) => n + (e.fx.slot ? Shop.slotOf(S, e.id) : 0), 0);
+
+  // ---- Workshop space (square feet): every facility level takes room, and the school decides how much room the team has ----
+  Shop.sizeOf = (id, lvl) => { const a = D.EQUIP_SIZE[id] || [0]; return lvl > 0 ? a[Math.min(lvl, a.length) - 1] || 0 : 0; };
+  Shop.spaceUsed = S => D.EQUIP.reduce((s, e) => s + Shop.sizeOf(e.id, Shop.lvl(S, e.id)), 0);
+  Shop.spaceOfTier = t => Math.round(D.SPACE_MAX * D.SPACE_TIERS[U.clamp(t, 0, D.SPACE_TIERS.length - 1)].pct / 50) * 50;
+  Shop.space = S => Shop.spaceOfTier(S.spaceTier || 0);
+  Shop.spaceFree = S => Shop.space(S) - Shop.spaceUsed(S);
+  Shop.spaceNeed = (S, id) => { const l = Shop.lvl(S, id); return Shop.sizeOf(id, l + 1) - Shop.sizeOf(id, l); };
+  Shop.spaceBlock = function (S, id) {
+    const need = Shop.spaceNeed(S, id), free = Shop.spaceFree(S);
+    return need > free ? 'Not enough workshop space: this needs ' + need + ' sq ft and ' + Math.max(0, free) + ' sq ft is free. The school gives the team more room when Program Support rises (season review).' : null;
+  };
+  // the next room the school would hand over, and the Program Support it takes
+  Shop.nextSpace = S => { const t = (S.spaceTier || 0) + 1; return t < D.SPACE_TIERS.length ? { sup: D.SPACE_TIERS[t].sup, sqft: Shop.spaceOfTier(t), name: D.SPACE_TIERS[t].name } : null; };
 
   Shop.migrate = function (S) {
     if (!S) return;
@@ -66,6 +87,13 @@
       });
     }
     D.EQUIP.forEach(e => { if (!S.shop[e.id]) S.shop[e.id] = { lvl: 0, cond: 100, warned: 0 }; });
+    if (S.spaceV !== 2) { // workshop space: classroom, technology wing, robotics center. By profile, and never less than what is built or was granted
+      let t = D.SPACE_START[S.profile] || 0;
+      if (S.spaceTier != null) t = Math.max(t, [0, 1, 1, 2, 2][S.spaceTier] || 0); // saves from the first v2.5 build had five steps
+      if (S.history && S.history.length) D.SPACE_TIERS.forEach((T, i) => { if (S.support >= T.sup && i > t) t = i; });
+      while (t < D.SPACE_TIERS.length - 1 && Shop.spaceOfTier(t) < Shop.spaceUsed(S)) t++;
+      S.spaceTier = t; S.spaceV = 2;
+    }
     if (S.incident === undefined) S.incident = null;
     if (S.devMods === undefined) S.devMods = null;
     if (S.pendingRisk === undefined) S.pendingRisk = null;
@@ -122,11 +150,20 @@
     if (miss < 1) return 0;
     return Math.max(100, Math.round(it.levels[l - 1].cost * D.RENO_RATE * miss / 100 / 50) * 50);
   };
-  Shop.upgrade = function (S, id) {
+  // opts.grant: paid by the school board's upgrade grant. opts.gift: a donation (no cost, no grant used).
+  Shop.grantOk = (S, id) => { const c = Shop.upgradeCost(S, id); return (S.schoolGrant || 0) > 0 && c != null && c <= D.BOARD.cap && !Shop.spaceBlock(S, id); };
+  Shop.upgrade = function (S, id, opts) {
     const cost = Shop.upgradeCost(S, id), it = Shop.item(id), f = S.shop[id];
     if (cost == null) return 'Already at the top level';
-    { const e = G.Career.afford(S, cost); if (e) return e; }
-    G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
+    { const e = Shop.spaceBlock(S, id); if (e) return e; }
+    if (opts && opts.grant) {
+      if (!(S.schoolGrant > 0)) return 'No school grant left';
+      if (cost > D.BOARD.cap) return 'The school grant covers upgrades up to ' + U.money(D.BOARD.cap);
+      S.schoolGrant--; G.Career.inbox(S, 'School grant used: ' + it.levels[f.lvl].name, 'The school board paid for your new ' + it.levels[f.lvl].name + ' (' + U.money(cost) + ').', 'shop');
+    } else if (!(opts && opts.gift)) {
+      const e = G.Career.afford(S, cost); if (e) return e;
+      G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
+    }
     f.lvl++; f.cond = 100; f.warned = 0;
     S.morale = Math.min(100, S.morale + 3);
     return null;
