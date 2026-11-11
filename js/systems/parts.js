@@ -10,6 +10,9 @@
   const PROD = {};
   const reg = p => { PROD[p.id] = p; return p; };
   D.ELEC_CATS.forEach(c => ['A', 'B'].forEach(v => { for (let g = 1; g <= 4; g++) reg(D.makeProduct(c, v, g)); }));
+  // v3.0 careers: the era catalogue. Ids: category + slot + 'e' + position on the ladder (motorAe3 = Apex Torque).
+  const ladId = (cat, v, n) => cat + v + 'e' + n;
+  D.ELEC_CATS.forEach(c => ['A', 'B'].forEach(v => D.LADDER[c][v].forEach((L, i) => reg(Object.assign({ id: ladId(c, v, i + 1), cat: c, v, gen: i + 1 }, L)))));
   D.KOP_CATS.forEach(c => reg(D.makeProduct(c, 'K', 0)));
   D.COTS_CATS.forEach(c => reg(D.makeProduct(c, 'C', 1)));
   P.prod = id => PROD[id];
@@ -22,7 +25,43 @@
   // Plan entries: { idx: season index the product is for, cat, v, mo: launch month (D.MONTHS index) }.
   // The previous version stays on sale until the end of that season.
   P.MAX_GEN = 3; P.LAUNCH_MONTHS = [4, 5, 6, 7];
+  // v3.0: every product on the ladders gets its launch season in this career (story dates fixed, the rest a year
+  // early or late), and a launch month in the autumn before. Products launched before the career began have idx -1.
+  // Entries: { idx, cat, v, n: position on the ladder, mo }.
+  function planEra(S, rng) {
+    const cal = S.cal, first = cal[0], months = {};
+    S.vendorPlan = [];
+    D.ELEC_CATS.forEach(cat => ['A', 'B'].forEach(v => {
+      const lad = D.LADDER[cat][v]; let prev = -1e9;
+      lad.forEach((L, i) => {
+        let y = L.y;
+        if (!L.fix) {
+          const nextFix = lad.slice(i + 1).find(x => x.fix), hi = nextFix ? nextFix.y - 1 : 1e9;
+          y = Math.max(prev + 1, Math.min(hi, L.y + rng.pick([-1, 0, 0, 0, 1])));
+        }
+        prev = y;
+        const idx = y <= first ? (y === first && !L.fix && S.mode === 'career' ? 0 : -1) : cal.findIndex(c => c >= y);
+        if (y > first && idx < 0) return; // after the career ends
+        // one launch event per vendor per season; story launches are in September, a career's first autumn starts in October
+        const key = (L.brand || v) + ':' + idx;
+        if (L.fix) months[key] = 4;
+        else if (months[key] == null) months[key] = idx === 0 ? rng.pick([6, 7]) : rng.pick(P.LAUNCH_MONTHS);
+        S.vendorPlan.push({ idx, cat, v, n: i + 1, mo: idx < 0 ? 0 : months[key] });
+      });
+    }));
+    // every product of one vendor in one season shares the launch month (a fixed one wins)
+    S.vendorPlan.forEach(r => { if (r.idx >= 0) r.mo = months[P.brand(PROD[ladId(r.cat, r.v, r.n)]) + ':' + r.idx]; });
+    S.vendorPlan.sort((a, b) => a.idx - b.idx || a.mo - b.mo);
+  }
+  P.era = S => !!(S && S.cal);
+  P.brand = p => (p ? p.brand || p.v : null);
+  // Calendar year of the season the shop is selling for
+  P.buyCy = S => { if (!S.cal) return null; const i = P.buyIdx(S); return S.cal[i] != null ? S.cal[i] : S.cal[S.cal.length - 1] + 1; };
+  // Sterling Motion (brand T): sold through the 2019 season, on clearance in the first months after it, then gone
+  P.clearance = S => !!(S.cal && S.phase === 'off' && S.si >= 0 && G.Career.cy(S) === G.Era.STERLING_LAST && S.month < G.Era.CLEAR_MONTHS);
+  P.gone = (S, p) => !!(S.cal && p && p.brand === 'T' && P.buyCy(S) > G.Era.STERLING_LAST && !P.clearance(S));
   P.planReleases = function (S, rng, from) {
+    if (S.cal) return planEra(S, rng);
     if (from == null) S.vendorPlan = [];
     S.vendorPlan = S.vendorPlan || [];
     if (S.mode !== 'career') return;
@@ -50,22 +89,34 @@
     const idx = P.buyIdx(S);
     return r.idx < idx || (r.idx === idx && (P.inSeason(S) || (S.phase === 'off' && S.month >= (r.mo || 0))));
   };
-  P.genAt = (S, cat, v) => 1 + (S.vendorPlan || []).filter(r => r.cat === cat && r.v === v && P.released(S, r)).length;
+  // Generation on sale: v2.5 careers start every line at 1; an era career counts the ladder (0 = nothing sold yet)
+  P.genAt = (S, cat, v) => (S.cal ? 0 : 1) + (S.vendorPlan || []).filter(r => r.cat === cat && r.v === v && P.released(S, r)).length;
+  P.prodAt = (S, cat, v, g) => PROD[S.cal ? ladId(cat, v, g) : cat + v + g] || null;
+  P.cur = (S, cat, v) => P.prodAt(S, cat, v, P.genAt(S, cat, v));
+  // the brand selling in the premium slot right now ('T' Sterling, 'A' Apex), or null in the gap between them
+  P.premium = function (S) { if (!S.cal) return 'A'; const p = P.cur(S, 'motor', 'A'); return p && !P.gone(S, p) ? P.brand(p) : null; };
   // Everything you can buy right now: [{ prod, isNew, ending }]
   P.forSale = function (S) {
     const idx = P.buyIdx(S), out = [];
     D.ELEC_CATS.forEach(cat => ['A', 'B'].forEach(v => {
       const g = P.genAt(S, cat, v), justOut = (S.vendorPlan || []).some(r => r.cat === cat && r.v === v && r.idx === idx && P.released(S, r));
-      out.push({ prod: PROD[cat + v + g], isNew: justOut && g > 1 });
-      if (justOut && g > 1) out.push({ prod: PROD[cat + v + (g - 1)], ending: true });
+      if (g < 1) return; // nothing of this kind is sold yet (swerve modules before 2020)
+      const cur = P.prodAt(S, cat, v, g), prev = g > 1 ? P.prodAt(S, cat, v, g - 1) : null;
+      if (cur && !P.gone(S, cur)) out.push({ prod: cur, isNew: justOut && (g > 1 || !!S.cal), clear: cur.brand === 'T' && P.clearance(S) });
+      if (justOut && prev && !P.gone(S, prev)) out.push({ prod: prev, ending: true });
     }));
-    D.COTS_CATS.forEach(cat => out.push({ prod: PROD[cat + 'C'] }));
+    const noCam = S.cal && !G.Era.at(P.buyCy(S)).vision.cam; // before 2018 nobody sells a vision camera
+    D.COTS_CATS.forEach(cat => { if (!(noCam && cat === 'camera')) out.push({ prod: PROD[cat + 'C'] }); });
     D.KOP_CATS.forEach(cat => out.push({ prod: PROD[cat + 'K'], kop: true }));
     return out;
   };
   P.price = function (S, prod) {
     if (!prod.price) return 0;
-    return Math.round(prod.price * (D.PART_PRICE_DIFF[S.diff] || 1) * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
+    let base = prod.price;
+    // the first brushless motor: premium money through its launch season, and until Apex arrives to compete
+    if (S.cal && prod.launchPrice && (P.buyCy(S) <= prod.y || (P.buyCy(S) === prod.y + 1 && P.premium(S) !== 'A'))) base = prod.launchPrice;
+    if (S.cal && prod.brand === 'T' && P.clearance(S)) base *= G.Era.CLEAR_PRICE;       // Sterling's closing sale
+    return Math.round(base * (D.PART_PRICE_DIFF[S.diff] || 1) * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
   };
 
   // ======================= stock =======================
@@ -148,7 +199,7 @@
   };
   // ======================= selling =======================
   // Resale value: a share of today's list price, scaled by the part's health
-  P.resale = (S, it) => { const pr = PROD[it.p]; return pr && pr.price && pr.v !== 'K' ? Math.round(P.price(S, pr) * D.RESALE * it.h) : 0; };
+  P.resale = (S, it) => { const pr = PROD[it.p]; return pr && pr.price && pr.v !== 'K' ? Math.round(P.price(S, pr) * D.RESALE * it.h * (S.cal && pr.brand === 'T' && P.buyCy(S) > G.Era.STERLING_LAST ? G.Era.STERLING_RESALE : 1)) : 0; };
   // Why a part can't be sold (null if it can): too worn, a kit part, or the robots still need it
   P.sellBlock = function (S, cat, it) {
     const pr = PROD[it.p];
@@ -180,7 +231,7 @@
   // What one subsystem needs. Mechanical kits are optional and handled separately.
   P.bom = function (year, subId, c) {
     if (!c || subId === 'soft' || subId === 'frame' || c.id === 'none' || (!c.cost && !c.hours)) return {};
-    if (subId === 'drive') return ({ kit: { motor: 4, gearbox: 2 }, wcd: { motor: 6, gearbox: 2 }, mec: { motor: 4, gearbox: 4 }, swerve: { motor: 8, swerve: 4, enc: 4 } })[c.id] || { motor: 4, gearbox: 2 };
+    if (subId === 'drive') return ({ kit: { motor: 4, gearbox: 2 }, wcd: { motor: 6, gearbox: 2 }, mec: { motor: 4, gearbox: 4 }, swerve: G.Era.of(G.S).swerve.cots ? { motor: 8, swerve: 4, enc: 4 } : { motor: 8, enc: 4 } })[c.id] || { motor: 4, gearbox: 2 }; // before 2020 a team machines its own modules
     let motor = c.cx <= 1 ? 1 : c.cx <= 3 ? 2 : 3;
     if (c.look && c.look.shooter === 'wide') motor = 4;
     let enc = 0;
@@ -244,7 +295,7 @@
     if (Object.keys(comp).length) comp.ctrl = 1;
     if (Object.keys(prac).length) prac.ctrl = 1;
     const cams = (R.visionLvl || 0) + (S.projects.some(p => p.type === 'vision') ? 1 : 0);
-    if (cams) comp.camera = cams;
+    if (cams && G.Era.of(S).vision.cam) comp.camera = cams; // before 2018: home-made vision, no camera product
     return { comp, prac };
   };
   // Missing parts if the robots also needed `extra` (on the competition robot, or on the other one when to = 'prac')
@@ -418,6 +469,11 @@
   // ======================= product launch events =======================
   const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
   const LAUNCH_INTRO = {
+    T: [
+      'Sterling Motion announced it the way it always has: a printed catalogue in the mail, a full-page advertisement, and a booth with carpet at the trade show.',
+      'The Sterling Motion sales team toured the bigger regionals with a demonstration case and a stack of order forms. The engineers stayed home.',
+      'Sterling Motion sent every team a glossy brochure and a letter signed in ink. The new part number is one digit higher than the old one.'
+    ],
     A: [
       'Apex Motion rented a convention hall, dimmed the lights and let a fog machine run for a full minute before anyone said a word. Then the CEO walked out holding a single box.',
       'The Apex Motion livestream opened with a countdown clock, a drone shot of the factory and a drum solo. Fourteen thousand people watched; about thirty stayed for the spec sheet.',
@@ -439,7 +495,14 @@
     ctrlA: 'Built-in IMU, live CAN diagnostics and an LED ring that is "strictly for diagnostics".',
     ctrlB: 'More channels, better brownout protection, and it still fits where the old one did.',
     swerveA: 'Lower profile, faster steering and tool-free tread swaps. The demo video drifts sideways for nine seconds straight.',
-    swerveB: 'A bigger bearing, a stiffer plate and, finally, a module that survives curbs and bumps.'
+    swerveB: 'A bigger bearing, a stiffer plate and, finally, a module that survives curbs and bumps.',
+    motorT: 'More copper, better brushes and the same bolt pattern as the last fifteen years. "Proven", says the brochure, four times.',
+    encT: 'A sealed housing and a cable that finally locks. Sterling calls it "field-hardened".',
+    ctrlT: 'More channels and a metal case. The manual is forty pages and worth reading.',
+    ion: 'No brushes to wear out, twice the power for the weight, and the controller reads the rotor position by itself.',
+    apex: 'Every connector latches. Built by people who kept a list of what fails.',
+    vector: 'The first swerve module you can simply buy: bolt on four, add motors and encoders, and drive sideways.',
+    pivot: 'Heavier and a little slower than the premium module, at about two thirds of the price.'
   };
   const LAUNCH_TALK = {
     any: [
@@ -453,6 +516,12 @@
       ['The spec sheet has more footnotes than our Impact essay.', 'the strategy lead on Team {t}'],
       ['We bought forty of the old ones last week. Of course.', 'a very tired mentor on Team {t}'],
       ['Someone in the chat asked if it is legal. It is legal.', 'an FRC volunteer']
+    ],
+    T: [
+      ['Sterling does not do surprises. Sterling does catalogues.', 'a lead mentor'],
+      ['Same motor, new sticker, higher price. I ordered twenty.', 'a mentor on Team {t}'],
+      ['It will outlive the robot. They always do.', 'a fabrication mentor'],
+      ['The order form is a fax number. In this decade.', 'a student on Team {t}']
     ],
     A: [
       ['It costs how much?', 'the entire chat, at once'],
@@ -478,23 +547,26 @@
     ['A', 'B'].forEach(v => {
       const rs = (S.vendorPlan || []).filter(r => r.v === v && r.idx === idx && r.mo === S.month);
       if (!rs.length) return;
-      const V = D.VENDORS[v], year = S.order[idx] || S.year + 1, toKick = 8 - S.month;
+      const era = !!S.cal, first = era ? PROD[ladId(rs[0].cat, v, rs[0].n)] : null, bv = era ? P.brand(first) : v;
+      const V = D.VENDORS[bv], year = era ? S.cal[idx] : (S.order[idx] || S.year + 1), toKick = 8 - S.month;
       const prods = rs.map(r => {
-        const g = P.genAt(S, r.cat, v), np = PROD[r.cat + v + g], op = PROD[r.cat + v + (g - 1)];
+        const g = era ? r.n : P.genAt(S, r.cat, v), np = P.prodAt(S, r.cat, v, g), op0 = g > 1 ? P.prodAt(S, r.cat, v, g - 1) : null, op = op0 && !(era && P.gone(S, op0) && op0.brand !== np.brand) ? op0 : null;
         const own = P.items(S, r.cat).reduce((m, it) => Math.max(m, (PROD[it.p] || {}).perf || 0), 0);
-        return { id: np.id, cat: r.cat, name: np.name, oldName: op.name, perf: np.perf, oldPerf: op.perf, price: P.price(S, np), oldPrice: P.price(S, op), tag: LAUNCH_TAG[r.cat + v] || '', own };
+        const tag = era ? (np.kind === 'brushless' && op0 && op0.kind === 'brushed' && bv === 'B' ? LAUNCH_TAG.ion : bv === 'A' && (!op0 || op0.brand === 'T') ? (r.cat === 'swerve' ? LAUNCH_TAG.vector : LAUNCH_TAG.apex) : r.cat === 'swerve' && g === 1 ? LAUNCH_TAG.pivot : LAUNCH_TAG[r.cat + bv] || '') : LAUNCH_TAG[r.cat + v] || '';
+        return { id: np.id, cat: r.cat, name: np.name, oldName: op ? op.name : null, perf: np.perf, oldPerf: op ? op.perf : (op0 ? op0.perf : 0), price: P.price(S, np), oldPrice: op ? P.price(S, op) : 0, tag, own, vs: !op && op0 ? op0.name : null };
       });
-      const talk = rng.shuffle(LAUNCH_TALK[v].slice()).slice(0, rng.int(1, 2)).concat(rng.shuffle(LAUNCH_TALK.any.slice())).slice(0, 3)
+      const talk = rng.shuffle(LAUNCH_TALK[bv].slice()).slice(0, rng.int(1, 2)).concat(rng.shuffle(LAUNCH_TALK.any.slice())).slice(0, 3)
         .map(([t, w]) => [t.replace('{k}', toKick + ' month' + (toKick > 1 ? 's' : '')), w.replace('{t}', someTeam(S, rng))]);
       const best = prods.slice().sort((a, b) => (b.perf - b.own) - (a.perf - a.own))[0];
       const take = !best.own ? 'Your electrical lead: "We have never run ' + CAT_WORD[best.cat] + ' like these. Worth a look before Kickoff."'
         : best.perf - best.own >= 0.1 ? 'Your electrical lead wants the ' + best.name + ' on the competition robot: a clear step up from what is on the shelf.'
           : 'Your electrical lead: "What we have is close enough. No need to rush."';
-      const L = { id: U.uid('L'), v, vendor: V.name, month: D.MONTHS[S.month], year, toKick, intro: rng.pick(LAUNCH_INTRO[v]), prods, talk, take };
+      const L = { id: U.uid('L'), v: bv, vendor: V.name, month: D.MONTHS[S.month], year, toKick, intro: rng.pick(LAUNCH_INTRO[bv]), prods, talk, take };
       L.title = V.name + ' launch: ' + prods.map(p => p.name).join(' & ');
-      const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + Math.round(p.oldPerf * 100) + ' → ' + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
+      const olds = prods.filter(p => p.oldName).map(p => p.oldName);
+      const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
         '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
-        '\n\nOn sale now in the Inventory tab. ' + prods.map(p => p.oldName).join(' and ') + (prods.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (prods.length > 1 ? 'they are' : 'it is') + ' discontinued. Parts you own keep working.';
+        '\n\nOn sale now in the Inventory tab.' + (olds.length ? ' ' + olds.join(' and ') + (olds.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (olds.length > 1 ? 'they are' : 'it is') + ' discontinued.' : '') + ' Parts you own keep working.';
       G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
       (S.launchQueue = S.launchQueue || []).push(L);
     });
@@ -503,17 +575,27 @@
   P.teaser = function (S) {
     const idx = P.buyIdx(S), rs = (S.vendorPlan || []).filter(r => r.idx === idx && !P.released(S, r));
     if (!rs.length) return;
-    const lines = ['A', 'B'].map(v => { const x = rs.filter(r => r.v === v); return x.length ? D.VENDORS[v].name + ': launch event in ' + D.MONTHS[x[0].mo] + '. The rumor is new ' + x.map(r => CAT_WORD[r.cat]).join(' and ') + '.' : null; }).filter(Boolean);
-    G.Career.inbox(S, 'Vendor launch season', 'Both electronics vendors launch new products this fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev');
+    const lines = ['A', 'B'].map(v => { const x = rs.filter(r => r.v === v && !(S.cal && PROD[ladId(r.cat, v, r.n)].quiet)); return x.length ? D.VENDORS[S.cal ? P.brand(PROD[ladId(x[0].cat, v, x[0].n)]) : v].name + ': launch event in ' + D.MONTHS[x[0].mo] + '. The rumor is new ' + x.map(r => CAT_WORD[r.cat]).join(' and ') + '.' : null; }).filter(Boolean);
+    if (!lines.length) return;
+    G.Career.inbox(S, 'Vendor launch season', 'The electronics vendors launch new products in the fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev');
   };
   P.announce = P.teaser; // older callers
 
   // ======================= setup & migration =======================
   P.setup = function (S, rng) {
     S.inv = {}; D.PART_CATS.forEach(c => S.inv[c.id] = []);
-    (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' || v === 'K' ? cat + v : cat + v + 1, n, h));
+    if (S.cal) {
+      P.planReleases(S, rng);
+      const noCam = !G.Era.at(S.cal[0]).vision.cam;
+      (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => {
+        if (v === 'C' || v === 'K') { if (!(noCam && cat === 'camera')) P.add(S, cat, cat + v, n, h); return; }
+        // what was on the shelves when the career starts; the well-worn parts are a generation older
+        const g = (S.vendorPlan || []).filter(r => r.cat === cat && r.v === v && r.idx < 0).length, pr = P.prodAt(S, cat, v, Math.max(1, h < 0.7 ? g - 1 : g));
+        if (g >= 1 && pr) P.add(S, cat, pr.id, n, h);
+      });
+    } else (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' || v === 'K' ? cat + v : cat + v + 1, n, h));
     S.elem = {}; S.elemPre = {}; S.elemKop = {}; S.vendorPref = null;
-    P.planReleases(S, rng);
+    if (!S.cal) P.planReleases(S, rng);
     P.rollStock(S);
   };
   // v2.0 saved element sets without a size: recover it from the ledger ("Half-field set (2026)"), else assume a quarter

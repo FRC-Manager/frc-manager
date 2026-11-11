@@ -229,7 +229,7 @@
     { id: 'bake', name: 'Bake sale', icon: 'fund', kind: 'fund', cost: 50, money: [300, 600], desc: 'Classic.' },
     { id: 'carwash', name: 'Car wash', icon: 'fund', kind: 'fund', cost: 80, money: [400, 900], desc: 'Weekend car wash.' },
     { id: 'crowd', name: 'Crowdfunding campaign', icon: 'money', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
-    { id: 'grant', name: 'Write a grant application', icon: 'design', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, desc: 'Roughly 35% chance of a $1,500–$4,000 grant (better with strong outreach).' },
+    { id: 'grant', name: 'Write a grant application', icon: 'design', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, get desc() { return 'Roughly 35% chance of a ' + G.U.money(1500) + '–' + G.U.money(4000) + ' grant (better with strong outreach).'; } },
     { id: 'showcase', name: 'Sponsor showcase night', icon: 'sponsor', kind: 'fund', cost: 200, money: [600, 1600], sponsorSat: 4, req: S => S.sponsors.length >= 2, reqText: 'Needs two or more sponsors', desc: 'Show sponsors the robot; satisfaction +4 for every sponsor.' },
     { id: 'gala', name: 'Alumni fundraising dinner', icon: 'trophy', kind: 'fund', cost: 400, money: [1500, 3800], req: S => S.history.length > 0 || S.profile !== 'rookie', reqText: 'Rookie teams have no alumni yet: after your first season', desc: 'Former members and parents, one big night.' },
     { id: 'parts', name: 'Sell old parts and stock', icon: 'parts', kind: 'fund', cost: 0, money: [300, 900], req: S => lvl(S, 'lathe') > 0, reqText: 'Needs a Machine Shop', desc: 'Machine and sell spare stock to rookie teams.' }
@@ -273,6 +273,15 @@
   // ---------- Real-world World Champions (easter egg in the World Championship pop-up) ----------
   // The alliance that won Einstein each season, from each game's Wikipedia article (Champions section).
   D.REAL_CHAMPS = {
+    2016: { div: 'Carver', teams: [[330, 'The Beach Bots'], [2481, 'Roboteers'], [120, 'Cleveland\'s Team'], [1086, 'Blue Cheese']] },
+    // two Championships: the Houston alliance, and the other one
+    2017: { div: 'Roebling', city: 'Houston', teams: [[973, 'Greybots'], [1011, 'CRUSH'], [2928, 'Viking Robotics'], [5499, 'The Bay Orangutans']],
+      also: { div: 'Daly', city: 'St. Louis', teams: [[2767, 'Stryke Force'], [254, 'The Cheesy Poofs'], [862, 'Lightning Robotics'], [1676, 'The Pascack PI-oneers']], note: 'The St. Louis alliance then won the Festival of Champions three matches to two.' } },
+    2018: { div: 'Hopper', city: 'Houston', teams: [[254, 'The Cheesy Poofs'], [148, 'The Robowranglers'], [2976, 'Spartabots'], [3075, 'Ha-Dream Team']],
+      also: { div: 'Daly', city: 'Detroit', teams: [[2767, 'Stryke Force'], [27, 'Team RUSH'], [2708, 'Lake Effect Robotics'], [4027, 'Centre County 4-H Robotics']] } },
+    2019: { div: 'Newton', city: 'Houston', teams: [[973, 'Greybots'], [1323, 'MadTown Robotics'], [5026, 'Iron Panthers'], [4201, 'The Vitruvian Bots']],
+      also: { div: 'Darwin', city: 'Detroit', teams: [[3707, 'Brighton TechnoDogs'], [217, 'ThunderChickens'], [4481, 'Team Rembrandts'], [1218, 'SCH Vulcan Robotics']] } },
+    2020: { none: 'In the real 2020 season there was no champion: play stopped in March, three weeks in, and both Championships were cancelled.' },
     2022: { div: 'Galileo', teams: [[1619, 'Up-A-Creek Robotics'], [254, 'The Cheesy Poofs'], [3175, 'Knight Vision'], [6672, 'Fusion Corps']] },
     2023: { div: 'Hopper', teams: [[1323, 'MadTown Robotics'], [4414, 'HighTide'], [4096, 'Ctrl-Z'], [2609, 'BeaverworX']] },
     2024: { div: 'Daly', teams: [[1690, 'Orbit'], [4522, 'Team SCREAM'], [9432, 'Team 8-Bit'], [321, 'RoboLancers']] },
@@ -385,7 +394,8 @@
     impactAward: { text: 'Win Impact or Engineering Inspiration', bonus: 3000 },
     avgRP: { text: 'Average 2+ RP per qualification match', bonus: 2500 },
     outreach: { text: 'Run 2 outreach activities this season', bonus: 1000 },
-    events2: { text: 'Attend 2 regionals', bonus: 1000 }
+    events2: { text: 'Attend 2 regionals', bonus: 1000 },
+    dcmp: { text: 'Reach the District Championship', bonus: 2500 }
   };
   D.OBLIGATIONS = [
     { id: 'demo', text: 'Robot demo at the {s} headquarters' },
@@ -417,7 +427,7 @@
     established: { name: 'Established', money: 45000, students: 25, mentors: [[2, 3], [2, 3], [2, 3], [2, 2]], know: 1, equip: ['printer'], parts: {}, rep: 45, support: 60, school: 14000,
       desc: 'A solid program with some experience, a 3D printer and room in the technology wing.' },
     powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: {}, rep: 85, support: 72, school: 22000,
-      desc: 'A perennial contender with deep knowledge, a high reputation, a CNC router, a practice area and Apex swerve parts — and a school and sponsors who expect wins.' }
+      desc: 'A perennial contender with deep knowledge, a high reputation, a CNC router, a practice area and the premium vendor\'s parts — and a school and sponsors who expect wins.' }
   };
 
   // ---------- Single-season scenarios ----------
@@ -439,6 +449,8 @@
     award: { text: 'Win an award', check: s => s.awards.length > 0 },
     winEvent: { text: 'Win a regional', check: s => s.events.some(e => e.won) },
     champs: { text: 'Qualify for the Championship', check: s => s.champsQualified },
+    dcmp: { text: 'Reach the District Championship', check: s => !!s.dcmpQualified },
+    dTop10: { text: 'Finish in the district\'s top ten', check: s => s.dRank != null && s.dRank <= 10 },
     divPlayoffs: { text: 'Reach the Championship division playoffs', check: s => !!s.champsPlayoffs },
     einstein: { text: 'Reach Einstein', check: s => !!s.einstein },
     topHalf: { text: 'Rank in the top half at every regional', check: s => s.events.length > 0 && s.events.every(e => e.rank <= e.size / 2) }

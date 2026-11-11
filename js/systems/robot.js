@@ -113,6 +113,8 @@
   Robot.driveBot = function (S) {
     const R = S.robot; if (!R || !R.bots) return -1;
     const d = R.drive || 0;
+    // Stop Build Day: a bagged competition robot cannot be driven at home, only a second robot can
+    if (G.Career.bagged(S)) { const o = 1 - (R.comp || 0); return Robot.runnable(R, o) ? o : -1; }
     return Robot.runnable(R, d) ? d : Robot.runnable(R, 1 - d) ? 1 - d : -1;
   };
   // How much of the competition robot the second robot copies (0–1): event tuning bonus
@@ -137,14 +139,16 @@
   };
   Robot.isPathProject = p => p.type === 'auto' || (p.type === 'upgrade' && p.sub === 'soft' && p.focus === 'auto');
   Robot.ceil = function (S, year, subId, c, stat) {
-    let v = (c.ceil[stat] || 0) + 3 * lvlFor(S, subId, c, stat);
+    const era = G.Era.of(S), tb = subId === 'drive' && c.id === 'swerve' && !era.swerve.cots; // team-built swerve (before 2020)
+    let v = (c.ceil[stat] || 0) * (tb ? era.swerve.ceil : 1) + 3 * lvlFor(S, subId, c, stat);
     // better motors, swerve modules and sensors raise ceilings (parts on the competition robot)
     if (S.robot && (stat === 'speed' || stat === 'scoreSpd' || stat === 'auto')) {
       const pp = G.Parts.profile(S);
       if (subId === 'drive' && stat === 'speed') v += 9 * pp.motor + (c.id === 'swerve' ? 4 * pp.swerve : 0);
       if (stat === 'scoreSpd') v += 7 * pp.motor;
-      if (stat === 'auto') v += 6 * pp.enc;
+      if (stat === 'auto') v += 6 * pp.enc + (era.vision.tags ? 2 * (S.robot.visionLvl || 0) : 0); // AprilTags: the robot knows where it is
     }
+    if (stat === 'vision') v = Math.min(v, era.vision.ceil);
     return Math.min(99, Math.round(v));
   };
   // First time building something complex: any core area still at Level 0
@@ -239,6 +243,43 @@
 
   // ---------------- Garage: built subsystems on the two robots ----------------
   Robot.garageLock = S => (S.event && S.event.stage !== 'done' ? 'Finish the event first: only the competition robot is there.' : null);
+  // Stop Build Day: at home the competition robot is in the bag. Whatever is made for it waits in the crate (the
+  // withholding allowance) and is fitted in the pits on practice day ("Install Upgrade"), as teams really did.
+  Robot.bagLock = S => (G.Career.bagged(S) && !(S.event && S.event.stage !== 'done') ? 'The competition robot is in the bag until its next event.' : null);
+  function hold(S, h) { const R = S.robot; (R.held = R.held || []).push(h); S.wearTick = (S.wearTick || 0) + 1; }
+  Robot.held = S => (S.robot && S.robot.held) || [];
+  Robot.heldNames = function (S) {
+    const R = S.robot;
+    return Robot.held(S).map(h => { const c = G.Seasons.concept(R.year, h.k, h.u ? h.u.concept : h.concept), nm = c ? c.name : G.Seasons.sub(R.year, h.k).name;
+      return h.u ? nm + ' v' + h.u.ver : h.set ? nm + ' upgrade to v' + h.set.ver : h.clear ? nm + ' hardening' : nm + ' lightweighting'; });
+  };
+  // fit everything in the crate to the competition robot; returns the names of what went on
+  Robot.installHeld = function (S) {
+    const R = S.robot; if (!R || !Robot.held(S).length) return [];
+    const ci = R.comp || 0, names = Robot.heldNames(S), done = [];
+    R.held.forEach((h, i) => {
+      if (h.u) { install(R, ci, h.k, h.u); done.push(names[i]); return; }
+      const t = R.bots[ci].subs[h.k];
+      if (!t || !t.ver || t.concept !== h.concept) return; // the mechanism it was made for is no longer on the robot
+      if (h.set) Object.assign(t, h.set, { stats: Object.assign({}, h.set.stats) });
+      if (h.relMin != null) t.rel = Math.max(t.rel, h.relMin);
+      if (h.relAdd) t.rel = Math.max(20, t.rel + h.relAdd);
+      if (h.wMax != null) t.w = Math.min(t.w, h.wMax);
+      if (h.clear) { t.hidden = 0; t.cond = 100; }
+      if (h.hid) t.hidden += h.hid;
+      done.push(names[i]);
+    });
+    R.held = []; S.wearTick = (S.wearTick || 0) + 1; trimStore(S);
+    return done;
+  };
+  // take a packed unit out of the crate again (back to storage)
+  Robot.unpack = function (S, i) {
+    const R = S.robot, h = Robot.held(S)[i];
+    if (!h || !h.u) return 'Not found';
+    if (Robot.storeRoom(R, h.k) < 1) return 'Storage is full (' + D.STORE_MAX + ' ' + G.Seasons.sub(R.year, h.k).name.toLowerCase() + ' units). Take one apart first.';
+    R.held.splice(i, 1); R.store.push(h.u); S.wearTick = (S.wearTick || 0) + 1;
+    return null;
+  };
   function missingTotal(S) {
     const n = G.Parts.need(S), tot = {};
     [n.comp, n.prac].forEach(b => Object.keys(b).forEach(c => { tot[c] = (tot[c] || 0) + b[c]; }));
@@ -257,6 +298,12 @@
     const R = S.robot, lock = Robot.garageLock(S); if (lock) return lock;
     const f = Robot.findUnit(R, uid); if (!f) return 'Not found';
     if (f.bi === bi) return null;
+    { const bag = Robot.bagLock(S), ci = R.comp || 0;
+      if (bag && (bi === ci || f.bi === ci)) {
+        // a stored unit can be packed for the next event; nothing comes off the bagged robot, and nothing goes straight onto it
+        if (f.bi < 0 && bi === ci) { R.store = R.store.filter(x => x !== f.u); hold(S, { k: f.k, u: f.u }); return null; }
+        return bag + ' Only units from storage can be packed for it; they are fitted on practice day.';
+      } }
     const k = f.k, before = missingTotal(S), snap = { store: R.store.slice(), a: R.bots[0].subs[k], b: R.bots[1].subs[k] };
     if (f.bi < 0) { R.store = R.store.filter(x => x !== f.u); install(R, bi, k, f.u); }
     else { const cur = R.bots[bi].subs[k]; R.bots[f.bi].subs[k] = cur && cur.ver ? cur : emptyUnit(k); R.bots[bi].subs[k] = f.u; }
@@ -270,6 +317,7 @@
   };
   Robot.unmount = function (S, bi, k) {
     const R = S.robot, lock = Robot.garageLock(S); if (lock) return lock;
+    if (bi === (R.comp || 0) && Robot.bagLock(S)) return Robot.bagLock(S) + ' Nothing can be taken off it at home.';
     if (!R.bots[bi].subs[k] || !R.bots[bi].subs[k].ver) return null;
     if (Robot.storeRoom(R, k) < 1) return 'Storage is full (' + D.STORE_MAX + ' ' + G.Seasons.sub(R.year, k).name.toLowerCase() + ' units). Take one apart first.';
     install(R, bi, k, null); S.wearTick = (S.wearTick || 0) + 1;
@@ -306,6 +354,7 @@
   Robot.trimStore = trimStore;
   Robot.setComp = function (S, bi) {
     const R = S.robot, lock = Robot.garageLock(S); if (lock) return lock;
+    if (bi !== (R.comp || 0) && Robot.bagLock(S)) return 'The bagged robot is the one that competes: the other one never went in the bag.';
     if (!Robot.runnable(R, bi)) return R.bots[bi].name + ' has no drivetrain yet';
     R.comp = bi; R.pending = []; S.wearTick = (S.wearTick || 0) + 1;
     return null;
@@ -329,6 +378,7 @@
   // The unit an upgrade, hardening or lightweighting reworks: the competition robot's (same concept), else the newest one
   function targetUnit(R, k) {
     const d = R.design[k], ci = R.comp || 0, c = R.bots[ci].subs[k];
+    { const hu = (R.held || []).filter(h => h.u && h.k === k && h.u.concept === d.concept).map(h => h.u).sort((a, b) => b.ver - a.ver)[0]; if (hu) return hu; }
     if (c && c.ver && c.concept === d.concept) return c;
     const list = [R.bots[1 - ci].subs[k]].concat(R.store.filter(u => u.sub === k)).filter(u => u && u.ver && u.concept === d.concept).sort((a, b) => b.ver - a.ver);
     return list[0] || null;
@@ -346,7 +396,7 @@
     let m = G.Shop.hwHoursMult(S);
     m *= 1 - 0.12 * G.Career.mentorSkill(S, 'fab') / 100;
     if (G.Career.hasPerk(S, 'fabSpeed')) m *= 0.9;
-    if (G.Parts.count(S, 'pneu') && (subId === 'intake' || subId === 'scorer')) m *= 0.85;
+    if (G.Parts.count(S, 'pneu') && (subId === 'intake' || subId === 'scorer' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu)) m *= 1 - G.Era.of(S).pneu; // air mattered more before brushless motors
     return m * G.Parts.devMult(S);
   }
   function swMult(S) {
@@ -355,7 +405,9 @@
     if (G.Career.hasPerk(S, 'progSpeed')) m *= 0.85;
     return m * G.Parts.devMult(S);
   }
-  const copyHours = (S, k, c, kq) => c.hours * D.COPY_HOURS * (1 - 0.06 * Robot.lvl(S, c)) * kq.hours * hwMult(S, k);
+  // team-built swerve modules (before 2020): the era's extra hours, materials and risk; null when modules are sold
+  Robot.teamBuilt = (S, subId, c) => (subId === 'drive' && c && c.id === 'swerve' && !G.Era.of(S).swerve.cots ? G.Era.of(S).swerve : null);
+  const copyHours = (S, k, c, kq) => c.hours * D.COPY_HOURS * (1 - 0.06 * Robot.lvl(S, c)) * kq.hours * hwMult(S, k) * (Robot.teamBuilt(S, k, c) ? Robot.teamBuilt(S, k, c).hours : 1);
   const copyCost = (c, kq) => (0.55 * c.cost + 150 * c.cx) * D.COPY_COST * kq.cost;
   // Returns {hours, cost, name, err, fields (stored on the project), kitCov}
   Robot.quote = function (S, spec) {
@@ -371,10 +423,13 @@
       case 'build': {
         const c = G.Seasons.concept(year, spec.sub, spec.concept);
         err = Robot.buildShort(S, spec.sub, c);
+        const tb = Robot.teamBuilt(S, spec.sub, c);
+        if (tb && !err && G.Shop.lvl(S, 'cnc') < 1 && G.Shop.lvl(S, 'lathe') < 1) err = 'Nobody sells swerve modules yet: machining your own needs a CNC Router or a Lathe (Workshop)';
         // mechanical COTS kits (as many as are free on the shelf) speed the build and soften first-build penalties
         const kq = Robot.kitQuote(S, year, spec.sub, c), first = Robot.firstTime(S, c);
-        hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub);
-        cost = (0.55 * c.cost + 150 * c.cx) * ef.cost * kq.cost * D.PROTO_COST; // materials (a prototype); motors, electronics and kits come from the inventory
+        hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub) * (tb ? tb.hours : 1);
+        cost = (0.55 * c.cost + 150 * c.cx) * ef.cost * kq.cost * D.PROTO_COST + (tb ? tb.mat : 0); // materials (a prototype); motors, electronics and kits come from the inventory
+        if (tb) fields.teamBuilt = true;
         fields = { kits: kq.use, kitCov: kq.cov };
         name = (des && des.ver ? 'Switch to ' : 'Build ') + c.name;
         break;
@@ -407,11 +462,12 @@
         break;
       }
       case 'vision': {
-        const l = R.visionLvl;
+        const l = R.visionLvl, ve = G.Era.of(S).vision;
         if (l >= 2) err = 'Vision maxed';
-        else if (G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Inventory)';
-        hours = 120 * (l + 1) * swMult(S); cost = 200;
-        name = 'Vision Level ' + (l + 1) + (l === 0 ? ' (auto-aim)' : ' (shoot on the move)');
+        else if (l >= ve.max) err = 'Vision Level ' + (l + 1) + ' is out of reach until someone sells a vision camera';
+        else if (ve.cam && G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Inventory)';
+        hours = 120 * (l + 1) * swMult(S) * ve.hours; cost = 200;
+        name = 'Vision Level ' + (l + 1) + (l === 0 ? (ve.cam ? ' (auto-aim)' : ' (home-made auto-aim)') : ' (shoot on the move)');
         break;
       }
       case 'practiceBot': {
@@ -592,7 +648,7 @@
     // 1) anything not designed and built yet
     for (const sd of subs) {
       const d = R.design[sd.id];
-      if (d.ver || d.concept === 'none' || busy(sd.id)) continue;
+      if (d.ver || d.concept === 'none' || busy(sd.id) || sd.optional) continue; // optional mechanisms are the team's call
       const opts = sd.concepts.filter(c => c.id !== 'none' && !Robot.reqOk(S, c));
       const score = c => Object.keys(c.ceil).reduce((t, k) => t + Robot.ceil(S, year, sd.id, c, k) * (STAT_W[k] || 0.7), 0) / Math.max(1, Object.keys(c.ceil).length) - (Robot.firstTime(S, c) ? 12 : 0) - c.cx * 2;
       const best = opts.sort((p, q) => score(q) - score(p))[0];
@@ -648,14 +704,14 @@
         const stats = {};
         Object.keys(c.base).forEach(k => { stats[k] = Math.min(Robot.ceil(S, year, p.sub, c, k), Math.round(c.base[k] + 2 * lvlFor(S, p.sub, c, k) + G.Shop.buildStat(S) + 4 * px)); });
         const rel = 6 * px + 72 - 6 * c.cx + 4 * lvl + G.Shop.buildRel(S) + G.Career.mentorSkill(S, 'fab') / 20 - 15 * first + (ef.rel * 1.5)
-          + (p.sub === 'drive' && c.id === 'swerve' ? 6 * G.Parts.profile(S).swerve : 0) + 5 * q;
+          + (p.sub === 'drive' && c.id === 'swerve' ? 6 * G.Parts.profile(S).swerve : 0) + 5 * q + (Robot.teamBuilt(S, p.sub, c) ? Robot.teamBuilt(S, p.sub, c).rel : 0);
         const hidden = (p.effort === 'rush' && rng.chance(0.5 * (1 - 0.5 * q)) ? 1 : 0) + (first > 0 && rng.chance(0.6 * first * (1 - 0.5 * q)) ? 1 : 0);
         R.design[p.sub] = { concept: p.concept, ver: 1, stats, rel: Math.round(U.clamp(rel, 25, 95)), w: c.w, hours: p.need };
-        const ci = R.comp || 0, had = R.bots[ci].subs[p.sub] && R.bots[ci].subs[p.sub].ver;
-        install(R, ci, p.sub, makeUnit(p.sub, R.design[p.sub], { hidden, kits: p.kits || null }));
+        const ci = R.comp || 0, had = R.bots[ci].subs[p.sub] && R.bots[ci].subs[p.sub].ver, bag = !!Robot.bagLock(S);
+        { const nu = makeUnit(p.sub, R.design[p.sub], { hidden, kits: p.kits || null }); if (bag) hold(S, { k: p.sub, u: nu }); else install(R, ci, p.sub, nu); }
         const core = Robot.coreAreas(c);
         c.areas.forEach(a => Robot.addXP(S, a, Math.round(30 * ef.gain * (core.includes(a) ? 1 : 0.5))));
-        G.Career.inbox(S, 'Built: ' + c.name, 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + ' (v1), fitted to ' + where(ci) + '.' + (had ? ' The old one is in storage (Garage).' : '') +
+        G.Career.inbox(S, 'Built: ' + c.name, 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + ' (v1), ' + (bag ? 'packed for your next event. The competition robot is in the bag, so the new mechanism is fitted in the pits on practice day (Install Upgrade)' : 'fitted to ' + where(ci)) + '.' + (had && !bag ? ' The old one is in storage (Garage).' : '') +
           (first > 0.5 ? ' This is the team\'s first time building one, so expect teething problems.' : cov > 0.99 ? ' The COTS kits took the guesswork out of it.' : cov > 0 ? ' COTS kits covered part of it.' : '') +
           ' The drive team will need practice to get used to it.' + qt + pt, 'dev');
         break;
@@ -668,8 +724,9 @@
         let bi = p.bot;
         if (bi == null || bi < 0 || Robot.isLatest(R, p.sub, R.bots[bi].subs[p.sub])) bi = Robot.copyTarget(R, p.sub);
         if (bi === (R.comp || 0) && Robot.garageLock(S)) bi = -1;
-        const at = bi >= 0 ? tryInstall(S, bi, p.sub, u) : (R.store.push(u), -1);
-        G.Career.inbox(S, 'Built: another ' + c.name, 'A v' + u.ver + ' ' + c.name + ' is ready: ' + (at >= 0 ? 'fitted to ' + where(at) : bi >= 0 ? 'in storage (not enough electronics to fit it to ' + R.bots[bi].name + ')' : 'in storage as a spare') + '. Move subsystems between robots in the Garage.' + pt, 'dev');
+        const bagC = bi === (R.comp || 0) && !!Robot.bagLock(S);
+        const at = bagC ? (hold(S, { k: p.sub, u }), -2) : bi >= 0 ? tryInstall(S, bi, p.sub, u) : (R.store.push(u), -1);
+        G.Career.inbox(S, 'Built: another ' + c.name, 'A v' + u.ver + ' ' + c.name + ' is ready: ' + (at === -2 ? 'packed for your next event (the competition robot is in the bag: fit it on practice day with Install Upgrade)' : at >= 0 ? 'fitted to ' + where(at) : bi >= 0 ? 'in storage (not enough electronics to fit it to ' + R.bots[bi].name + ')' : 'in storage as a spare') + '. Move subsystems between robots in the Garage.' + pt, 'dev');
         break;
       }
       case 'practiceBot': {
@@ -713,21 +770,24 @@
         des.hours = (des.hours || 0) + p.need;
         if (!soft) { des.w += (p.effort === 'rush' ? 1 : 0.6) * (1 - 0.5 * px); des.rel = U.clamp(des.rel + ef.rel + Math.round(4 * q + 3 * px), 20, 97); }
         // the upgraded part goes on the competition robot (or the newest copy of this concept)
-        const tgt = soft ? des : targetUnit(R, p.sub);
-        if (!soft && tgt) Object.assign(tgt, { ver: des.ver, stats: Object.assign({}, des.stats), w: des.w, rel: des.rel });
-        if (tgt && p.effort === 'rush' && rng.chance(0.4 * (1 - 0.5 * q))) tgt.hidden++;
+        const tgt = soft ? des : targetUnit(R, p.sub), bagU = !soft && !!tgt && tgt === R.subs[p.sub] && !!Robot.bagLock(S);
+        const hid = tgt && p.effort === 'rush' && rng.chance(0.4 * (1 - 0.5 * q)) ? 1 : 0;
+        // Stop Build Day: the new parts for the bagged robot wait in the crate until practice day
+        if (bagU) hold(S, { k: p.sub, concept: des.concept, set: { ver: des.ver, stats: Object.assign({}, des.stats), w: des.w, rel: des.rel }, hid });
+        else { if (!soft && tgt) Object.assign(tgt, { ver: des.ver, stats: Object.assign({}, des.stats), w: des.w, rel: des.rel }); if (hid) tgt.hidden++; }
         (c.areas || []).forEach((a, i) => Robot.addXP(S, a, Math.round(30 * ef.gain * (i === 0 ? 1 : 0.4))));
         const onComp = soft || tgt === R.subs[p.sub];
         const note = soft ? '' : !tgt ? ' No robot has this mechanism right now: build a copy to use v' + des.ver + '.' : onComp ? '' : ' Fitted to ' + where(R.bots.findIndex(b => b.subs[p.sub] === tgt)) + '.';
         if (S.event && S.event.stage !== 'done' && !soft && onComp) { R.pending.push(p.sub); G.Career.inbox(S, 'Upgrade ready: ' + p.name, 'Install it in the pits (practice block) to use it at this event. ' + changes.join(', '), 'dev'); }
-        else G.Career.inbox(S, 'Upgrade complete: ' + p.name, (changes.join(', ') || 'Already near the ceiling.') + note + qt + pt, 'dev');
+        else G.Career.inbox(S, 'Upgrade complete: ' + p.name, (changes.join(', ') || 'Already near the ceiling.') + (bagU ? ' The competition robot is in the bag: the new parts are packed and go on at your next event (Install Upgrade on practice day).' : note) + qt + pt, 'dev');
         break;
       }
       case 'harden': {
-        const d = R.design[p.sub], t = targetUnit(R, p.sub);
+        const d = R.design[p.sub], t = targetUnit(R, p.sub), bagH = !!t && t === R.subs[p.sub] && !!Robot.bagLock(S);
         d.rel = Math.round(d.rel + (96 - d.rel) * Math.min(0.9, (0.35 + 0.15 * px) * (1 + G.Shop.fx(S, 'weld', 'weld')))); // a welding station makes hardening go further
-        if (t) { t.rel = Math.max(t.rel, d.rel); t.hidden = 0; t.cond = 100; }
-        G.Career.inbox(S, 'Hardening complete', G.Seasons.sub(year, p.sub).name + ' reliability is now ' + d.rel + (t ? ' and hidden faults were cleared.' : '.'), 'dev');
+        if (bagH) hold(S, { k: p.sub, concept: d.concept, relMin: d.rel, clear: true });
+        else if (t) { t.rel = Math.max(t.rel, d.rel); t.hidden = 0; t.cond = 100; }
+        G.Career.inbox(S, 'Hardening complete', bagH ? 'The reinforced ' + G.Seasons.sub(year, p.sub).name.toLowerCase() + ' parts (reliability ' + d.rel + ') are packed for your next event: the competition robot is in the bag, so they go on in the pits on practice day (Install Upgrade).' : G.Seasons.sub(year, p.sub).name + ' reliability is now ' + d.rel + (t ? ' and hidden faults were cleared.' : '.'), 'dev');
         Robot.addXP(S, 'elec', 15);
         break;
       }
@@ -736,13 +796,15 @@
         const d = R.design[p.sub], t = targetUnit(R, p.sub), cw = (G.Seasons.concept(year, p.sub, d.concept) || {}).w || d.w;
         const wf = G.Shop.fx(S, 'weld', 'weld'), dw = Math.min(rng.range(2, 6) * (1 + 0.5 * px) * (1 + wf), Math.max(0, d.w - Math.max(1, 0.4 * cw)));
         d.w = Math.max(1, d.w - dw);
-        if (t) t.w = Math.min(t.w, d.w);
-        if (rng.chance(0.2 * (1 - wf))) { d.rel = Math.max(20, d.rel - 3); if (t) t.rel = Math.max(20, t.rel - 3); }
-        G.Career.inbox(S, 'Lightweighting complete', 'Removed ' + dw.toFixed(1) + ' lb from the ' + G.Seasons.sub(year, p.sub).name + '. Competition robot weight: ' + Robot.weight(S) + ' lb.', 'dev');
+        const bagL = !!t && t === R.subs[p.sub] && !!Robot.bagLock(S), drop = rng.chance(0.2 * (1 - wf));
+        if (drop) d.rel = Math.max(20, d.rel - 3);
+        if (bagL) hold(S, { k: p.sub, concept: d.concept, wMax: d.w, relAdd: drop ? -3 : 0 });
+        else if (t) { t.w = Math.min(t.w, d.w); if (drop) t.rel = Math.max(20, t.rel - 3); }
+        G.Career.inbox(S, 'Lightweighting complete', 'Removed ' + dw.toFixed(1) + ' lb from the ' + G.Seasons.sub(year, p.sub).name + '. ' + (bagL ? 'The lighter parts are packed for your next event (Install Upgrade on practice day); until then the bagged robot weighs ' + Robot.weight(S) + ' lb.' : 'Competition robot weight: ' + Robot.weight(S) + ' lb.'), 'dev');
         break;
       }
       case 'auto': R.autoTier = Math.min(3, R.autoTier + 1); Robot.addXP(S, 'autoPath', 50); if (px) R.soft.stats.auto = Math.min(99, (R.soft.stats.auto || 0) + Math.round(5 * px)); G.Career.inbox(S, 'New auto routine', 'The robot can now run: ' + G.Seasons[year].autoTiers[R.autoTier] + '.', 'dev'); break;
-      case 'vision': R.visionLvl = Math.min(2, R.visionLvl + 1); R.soft.stats.vision = Math.min(99, (R.soft.stats.vision || 0) + 15); Robot.addXP(S, 'vision', 60); G.Career.inbox(S, 'Vision Level ' + R.visionLvl, R.visionLvl === 1 ? 'Auto-aim and auto-align are online.' : 'Pose estimation and shoot-on-the-move are online.', 'dev'); break;
+      case 'vision': R.visionLvl = Math.min(2, R.visionLvl + 1); R.soft.stats.vision = Math.min(G.Era.of(S).vision.ceil, (R.soft.stats.vision || 0) + 15); Robot.addXP(S, 'vision', 60); G.Career.inbox(S, 'Vision Level ' + R.visionLvl, R.visionLvl === 1 ? 'Auto-aim and auto-align are online.' : 'Pose estimation and shoot-on-the-move are online.', 'dev'); break;
       case 'kb': S.equip.kb = true; G.Career.inbox(S, 'Knowledge Base online', 'Knowledge decay between seasons is halved.', 'dev'); break;
       case 'impact': if (S.season) S.season.impactDone = true; G.Career.inbox(S, 'Impact submission ready', 'Your Impact story is submitted. You can now compete for the Impact Award at every regional this season (see the odds on HQ).', 'dev'); break;
       case 'research': {
@@ -772,7 +834,7 @@
       R.bots[R.comp || 0].subs.drive = makeUnit('drive', d);
       G.Career.spend(S, 600, 'Emergency kitbot drivetrain');
       S.morale = Math.max(0, S.morale - 8);
-      notes.push('No drivetrain! The team bolted together an emergency kitbot chassis ($600).');
+      notes.push('No drivetrain! The team bolted together an emergency kitbot chassis (' + G.U.money(600) + ').');
     }
     const w = Robot.weight(S);
     const ok = w <= Robot.WEIGHT_LIMIT;

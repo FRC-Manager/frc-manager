@@ -47,8 +47,14 @@ window.G = window.G || {};
   U.sum = arr => arr.reduce((s, x) => s + x, 0);
   U.avg = arr => arr.length ? U.sum(arr) / arr.length : 0;
   U.round = (v, d = 0) => { const k = Math.pow(10, d); return Math.round(v * k) / k; };
-  U.money = v => (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US');
-  U.kmoney = v => { const a = Math.abs(v); const s = v < 0 ? '-$' : '$'; return a >= 1000 ? s + (a / 1000).toFixed(a >= 10000 ? 0 : 1) + 'k' : s + Math.round(a); };
+  // Money. Every amount in the game is kept in 2026 dollars and shown in the dollars of the career's current year
+  // (the price index, G.Data.PRICE_IDX). px: a stored index for amounts from another year (history, ledger); 1 = as is.
+  U.px = () => { const S = G.S, T = G.Data && G.Data.PRICE_IDX; return S && S.pxY && T ? (T[S.pxY] || 1) : 1; };
+  U.pxOf = y => { const T = G.Data && G.Data.PRICE_IDX; return (T && T[y]) || 1; };
+  U.money = (v, px) => { v *= (px == null ? U.px() : px); return (v < 0 ? '-$' : '$') + Math.abs(Math.round(v)).toLocaleString('en-US'); };
+  U.kmoney = (v, px) => { v *= (px == null ? U.px() : px); const a = Math.abs(v); const s = v < 0 ? '-$' : '$'; return a >= 1000 ? s + (a / 1000).toFixed(a >= 10000 ? 0 : 1) + 'k' : s + Math.round(a); };
+  // static help text: literal 2026-dollar amounts ("$1,000", "$12k") become the career's current dollars
+  U.infl = (str, px) => String(str).replace(/\$(\d[\d,]*)(k?)/g, (m, n, k) => { const v = Number(n.replace(/,/g, '')) * (k ? 1000 : 1); return k ? U.kmoney(v, px) : U.money(v, px); });
   U.pct = v => Math.round(v * 100) + '%';
   U.esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   U.clone = o => JSON.parse(JSON.stringify(o));
@@ -60,7 +66,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.5';
+  G.VERSION = '2.9.0';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -80,7 +86,7 @@ window.G = window.G || {};
       const raw = localStorage.getItem(KEY + slot);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return { slot, team: s.team, year: s.year, mode: s.mode, phase: s.phase, savedAt: s.savedAt, money: s.money, si: s.si };
+      return { slot, team: s.team, year: s.year, cy: s.cal && s.cal.length ? s.cal[Math.min(s.cal.length - 1, Math.max(0, s.si))] : s.year, mode: s.mode, phase: s.phase, savedAt: s.savedAt, money: s.money, px: U.pxOf(s.pxY), si: s.si };
     } catch (e) { return null; }
   };
   Save.load = function (slot) {

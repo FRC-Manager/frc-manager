@@ -109,7 +109,7 @@ table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: va
 .choice:hover { border-color: #56636f; } .choice.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
 .inp { background: #0f1317; border: 1px solid var(--line2); color: var(--text); border-radius: 7px; padding: 7px 10px; font: inherit; width: 100%; }
 select.inp { cursor: pointer; }
-label.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+label.f, div.f { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 
 /* ---------- match view ---------- */
 .matchview { display: grid; grid-template-columns: 230px 1fr 250px; gap: 12px; }
@@ -395,6 +395,7 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 /* playoff bracket: official double-elimination layout */
 .bk-wrap { overflow-x: auto; } .bk { min-width: 930px; } .bk.ein { min-width: 1030px; }
 .bk-hd, .bk-grid { display: grid; grid-template-columns: repeat(6, 1fr); }
+.bk.se { min-width: 640px; max-width: 920px; } .bk.se .bk-hd, .bk.se .bk-grid { grid-template-columns: repeat(3, 1fr); }
 .bk-hd span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; padding: 0 8px 2px; }
 .bk-band { font-size: 10px; letter-spacing: .12em; font-weight: 800; color: var(--dim); padding: 2px 8px 4px; align-self: end; white-space: nowrap; }
 .bk-band.lo { border-top: 1px dashed var(--line); padding-top: 9px; align-self: center; position: relative; z-index: 1; }
@@ -449,3 +450,18 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .vsbar { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: -3px 0 10px; font-size: 13px; font-weight: 700; }
 .vsbar .r { text-align: right; color: #ff8a8d; } .vsbar .b { color: #8ab8ff; } .vsbar .m { font-size: 10px; letter-spacing: .16em; color: var(--muted); font-weight: 800; }
 .vsbar i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 7px; transform: translateY(-1px); }
+/* History: each season's robot */
+.histbot { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
+.histbot canvas { display: block; border-radius: 8px; max-width: 100%; height: auto; } .histbot .hb-t { min-width: 0; }
+.botgal { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; } .botgal .bg-i { flex: 0 0 auto; text-align: center; } .botgal canvas { display: block; border-radius: 8px; margin-bottom: 4px; }
+@media (max-width: 700px) { .histbot { flex-direction: column; align-items: flex-start; } }
+/* Story pop-ups */
+.story-p { color: var(--text); line-height: 1.55; margin: 0 0 10px; }
+.story-ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; } .story-ul li { margin-bottom: 3px; }
+/* Einstein round robin (2017 to 2022) */
+.rr { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 18px; align-items: start; }
+.rr table.t tr.me td { background: rgba(245,197,66,.10); }
+.rr-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; margin-top: 12px; }
+.rr-m { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; font-size: 12px; padding: 4px 8px; margin-top: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg2); }
+.rr-m .red { text-align: right; } .rr-m .sc { font-weight: 700; color: var(--muted); min-width: 62px; text-align: center; } .rr-m.me { border-color: var(--accent); } .rr-m.next { box-shadow: 0 0 0 1px var(--accent) inset; }
+@media (max-width: 900px) { .rr { grid-template-columns: 1fr; } }

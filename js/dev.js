@@ -199,8 +199,8 @@
   Dev.autoplay = function (opts) {
     opts = opts || {};
     const log = [];
-    const C = G.Career, S0 = C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: 'Midwest' },
-      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed });
+    const C = G.Career, S0 = opts.resume ? G.S : C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: opts.region || 'Midwest', home: opts.home || null },
+      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, noWorld: opts.noWorld });
     const S = G.S;
     let guard = 0;
     log.probes = []; log.testSpend = 0;
@@ -225,6 +225,8 @@
     while (S.phase !== 'end' && guard++ < 400) {
       if (opts.fuzz) { Dev.fuzzTurn(S, log); Dev.check(S, log); }
       if (opts.until && opts.until(S)) break; // stop early, e.g. to inspect a mid-season state in the UI
+      if (S.lostYear && S.lostYear.stage === 'choose') { const e = C.pandemicChoose(S, opts.pandemic || ['remote', 'skills']); if (e) { log.push('PROBLEM pandemic choice: ' + e); break; } log.push('2021: season cancelled (' + S.lostYear.picks.join(' + ') + ')'); }
+      if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
         S.offers.filter(o => o.slot === 'title').slice(0, 1).forEach(o => C.signSponsor(S, o.id, true));
@@ -239,7 +241,7 @@
       if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, gearbox: 2 }, opts.vendor || 'B');
       if (S.phase === 'kickoff') {
         G.Seasons[S.year].subs.forEach(sd => {
-          if (sd.id === 'soft') return;
+          if (sd.id === 'soft' || sd.optional) return;
           const cs = sd.concepts.filter(c => c.id !== 'none' && !G.Robot.reqOk(S, c));
           const c = cs[Math.min(cs.length - 1, 2)] || cs[0];
           const e = G.Robot.startProject(S, { type: 'build', sub: sd.id, concept: c.id, effort: 'std' });
@@ -247,7 +249,7 @@
         });
       }
       if ((S.phase === 'build' || S.phase === 'comp') && S.robot) {
-        const R = S.robot, subs = G.Seasons[R.year].subs.map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
+        const R = S.robot, subs = G.Seasons[R.year].subs.filter(sd => !sd.minor).map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
         subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
         // chassis: build a test chassis ('kit', 'mec' or 'wcd') on the second robot in build week 1-2 (log.chassis records when)
         if (opts.chassis && S.phase === 'build' && S.week <= 3 && !S.projects.some(p => p.type === 'testChassis')) {

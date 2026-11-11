@@ -48,7 +48,7 @@
     return cap;
   };
   G.Cap.look = function (year, subs, extra) {
-    const lk = { drive: 'tank', ver: 1 };
+    const lk = { drive: 'tank', ver: 1, year };
     let maxVer = 0;
     G.Seasons[year].subs.forEach(sd => {
       const s = subs[sd.id];
@@ -126,12 +126,16 @@
       if (!p) p = sd.concepts[0].id;
       choice[sd.id] = p;
     });
+    // the calendar year decides how many of the teams that could run swerve do: a few machined their own before modules
+    // were sold (2020), most strong teams run it from 2022
+    const era = G.Era.of(G.S), dopt = arch.pick.drive, canSw = Array.isArray(dopt) ? dopt.includes('swerve') : dopt === 'swerve';
+    if (era.aiSwerve != null && canSw) choice.drive = rng.chance(era.aiSwerve) ? 'swerve' : ((Array.isArray(dopt) && dopt.find(x => x !== 'swerve')) || 'wcd');
     if (choice.drive === 'swerve' && team.str < 45 && rng.chance(0.6)) choice.drive = 'wcd';
     const jit = {};
     S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.08, 0.08); });
     team.rb = {
       year, arch: arch.name, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
-      autoTier: U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: q > 0.72 ? 2 : q > 0.45 ? 1 : 0,
+      autoTier: U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
       drv: Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97))
     };
     return team.rb;
@@ -141,6 +145,7 @@
     if (!team.rb || team.rb.year !== year) AI.seasonRobot(team, year, rng);
     const rb = team.rb, S = G.Seasons[year];
     const qe = U.clamp(rb.q * weekMult * diffMult, 0.03, 0.99);
+    const era = G.Era.of(G.S); // the motors of the day set how fast everybody is; team-built swerve is fragile
     const subs = {};
     S.subs.forEach(sd => {
       const cid = rb.choice[sd.id];
@@ -150,7 +155,9 @@
       const qq = U.clamp(qe + rb.jit[sd.id], 0.02, 0.99);
       const stats = {};
       Object.keys(c.ceil).forEach(k => { stats[k] = Math.round(c.base[k] + (c.ceil[k] - c.base[k]) * qq); });
-      subs[sd.id] = { concept: cid, ver: 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4), 30, 97)), w: c.w };
+      if (era.aiMotor) { if (sd.id === 'drive' && stats.speed != null) stats.speed = Math.max(5, Math.round(stats.speed + 9 * era.aiMotor)); if (stats.scoreSpd != null) stats.scoreSpd = Math.max(5, Math.round(stats.scoreSpd + 7 * era.aiMotor)); }
+      const tbRel = sd.id === 'drive' && cid === 'swerve' && !era.swerve.cots ? era.swerve.rel : 0;
+      subs[sd.id] = { concept: cid, ver: 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel, 30, 97)), w: c.w };
     });
     const extra = { autoTier: rb.autoTier, visionLvl: rb.visionLvl, parts: { motors: qe > 0.6 ? 2 : qe > 0.35 ? 1 : 0, sensors: qe > 0.5 ? 1 : 0 } };
     const cap = G.Cap.build(year, subs, extra);

@@ -44,6 +44,7 @@
   const NONE_END = { id: 'none', name: 'No endgame mechanism', desc: 'Skip the climber. Saves weight, hours and money.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: { endLevel: 0 }, look: { climber: 'none' } };
 
   const S = G.Seasons = {};
+  S._K = { DRIVE, SOFT, NONE_END }; // shared building blocks for the classic games (seasons-classic.js)
 
   // =====================================================================
   S[2022] = {
@@ -334,6 +335,12 @@
   };
 
   G.SEASON_YEARS = [2022, 2023, 2024, 2025, 2026];
+  // The career calendar: one season a year from 2016 to 2026, except 2021 (cancelled). A career starts in any of these
+  // years and runs to 2026. Real order plays each year's own game; random order shuffles the games over the years.
+  G.CAL_YEARS = [2016, 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025, 2026];
+  G.calFrom = y => G.CAL_YEARS.filter(x => x >= y);
+  // start years a new career can pick: real order needs every year's own game, random order needs enough games
+  G.startYears = order => G.CAL_YEARS.filter(y => { const c = G.calFrom(y); return order === 'random' ? c.length <= G.SEASON_YEARS.length : c.every(x => G.Seasons[x]); });
   // quick lookups
   G.Seasons.sub = (year, subId) => G.Seasons[year].subs.find(s => s.id === subId);
   G.Seasons.concept = (year, subId, cid) => { const s = G.Seasons.sub(year, subId); return s ? s.concepts.find(c => c.id === cid) : null; };

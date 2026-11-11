@@ -3,9 +3,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $scripts = @(
-  'js/core.js', 'js/data/seasons.js', 'js/data/world.js', 'js/data/parts.js',
-  'js/sim/engine.js', 'js/sim/rules.js', 'js/sim/ai.js', 'js/sim/event.js',
-  'js/systems/robot.js', 'js/systems/career.js', 'js/systems/shop.js', 'js/systems/parts.js', 'js/systems/news.js', 'js/render/draw.js',
+  'js/core.js', 'js/data/seasons.js', 'js/data/seasons-classic.js', 'js/data/world.js', 'js/data/eras.js', 'js/data/parts.js',
+  'js/sim/engine.js', 'js/sim/rules.js', 'js/sim/rules-classic.js', 'js/sim/ai.js', 'js/sim/event.js',
+  'js/systems/robot.js', 'js/systems/career.js', 'js/systems/shop.js', 'js/systems/parts.js', 'js/systems/news.js', 'js/systems/world.js', 'js/render/draw.js', 'js/render/draw-classic.js',
   'js/ui/ui.js', 'js/ui/icons.js', 'js/ui/screens-event.js', 'js/ui/screens-menu.js', 'js/ui/screens-parts.js', 'js/ui/tutorial.js',
   'js/dev.js', 'js/local.js'
 )

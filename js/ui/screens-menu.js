@@ -12,7 +12,7 @@
       '<div class="grid g3 mt">' +
       '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Five seasons, real or random order. Build a program that learns from every robot.</div></div>' +
       '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one game and a scenario. Graded S to D.</div></div>' +
-      '<div class="choice" data-act="continueGame" ' + (auto ? '' : 'style="opacity:.5"') + '><div class="lg b">Continue</div><div class="sm muted">' + (auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + auto.year + ' · ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet') + '</div></div>' +
+      '<div class="choice" data-act="continueGame" ' + (auto ? '' : 'style="opacity:.5"') + '><div class="lg b">Continue</div><div class="sm muted">' + (auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + (auto.cy || auto.year) + ' · ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet') + '</div></div>' +
       '</div><div class="row mt wrap"><button class="btn" data-act="nav" data-arg="load">Load / import</button><button class="btn" data-act="nav" data-arg="help">How to play</button><button class="btn" data-act="nav" data-arg="notes">What\'s new in v' + h(G.VERSION) + '</button></div>' +
       '<div class="grid g5 mt">' + G.SEASON_YEARS.map(y => '<div class="card flat"><div class="xs muted">' + y + '</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
       '<p class="xs dim mt">Version ' + h(G.VERSION) + ' · Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</p></div></div>';
@@ -25,46 +25,65 @@
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
     UI.st.ng = { mode, num: rng.int(1000, 9999), name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
-      profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom' };
+      profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
     UI.go('newgame');
   };
   UI.S.newgame = { full: true, html() {
     const n = UI.st.ng;
     const inp = (k, lbl, type) => '<label class="f">' + lbl + '<input class="inp" type="' + (type || 'text') + '" value="' + h(n[k]) + '" data-chg="ng" data-k="' + k + '"></label>';
     const choice = (k, v, title, desc) => '<div class="choice ' + (n[k] === v ? 'on' : '') + '" data-act="ngSet" data-arg="' + k + '|' + v + '"><div class="b">' + title + '</div>' + (desc ? '<div class="xs muted">' + desc + '</div>' : '') + '</div>';
+    const starts = G.startYears(n.order); if (!starts.includes(n.start)) n.start = starts[0];
+    if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) n.home = null; // that district does not exist yet in the start year
+    const ngPx = U.pxOf(n.mode === 'single' ? n.year : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
       o += '<h3 class="mt">Season</h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' + G.SEASON_YEARS.map(y => choice('year', y, y + ' ' + G.Seasons[y].name, G.Seasons[y].tagline)).join('') + '</div>';
-      o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, s.goalText + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
+      o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
-      '<label class="f">Home region<select class="inp" data-chg="ng" data-k="region">' + D.REGIONS.map(r => '<option ' + (n.region === r ? 'selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="Regional areas">' + D.REGIONS.map(r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + '</option>').join('') + '</optgroup>' +
+        (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ')</option>').join('') + '</optgroup>' : '') + '</select></label>' +
       '</div>';
+    if (n.mode === 'career') {
+      const d = n.home ? D.DISTRICT[n.home] : null;
+      o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(2, Math.round(G.World.sizeOf(d, n.start) * 2 / 36)) + ' district events, a District Championship of ' + d.dcmp + '. <b>District play:</b> one fee covers two local district events of about 36 teams with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
+        : '<b>Regional team in the ' + h(n.region) + '.</b> Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
+    }
     // avatar and colours (the whole UI picks up the primary colour)
     o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
       '<div class="sm muted mb mt">Second colour</div><div class="swatches">' + UI.TEAM_COLORS2.map(c => '<button class="swatch ' + (n.c2 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c2|' + c.hex + '"></button>').join('') + '</div></div>' +
       '<div class="span2"><div class="sm muted mb">Team emblem</div><div class="avpick">' + UI.AVATARS.map(a => '<button class="' + (n.avatar === a ? 'on' : '') + '" data-act="ngSet" data-arg="avatar|' + a + '" title="' + a + '">' + UI.avatar({ avatar: a, c1: n.c1, c2: n.c2 }, 40) + '</button>').join('') + '</div>' +
-      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted">' + h(n.school) + ' · ' + h(n.region) + '</div></div></div></div></div>';
+      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted">' + h(n.school) + ' · ' + h(n.home ? D.DISTRICT[n.home].name : n.region) + '</div></div></div></div></div>';
     if (n.mode === 'career' || n.scenario === 'custom') {
-      o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
+      o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money, ngPx), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
     }
     o += '<h3 class="mt">Difficulty</h3><div class="grid g3">' + choice('diff', 'easy', 'Easy', 'Weaker opponents, fewer faults, more sponsor money.') + choice('diff', 'normal', 'Normal', 'The intended experience.') + choice('diff', 'hard', 'Hard', 'Stronger opponents, more faults, stingy sponsors.') + '</div>';
-    if (n.mode === 'career') o += '<h3 class="mt">Season order</h3><div class="grid g2">' + choice('order', 'real', 'Real order', '2022 → 2023 → 2024 → 2025 → 2026') + choice('order', 'random', 'Random order', 'All five games, shuffled. The next game is a surprise at each Kickoff.') + '</div>';
+    if (n.mode === 'career') {
+      const cal = G.calFrom(n.start), nS = cal.length;
+      o += '<h3 class="mt">Season order</h3><div class="grid g2">' + choice('order', 'real', 'Real order', 'Every year plays its own game.') + choice('order', 'random', 'Random order', 'The games are shuffled: the next one is a surprise at each Kickoff. Technology, vendors, prices and events still follow the calendar year.') + '</div>';
+      o += '<h3 class="mt">Start year <span class="sm muted" style="font-weight:400">· the career runs through 2026' + (cal.includes(2020) && cal.includes(2022) ? ' (no 2021 season)' : '') + '</span></h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' +
+        starts.map(y => choice('start', y, String(y), (n.order === 'real' && G.Seasons[y] ? G.Seasons[y].name + ' · ' : '') + G.calFrom(y).length + ' season' + (G.calFrom(y).length === 1 ? '' : 's'))).join('') + '</div>' +
+        '<div class="hint mt">' + nS + ' season' + (nS === 1 ? '' : 's') + ': ' + cal[0] + (nS > 1 ? ' to ' + cal[nS - 1] : '') + '. Money is shown in each year\'s own dollars: prices and budgets rise a little every year.</div>';
+    }
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="startGame">Start ▶</button></div></div></div>';
     return o;
   } };
-  UI.A.ng = (v, el) => { UI.st.ng[el.dataset.k] = el.dataset.k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v; };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } UI.render(); };
+  UI.A.ng = (v, el) => {
+    const n = UI.st.ng, k = el.dataset.k;
+    if (k === 'homeSel') { if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); } UI.render(); return; }
+    n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
+  };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } UI.render(); };
   UI.A.startGame = function () {
     const n = UI.st.ng;
     if (!String(n.name).trim()) return UI.toast('Give your team a name', 'bad');
     const scen = n.mode === 'single' ? D.SCENARIOS.find(s => s.id === n.scenario) : null;
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region },
-      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, scenario: scen ? scen.id : null });
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
+      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, scenario: scen ? scen.id : null });
     G.Save.write('auto');
     UI.go('hq');
     if (G.S.phase === 'kickoff') UI.kickoffModal();
-    else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, Lead Mentor</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, look at facilities (Workshop), stock up on parts (Inventory), register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p><div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
+    else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, Lead Mentor</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, look at facilities (Workshop), stock up on parts (Inventory), register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p>' + (function () { const eb = G.Career.eraBrief(G.S); return eb ? '<div class="card flat mb"><div class="xs muted b">' + h(eb.title.toUpperCase()) + '</div><ul class="story-ul">' + eb.lines.map(x => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : ''; })() + '<div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
   };
 
   // =====================================================================
@@ -73,7 +92,7 @@
   UI.S.load = { full: true, html() {
     const rows = G.Save.slots.map(s => {
       const m = G.Save.meta(s);
-      return '<div class="card mb"><div class="row"><div class="sp"><b>' + (s === 'auto' ? 'Autosave' : 'Slot ' + s) + '</b><div class="sm muted">' + (m ? h(m.team.num + ' ' + m.team.name + ' · ' + m.year + ' · ' + (m.mode === 'career' ? 'Career' : 'Single season') + ' · ' + U.money(m.money) + ' · ' + new Date(m.savedAt).toLocaleString()) : 'Empty') + '</div></div>' +
+      return '<div class="card mb"><div class="row"><div class="sp"><b>' + (s === 'auto' ? 'Autosave' : 'Slot ' + s) + '</b><div class="sm muted">' + (m ? h(m.team.num + ' ' + m.team.name + ' · ' + (m.cy || m.year) + ' · ' + (m.mode === 'career' ? 'Career' : 'Single season') + ' · ' + U.money(m.money, m.px || 1) + ' · ' + new Date(m.savedAt).toLocaleString()) : 'Empty') + '</div></div>' +
         (m ? '<button class="btn primary" data-act="loadSlot" data-arg="' + s + '">Load</button><button class="btn bad" data-act="delSlot" data-arg="' + s + '">Delete</button>' : '') + '</div></div>';
     }).join('');
     return '<div class="menu-wrap"><div class="menu-box" style="max-width:720px"><div class="row"><div class="logo" style="font-size:28px">Load game</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div><div class="mt">' + rows + '</div>' +
@@ -100,6 +119,23 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.0', title: 'Preview of 3.0: ten seasons (2016–2026) and the district model', notes: [
+      'A career now covers ten seasons. Start in any year from 2016 to 2026 (there is no 2021 season) and play through to 2026. Five games are new: 2016 FIRST STRONGHOLD, 2017 FIRST STEAMWORKS, 2018 FIRST POWER UP, 2019 DESTINATION: DEEP SPACE and 2020 INFINITE RECHARGE, each with its own field, robot concepts, six AI robot types, strategies, news and chatter. In random order the games are shuffled, but everything below still follows the calendar year.',
+      'Careers saved in v2.5 load and finish exactly as before. New features apply to careers started in this version or later.',
+      'Money follows the year. Every price, fee and budget is shown in the dollars of the current season, about 27% lower in 2016 than in 2026, so a 2016 budget buys what it bought then.',
+      'A third vendor. From 2016 to 2019 the premium catalogue is Sterling Motion, with brushed motors under their own names. In the 2018 offseason Lumen launches the first brushless motor at about the same price; Sterling has no answer, holds a clearance sale and closes, and Apex Motion opens for the 2020 season. Sterling parts fit Apex parts, and old stock can be resold at a discount.',
+      'Technology by year. Swerve is team-built before 2020 (a CNC Router or a Lathe, far more hours, fragile) and sold as modules afterwards. Vision cameras go on sale for 2018, and AprilTags arrive in 2023, when vision also starts helping autonomous. Pneumatics kits save fewer hours every few years. AI teams follow the same curve: almost no swerve in 2016, most strong teams by 2024.',
+      'Stop Build Day (2016–2019): after build season the competition robot is bagged. You can still develop new mechanisms and upgrades: they are packed when finished and fitted in the pits on practice day (Install Upgrade), or in the robot access window for district teams. Hardware projects run at half speed and drivers cannot practise at home, unless a second robot carries the work.',
+      'Playoffs by year: single elimination with best-of-three series through 2022, double elimination from 2023. The Championship changes too: one in 2016, two from 2017 to 2020 with a round robin on Einstein, one again from 2022. In 2017 the two winning alliances meet at the Festival of Champions, a best of five in July.',
+      'The lost season. Right after the 2020 Championship a pandemic shuts everything down. The 2021 season is cancelled, the calendar jumps to June 2021, and you choose two programs for the year at home. Know-how, student skills, mentors, sponsors and a fifth of all teams are lost. The 2021 offseason events are played with the 2020 robot.',
+      'Districts. Choose a district as your home (Lakeshore, Harbor, Evergreen; Mesa from 2019; Sierra from 2026) or stay a regional team. District teams play two local two-day events for one fee, earn district points with the real formula, and qualify through a District Championship in week 7. When a district forms in your area, a pop-up the July before lets you join or stay regional.',
+      'Wildcards before the Regional Pool. Through 2024 a regional team qualifies by winning, with the Chairman\'s (Impact), Engineering Inspiration or Rookie All-Star award, or on a wildcard: when a team that has already qualified earns another place at a regional, that place goes to the finalist alliance, captain first. The Regional Pool takes over in 2025, as it really did.',
+      'A living world. Every team and every event of the season is simulated: about 740 teams in 2016, 930 in 2020, 760 after the lost season and 900 in 2026, with rookies arriving and teams folding every year. The new World page (District page for district teams) shows standings, every event\'s winners and who has qualified for the Championship. Your Championship division is made of the teams that really qualified.',
+      'Stories. Big changes arrive as pop-ups with their background: a season recap every year, the first vision camera, the brushless motor, the fall of Sterling and the alumnus who founded Apex, the first competitive swerve drives, the end of bag day, double elimination, AprilTags, new districts, and the Chairman\'s Award becoming the Impact Award in 2023. A career that starts later gets one letter with the state of the art.',
+      'History shows every season\'s robot, drawn as it competed, and you can name each robot in the Garage. The lost year has its own card.',
+      'Two optional pre-match choices: in 2016 your alliance picks the defenses the opponents must cross, and in 2018 the order in which the Vault buys Levitate, Boost and Force.',
+      'How to play has a new guide, The decade, and the other guides cover the classic games, districts and the older playoff formats.'
+    ] },
     { v: '2.5', title: 'Finals game by game, sponsor outlook and the electrical shakedown', notes: [
       'Playoff bracket: the finals show every game. Final 1, Final 2 and Final 3 each get their own box with both alliances and the score (Final 3 is marked "if needed" until the series stands at one win each), and a line above them gives the state of the series ("A2 leads 1–0"). The Next strip names the game too: "Next: Final 2 against Alliance 2".',
       'Finance has a Sponsor funding card. This season: base money paid, bonuses reached and bonuses still possible. Next season: the expected base (contracts that continue, plus deals up for renewal weighted by their renewal chance) and the possible max bonus. In the offseason it shows how last season ended and what is already signed for Kickoff. Bonus amounts under each sponsor now include that sponsor\'s +50% bonus perk, so they add up to the totals.',
@@ -270,9 +306,9 @@
     const head = hs.worldChamp ? 'WORLD CHAMPIONS' : hs.divWin ? 'Championship division winners' : hs.champs ? 'Championship qualifiers' : hs.events.some(e => e.won) ? 'Regional winners' : hs.events.some(e => e.playoffs) ? 'Playoff team' : 'Building season';
     o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
-    o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(D.PROGRAM_GOALS[g.id].text) + '</span></div>').join('') +
+    o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(G.Career.goalText(G.S, D.PROGRAM_GOALS[g.id].text, hs.home || null)) + '</span></div>').join('') +
       '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
-    o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
+    o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned, hs.px) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent, hs.px) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money, hs.px) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
       (S.season && S.season.debt ? '<span class="k">Debt covered by school</span><span class="bad">' + U.money(S.season.debt) + ' (support −' + S.season.debtPen.support + ', reputation −' + S.season.debtPen.rep + ')</span>' : '') + '</div>');
     o += '</div>';
     { const bd = (S.season && S.season.board) || hs.board, Sh = G.Shop, nx = Sh.nextSpace(S), n = v => v.toLocaleString('en-US');
@@ -297,7 +333,7 @@
     let o = '';
     if (S.mode === 'single') {
       const g = G.Career.grade(S);
-      o += '<div class="xs muted">SINGLE SEASON CHALLENGE</div><h1>Grade: <span class="acc" style="font-size:44px">' + g.grade + '</span></h1><div class="sub">' + h(g.goalText) + ' — ' + (g.met ? '<span class="good">achieved</span>' : '<span class="bad">not achieved</span>') + ' · legacy ' + g.legacy + '</div>';
+      o += '<div class="xs muted">SINGLE SEASON CHALLENGE</div><h1>Grade: <span class="acc" style="font-size:44px">' + g.grade + '</span></h1><div class="sub">' + h(U.infl(g.goalText)) + ' — ' + (g.met ? '<span class="good">achieved</span>' : '<span class="bad">not achieved</span>') + ' · legacy ' + g.legacy + '</div>';
     } else {
       const L = S.legacy;
       const title = S.endReason === 'fired' ? 'Program cut' : L >= 1500 ? 'Hall of Fame Program' : L >= 900 ? 'Dynasty' : L >= 500 ? 'Regional Powerhouse' : L >= 200 ? 'Rising Program' : 'Building Program';

@@ -40,6 +40,8 @@
   const FOODS = ['three trays of homemade lasagna', 'a mountain of pizza', 'dumplings for forty', 'a cooler of tamales', 'a cake shaped like a swerve module', 'enough cookies to void the weight limit', 'a slow cooker of chili', 'two hundred samosas'];
   const PLUSH = ['penguin', 'capybara', 'axolotl', 'shark', 'frog', 'goose', 'otter'];
   const GAME = { 2022: 'RAPID REACT', 2023: 'CHARGED UP', 2024: 'CRESCENDO', 2025: 'REEFSCAPE', 2026: 'REBUILT' };
+  Object.keys(G.Seasons).filter(k => /^\d{4}$/.test(k)).forEach(y => { GAME[y] = GAME[y] || G.Seasons[y].name; });
+  const seasonText = (S, key) => (G.Seasons[S.year] && G.Seasons[S.year].news ? G.Seasons[S.year].news[key] : null);
 
   // =================================================================
   // Replies: a message can carry options; picking one applies a small effect. Optional, never a popup.
@@ -95,7 +97,7 @@
       { text: 'Ask them to review your design', req: S => S.robot, run: S => { addRep(S, 0.3); S.parts.spares += 1; return 'They found a weak bracket and brought a replacement from their lab. +1 spare part.'; } }
     ],
     restock: [
-      { text: 'Stock up now ($400)', req: S => !G.Career.afford(S, 400), run: S => { G.Career.spend(S, 400, 'Stocked up before a shortage'); S.parts.spares += 2; return 'Bought ahead of the shortage. +2 spare parts for $400.'; } },
+      { get text() { return 'Stock up now (' + G.U.money(400) + ')'; }, req: S => !G.Career.afford(S, 400), run: S => { G.Career.spend(S, 400, 'Stocked up before a shortage'); S.parts.spares += 2; return 'Bought ahead of the shortage. +2 spare parts for ' + G.U.money(400) + '.'; } },
       { text: 'Wait and see', run: () => 'You decided to wait.' }
     ],
     tired: [
@@ -195,15 +197,15 @@
     { id: 'paper', w: 2, cd: 14, run: S => ['School newspaper', 'The school paper ran a front-page piece on the team, headlined "' + R().pick(['Inside the Room That Never Sleeps', 'They Build Robots. In Six Weeks.', 'Meet the Students Who Know What a Hex Shaft Is', 'Gears, Grit and Pizza']) + '".'] },
     { id: 'space', w: 1, cd: 20, req: S => off(S), run: S => ['Shop space', 'The athletics department asked whether the shop could share its storage room with the wrestling mats. Negotiations are ongoing.'] },
     // ---- the FRC world (season-aware)
-    { id: 'tu', w: 3, cd: 3, req: S => S.phase === 'build' || S.phase === 'comp', run: S => ['Team Update posted', R().pick(TEAM_UPDATES[S.year] || TEAM_UPDATES.any)] },
+    { id: 'tu', w: 3, cd: 3, req: S => S.phase === 'build' || S.phase === 'comp', run: S => ['Team Update posted', R().pick(TEAM_UPDATES[S.year] || seasonText(S, 'updates') || TEAM_UPDATES.any)] },
     { id: 'ri3d', w: 4, cd: 30, req: S => S.phase === 'build' && S.week <= 2, run: S => ['Robot in 3 Days', 'The build-in-three-days teams have posted their ' + GAME[S.year] + ' robots. ' + student(S) + ' has watched every video twice and now has "notes".'] },
     { id: 'oa', w: 3, cd: 20, req: S => S.phase === 'build', run: S => ['Open build threads', 'Dozens of teams are posting weekly build updates for everyone to learn from. One of them is designing almost exactly your robot, ' + R().int(2, 5) + ' days ahead of you.'] },
     { id: 'wk', w: 4, cd: 2, req: S => S.phase === 'comp', run: S => { const t = rival(S); return ['Week ' + S.week + ' around the world', 'Highest scores this week came from ' + R().int(2, 5) + ' different regions. Locally, ' + t + ' ' + R().pick(['won their event', 'set a new regional high score', 'went undefeated in qualifications', 'won an Engineering award']) + '.']; } },
     { id: 'meta', w: 3, cd: 6, req: S => S.phase === 'comp' && G.Seasons[S.year].meta, run: S => ['Strategy talk', 'The meta is settling: ' + G.Seasons[S.year].meta.note] },
-    { id: 'champs', w: 3, cd: 20, req: S => S.phase === 'comp' && S.week >= 4, run: S => ['Championship countdown', S.season.champsQualified ? 'Your Championship spot is confirmed. ' + student(S) + ' has started a packing list. Item one: "the robot".' : 'Championship spots are filling up. The Regional Pool cut-off sits around ' + G.Career.poolThreshold(S) + ' points; you have ' + G.Career.poolTotal(S) + '.'] },
+    { id: 'champs', w: 3, cd: 20, req: S => S.phase === 'comp' && S.week >= 4, run: S => ['Championship countdown', S.season.champsQualified ? 'Your Championship spot is confirmed. ' + student(S) + ' has started a packing list. Item one: "the robot".' : (S.team.home && G.World.on(S) ? 'Championship spots are filling up. Your district decides its places after the District Championship. ' + (G.World.myLine(S) || '') : G.Career.wildEra(S) ? 'Championship spots are filling up, and every week more of the winners have already qualified: the finalists at the late regionals are collecting wildcards.' : 'Championship spots are filling up. The Regional Pool cut-off sits around ' + G.Career.poolThreshold(S) + ' points; you have ' + G.Career.poolTotal(S) + '.')] },
     { id: 'offev', w: 2, cd: 12, req: S => off(S) && ['Jun', 'Jul', 'Sep', 'Oct'].includes(month(S)), run: S => ['Offseason events', 'Offseason event registrations are open (Calendar). Lots of teams use them to train new drivers and try out new ideas.'] },
     { id: 'kickoffHype', w: 3, cd: 30, req: S => off(S) && month(S) === 'Dec', run: S => ['Kickoff is coming', 'Kickoff is a few weeks away. The game teaser video is three seconds long and the forum has already written ' + R().int(200, 900) + ' posts analyzing it.'] },
-    { id: 'pins', w: 2, cd: 30, req: S => S.phase === 'build' && S.week >= 2, run: S => ['Ref corner: pins and protected zones', 'This year a robot may pin an opponent for ' + (S.year >= 2025 ? 'three' : 'five') + ' seconds, then it has to back off six feet. ' + (PROT[S.year] || '') + ' Your drive coach is making the drivers count out loud.'] }
+    { id: 'pins', w: 2, cd: 30, req: S => S.phase === 'build' && S.week >= 2, run: S => ['Ref corner: pins and protected zones', 'This year a robot may pin an opponent for ' + (G.Rules[S.year].defense.pin === 3 ? 'three' : 'five') + ' seconds, then it has to back off six feet. ' + (PROT[S.year] || seasonText(S, 'prot') || '') + ' Your drive coach is making the drivers count out loud.'] }
   ];
   const PROT = {
     2022: 'Robots touching their Launch Pad are protected all match, and the Hangar Zone in the last 30 seconds.',
@@ -318,6 +320,9 @@
     { id: 'look', req: S => off(S) && S.history.length > 0, title: 'Looking back', body: S => { const h = S.history[S.history.length - 1]; return 'Someone made a highlight video of the ' + h.year + ' season. The comment section is entirely parents, and it is wonderful.'; } },
     { id: 'offbot', req: S => off(S) && S.robot, title: 'Offseason projects', body: S => student(S) + ' wants to put the old robot\'s shooter on a go-kart "for science". ' + mentor(S) + ' has not said no yet.' }
   ];
+  // chatter the classic games bring along: [title, text] with {student}, {driver} and {mentor} filled in
+  Object.keys(G.Seasons).filter(k => /^\d{4}$/.test(k)).forEach(k => ((G.Seasons[k].news || {}).chatter || []).forEach((c, i) => CHAT.push({ id: 'g' + k + '_' + i, req: S => S.year === Number(k) && inSeason(S), title: c[0],
+    body: S => c[1].replace('{student}', student(S)).replace('{driver}', driver(S)).replace('{mentor}', mentor(S)) })));
 
   function post(S, title, body, kind, extra) { G.Career.inbox(S, title, body, kind, extra); }
   // weighted pick among templates that are allowed now and off cooldown; if everything is on cooldown, the stalest one

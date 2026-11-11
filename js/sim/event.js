@@ -9,7 +9,8 @@
     champs: { name: 'Championship Division', perTeam: () => 10, blocks: 3, sel: true, awards: true },
     offseason: { name: 'Offseason Event', perTeam: () => 6, blocks: 1, sel: true, awards: false },
     scrimmage: { name: 'Week 0 Scrimmage', perTeam: () => 5, blocks: 2, sel: false, awards: false },
-    einstein: { name: 'Einstein', perTeam: () => 0, blocks: 0, sel: false, awards: false }
+    einstein: { name: 'Einstein', perTeam: () => 0, blocks: 0, sel: false, awards: false },
+    dcmp: { name: 'District Championship', perTeam: () => 12, blocks: 2, sel: true, awards: true }
   };
   Ev.KIND = KIND;
 
@@ -23,9 +24,11 @@
     const ev = {
       id: def.id || U.uid('ev'), name: def.name, kind: def.kind, year, week: def.week || 0, region: def.region || S.team.region,
       star: def.str || 3, seed: rng.int(1, 2e9), stage: 'practice', teams: [], caps: {}, rank: {}, quals: [], qi: 0,
-      practice: { blocks: K.blocks, used: [] }, tune: 0.3, conf: 0.3, tuneAuto: 0, shake: 0, plan: { pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false },
+      dist: def.dist || null, // a district event (two days, twelve qualification matches each) or the District Championship
+      practice: { blocks: def.dist ? 2 : K.blocks, used: [] }, tune: 0.3, conf: 0.3, tuneAuto: 0, shake: 0, plan: { pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false },
       suggest: {}, sel: null, alliances: null, po: null, awards: [], log: [], lastPlayerMatch: -1, timeouts: {}, matchCount: 0, playerResults: [],
-      incidents: [], fatigue: S.fatigue == null ? D.FATIGUE_BASE : S.fatigue
+      incidents: [], fatigue: S.fatigue == null ? D.FATIGUE_BASE : S.fatigue,
+      fmt: def.fmt || G.Era.playoffs(G.Era.cy(S)) // playoff format of the calendar year: 'se' single elimination (to 2022), 'de' double elimination
     };
     ev.scoutCred = Ev.credibility(S, ev);
     const player = S.team.num;
@@ -33,7 +36,8 @@
     const diffMult = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1;
     const size = def.size || 40;
     const exclude = new Set([player]);
-    const ai = G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs');
+    // a simulated world names the teams at every event; otherwise the field is drawn by area and strength
+    const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs');
     ev.teams = [player].concat(ai);
     ai.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], year, weekMult, diffMult, rng); });
     ev.teams.forEach(n => { ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: rng.next() }; });
@@ -41,7 +45,7 @@
     const st = G.Robot.eventStart(S, ev);
     ev.tune = st.tune; ev.conf = st.conf;
     if (def.kind === 'einstein') { ev.stage = 'playoffs'; }
-    else ev.quals = makeSchedule(ev.teams, K.perTeam(ev.teams.length), rng);
+    else ev.quals = makeSchedule(ev.teams, def.dist ? 12 : K.perTeam(ev.teams.length), rng);
     ev.inspection = G.Robot.inspect(S, ev);
     S.event = ev;
     return ev;
@@ -112,14 +116,25 @@
         break;
       }
       case 'scout': { ev.scoutBonus = (ev.scoutBonus || 0) + 1; ev.scoutCred = Math.min(0.99, ev.scoutCred + 0.03); out.push('Scouting data sharpened (strategy mentor ' + Math.round(strat) + '). Scouting credibility ' + Math.round(ev.scoutCred * 100) + '%.'); break; }
-      case 'install': { const n = G.Robot.installPending(S); out.push(n ? 'Installed ' + n + ' upgrade' + (n > 1 ? 's' : '') + '.' : 'No pending upgrades to install.'); break; }
+      case 'install': {
+        // parts made while the robot was in the bag come out of the crate; then anything that was finished during the event
+        const fit = G.Robot.installHeld(S), n = G.Robot.installPending(S);
+        if (fit.length) {
+          out.push('Fitted in the pits: ' + fit.join(', ') + '.');
+          ev.inspection = G.Robot.inspect(S, ev);
+          if (!ev.inspection.ok) out.push('With the new parts the robot weighs ' + ev.inspection.weight + ' lb. ' + G.Robot.emergencyLighten(S));
+        }
+        if (n) out.push('Installed ' + n + ' upgrade' + (n > 1 ? 's' : '') + '.');
+        if (!fit.length && !n) out.push('No pending upgrades to install.');
+        break;
+      }
       case 'lighten': { out.push(G.Robot.emergencyLighten(S)); break; }
     }
     ev.practice.used.push(prog);
     if (ev.practice.used.length >= ev.practice.blocks) ev.stage = ev.kind === 'einstein' ? 'playoffs' : 'quals';
     return out;
   };
-  Ev.skipPractice = function (ev) { while (ev.stage === 'practice') Ev.doPractice(ev, ev.inspection && !ev.inspection.ok && !ev.practice.used.includes('lighten') ? 'lighten' : 'calib'); };
+  Ev.skipPractice = function (ev) { while (ev.stage === 'practice') Ev.doPractice(ev, ev.inspection && !ev.inspection.ok && !ev.practice.used.includes('lighten') ? 'lighten' : G.Robot.held(G.S).length ? 'install' : 'calib'); };
 
   // ------------------------------------------------------------------
   // Match building & running
@@ -221,7 +236,11 @@
     const S = G.S;
     const playoff = !!match.playoff;
     const ens = Ev.matchEntries(ev, match, playoff);
-    return G.Engine.create({
+    // the player's optional pre-match choices in the classic games
+    const mine = match.red.includes(S.team.num) ? 'red' : match.blue.includes(S.team.num) ? 'blue' : null, opp = mine === 'red' ? 'blue' : 'red', p = ev.plan || {};
+    const defPick = mine && ev.year === 2016 && (p.defA || p.defB || p.defC || p.defD) ? { [opp]: { A: p.defA || null, B: p.defB || null, C: p.defC || null, D: p.defD || null } } : null;
+    const puPref = mine && ev.year === 2018 && p.puPref ? { [mine]: p.puPref } : null;
+    return G.Engine.create({ defPick, puPref,
       year: ev.year, red: ens.red, blue: ens.blue, seed: hash(ev.seed, (match.key || match.n) * 7919 + (match.game || 0)),
       headless: !!(opts && opts.headless), playoff, diff: { easy: 0.6, normal: 1, hard: 1.3 }[S.diff] || 1,
       calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num, feedIQ: ens.feedIQ
@@ -523,16 +542,71 @@
     { id: 'F', red: { W: 'M11' }, blue: { W: 'M13' }, round: 'Finals', bo3: true }
   ];
   Ev.BR = BR;
+  // Through 2022: single elimination, 1 v 8 / 4 v 5 / 2 v 7 / 3 v 6, every series best of three.
+  const BR_SE = [
+    { id: 'QF1', red: { s: 1 }, blue: { s: 8 }, round: 'Quarterfinal 1', bo3: true }, { id: 'QF2', red: { s: 4 }, blue: { s: 5 }, round: 'Quarterfinal 2', bo3: true },
+    { id: 'QF3', red: { s: 2 }, blue: { s: 7 }, round: 'Quarterfinal 3', bo3: true }, { id: 'QF4', red: { s: 3 }, blue: { s: 6 }, round: 'Quarterfinal 4', bo3: true },
+    { id: 'SF1', red: { W: 'QF1' }, blue: { W: 'QF2' }, round: 'Semifinal 1', bo3: true }, { id: 'SF2', red: { W: 'QF3' }, blue: { W: 'QF4' }, round: 'Semifinal 2', bo3: true },
+    { id: 'F', red: { W: 'SF1' }, blue: { W: 'SF2' }, round: 'Finals', bo3: true }
+  ];
+  Ev.BR_SE = BR_SE;
+  Ev.isSE = ev => !!(ev && ev.fmt === 'se');
+  // 2017 to 2022: Einstein is a round robin (every division champion plays every other once), and the top two play a
+  // best-of-three final. Built for the number of alliances at hand.
+  const RR_CACHE = {};
+  function brRR(n) {
+    if (RR_CACHE[n]) return RR_CACHE[n];
+    const arr = []; for (let i = 0; i < n; i++) arr.push(i);
+    if (n % 2) arr.push(-1);
+    const N = arr.length, t = []; let k = 1;
+    for (let rd = 0; rd < N - 1; rd++) {
+      for (let i = 0; i < N / 2; i++) { const a = arr[i], b = arr[N - 1 - i]; if (a < 0 || b < 0) continue; t.push({ id: 'R' + k++, red: { a: rd % 2 ? b : a }, blue: { a: rd % 2 ? a : b }, round: 'Round ' + (rd + 1) }); }
+      arr.splice(1, 0, arr.pop());
+    }
+    t.push({ id: 'F', red: { rk: 0 }, blue: { rk: 1 }, round: 'Finals', bo3: true });
+    return (RR_CACHE[n] = t);
+  }
+  // the Festival of Champions: the two Championship winners, best of five
+  const BR_F5 = [{ id: 'F', red: { s: 1 }, blue: { s: 2 }, round: 'Festival of Champions', bo3: true, need: 3 }];
+  const brOf = ev => (!ev ? BR : ev.fmt === 'se' ? BR_SE : ev.fmt === 'rr' ? brRR((ev.alliances || []).length || 6) : ev.fmt === 'f5' ? BR_F5 : BR);
+  Ev.isRR = ev => !!(ev && ev.fmt === 'rr');
+  // round-robin table: 2 points a win, 1 a tie; total score breaks ties
+  Ev.rrStandings = function (ev) {
+    const n = ev.alliances.length, rows = []; for (let i = 0; i < n; i++) rows.push({ i, w: 0, l: 0, t: 0, pts: 0, score: 0, played: 0 });
+    const ms = ev.po ? ev.po.matches.filter(m => m.id !== 'F') : [];
+    ms.forEach(m => { if (m.winner == null) return; const g = m.games[m.games.length - 1]; rows[m.winner].w++; rows[m.winner].pts += 2; rows[m.loser].l++; rows[m.red].played++; rows[m.blue].played++; rows[m.red].score += g.red; rows[m.blue].score += g.blue; });
+    const order = rows.slice().sort((p, q) => q.pts - p.pts || q.score - p.score || p.i - q.i);
+    return { rows, order: order.map(r => r.i), done: ms.length > 0 && ms.every(m => m.winner != null) };
+  };
+  Ev.brOf = brOf;
   Ev.initPlayoffs = function (ev) {
     ev.stage = 'playoffs';
-    const n = ev.alliances.length;
-    ev.po = { matches: BR.map(b => ({ id: b.id, round: b.round, bo3: !!b.bo3, red: null, blue: null, games: [], winner: null, loser: null, res: null })), done: false, finish: {} };
+    const n = ev.alliances.length, T = brOf(ev);
+    ev.po = { matches: T.map(b => ({ id: b.id, round: b.round, bo3: !!b.bo3, need: b.need || 2, red: null, blue: null, games: [], winner: null, loser: null, res: null })), done: false, finish: {} };
     ev.po.matches.forEach(m => resolveSlots(ev, m));
     // Byes when fewer than 8 alliances
-    if (n < 8) ev.po.matches.forEach(m => { if (m.red != null && m.blue == null && m.id.startsWith('M') && BR.find(b => b.id === m.id).blue.s > n) { m.winner = m.red; m.bye = true; } });
+    if (n < 8) ev.po.matches.forEach(m => { const b = T.find(x => x.id === m.id); if (m.red != null && m.blue == null && b.blue.s && b.blue.s > n) { m.winner = m.red; m.bye = true; } });
     ev.timeouts = {};
   };
+  // Names: "Match 7" / "Quarterfinal 2" for a bracket slot; "M7" / "QF2-1" / "Final 2" for one game of it
+  Ev.poRound = (ev, id) => (id === 'F' ? 'Finals' : /^M\d/.test(id) ? 'Match ' + id.slice(1) : /^R\d/.test(id) ? 'Round robin ' + id.slice(1) : ((brOf({ fmt: 'se' }).find(b => b.id === id) || {}).round || id));
+  Ev.poGame = function (ev, m, played) {
+    const k = played ? Math.max(1, m.games.filter(g => !g.replay).length + (m.games.length && m.games[m.games.length - 1].replay ? 1 : 0)) : m.games.filter(g => !g.replay).length + 1;
+    return m.id === 'F' ? 'Final ' + k : m.bo3 ? m.id + '-' + k : m.id;
+  };
+  // out of the tournament: two losses (double elimination) or a lost series (single elimination); the finals loser too
+  Ev.allianceOut = function (ev, i) {
+    if (!ev.po) return false;
+    const F = ev.po.matches.find(x => x.id === 'F');
+    if (F && F.loser === i) return true;
+    if (ev.fmt === 'f5') return false;
+    if (ev.fmt === 'rr') { const st = Ev.rrStandings(ev); return st.done && st.order.indexOf(i) > 1; }
+    if (ev.fmt === 'se') return ev.po.matches.some(m => m.loser === i);
+    return ev.po.matches.filter(m => !m.bo3 && m.loser === i).length >= 2;
+  };
   function slotVal(ev, spec) {
+    if (spec.a != null) return spec.a < ev.alliances.length ? spec.a : null;
+    if (spec.rk != null) { const st = Ev.rrStandings(ev); return st.done ? st.order[spec.rk] : null; }
     if (spec.s) return spec.s <= ev.alliances.length ? spec.s - 1 : null;
     const m = ev.po.matches.find(x => x.id === (spec.W || spec.L));
     if (!m || m.winner == null) return null;
@@ -540,19 +614,31 @@
     return m.bye ? null : m.loser;
   }
   function resolveSlots(ev, m) {
-    const b = BR.find(x => x.id === m.id);
+    const b = brOf(ev).find(x => x.id === m.id);
     if (m.red == null) m.red = slotVal(ev, b.red);
     if (m.blue == null) m.blue = slotVal(ev, b.blue);
   }
   // Next unplayed playoff match (ready to play), simulating other alliances' matches first when told to.
   Ev.nextPlayoff = function (ev) {
     const po = ev.po;
+    if (ev.fmt === 'se') { // the series of a round take turns: QF1-1, QF2-1, QF3-1, QF4-1, QF1-2, ...
+      for (const rd of ['QF', 'SF', 'F']) {
+        const open = po.matches.filter(m => m.id.indexOf(rd) === 0 && (resolveSlots(ev, m), m.winner == null));
+        if (!open.length) continue;
+        const ready = open.filter(m => m.red != null && m.blue != null);
+        open.forEach(m => { if ((m.red == null) !== (m.blue == null)) { m.winner = m.red != null ? m.red : m.blue; m.bye = true; } }); // an empty side: a bye
+        if (ready.length) return ready.reduce((a, b) => (b.games.length < a.games.length ? b : a));
+        if (open.some(m => m.bye)) return Ev.nextPlayoff(ev);
+        return null;
+      }
+      return null;
+    }
     for (const m of po.matches) {
       resolveSlots(ev, m);
       if (m.winner != null) continue;
       if (m.red == null || m.blue == null) {
         // handle byes cascading in lower bracket
-        const b = BR.find(x => x.id === m.id);
+        const b = brOf(ev).find(x => x.id === m.id);
         const srcMissing = (spec) => spec.L && (() => { const s = po.matches.find(x => x.id === spec.L); return s && s.bye; })();
         if (m.red != null && m.blue == null && srcMissing(b.blue)) { m.winner = m.red; m.bye = true; continue; }
         if (m.blue != null && m.red == null && srcMissing(b.red)) { m.winner = m.blue; m.bye = true; continue; }
@@ -565,11 +651,11 @@
   Ev.playerAlliance = function (ev) { const me = G.S.team.num; return ev.alliances ? ev.alliances.findIndex(a => a.includes(me)) : -1; };
   Ev.poMatchObj = function (ev, m) {
     const g = m.games.filter(x => !x.replay).length, last = m.games[m.games.length - 1];
-    return { key: 1000 + BR.findIndex(b => b.id === m.id) * 10 + m.games.length, game: g, replay: !!(last && last.replay), playoff: true, red: ev.alliances[m.red], blue: ev.alliances[m.blue], id: m.id };
+    return { key: 1000 + brOf(ev).findIndex(b => b.id === m.id) * 10 + m.games.length, game: g, replay: !!(last && last.replay), playoff: true, red: ev.alliances[m.red], blue: ev.alliances[m.blue], id: m.id };
   };
   // FRC playoff tiebreakers (game manuals): foul points first, then the season's auto / endgame points, and only if
   // everything is still equal is the match replayed. 2022 Hangar and 2023 Charge Station come before auto.
-  Ev.TIEBREAK = year => (year === 2022 || year === 2023
+  Ev.TIEBREAK = year => (G.Seasons[year] && G.Seasons[year].tiebreak ? [['foul', 'foul points'], ['auto', 'auto points'], ['end', G.Seasons[year].tiebreak + ' points']] : year === 2022 || year === 2023
     ? [['foul', 'foul points'], ['end', year === 2022 ? 'Hangar points' : 'Charge Station points'], ['auto', 'auto points']]
     : [['foul', 'foul points'], ['auto', 'auto points'], ['end', ({ 2024: 'Stage', 2025: 'Barge', 2026: 'Tower' })[year] ? ({ 2024: 'Stage', 2025: 'Barge', 2026: 'Tower' })[year] + ' points' : 'endgame points']]);
   Ev.breakTie = function (ev, res) {
@@ -603,7 +689,7 @@
     let w = null;
     if (m.bo3) {
       const rw = m.games.filter(x => x.winner === 'red').length, bw = m.games.filter(x => x.winner === 'blue').length;
-      if (rw >= 2) w = 'red'; else if (bw >= 2) w = 'blue';
+      if (rw >= (m.need || 2)) w = 'red'; else if (bw >= (m.need || 2)) w = 'blue';
     } else if (res.winner !== 'tie') w = res.winner;
     if (w) {
       m.winner = w === 'red' ? m.red : m.blue;
@@ -615,6 +701,16 @@
     const get = id => ev.po.matches.find(x => x.id === id);
     const f = ev.po.finish = {};
     ev.alliances.forEach((a, i) => f[i] = 'Quarterfinalist');
+    if (ev.fmt === 'rr' || ev.fmt === 'f5') {
+      ev.alliances.forEach((a, i) => f[i] = 'Einstein round robin');
+      const F = get('F'); f[F.loser] = 'Finalist'; f[F.winner] = 'Winner';
+      return;
+    }
+    if (ev.fmt === 'se') {
+      ['SF1', 'SF2'].forEach(id => { const x = get(id); if (x.loser != null) f[x.loser] = 'Semifinalist'; });
+      const F = get('F'); f[F.loser] = 'Finalist'; f[F.winner] = 'Winner';
+      return;
+    }
     const F = get('F'), M13 = get('M13'), M12 = get('M12');
     ['M9', 'M10'].forEach(id => { const x = get(id); if (x.loser != null) f[x.loser] = 'Lower R2'; });
     ['M5', 'M6'].forEach(id => { const x = get(id); if (x.loser != null) f[x.loser] = 'Lower R1'; });
@@ -635,6 +731,13 @@
   Ev.playerLosses = function (ev) {
     const pa = Ev.playerAlliance(ev);
     if (pa < 0 || !ev.po) return { losses: 0, finals: 0 };
+    if (ev.fmt === 'rr') { const st = Ev.rrStandings(ev), row = st.rows[pa], F = ev.po.matches.find(x => x.id === 'F'), inF = !!(F && (F.red === pa || F.blue === pa));
+      if (!inF) return { rr: true, w: row.w, l: row.l, rank: st.order.indexOf(pa) + 1, n: st.rows.length, losses: row.l, finals: 0, inFinals: false }; }
+    if (ev.fmt === 'se' || ev.fmt === 'f5' || ev.fmt === 'rr') { // the series you are in: games won and lost
+      const cur = ev.po.matches.slice().reverse().find(m => m.red === pa || m.blue === pa) || null;
+      const mine = cur && cur.red === pa ? 'red' : 'blue', w = cur ? cur.games.filter(g => !g.replay && g.winner === mine).length : 0, l = cur ? cur.games.filter(g => !g.replay && g.winner !== mine && g.winner !== 'tie').length : 0;
+      return { se: true, round: cur ? cur.round : '', w, l, losses: l, finals: cur && cur.id === 'F' ? l : 0, inFinals: !!(cur && cur.id === 'F') };
+    }
     const F = ev.po.matches.find(x => x.id === 'F'), side = F && F.red === pa ? 'blue' : 'red';
     return { losses: ev.po.matches.filter(m => m.loser === pa && !m.bo3).length, finals: F && (F.red === pa || F.blue === pa) ? F.games.filter(g => g.winner === side).length : 0, inFinals: !!(F && (F.red === pa || F.blue === pa)) };
   };
@@ -643,6 +746,9 @@
     if (pa < 0) return 'Not in playoffs';
     const losses = ev.po.matches.filter(m => m.loser === pa && !m.bo3).length;
     if (ev.po.done) return ev.po.finish[pa];
+    if (ev.fmt === 'f5') return 'Best of five';
+    if (ev.fmt === 'rr') { const st = Ev.rrStandings(ev); return !st.done ? 'Round robin' : st.order.indexOf(pa) <= 1 ? 'Finals' : 'Eliminated'; }
+    if (ev.fmt === 'se') { if (Ev.allianceOut(ev, pa)) return 'Eliminated'; const cur = ev.po.matches.slice().reverse().find(m => m.red === pa || m.blue === pa); return cur ? cur.round.replace(/ \d$/, 's').replace('Finalss', 'Finals') : 'Quarterfinals'; }
     return losses >= 2 ? 'Eliminated' : losses === 1 ? 'Lower bracket' : 'Upper bracket';
   };
   Ev.playerEliminated = function (ev) {
@@ -650,6 +756,7 @@
     if (pa < 0) return true;
     const f = ev.po.matches.find(x => x.id === 'F');
     if (f.winner != null) return true;
+    if (ev.fmt === 'se' || ev.fmt === 'rr' || ev.fmt === 'f5') return Ev.allianceOut(ev, pa);
     return ev.po.matches.filter(m => m.loser === pa && !m.bo3).length >= 2;
   };
 
@@ -698,7 +805,7 @@
       const pos = ev.alliances[pa].indexOf(me);
       pts += pos <= 1 ? 16 - pa : 8 - pa;
       const f = ev.po.finish[pa];
-      pts += { Winner: 30, Finalist: 20, '3rd place': 13, '4th place': 7 }[f] || 0;
+      pts += { Winner: 30, Finalist: 20, '3rd place': 13, '4th place': 7, Semifinalist: 10 }[f] || 0; // single elimination: 10 per series won
     }
     ev.awards.filter(a => a.team === me).forEach(a => { const d = D.AWARDS.find(x => x.id === a.id); pts += d ? d.pool : 5; });
     return pts;
@@ -718,7 +825,7 @@
       alliance: pa >= 0 ? pa + 1 : 0, role: pa >= 0 ? ['Captain', '1st pick', '2nd pick'][ev.alliances[pa].indexOf(me)] : '',
       playoffs: pa >= 0, finish, won: finish === 'Winner', finalist: finish === 'Finalist',
       awards: ev.awards.filter(a => a.team === me).map(a => a.id), awardNames: ev.awards.filter(a => a.team === me).map(a => a.name),
-      winners, pool: ev.kind === 'regional' ? Ev.poolPoints(ev) : 0, opr: Ev.opr(ev)[me] || 0
+      winners, pool: ev.kind === 'regional' && !ev.dist && !G.Career.wildEra(G.S) ? Ev.poolPoints(ev) : 0, opr: Ev.opr(ev)[me] || 0
     };
     ev.stage = 'done';
     G.Career.onEventDone(S, ev);

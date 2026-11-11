@@ -74,6 +74,10 @@
   };
 
   const FIELD = {};
+  Rd.FIELD = FIELD;
+  Rd.K = { rect, arect, circ, poly, line, text, apoly, aline, atext, ball, ring, P, alc, als, seeded };
+  // Game pieces of the classic games: how a held piece and a shot look. { shape: 'ball' | 'box' | 'disc' | 'gear', col, r }
+  Rd.PIECES = {}; Rd.SHOTS = {};
   FIELD[2022] = function (ctx, s, sym, m) {
     const cx = FW / 2, cy = FH / 2;
     ['blue', 'red'].forEach(a => {
@@ -386,6 +390,17 @@
       else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-sz * 0.14, -sz * 0.14, sz * 0.28, sz * 0.28); }
       else if (t === 'coral') { ctx.fillStyle = COL.coral; ctx.fillRect(-sz * 0.22, -sz * 0.06, sz * 0.44, sz * 0.12); }
       else if (t === 'algae') { ctx.beginPath(); ctx.arc(0, 0, sz * 0.17, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
+      else if (Rd.PIECES[t]) {
+        const pc = Rd.PIECES[t], q = sz * (pc.r || 0.15), n = Math.min(pc.many || 1, r.held);
+        for (let i = 0; i < n; i++) {
+          const ox = (i - (n - 1) / 2) * q * 1.5;
+          ctx.beginPath();
+          if (pc.shape === 'box') { ctx.fillStyle = pc.col; ctx.fillRect(ox - q, -q, 2 * q, 2 * q); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(ox - q, -q, 2 * q, 2 * q); }
+          else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * 0.5); ctx.stroke(); }
+          else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = '#1a1e23'; ctx.fill(); }
+          else { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+        }
+      }
       else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, sz * 0.15, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = 4; ctx.stroke(); }
       else { for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc((i - (r.held > 1 ? 0.5 : 0)) * sz * 0.26, 0, sz * 0.12, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); } }
       ctx.rotate(r.hd || 0);
@@ -492,7 +507,7 @@
     if (lk.vision) { ctx.fillStyle = '#111'; ctx.fillRect(cx + 0.25 * s, top - 0.12 * s, 0.06 * s, 0.05 * s); ctx.fillStyle = '#4cff8a'; ctx.fillRect(cx + 0.31 * s, top - 0.11 * s, 0.015 * s, 0.03 * s); if (lk.vision > 1) { ctx.fillStyle = '#111'; ctx.fillRect(x0 + 0.1 * s, top - 0.16 * s, 0.06 * s, 0.05 * s); } }
     // LEDs
     if (ver >= 3) { ctx.fillStyle = lk.c2 || '#4cff8a'; ctx.fillRect(x0, fy - 0.07 * s, fw, 0.015 * s); }
-    if (low) { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(0, gy - 0.6 * s); ctx.lineTo(W, gy - 0.6 * s); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left'; ctx.fillText('trench clearance', 6, gy - 0.6 * s - 7); }
+    if (low) { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(0, gy - 0.6 * s); ctx.lineTo(W, gy - 0.6 * s); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left'; ctx.fillText(lk.year === 2016 ? 'low bar' : 'trench clearance', 6, gy - 0.6 * s - 7); }
   };
 
   // ------------------------------------------------------------------
@@ -511,6 +526,7 @@
         else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
         else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
         else if (m.year === 2026) { ball(ctx, s, x, y, 0.07, COL.fuel); ball(ctx, s, x - 0.18, y + 0.1, 0.06, COL.fuel); ball(ctx, s, x + 0.12, y - 0.14, 0.06, COL.fuel); }
+        else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
         else circ(ctx, s, x, y, 0.1, '#d9dee3');
         ctx.restore();
       } else if (f.k === 'pop') {

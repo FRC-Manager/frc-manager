@@ -7,6 +7,7 @@
 
   D.VENDORS = {
     A: { id: 'A', name: 'Apex Motion', short: 'Apex', tag: 'Premium', color: '#ff9f43', desc: 'Top-performance electronics at premium prices.' },
+    T: { id: 'T', name: 'Sterling Motion', short: 'Sterling', tag: 'Premium', color: '#c8b273', desc: 'The old premium catalogue: thirty years of brushed motors, and the parts most champions ran.' },
     B: { id: 'B', name: 'Lumen Robotics', short: 'Lumen', tag: 'Value', color: '#35c9d6', desc: 'Dependable, economical electronics.' },
     K: { id: 'K', name: 'Kit of Parts', short: 'KOP', tag: 'Basic', color: '#8d97a1', desc: 'Basic, low-performance parts: some free at every Kickoff, more for very little, always in stock.' },
     C: { id: 'C', name: 'COTS suppliers', short: 'COTS', tag: 'Mechanical', color: '#b39dff', desc: 'Mechanical components from many suppliers. Always compatible.' }
@@ -15,7 +16,7 @@
   // Part categories. elec: sold by vendor A or B and part of the robot's control system (mixing vendors costs a bit).
   // max: inventory slots (enough for two full robots, with a few to spare).
   D.PART_CATS = [
-    { id: 'motor', name: 'Brushless motor + controller', short: 'Motors', icon: 'motor', elec: true, max: 44, desc: 'Drivetrains use 4–8, most mechanisms 1–3.' },
+    { id: 'motor', name: 'Motor + controller', short: 'Motors', icon: 'motor', elec: true, max: 44, desc: 'Drivetrains use 4–8, most mechanisms 1–3.' },
     { id: 'enc', name: 'Absolute encoder', short: 'Encoders', icon: 'sensor', elec: true, max: 18, desc: 'One per swerve module, plus arms, elevators, hoods and turrets.' },
     { id: 'ctrl', name: 'Control & power hub', short: 'Control hubs', icon: 'chip', elec: true, max: 3, desc: 'Power distribution, CAN network and IMU. One per robot.' },
     { id: 'swerve', name: 'Swerve module', short: 'Swerve modules', icon: 'swerve', elec: true, max: 10, desc: 'Four per swerve drivetrain (motors not included).' },
@@ -54,6 +55,42 @@
     const p = ELEC_PRICE[cat][v] * (1 + 0.12 * (gen - 1));
     return { id: cat + v + gen, cat, v, gen, name: ELEC_NAMES[cat][v] + D.ROMAN[gen], price: Math.round(p / 5) * 5, perf: Math.min(1, ELEC_PERF[v] + 0.15 * (gen - 1)) };
   };
+  // ---------- v3.0 careers: the era catalogue ----------
+  // Product ladders by calendar year. Slot A is the premium vendor: Sterling Motion (brand T) through the 2019 season,
+  // Apex Motion from 2020. Apex kept Sterling's bolt pattern and connectors, so the two never count as mixed. Slot B is
+  // Lumen. y: the season a product is launched for (the launch event is in the autumn before). fix: a story date that
+  // never moves; the others land up to a year early or late in each career. Performance and prices from 2022 on match
+  // the v2.5 catalogue (prices in 2026 dollars; the price index does the rest). launchPrice: asked through the launch season.
+  const T = 'T', BL = 'brushless', BR = 'brushed';
+  D.LADDER = {
+    motor: {
+      A: [{ y: 2016, brand: T, kind: BR, name: 'Sterling Pro', perf: 0.26, price: 230, fix: 1 }, { y: 2017, brand: T, kind: BR, name: 'Sterling Pro II', perf: 0.32, price: 240 },
+        { y: 2020, brand: 'A', kind: BL, name: 'Apex Torque', perf: 0.6, price: 215, fix: 1, quiet: 1 }, { y: 2022, brand: 'A', kind: BL, name: 'Apex Torque II', perf: 0.72, price: 230 },
+        { y: 2024, brand: 'A', kind: BL, name: 'Apex Torque III', perf: 0.87, price: 258 }, { y: 2026, brand: 'A', kind: BL, name: 'Apex Torque IV', perf: 1, price: 285 }],
+      B: [{ y: 2016, kind: BR, name: 'Lumen Volt', perf: 0.16, price: 150, fix: 1 }, { y: 2018, kind: BR, name: 'Lumen Volt II', perf: 0.22, price: 158 },
+        { y: 2019, kind: BL, name: 'Lumen Ion', perf: 0.42, price: 150, launchPrice: 215, fix: 1, story: 'brushless' }, { y: 2022, kind: BL, name: 'Lumen Ion II', perf: 0.5, price: 150 },
+        { y: 2024, kind: BL, name: 'Lumen Ion III', perf: 0.65, price: 168 }, { y: 2026, kind: BL, name: 'Lumen Ion IV', perf: 0.8, price: 186 }]
+    },
+    enc: {
+      A: [{ y: 2016, brand: T, name: 'Sterling TrueTrack', perf: 0.4, price: 65, fix: 1 }, { y: 2018, brand: T, name: 'Sterling TrueTrack II', perf: 0.5, price: 68 },
+        { y: 2020, brand: 'A', name: 'Apex TrueAngle', perf: 0.62, price: 62, fix: 1, quiet: 1 }, { y: 2022, brand: 'A', name: 'Apex TrueAngle II', perf: 0.72, price: 65 },
+        { y: 2024, brand: 'A', name: 'Apex TrueAngle III', perf: 0.87, price: 73 }, { y: 2026, brand: 'A', name: 'Apex TrueAngle IV', perf: 1, price: 81 }],
+      B: [{ y: 2016, name: 'Lumen SpinSense', perf: 0.25, price: 40, fix: 1 }, { y: 2019, name: 'Lumen SpinSense II', perf: 0.38, price: 40 }, { y: 2022, name: 'Lumen SpinSense III', perf: 0.5, price: 40 },
+        { y: 2024, name: 'Lumen SpinSense IV', perf: 0.65, price: 45 }, { y: 2026, name: 'Lumen SpinSense V', perf: 0.8, price: 50 }]
+    },
+    ctrl: {
+      A: [{ y: 2016, brand: T, name: 'Sterling Command Hub', perf: 0.45, price: 700, fix: 1 }, { y: 2018, brand: T, name: 'Sterling Command Hub II', perf: 0.55, price: 720 },
+        { y: 2020, brand: 'A', name: 'Apex Core Hub', perf: 0.62, price: 680, fix: 1, quiet: 1 }, { y: 2022, brand: 'A', name: 'Apex Core Hub II', perf: 0.72, price: 700 },
+        { y: 2024, brand: 'A', name: 'Apex Core Hub III', perf: 0.87, price: 785 }, { y: 2026, brand: 'A', name: 'Apex Core Hub IV', perf: 1, price: 870 }],
+      B: [{ y: 2016, name: 'Lumen PowerGrid', perf: 0.28, price: 440, fix: 1 }, { y: 2019, name: 'Lumen PowerGrid II', perf: 0.4, price: 440 }, { y: 2022, name: 'Lumen PowerGrid III', perf: 0.5, price: 440 },
+        { y: 2024, name: 'Lumen PowerGrid IV', perf: 0.65, price: 495 }, { y: 2026, name: 'Lumen PowerGrid V', perf: 0.8, price: 545 }]
+    },
+    swerve: {
+      A: [{ y: 2020, brand: 'A', name: 'Apex Vector module', perf: 0.64, price: 460, fix: 1, quiet: 1 }, { y: 2023, brand: 'A', name: 'Apex Vector II module', perf: 0.78, price: 490 }, { y: 2025, brand: 'A', name: 'Apex Vector III module', perf: 0.92, price: 550 }],
+      B: [{ y: 2022, name: 'Lumen Pivot module', perf: 0.5, price: 330, fix: 1, story: 'pivot' }, { y: 2024, name: 'Lumen Pivot II module', perf: 0.65, price: 370 }, { y: 2026, name: 'Lumen Pivot III module', perf: 0.8, price: 410 }]
+    }
+  };
+  Object.keys(D.LADDER).forEach(c => ['A', 'B'].forEach(v => D.LADDER[c][v].forEach(L => { if (!L.brand) L.brand = v; })));
   D.COTS_PRICE = { gearbox: 120, camera: 260, pneu: 500, kElev: 480, kArm: 320, kShoot: 420, kTurret: 650, kIntake: 260, kIndex: 220, kClimb: 210 };
   D.ELEC_CATS = ['motor', 'enc', 'ctrl', 'swerve'];
   D.COTS_CATS = ['gearbox', 'camera', 'pneu', 'kElev', 'kArm', 'kShoot', 'kTurret', 'kIntake', 'kIndex', 'kClimb'];

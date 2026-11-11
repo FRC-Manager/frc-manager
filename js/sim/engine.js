@@ -28,6 +28,7 @@
       T: S.timing, total: S.timing.auto + S.timing.tele, robots: [], score: {}, ss: {}, log: [], fx: [], obs: [],
       headless: !!o.headless, playoff: !!o.playoff, calls: o.calls == null ? 3 : o.calls, callsUsed: 0, pending: [],
       diff: o.diff || 1, coachSkill: o.coachSkill || 50, playerTeam: o.playerTeam || null,
+      defPick: o.defPick || null, puPref: o.puPref || null, // classic games: the defenses chosen for an alliance (2016), an alliance's power-up order (2018)
       feedIQ: Object.assign({ red: 0, blue: 0 }, o.feedIQ || {}) // how well each alliance runs alternative strategies (2024 note feeding)
     };
     ['red', 'blue'].forEach(a => {
