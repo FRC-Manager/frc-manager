@@ -112,16 +112,25 @@
     const p = x.prod, owned = P().items(S, p.cat).filter(i => i.p === p.id).length, price = P().price(S, p), ok = P().inStock(S, p.id) || !P().inSeason(S);
     const qty = p.cat === 'motor' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' ? [1, 2] : [1];
     const bv = brand(p);
-    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
+    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag('loyalty −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
       '<div class="statrow"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, D.VENDORS[bv].color) + '<span class="v">' + Math.round(p.perf * 100) + '</span></div>' +
       '<div class="row sm wrap"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? UI.tag('always in stock', 'good') : stockTag(S, p.id)) + '</div>' +
       '<div class="row wrap gap4 mt">' + qty.map(n => '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|' + n + '" ' + (ok ? '' : 'disabled') + '>+' + n + ' · ' + U.money(n * price) + '</button>').join('') + '</div></div>';
+  }
+  // a vendor's loyalty level with the team, and what it currently gives
+  function loyalBox(S, slot) {
+    const y = P().loyal(S, slot), sh = P().vendorShare(S)[slot];
+    return '<div class="mt" style="border-top:1px solid var(--line);padding-top:8px">' + UI.loyaltyBar(S, slot) +
+      '<div class="xs muted mt">Points per season. On your competition robot now: <b>' + pct(sh) + '</b> of the electronics (' + Math.round(D.LOYALTY.robot * Math.min(1, sh / D.LOYALTY.full)) + ' of ' + D.LOYALTY.robot + '; ' + pct(D.LOYALTY.full) + ' counts in full). Ordered since the last review: <b>' + U.money((S.vendBought || {})[slot] || 0) + '</b> of ' + U.money(D.LOYALTY.buyFull) + ' (' + Math.round(D.LOYALTY.buy * Math.min(1, ((S.vendBought || {})[slot] || 0) / D.LOYALTY.buyFull)) + ' of ' + D.LOYALTY.buy + ').' + (y.stock ? ' Your orders ship first: +' + pct(y.stock) + ' in-season stock.' : '') + '</div>' +
+      (y.voucher ? '<div class="sm good mt">' + UI.icon('money', 14) + ' Voucher: <b>' + U.money(y.voucher.amt) + '</b> left, good through the ' + (S.cal[y.voucher.until] || '') + ' season. It pays first.</div>' : '') +
+      (y.sale ? '<div class="sm good mt">' + UI.icon('bolt', 14) + ' Loyalty sale: <b>−' + pct(y.sale) + '</b> on everything until Kickoff.</div>' : '') +
+      ((S.loyalShip || []).some(x => x.slot === slot) ? '<div class="sm good mt">' + UI.icon('box', 14) + ' Free parts arrive at Kickoff.</div>' : '') + '</div>';
   }
   function elecTab(S) {
     const sale = P().forSale(S);
     // the premium column: Sterling Motion until it closes in 2019 (then a short gap), Apex Motion from the autumn after
     const prem = P().premium(S), closed = S.cal && !prem, slotV = v => (v === 'A' ? (prem || 'T') : v);
-    let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div></div>'; }).join('') + '</div>';
+    let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div>' + (v !== 'K' && !gone && P().loyalOn(S) ? loyalBox(S, v) : '') + '</div>'; }).join('') + '</div>';
     o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing the premium vendor\'s and Lumen\'s electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to vendor parts costs 5% more hours and a little performance. Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season.' + (S.cal ? ' Sterling Motion and Apex Motion parts fit together (same bolt pattern and connectors), so they never count as mixed.' : ' No product line goes past version III.') + '</div>';
     // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
     D.ELEC_CATS.forEach(cat => {
@@ -138,7 +147,7 @@
   UI.A.buyProd = arg => {
     const [id, n] = arg.split('|'), r = G.Parts.buy(G.S, id, Number(n));
     if (typeof r === 'string') return UI.err(r);
-    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
+    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.voucher ? ' (voucher paid ' + U.money(r.voucher) + ')' : '') + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
     UI.render();
   };
 

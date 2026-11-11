@@ -546,6 +546,7 @@
       const fit = G.Robot.installHeld(S);
       if (fit.length) arrival.notes.push('Robot access window: in the six hours before the event the team fitted ' + fit.join(', ') + '.');
     }
+    if (['regional', 'dcmp', 'champs'].includes(def.kind)) G.Parts.loyalSample(S);
     const ev = G.Ev.start(Object.assign({ year: S.year }, def));
     ev.batts = S.parts.batts.map(() => 1);
     ev.arrival = arrival;
@@ -756,6 +757,7 @@
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
+    if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.districtOffer && S.districtOffer.stage === 'choose') b.push('Decide whether to join the ' + D.DISTRICT[S.districtOffer.id].name + ' (Headquarters).');
     return b;
   };
@@ -876,6 +878,7 @@
     C.fireStories(S, 'off:' + S.month);
     if (S.month === 2) C.districtNews(S); // July: a district that forms next season is announced
     G.Parts.launchMonth(S); // vendor product launches (September to December)
+    G.Parts.loyalMonth(S);  // a vendor's loyalty letter (from September)
     if (S.designMonth != null && S.month === S.designMonth && !S.preseason) C.techDesigns(S);
     if (mo === 'Aug') { C.refreshMarket(S); C.inbox(S, 'Mentor market refreshed', 'New mentor candidates are available (Mentors screen).', 'staff'); }
     if (mo === 'Sep') {
@@ -1575,7 +1578,7 @@
   };
   C.tellStory = function (S, s) {
     const rng = G.R; (S.storySeen = S.storySeen || {})[s.id] = 1;
-    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: s.body.slice(), means: (s.means || []).slice(), btn: s.btn || null, month: s.at === 'recap' ? '' : D.MONTHS[S.month],
+    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: s.body.slice(), means: (s.means || []).slice(), btn: s.btn || null, month: /^off:/.test(s.at || '') ? D.MONTHS[S.month] : '',
       talk: rng.shuffle((s.talk || []).slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', techTeam(S, rng))]) };
     if (s.hit) L.hit = C.techHit(S, s.hit.area, s.hit.pct);
     if (s.at === 'recap') L.mine = C.seasonLine(S);
@@ -1646,7 +1649,7 @@
   // ======================= review =======================
   C.legacyFor = function (s) {
     let p = 0;
-    s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
+    s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; if (e.kind === 'dcmp' && e.won) p += 120; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
     if (s.champsQualified) p += 50;
     if (s.divWin) p += 150;
     if (s.cmpImpact && s.cmpImpact.result === 'winner') p += 350; else if (s.cmpImpact && s.cmpImpact.result === 'finalist') p += 120;
@@ -1658,6 +1661,7 @@
     const out = [];
     year = C.calYear(G.S, year); // random career order: the fictional timeline
     if (e.kind === 'regional' && e.won) out.push({ award: 'Winner', year, event: e.name });
+    if (e.kind === 'dcmp' && e.won) out.push({ award: 'District Champions', year, event: e.name });
     if (e.kind === 'champs' && e.won) out.push({ award: 'Division Winner', year, event: e.name.replace('Championship — ', '') + ' · FIRST Championship' });
     if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true, world: true, key: 'wc' });
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
@@ -1777,7 +1781,9 @@
     // knowledge decay
     const decay = S.equip.kb ? 0.1 : 0.2;
     D.AREAS.forEach(a => { if (!S.usedAreas[a.id] && !S.mentors.some(m => m.spec === a.id)) S.know[a.id] = Math.round((S.know[a.id] || 0) * (1 - decay)); });
+    s.loyal = G.Parts.loyalSeason(S);
     S.history.push({
+      loyal: s.loyal || null,
       year: S.year, cy: C.cy(S), px: C.px(S), robot: C.robotRecord(S), events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       home: S.team.home && G.World.on(S) ? S.team.home : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
@@ -1794,7 +1800,7 @@
     S.season = newSeasonState(null); S.season.impact = imp;
     S.offReg = [];
     if (S.robot && G.Robot.held(S).length) { const fit = G.Robot.installHeld(S); if (fit.length) C.inbox(S, 'The bag is open', 'The season is over and the robot is out of the bag. The parts that were still packed are on it now: ' + fit.join(', ') + '.', 'dev'); }
-    if (C.pandemicDue(S)) { C.startPandemic(S); return; } // 2020: there is no summer, and no 2021 season
+    if (C.pandemicDue(S)) { C.fireStories(S, 'recap'); C.startPandemic(S); return; } // 2020: the year in review, then there is no summer and no 2021 season
     C.fireStories(S, 'recap'); C.fireStories(S, 'off:0'); // the year in review, and what the summer brings
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);

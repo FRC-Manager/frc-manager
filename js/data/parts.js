@@ -109,6 +109,25 @@
   D.STOCK = { elec: 0.42, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, diff: { easy: 0.15, normal: 0, hard: -0.1 } };
   D.PART_PRICE_DIFF = { easy: 0.9, normal: 1, hard: 1.05 };
 
+  // ---------- Vendor loyalty ----------
+  // A vendor notices the teams that run and buy its electronics. A season on the competition robot is worth 100 loyalty
+  // points with that catalogue, and that year's orders up to 15 more (the premium catalogue's points carry over from
+  // Sterling to Apex). Each level reached brings a loyalty
+  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff. A team that runs one vendor
+  // only reaches three levels in a ten-season career.
+  D.LOYALTY = {
+    levels: [280, 580, 880, 1180],                            // a little under three seasons each, so one mixed season does not cost a level
+    full: 0.9,                                                // a robot with 90% of its electronics from one vendor counts as all of it (a kit hub does not spoil a season)
+    robot: 100, buy: 15, buyFull: 1500,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $1,500)
+    names: ['Customer', 'Loyal Team', 'Preferred Team', 'Partner Team', 'Flagship Team'],
+    start: { rookie: 0, established: 100, powerhouse: 150 },  // standing with the vendor whose parts are on the starting shelf
+    month: 4,                                                 // the letter arrives in September
+    pack: [null, { motor: 4, enc: 2 }, { motor: 6, enc: 2 }, { motor: 8, enc: 4, ctrl: 1 }, { motor: 8, enc: 4, ctrl: 1, swerve: 4 }],
+    voucher: [0, 1000, 1500, 2500, 3500],                     // store credit, valid through the coming season
+    sale: [0, 0.25, 0.3, 0.4, 0.45],                          // off everything from that vendor until Kickoff
+    stock: 0.1                                                // a loyal team's orders ship first: in-season stock chance per level
+  };
+
   // Wear: parts lose health in matches and practice. Health only nudges performance, but worn parts fail more often.
   D.PART_WEAR_MATCH = [0.004, 0.009];   // per match, each part on the competition robot
   D.PART_WEAR_PRACTICE = 0.0007;        // per driver-practice hour, each part on the robot that practices

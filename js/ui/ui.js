@@ -83,7 +83,8 @@
   UI.tag = (t, k) => '<span class="tag ' + (k || '') + '">' + h(t) + '</span>';
   // Blue banner (simplified FRC style): emblem, award, year, event
   UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (/Impact/.test(b.award) ? '✦' : b.gold ? '★' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div><div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
-  UI.bannerWall = (list, isNew) => '<div class="banners">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
+  // rows of banners; a long career's wall uses smaller banners (15 or more, and again from 31)
+  UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
@@ -172,11 +173,12 @@
     if (L.kind === 'story') return UI.storyModal(L, S.launchQueue.length - 1);
     if (L.kind === 'pandemic') { S.launchQueue.shift(); return UI.pandemicModal(); }
     if (L.kind === 'district') { S.launchQueue.shift(); return UI.districtModal(); }
+    if (L.kind === 'loyalty') { S.launchQueue.shift(); return UI.loyaltyModal(); }
     if (L.kind) return UI.techModal(L, S.launchQueue.length - 1);
     const V = D.VENDORS[L.v], more = S.launchQueue.length - 1;
     const prod = p => '<div class="card flat mb" style="border-left:3px solid ' + V.color + '"><div class="row"><b>' + h(p.name) + '</b> ' + UI.tag('NEW', 'acc') + '<span class="sp"></span><b>' + U.money(p.price) + '</b><span class="xs muted">each</span></div>' +
       '<div class="sm muted mt">' + h(p.tag) + '</div>' +
-      '<div class="statrow wide mt"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, V.color) + '<span class="v nowrap" style="width:auto">' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + '<b>' + Math.round(p.perf * 100) + '</b></span></div>' +
+      '<div class="statrow wide mt" style="grid-template-columns:110px 1fr auto"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, V.color) + '<span class="v nowrap" style="width:auto">' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + '<b>' + Math.round(p.perf * 100) + '</b></span></div>' +
       '<div class="xs muted">' + (p.oldName ? 'Replaces the ' + h(p.oldName) + ' (' + U.money(p.oldPrice) + '), on sale through the ' + L.year + ' season.' : p.vs ? 'Takes the place of the ' + h(p.vs) + ', which is no longer made.' : 'A new kind of product: nothing like it was sold before.') + '</div></div>';
     UI.modal('<div class="xs b" style="color:' + V.color + '">PRODUCT LAUNCH · ' + h(L.month.toUpperCase()) + ' · ' + L.toKick + ' MONTH' + (L.toKick > 1 ? 'S' : '') + ' TO KICKOFF</div><h2>' + h(V.name) + ' unveils ' + h(L.prods.map(p => p.name).join(' & ')) + '</h2>' +
       '<p class="muted">' + h(L.intro) + '</p>' + L.prods.map(prod).join('') +
@@ -222,6 +224,33 @@
   UI.A.districtJoin = () => UI.districtPick(true);
   UI.A.districtStay = () => UI.districtPick(false);
   UI.A.districtOpen = () => UI.districtModal();
+  // A vendor's loyalty sponsorship: the team has reached a new loyalty level and chooses one of three rewards
+  UI.loyaltyBar = function (S, slot) {
+    const y = G.Parts.loyal(S, slot), L = D.LOYALTY, col = y.vendor.color;
+    return '<div class="row sm"><b style="color:' + col + '">' + h(y.vendor.short) + '</b>' + UI.tag('Level ' + y.lvl + ' · ' + y.name, y.lvl ? 'acc' : '') + '<span class="sp"></span><span class="xs muted">' + (y.next != null ? y.pts + ' / ' + y.next + ' loyalty points' : y.pts + ' loyalty points · top level') + '</span></div>' +
+      UI.bar(y.next != null ? y.pts - y.prev : 1, y.next != null ? y.next - y.prev : 1, col);
+  };
+  UI.loyaltyModal = function () {
+    const S = G.S, O = S.loyalOffer;
+    if (!O || O.stage !== 'choose') return;
+    const V = D.VENDORS[O.brand], L = D.LOYALTY, Pt = G.Parts, y = Pt.loyal(S, O.slot);
+    const card = (id, icon, title, big, lines) => '<div class="card flat" style="border-top:3px solid ' + V.color + ';display:flex;flex-direction:column"><div class="b">' + UI.icon(icon, 16) + ' ' + title + '</div><div class="lg b mt" style="color:' + V.color + '">' + big + '</div>' +
+      '<ul class="story-ul" style="flex:1">' + lines.map(x => '<li>' + x + '</li>').join('') + '</ul><button class="btn primary" data-act="loyaltyPick" data-arg="' + id + '">Choose</button></div>';
+    UI.modal('<div class="xs b" style="color:' + V.color + ';letter-spacing:.08em">VENDOR LOYALTY · ' + h(V.name.toUpperCase()) + ' · ' + h(String(O.month).toUpperCase()) + '</div><h2>' + h(V.name) + ' names you a ' + h(L.names[O.lvl]) + '</h2>' +
+      '<p class="story-p">' + h(O.intro) + '</p>' +
+      '<p class="story-p">Season after season your competition robot has run on ' + h(V.short) + ' electronics, and it shows where other teams can see it. ' + h(V.short) + ' would like to keep it that way, and offers a <b>loyalty sponsorship</b>. Choose one.</p>' +
+      '<div class="card flat mb">' + UI.loyaltyBar(S, O.slot) + '<div class="xs muted mt">A season is worth ' + L.robot + ' points when your competition robot runs on their electronics alone, and up to ' + L.buy + ' more for ordering their parts that year (' + U.money(L.buyFull) + ' for all of it). From this level on, your in-season orders with ' + h(V.short) + ' ship first: +' + Math.round(y.stock * 100) + '% chance that a part is in stock.</div></div>' +
+      '<div class="grid g3">' +
+      card('pack', 'box', 'Free parts', O.pack.map(x => x.n + ' ' + h((x.n > 1 ? D.PART_CAT[x.cat].short : D.PART_CAT[x.cat].short.replace(/s$/, '')).toLowerCase())).join(' + '), ['Delivered with the Kit of Parts at Kickoff.', 'The newest ' + h(V.short) + ' version on sale by then.', 'Worth about ' + U.money(O.packValue) + ' at today\'s prices, and it costs you nothing.']) +
+      card('voucher', 'money', 'Voucher', U.money(O.voucher), ['Store credit with ' + h(V.short) + ': it pays first whenever you buy their parts.', 'Good through next season, so it also covers a part that breaks in Week 4.', 'What is left at the season review expires.']) +
+      card('sale', 'bolt', 'Limited-time offer', '−' + Math.round(O.sale * 100) + '% until Kickoff', ['Everything from ' + h(V.short) + ', this autumn\'s new products included.', 'The best deal if you are about to refit a whole robot: it beats the voucher from about ' + U.money(O.voucher / O.sale) + ' of orders.', 'Ends when the Kickoff broadcast starts.']) +
+      '</div>' +
+      '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + O.talk.map(q => '<div class="sm mt">“' + h(q[0]) + '” <span class="xs muted">— ' + h(q[1]) + '</span></div>').join('') +
+      '<div class="row mt"><span class="xs muted">Also in your inbox. One choice per level; it cannot be changed afterwards.</span></div>', { wide: true, lock: true });
+  };
+  UI.A.loyaltyPick = pick => { const S = G.S, O = S.loyalOffer, name = O ? D.VENDORS[O.brand].short : '', e = G.Parts.loyalChoose(S, pick); if (e) return UI.err(e); UI.closeModal(); G.Save.write('auto'); UI.render();
+    UI.toast(pick === 'pack' ? name + ' ships your free parts at Kickoff' : pick === 'voucher' ? name + ' voucher added' : name + ' sale is on until Kickoff', 'good'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
+  UI.A.loyaltyOpen = () => UI.loyaltyModal();
 
   // A story: one of the calendar's big changes (a vendor rises or falls, a rule changes, the year in review)
   UI.storyModal = function (L, more) {
@@ -376,6 +405,7 @@
     let o = UI.head('Headquarters', 'hq', h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics');
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
+    if (S.loyalOffer && S.loyalOffer.stage === 'choose') o += '<div class="warnbox mt"><b>' + h(D.VENDORS[S.loyalOffer.brand].name) + ' offers a loyalty sponsorship.</b> Free parts, a voucher or a sale: choose one. <button class="btn primary sm" data-act="loyaltyOpen">Choose</button></div>';
     if (S.districtOffer && S.districtOffer.stage === 'choose') o += '<div class="warnbox mt"><b>The ' + h(D.DISTRICT[S.districtOffer.id].name) + ' forms in ' + S.districtOffer.cy + '.</b> Your school is in its area: join the district or stay a regional team. <button class="btn primary sm" data-act="districtOpen">Decide</button></div>';
     else if (S.team.homeNext && G.World.on(S)) o += '<div class="hint mt">' + UI.icon('info', 14) + ' Your team joins the <b>' + h(D.DISTRICT[S.team.homeNext].name) + '</b> next season. District event registration opens in October.</div>';
     const banner = UI.devBanner(S);

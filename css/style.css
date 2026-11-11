@@ -144,6 +144,11 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 
 /* ---------- blue banners (event wins & Impact) ---------- */
 .banners { display: flex; flex-wrap: wrap; gap: 14px; }
+/* a long career hangs a lot of banners: they get smaller so that the rows stay readable */
+.banners.many { gap: 12px; } .banners.many .banner { width: 106px; min-height: 154px; padding: 11px 8px 30px; gap: 4px; }
+.banners.many .banner .emb { width: 28px; height: 28px; font-size: 14px; } .banners.many .banner .aw { font-size: 10.5px; } .banners.many .banner .yr { font-size: 18px; } .banners.many .banner .ev { font-size: 9.5px; }
+.banners.lots { gap: 10px; } .banners.lots .banner { width: 88px; min-height: 130px; padding: 9px 6px 26px; gap: 3px; }
+.banners.lots .banner .emb { width: 22px; height: 22px; font-size: 11px; border-width: 1.5px; } .banners.lots .banner .aw { font-size: 9px; } .banners.lots .banner .yr { font-size: 15px; } .banners.lots .banner .ev { font-size: 8.5px; }
 .banner { --fb: #0066b3; position: relative; width: 128px; min-height: 182px; padding: 14px 10px 34px; color: #fff; text-align: center;
   background: linear-gradient(180deg, #0a74c7 0%, var(--fb) 60%, #00539a 100%);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -453,7 +458,7 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 /* History: each season's robot */
 .histbot { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
 .histbot canvas { display: block; border-radius: 8px; max-width: 100%; height: auto; } .histbot .hb-t { min-width: 0; }
-.botgal { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; } .botgal .bg-i { flex: 0 0 auto; text-align: center; } .botgal canvas { display: block; border-radius: 8px; margin-bottom: 4px; }
+.botgal { display: flex; flex-wrap: wrap; gap: 12px; padding-bottom: 4px; } .botgal .bg-i { flex: 0 0 auto; text-align: center; } .botgal canvas { display: block; border-radius: 8px; margin-bottom: 4px; }
 @media (max-width: 700px) { .histbot { flex-direction: column; align-items: flex-start; } }
 /* Story pop-ups */
 .story-p { color: var(--text); line-height: 1.55; margin: 0 0 10px; }

@@ -151,6 +151,11 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 
 /* ---------- blue banners (event wins & Impact) ---------- */
 .banners { display: flex; flex-wrap: wrap; gap: 14px; }
+/* a long career hangs a lot of banners: they get smaller so that the rows stay readable */
+.banners.many { gap: 12px; } .banners.many .banner { width: 106px; min-height: 154px; padding: 11px 8px 30px; gap: 4px; }
+.banners.many .banner .emb { width: 28px; height: 28px; font-size: 14px; } .banners.many .banner .aw { font-size: 10.5px; } .banners.many .banner .yr { font-size: 18px; } .banners.many .banner .ev { font-size: 9.5px; }
+.banners.lots { gap: 10px; } .banners.lots .banner { width: 88px; min-height: 130px; padding: 9px 6px 26px; gap: 3px; }
+.banners.lots .banner .emb { width: 22px; height: 22px; font-size: 11px; border-width: 1.5px; } .banners.lots .banner .aw { font-size: 9px; } .banners.lots .banner .yr { font-size: 15px; } .banners.lots .banner .ev { font-size: 8.5px; }
 .banner { --fb: #0066b3; position: relative; width: 128px; min-height: 182px; padding: 14px 10px 34px; color: #fff; text-align: center;
   background: linear-gradient(180deg, #0a74c7 0%, var(--fb) 60%, #00539a 100%);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -460,7 +465,7 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 /* History: each season's robot */
 .histbot { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
 .histbot canvas { display: block; border-radius: 8px; max-width: 100%; height: auto; } .histbot .hb-t { min-width: 0; }
-.botgal { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; } .botgal .bg-i { flex: 0 0 auto; text-align: center; } .botgal canvas { display: block; border-radius: 8px; margin-bottom: 4px; }
+.botgal { display: flex; flex-wrap: wrap; gap: 12px; padding-bottom: 4px; } .botgal .bg-i { flex: 0 0 auto; text-align: center; } .botgal canvas { display: block; border-radius: 8px; margin-bottom: 4px; }
 @media (max-width: 700px) { .histbot { flex-direction: column; align-items: flex-start; } }
 /* Story pop-ups */
 .story-p { color: var(--text); line-height: 1.55; margin: 0 0 10px; }
@@ -546,7 +551,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.9.0';
+  G.VERSION = '2.9.1';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -1863,7 +1868,7 @@ window.G = window.G || {};
         'The forums argued about it from April to July. The number of teams grew by seven percent anyway.'],
       means: ['Two Championships stay for the coming seasons.', 'A camera that does vision out of the box is rumoured for the autumn.'],
       talk: [['Two champions is one too many. Or one too few, depending on who you ask.', 'a forum regular'], ['Half our district had never seen a Championship. This year they went.', 'a district volunteer'], ['Somebody should make them play each other.', 'everyone, all summer']] },
-    { id: 'festival', cy: 2018, at: 'off:2', skipIf: 'festival', tag: 'FESTIVAL OF CHAMPIONS · JULY 2017', color: '#f5c542', title: 'One champion after all',
+    { id: 'festival', cy: 2018, at: 'off:2', skipIf: 'festival', tag: 'FESTIVAL OF CHAMPIONS · 2017', color: '#f5c542', title: 'One champion after all',
       body: ['Two Championships made two winning alliances, and nobody could leave it there. In July the eight teams met for a best-of-five on a single field: the Festival of Champions.',
         'It went the distance. Five matches, the last one decided in the final seconds, in front of a crowd that had driven across the country to see the question settled.'],
       means: ['2017 has one champion alliance after all.', 'The Festival is not held again: from next season the two Championships each crown their own winners.'],
@@ -1917,6 +1922,12 @@ window.G = window.G || {};
         'Brushless motors are now so strong and so cheap that a small motor on a gearbox does what a cylinder used to do, without a compressor, a tank, forty fittings and the leak that nobody can find. Teams that swore by pneumatics for a decade are leaving the whole system in the cupboard.'],
       means: ['A pneumatics kit still speeds up intake and manipulator builds, but by 10% now instead of 20 to 25%.', 'The gap keeps closing: 5% from 2024.'],
       talk: [['I can finally hear myself think in the pit.', 'a mentor on Team {t}'], ['Found the leak. It only took four seasons. We are removing the system on Monday.', 'a student on Team {t}'], ['A cylinder is still the fastest way to move something two inches. Fight me.', 'a forum regular']] },
+    // the last recap before everything stops: told first, then the pandemic window follows it
+    { id: 'recap2020', cy: 2020, at: 'recap', tag: 'SEASON RECAP · 2020', color: 'var(--accent)', title: 'No bag, and swerve in a box',
+      body: ['The first season without Stop Build Day changed the rhythm of everything. Teams worked on their robots until the night before load-in, and the robots at the last events barely resembled the ones that had played the first.',
+        'Apex\'s Vector module did the rest. Teams that had never owned a mill drove sideways in Week 1, and the old six-wheel drive began to look like a choice that needed explaining. The season ended the way it always does: two Championships, two winning alliances, and a room full of people making plans for the summer.'],
+      means: ['Bought swerve is the standard among the strong teams now, and it spreads further every season.', 'Without the bag, upgrades go straight onto the robot: the teams that keep developing pull away in the late weeks.'],
+      talk: [['We never stopped building. I am not sure that is better. I am sure it is faster.', 'a lead mentor'], ['Four modules, a weekend, and we had a swerve drive. Two years ago that was a whole season.', 'a mentor on Team {t}'], ['See you at the offseason events.', 'everyone, in April']] },
     { id: 'recap2022', cy: 2022, at: 'recap', tag: 'SEASON RECAP · 2022', color: 'var(--accent)', title: 'Back, and sideways',
       body: ['The first full season after the lost year. Teams were smaller, the students who joined in 2020 were suddenly captains, and a fifth of the old names were missing from the schedule.',
         'On the field the change was just as plain. At the top, nearly every robot drove on swerve modules that came out of a box, and the tank drives on the last day could be counted on one hand. There was one Championship again.'],
@@ -2068,6 +2079,25 @@ window.G = window.G || {};
   // How likely an item is in stock in a given week during the season (the offseason is almost always fine)
   D.STOCK = { elec: 0.42, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, diff: { easy: 0.15, normal: 0, hard: -0.1 } };
   D.PART_PRICE_DIFF = { easy: 0.9, normal: 1, hard: 1.05 };
+
+  // ---------- Vendor loyalty ----------
+  // A vendor notices the teams that run and buy its electronics. A season on the competition robot is worth 100 loyalty
+  // points with that catalogue, and that year's orders up to 15 more (the premium catalogue's points carry over from
+  // Sterling to Apex). Each level reached brings a loyalty
+  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff. A team that runs one vendor
+  // only reaches three levels in a ten-season career.
+  D.LOYALTY = {
+    levels: [280, 580, 880, 1180],                            // a little under three seasons each, so one mixed season does not cost a level
+    full: 0.9,                                                // a robot with 90% of its electronics from one vendor counts as all of it (a kit hub does not spoil a season)
+    robot: 100, buy: 15, buyFull: 1500,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $1,500)
+    names: ['Customer', 'Loyal Team', 'Preferred Team', 'Partner Team', 'Flagship Team'],
+    start: { rookie: 0, established: 100, powerhouse: 150 },  // standing with the vendor whose parts are on the starting shelf
+    month: 4,                                                 // the letter arrives in September
+    pack: [null, { motor: 4, enc: 2 }, { motor: 6, enc: 2 }, { motor: 8, enc: 4, ctrl: 1 }, { motor: 8, enc: 4, ctrl: 1, swerve: 4 }],
+    voucher: [0, 1000, 1500, 2500, 3500],                     // store credit, valid through the coming season
+    sale: [0, 0.25, 0.3, 0.4, 0.45],                          // off everything from that vendor until Kickoff
+    stock: 0.1                                                // a loyal team's orders ship first: in-season stock chance per level
+  };
 
   // Wear: parts lose health in matches and practice. Health only nudges performance, but worn parts fail more often.
   D.PART_WEAR_MATCH = [0.004, 0.009];   // per match, each part on the competition robot
@@ -7395,6 +7425,7 @@ window.G = window.G || {};
       const fit = G.Robot.installHeld(S);
       if (fit.length) arrival.notes.push('Robot access window: in the six hours before the event the team fitted ' + fit.join(', ') + '.');
     }
+    if (['regional', 'dcmp', 'champs'].includes(def.kind)) G.Parts.loyalSample(S);
     const ev = G.Ev.start(Object.assign({ year: S.year }, def));
     ev.batts = S.parts.batts.map(() => 1);
     ev.arrival = arrival;
@@ -7605,6 +7636,7 @@ window.G = window.G || {};
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
+    if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.districtOffer && S.districtOffer.stage === 'choose') b.push('Decide whether to join the ' + D.DISTRICT[S.districtOffer.id].name + ' (Headquarters).');
     return b;
   };
@@ -7725,6 +7757,7 @@ window.G = window.G || {};
     C.fireStories(S, 'off:' + S.month);
     if (S.month === 2) C.districtNews(S); // July: a district that forms next season is announced
     G.Parts.launchMonth(S); // vendor product launches (September to December)
+    G.Parts.loyalMonth(S);  // a vendor's loyalty letter (from September)
     if (S.designMonth != null && S.month === S.designMonth && !S.preseason) C.techDesigns(S);
     if (mo === 'Aug') { C.refreshMarket(S); C.inbox(S, 'Mentor market refreshed', 'New mentor candidates are available (Mentors screen).', 'staff'); }
     if (mo === 'Sep') {
@@ -8424,7 +8457,7 @@ window.G = window.G || {};
   };
   C.tellStory = function (S, s) {
     const rng = G.R; (S.storySeen = S.storySeen || {})[s.id] = 1;
-    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: s.body.slice(), means: (s.means || []).slice(), btn: s.btn || null, month: s.at === 'recap' ? '' : D.MONTHS[S.month],
+    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: s.body.slice(), means: (s.means || []).slice(), btn: s.btn || null, month: /^off:/.test(s.at || '') ? D.MONTHS[S.month] : '',
       talk: rng.shuffle((s.talk || []).slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', techTeam(S, rng))]) };
     if (s.hit) L.hit = C.techHit(S, s.hit.area, s.hit.pct);
     if (s.at === 'recap') L.mine = C.seasonLine(S);
@@ -8495,7 +8528,7 @@ window.G = window.G || {};
   // ======================= review =======================
   C.legacyFor = function (s) {
     let p = 0;
-    s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
+    s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; if (e.kind === 'dcmp' && e.won) p += 120; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
     if (s.champsQualified) p += 50;
     if (s.divWin) p += 150;
     if (s.cmpImpact && s.cmpImpact.result === 'winner') p += 350; else if (s.cmpImpact && s.cmpImpact.result === 'finalist') p += 120;
@@ -8507,6 +8540,7 @@ window.G = window.G || {};
     const out = [];
     year = C.calYear(G.S, year); // random career order: the fictional timeline
     if (e.kind === 'regional' && e.won) out.push({ award: 'Winner', year, event: e.name });
+    if (e.kind === 'dcmp' && e.won) out.push({ award: 'District Champions', year, event: e.name });
     if (e.kind === 'champs' && e.won) out.push({ award: 'Division Winner', year, event: e.name.replace('Championship — ', '') + ' · FIRST Championship' });
     if (e.kind === 'einstein' && e.won) out.push({ award: 'World Champions', year, event: 'Einstein Field · FIRST Championship', gold: true, world: true, key: 'wc' });
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
@@ -8626,7 +8660,9 @@ window.G = window.G || {};
     // knowledge decay
     const decay = S.equip.kb ? 0.1 : 0.2;
     D.AREAS.forEach(a => { if (!S.usedAreas[a.id] && !S.mentors.some(m => m.spec === a.id)) S.know[a.id] = Math.round((S.know[a.id] || 0) * (1 - decay)); });
+    s.loyal = G.Parts.loyalSeason(S);
     S.history.push({
+      loyal: s.loyal || null,
       year: S.year, cy: C.cy(S), px: C.px(S), robot: C.robotRecord(S), events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       home: S.team.home && G.World.on(S) ? S.team.home : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
@@ -8643,7 +8679,7 @@ window.G = window.G || {};
     S.season = newSeasonState(null); S.season.impact = imp;
     S.offReg = [];
     if (S.robot && G.Robot.held(S).length) { const fit = G.Robot.installHeld(S); if (fit.length) C.inbox(S, 'The bag is open', 'The season is over and the robot is out of the bag. The parts that were still packed are on it now: ' + fit.join(', ') + '.', 'dev'); }
-    if (C.pandemicDue(S)) { C.startPandemic(S); return; } // 2020: there is no summer, and no 2021 season
+    if (C.pandemicDue(S)) { C.fireStories(S, 'recap'); C.startPandemic(S); return; } // 2020: the year in review, then there is no summer and no 2021 season
     C.fireStories(S, 'recap'); C.fireStories(S, 'off:0'); // the year in review, and what the summer brings
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
@@ -9417,6 +9453,7 @@ window.G = window.G || {};
     // the first brushless motor: premium money through its launch season, and until Apex arrives to compete
     if (S.cal && prod.launchPrice && (P.buyCy(S) <= prod.y || (P.buyCy(S) === prod.y + 1 && P.premium(S) !== 'A'))) base = prod.launchPrice;
     if (S.cal && prod.brand === 'T' && P.clearance(S)) base *= G.Era.CLEAR_PRICE;       // Sterling's closing sale
+    { const off = P.saleFor(S, prod); if (off) base *= 1 - off; }                          // a loyalty sale, until Kickoff
     return Math.round(base * (D.PART_PRICE_DIFF[S.diff] || 1) * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
   };
 
@@ -9426,7 +9463,8 @@ window.G = window.G || {};
     const rng = R(), st = {}, d = D.STOCK.diff[S.diff] || 0, season = P.inSeason(S);
     P.forSale(S).forEach(x => {
       const e = D.PART_CAT[x.prod.cat].elec;
-      const p = season ? (e ? D.STOCK.elec : D.STOCK.cots) + d + (x.isNew ? D.STOCK.newRelease : 0) : D.STOCK.off;
+      const ly = season && e && !x.kop && P.loyalOn(S) && S.loyal && S.loyal[x.prod.v] ? D.LOYALTY.stock * S.loyal[x.prod.v].lvl : 0;
+      const p = season ? (e ? D.STOCK.elec : D.STOCK.cots) + d + (x.isNew ? D.STOCK.newRelease : 0) + ly : D.STOCK.off;
       st[x.prod.id] = x.kop ? true : rng.chance(U.clamp(p, 0.1, 1)); // Kit of Parts items never sell out
     });
     D.ELEM_SETS.forEach(e => { st['elem' + e.id] = season ? rng.chance(U.clamp(D.STOCK.elem + d, 0.1, 1)) : true; });
@@ -9468,8 +9506,13 @@ window.G = window.G || {};
       if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
     const cost = n * P.price(S, prod);
-    { const e = G.Career.afford(S, cost); if (e) return e; }
-    G.Career.spend(S, cost, n + '× ' + prod.name);
+    // a loyalty voucher from this vendor pays first
+    const vch = P.loyalOn(S) && S.voucher && S.voucher[prod.v] && S.voucher[prod.v].amt > 0 ? S.voucher[prod.v] : null, use = vch ? Math.min(vch.amt, cost) : 0;
+    { const e = G.Career.afford(S, cost - use); if (e) return e; }
+    if (cost - use > 0) G.Career.spend(S, cost - use, n + '× ' + prod.name + (use ? ' (voucher paid ' + U.money(use) + ')' : ''));
+    else S.ledger.unshift({ d: G.Career.dateLabel(S), desc: n + '× ' + prod.name + ' (paid with your ' + D.VENDORS[P.brand(prod)].short + ' voucher)', amt: 0, px: G.Career.px(S) });
+    if (use) { vch.amt -= use; if (vch.amt <= 0) delete S.voucher[prod.v]; }
+    if (P.loyalOn(S) && (prod.v === 'A' || prod.v === 'B')) { const vb = S.vendBought = S.vendBought || { A: 0, B: 0 }; vb[prod.v] += cost; } // this year's orders count for loyalty
     const had = P.items(S, prod.cat).slice();
     const dropped = P.add(S, prod.cat, prodId, n, 1);
     let sold = 0, got = 0;
@@ -9478,7 +9521,7 @@ window.G = window.G || {};
       had.filter(it => !keep.has(it)).forEach(it => { const v = it.h > D.SELL_MIN ? P.resale(S, it) : 0; if (v > 0) { sold++; got += v; } });
       if (got) G.Career.earn(S, got, 'Sold ' + sold + ' replaced ' + cat.short.toLowerCase());
     }
-    return { bought: n, replaced: dropped, sold, got };
+    return { bought: n, replaced: dropped, sold, got, voucher: use };
   };
 
   // The product to buy for a category from a vendor (electronics) or the COTS suppliers
@@ -9760,6 +9803,7 @@ window.G = window.G || {};
       if (drop) full.push(drop + ' ' + D.PART_CAT[cat].short.toLowerCase());
     });
     S.lastKop = { kit, rookie, full, year: S.year };
+    P.loyalDeliver(S);
     S.elemKop = S.elemKop || {}; S.elemKop[S.year] = true;
     const pre = S.elemPre && S.elemPre[S.year];
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
@@ -9767,6 +9811,110 @@ window.G = window.G || {};
       (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
       (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
   };
+  // ======================= vendor loyalty =======================
+  // Loyalty is kept per catalogue: 'A' the premium one (Sterling Motion, then Apex Motion, which honours Sterling's
+  // customer list) and 'B' Lumen Robotics. New careers only: a career from before v3.0 plays on without it.
+  P.loyalOn = S => !!(S && S.cal && S.mode === 'career');
+  const lyState = S => (S.loyal = S.loyal || { A: { pts: 0, lvl: 0 }, B: { pts: 0, lvl: 0 } });
+  // the brand selling in a catalogue right now ('T', 'A' or 'B'), or null while the premium one is between owners
+  P.slotBrand = (S, slot) => (slot === 'A' ? P.premium(S) : 'B');
+  P.loyal = function (S, slot) {
+    const st = lyState(S)[slot], L = D.LOYALTY, lvl = st.lvl, brand = P.slotBrand(S, slot) || (slot === 'A' ? (P.buyCy(S) > G.Era.STERLING_LAST ? 'A' : 'T') : 'B');
+    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: lvl ? L.levels[lvl - 1] : 0, brand, vendor: D.VENDORS[brand],
+      voucher: S.voucher && S.voucher[slot] && S.voucher[slot].amt > 0 ? S.voucher[slot] : null, sale: P.saleOf(S, slot), stock: L.stock * lvl };
+  };
+  // a loyalty sale runs from the letter until Kickoff
+  P.saleOf = (S, slot) => { const s = S.vendSale && S.vendSale[slot]; return s && S.phase === 'off' && S.upcoming === s.up ? s.pct : 0; };
+  P.saleFor = (S, prod) => (prod && (prod.v === 'A' || prod.v === 'B') && S.vendSale ? P.saleOf(S, prod.v) : 0);
+  // how much of the competition robot's electronics each catalogue supplies (kit parts count for nobody)
+  P.vendorShare = function (S) {
+    const v = S.robot ? P.profile(S).vendors : {}, tot = (v.A || 0) + (v.B || 0) + (v.K || 0);
+    return { A: tot ? (v.A || 0) / tot : 0, B: tot ? (v.B || 0) / tot : 0 };
+  };
+  // at every official event the vendors see what is on the robot
+  P.loyalSample = function (S) {
+    if (!P.loyalOn(S) || !S.season) return;
+    const sh = P.vendorShare(S), sv = S.season.vend = S.season.vend || { n: 0, A: 0, B: 0 };
+    sv.n++; sv.A += sh.A; sv.B += sh.B;
+  };
+  // season review: 100 points for a competition robot that ran on this catalogue alone, up to 15 more for the year's
+  // orders; a new level means a letter in the autumn
+  P.loyalSeason = function (S) {
+    if (!P.loyalOn(S)) return null;
+    const sv = S.season && S.season.vend, st = lyState(S), L = D.LOYALTY, out = [];
+    ['A', 'B'].forEach(slot => {
+      // (a season without an official event: what is on the robot at the review)
+      const robot = Math.round(L.robot * Math.min(1, (sv && sv.n ? sv[slot] / sv.n : P.vendorShare(S)[slot]) / L.full)), buy = Math.round(L.buy * Math.min(1, ((S.vendBought || {})[slot] || 0) / L.buyFull)), gain = robot + buy, s = st[slot];
+      if (!gain) return;
+      s.pts += gain;
+      let up = 0;
+      while (L.levels[s.lvl] != null && s.pts >= L.levels[s.lvl]) { s.lvl++; up++; (S.loyalDue = S.loyalDue || []).push({ slot, lvl: s.lvl }); }
+      out.push({ slot, brand: P.loyal(S, slot).brand, gain, robot, buy, pts: s.pts, lvl: s.lvl, up, next: L.levels[s.lvl] != null ? L.levels[s.lvl] : null });
+    });
+    S.vendBought = { A: 0, B: 0 };
+    // a voucher is good through the season after it was given
+    Object.keys(S.voucher || {}).forEach(slot => { const v = S.voucher[slot]; if (v && S.si >= v.until) { if (v.amt > 0) G.Career.inbox(S, 'Voucher expired', 'The ' + U.money(v.amt) + ' left on your ' + P.loyal(S, slot).vendor.name + ' voucher expired with the season.', 'money'); delete S.voucher[slot]; } });
+    return out;
+  };
+  const LOYAL_INTRO = {
+    T: 'A heavy envelope arrives from Sterling Motion: a letter on thick paper, signed in ink by the regional sales director, and a brass plate for the robot cart.',
+    A: 'A box arrives from Apex Motion. Inside: a letter from the founder, a strip of orange stickers for the robot, and a page torn from her list of failed parts with a line through every entry.',
+    B: 'A padded envelope arrives from Lumen Robotics, addressed by hand. Inside: a note from the founder, a roll of teal stickers, and a photo of your robot pinned up on their warehouse wall.'
+  };
+  const LOYAL_TALK = [
+    ['Their stickers are on our robot anyway. Now they are paying for the space.', 'a lead mentor'],
+    ['The vendor rep knew our drive coach by name. That felt strange and good.', 'a student on Team {t}'],
+    ['We switched vendors last year to save two hundred dollars. I am doing the maths again.', 'a treasurer on Team {t}'],
+    ['Free motors are the best motors.', 'every electrical lead, ever'],
+    ['They asked for a photo of the robot for the catalogue. The students argued for an hour about which side is its good side.', 'a mentor on Team {t}'],
+    ['Loyalty goes both ways: when we were short in Week 3 they found us four motors in a day.', 'a team in its ninth season with the same vendor']
+  ];
+  // the letter: the team has reached a new level with a vendor and chooses its loyalty sponsorship
+  P.loyalOffer = function (S, slot, lvl) {
+    const L = D.LOYALTY, brand = P.slotBrand(S, slot), V = D.VENDORS[brand], rng = R();
+    const pack = Object.keys(L.pack[lvl] || {}).filter(cat => { const pr = P.cur(S, cat, slot); return pr && !P.gone(S, pr); }).map(cat => ({ cat, n: L.pack[lvl][cat] }));
+    const O = S.loyalOffer = { slot, brand, lvl, stage: 'choose', pack, packValue: pack.reduce((t, x) => t + x.n * P.cur(S, x.cat, slot).price, 0), voucher: L.voucher[lvl], sale: L.sale[lvl],
+      month: D.MONTHS[S.month], intro: LOYAL_INTRO[brand] || LOYAL_INTRO.B, talk: rng.shuffle(LOYAL_TALK.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', someTeam(S, rng))]) };
+    G.Career.inbox(S, V.name + ' names you a ' + L.names[lvl], O.intro + '\n\nYour team has reached loyalty level ' + lvl + ' with ' + V.name + ' (' + L.names[lvl] + '). Choose your loyalty sponsorship (Headquarters):\n• Free parts at Kickoff: ' + P.packText(S, O) +
+      '\n• A voucher of ' + U.money(O.voucher) + ', good through next season\n• ' + Math.round(O.sale * 100) + '% off everything from ' + V.short + ' until Kickoff\n\nFrom now on your in-season orders with ' + V.short + ' ship first: +' + Math.round(L.stock * lvl * 100) + '% chance that a part is in stock.', 'money');
+    (S.launchQueue = S.launchQueue || []).push({ kind: 'loyalty' });
+    return O;
+  };
+  P.packText = (S, O) => O.pack.map(x => x.n + ' ' + (x.n > 1 ? CAT_WORD[x.cat] : CAT_WORD[x.cat].replace(/s$/, ''))).join(', ') + ' (the newest ' + D.VENDORS[O.brand].short + ' version on sale by then)';
+  // each offseason month from September: one letter at a time
+  P.loyalMonth = function (S) {
+    if (!P.loyalOn(S) || S.loyalOffer || !(S.loyalDue || []).length || S.month < D.LOYALTY.month) return;
+    const i = S.loyalDue.findIndex(d => !!P.slotBrand(S, d.slot)); // the premium catalogue may be between owners
+    if (i < 0) return;
+    const d = S.loyalDue.splice(i, 1)[0];
+    P.loyalOffer(S, d.slot, d.lvl);
+  };
+  // pick: 'pack' (free parts at Kickoff), 'voucher' or 'sale'
+  P.loyalChoose = function (S, pick) {
+    const O = S.loyalOffer;
+    if (!O || O.stage !== 'choose') return 'Nothing to choose';
+    if (!['pack', 'voucher', 'sale'].includes(pick)) return 'Choose one of the three';
+    const V = D.VENDORS[O.brand];
+    let text;
+    if (pick === 'pack') { (S.loyalShip = S.loyalShip || []).push({ slot: O.slot, lvl: O.lvl, list: O.pack }); text = 'Your free parts arrive with the Kit of Parts at Kickoff: ' + P.packText(S, O) + '.'; }
+    else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
+    else { (S.vendSale = S.vendSale || {})[O.slot] = { pct: O.sale, up: S.upcoming }; text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
+    (S.loyalLog = S.loyalLog || []).push({ slot: O.slot, brand: O.brand, lvl: O.lvl, pick, cy: P.buyCy(S) });
+    G.Career.inbox(S, 'Loyalty sponsorship: ' + V.name, text, 'money');
+    S.loyalOffer = null;
+    return null;
+  };
+  // Kickoff: free parts chosen in the autumn arrive with the kit, in the newest version on sale
+  P.loyalDeliver = function (S) {
+    (S.loyalShip || []).forEach(sh => {
+      const got = [];
+      sh.list.forEach(x => { const pr = P.cur(S, x.cat, sh.slot); if (pr && !P.gone(S, pr)) { P.add(S, x.cat, pr.id, x.n, 1); got.push(x.n + '× ' + pr.name); } });
+      if (got.length) G.Career.inbox(S, 'Loyalty parts have arrived', 'In the box next to the Kit of Parts: ' + got.join(', ') + '. With thanks from ' + P.loyal(S, sh.slot).vendor.name + '.', 'dev');
+    });
+    S.loyalShip = [];
+  };
+
+  // ======================= product launch events =======================
   // ======================= product launch events =======================
   const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
   const LAUNCH_INTRO = {
@@ -9802,6 +9950,9 @@ window.G = window.G || {};
     ctrlT: 'More channels and a metal case. The manual is forty pages and worth reading.',
     ion: 'No brushes to wear out, twice the power for the weight, and the controller reads the rotor position by itself.',
     apex: 'Every connector latches. Built by people who kept a list of what fails.',
+    apexmotor: 'Brushless, with a connector that locks with a click. The first entry on the founder\'s list of failed parts was a motor lead.',
+    apexenc: 'An absolute encoder in a sealed case with a latching plug. It reads the same after a hard hit as before it.',
+    apexctrl: 'Every port latches and every channel has its own fault light. Built by people who kept a list of what fails.',
     vector: 'The first swerve module you can simply buy: bolt on four, add motors and encoders, and drive sideways.',
     pivot: 'Heavier and a little slower than the premium module, at about two thirds of the price.'
   };
@@ -9853,7 +10004,7 @@ window.G = window.G || {};
       const prods = rs.map(r => {
         const g = era ? r.n : P.genAt(S, r.cat, v), np = P.prodAt(S, r.cat, v, g), op0 = g > 1 ? P.prodAt(S, r.cat, v, g - 1) : null, op = op0 && !(era && P.gone(S, op0) && op0.brand !== np.brand) ? op0 : null;
         const own = P.items(S, r.cat).reduce((m, it) => Math.max(m, (PROD[it.p] || {}).perf || 0), 0);
-        const tag = era ? (np.kind === 'brushless' && op0 && op0.kind === 'brushed' && bv === 'B' ? LAUNCH_TAG.ion : bv === 'A' && (!op0 || op0.brand === 'T') ? (r.cat === 'swerve' ? LAUNCH_TAG.vector : LAUNCH_TAG.apex) : r.cat === 'swerve' && g === 1 ? LAUNCH_TAG.pivot : LAUNCH_TAG[r.cat + bv] || '') : LAUNCH_TAG[r.cat + v] || '';
+        const tag = era ? (np.kind === 'brushless' && op0 && op0.kind === 'brushed' && bv === 'B' ? LAUNCH_TAG.ion : bv === 'A' && (!op0 || op0.brand === 'T') ? (r.cat === 'swerve' ? LAUNCH_TAG.vector : LAUNCH_TAG['apex' + r.cat] || LAUNCH_TAG.apex) : r.cat === 'swerve' && g === 1 ? LAUNCH_TAG.pivot : LAUNCH_TAG[r.cat + bv] || '') : LAUNCH_TAG[r.cat + v] || '';
         return { id: np.id, cat: r.cat, name: np.name, oldName: op ? op.name : null, perf: np.perf, oldPerf: op ? op.perf : (op0 ? op0.perf : 0), price: P.price(S, np), oldPrice: op ? P.price(S, op) : 0, tag, own, vs: !op && op0 ? op0.name : null };
       });
       const talk = rng.shuffle(LAUNCH_TALK[bv].slice()).slice(0, rng.int(1, 2)).concat(rng.shuffle(LAUNCH_TALK.any.slice())).slice(0, 3)
@@ -9896,6 +10047,13 @@ window.G = window.G || {};
       });
     } else (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' || v === 'K' ? cat + v : cat + v + 1, n, h));
     S.elem = {}; S.elemPre = {}; S.elemKop = {}; S.vendorPref = null;
+    if (P.loyalOn(S)) {
+      // the vendor whose parts are on the starting shelf already knows the team
+      const cnt = { A: 0, B: 0 }; D.ELEC_CATS.forEach(cat => P.items(S, cat).forEach(it => { const v = PROD[it.p].v; if (cnt[v] != null) cnt[v]++; }));
+      const fav = cnt.A > cnt.B ? 'A' : cnt.B > cnt.A ? 'B' : null;
+      S.loyal = { A: { pts: 0, lvl: 0 }, B: { pts: 0, lvl: 0 } };
+      if (fav) S.loyal[fav].pts = D.LOYALTY.start[S.profile] || 0;
+    }
     if (!S.cal) P.planReleases(S, rng);
     P.rollStock(S);
   };
@@ -11596,7 +11754,8 @@ window.G = window.G || {};
   UI.tag = (t, k) => '<span class="tag ' + (k || '') + '">' + h(t) + '</span>';
   // Blue banner (simplified FRC style): emblem, award, year, event
   UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (/Impact/.test(b.award) ? '✦' : b.gold ? '★' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div><div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
-  UI.bannerWall = (list, isNew) => '<div class="banners">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
+  // rows of banners; a long career's wall uses smaller banners (15 or more, and again from 31)
+  UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
@@ -11685,11 +11844,12 @@ window.G = window.G || {};
     if (L.kind === 'story') return UI.storyModal(L, S.launchQueue.length - 1);
     if (L.kind === 'pandemic') { S.launchQueue.shift(); return UI.pandemicModal(); }
     if (L.kind === 'district') { S.launchQueue.shift(); return UI.districtModal(); }
+    if (L.kind === 'loyalty') { S.launchQueue.shift(); return UI.loyaltyModal(); }
     if (L.kind) return UI.techModal(L, S.launchQueue.length - 1);
     const V = D.VENDORS[L.v], more = S.launchQueue.length - 1;
     const prod = p => '<div class="card flat mb" style="border-left:3px solid ' + V.color + '"><div class="row"><b>' + h(p.name) + '</b> ' + UI.tag('NEW', 'acc') + '<span class="sp"></span><b>' + U.money(p.price) + '</b><span class="xs muted">each</span></div>' +
       '<div class="sm muted mt">' + h(p.tag) + '</div>' +
-      '<div class="statrow wide mt"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, V.color) + '<span class="v nowrap" style="width:auto">' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + '<b>' + Math.round(p.perf * 100) + '</b></span></div>' +
+      '<div class="statrow wide mt" style="grid-template-columns:110px 1fr auto"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, V.color) + '<span class="v nowrap" style="width:auto">' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + '<b>' + Math.round(p.perf * 100) + '</b></span></div>' +
       '<div class="xs muted">' + (p.oldName ? 'Replaces the ' + h(p.oldName) + ' (' + U.money(p.oldPrice) + '), on sale through the ' + L.year + ' season.' : p.vs ? 'Takes the place of the ' + h(p.vs) + ', which is no longer made.' : 'A new kind of product: nothing like it was sold before.') + '</div></div>';
     UI.modal('<div class="xs b" style="color:' + V.color + '">PRODUCT LAUNCH · ' + h(L.month.toUpperCase()) + ' · ' + L.toKick + ' MONTH' + (L.toKick > 1 ? 'S' : '') + ' TO KICKOFF</div><h2>' + h(V.name) + ' unveils ' + h(L.prods.map(p => p.name).join(' & ')) + '</h2>' +
       '<p class="muted">' + h(L.intro) + '</p>' + L.prods.map(prod).join('') +
@@ -11735,6 +11895,33 @@ window.G = window.G || {};
   UI.A.districtJoin = () => UI.districtPick(true);
   UI.A.districtStay = () => UI.districtPick(false);
   UI.A.districtOpen = () => UI.districtModal();
+  // A vendor's loyalty sponsorship: the team has reached a new loyalty level and chooses one of three rewards
+  UI.loyaltyBar = function (S, slot) {
+    const y = G.Parts.loyal(S, slot), L = D.LOYALTY, col = y.vendor.color;
+    return '<div class="row sm"><b style="color:' + col + '">' + h(y.vendor.short) + '</b>' + UI.tag('Level ' + y.lvl + ' · ' + y.name, y.lvl ? 'acc' : '') + '<span class="sp"></span><span class="xs muted">' + (y.next != null ? y.pts + ' / ' + y.next + ' loyalty points' : y.pts + ' loyalty points · top level') + '</span></div>' +
+      UI.bar(y.next != null ? y.pts - y.prev : 1, y.next != null ? y.next - y.prev : 1, col);
+  };
+  UI.loyaltyModal = function () {
+    const S = G.S, O = S.loyalOffer;
+    if (!O || O.stage !== 'choose') return;
+    const V = D.VENDORS[O.brand], L = D.LOYALTY, Pt = G.Parts, y = Pt.loyal(S, O.slot);
+    const card = (id, icon, title, big, lines) => '<div class="card flat" style="border-top:3px solid ' + V.color + ';display:flex;flex-direction:column"><div class="b">' + UI.icon(icon, 16) + ' ' + title + '</div><div class="lg b mt" style="color:' + V.color + '">' + big + '</div>' +
+      '<ul class="story-ul" style="flex:1">' + lines.map(x => '<li>' + x + '</li>').join('') + '</ul><button class="btn primary" data-act="loyaltyPick" data-arg="' + id + '">Choose</button></div>';
+    UI.modal('<div class="xs b" style="color:' + V.color + ';letter-spacing:.08em">VENDOR LOYALTY · ' + h(V.name.toUpperCase()) + ' · ' + h(String(O.month).toUpperCase()) + '</div><h2>' + h(V.name) + ' names you a ' + h(L.names[O.lvl]) + '</h2>' +
+      '<p class="story-p">' + h(O.intro) + '</p>' +
+      '<p class="story-p">Season after season your competition robot has run on ' + h(V.short) + ' electronics, and it shows where other teams can see it. ' + h(V.short) + ' would like to keep it that way, and offers a <b>loyalty sponsorship</b>. Choose one.</p>' +
+      '<div class="card flat mb">' + UI.loyaltyBar(S, O.slot) + '<div class="xs muted mt">A season is worth ' + L.robot + ' points when your competition robot runs on their electronics alone, and up to ' + L.buy + ' more for ordering their parts that year (' + U.money(L.buyFull) + ' for all of it). From this level on, your in-season orders with ' + h(V.short) + ' ship first: +' + Math.round(y.stock * 100) + '% chance that a part is in stock.</div></div>' +
+      '<div class="grid g3">' +
+      card('pack', 'box', 'Free parts', O.pack.map(x => x.n + ' ' + h((x.n > 1 ? D.PART_CAT[x.cat].short : D.PART_CAT[x.cat].short.replace(/s$/, '')).toLowerCase())).join(' + '), ['Delivered with the Kit of Parts at Kickoff.', 'The newest ' + h(V.short) + ' version on sale by then.', 'Worth about ' + U.money(O.packValue) + ' at today\'s prices, and it costs you nothing.']) +
+      card('voucher', 'money', 'Voucher', U.money(O.voucher), ['Store credit with ' + h(V.short) + ': it pays first whenever you buy their parts.', 'Good through next season, so it also covers a part that breaks in Week 4.', 'What is left at the season review expires.']) +
+      card('sale', 'bolt', 'Limited-time offer', '−' + Math.round(O.sale * 100) + '% until Kickoff', ['Everything from ' + h(V.short) + ', this autumn\'s new products included.', 'The best deal if you are about to refit a whole robot: it beats the voucher from about ' + U.money(O.voucher / O.sale) + ' of orders.', 'Ends when the Kickoff broadcast starts.']) +
+      '</div>' +
+      '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + O.talk.map(q => '<div class="sm mt">“' + h(q[0]) + '” <span class="xs muted">— ' + h(q[1]) + '</span></div>').join('') +
+      '<div class="row mt"><span class="xs muted">Also in your inbox. One choice per level; it cannot be changed afterwards.</span></div>', { wide: true, lock: true });
+  };
+  UI.A.loyaltyPick = pick => { const S = G.S, O = S.loyalOffer, name = O ? D.VENDORS[O.brand].short : '', e = G.Parts.loyalChoose(S, pick); if (e) return UI.err(e); UI.closeModal(); G.Save.write('auto'); UI.render();
+    UI.toast(pick === 'pack' ? name + ' ships your free parts at Kickoff' : pick === 'voucher' ? name + ' voucher added' : name + ' sale is on until Kickoff', 'good'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
+  UI.A.loyaltyOpen = () => UI.loyaltyModal();
 
   // A story: one of the calendar's big changes (a vendor rises or falls, a rule changes, the year in review)
   UI.storyModal = function (L, more) {
@@ -11889,6 +12076,7 @@ window.G = window.G || {};
     let o = UI.head('Headquarters', 'hq', h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics');
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
+    if (S.loyalOffer && S.loyalOffer.stage === 'choose') o += '<div class="warnbox mt"><b>' + h(D.VENDORS[S.loyalOffer.brand].name) + ' offers a loyalty sponsorship.</b> Free parts, a voucher or a sale: choose one. <button class="btn primary sm" data-act="loyaltyOpen">Choose</button></div>';
     if (S.districtOffer && S.districtOffer.stage === 'choose') o += '<div class="warnbox mt"><b>The ' + h(D.DISTRICT[S.districtOffer.id].name) + ' forms in ' + S.districtOffer.cy + '.</b> Your school is in its area: join the district or stay a regional team. <button class="btn primary sm" data-act="districtOpen">Decide</button></div>';
     else if (S.team.homeNext && G.World.on(S)) o += '<div class="hint mt">' + UI.icon('info', 14) + ' Your team joins the <b>' + h(D.DISTRICT[S.team.homeNext].name) + '</b> next season. District event registration opens in October.</div>';
     const banner = UI.devBanner(S);
@@ -13929,6 +14117,11 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.1', title: 'Preview of 3.0: vendor loyalty, a longer banner wall and the 2020 recap', notes: [
+      'Vendor loyalty. Each vendor keeps a loyalty level for your team, built from the seasons your competition robot runs on its electronics and from what you order. Every new level brings a loyalty sponsorship as a pop-up in September, with a choice of free parts at Kickoff, a voucher, or a sale until Kickoff; a team that stays with one vendor gets three in a ten-season career. Loyal teams also find parts in stock more often in season. The Electronics tab shows your level with each vendor.',
+      'History: the banner wall uses smaller banners once a long career has hung many of them, a District Championship win now earns a banner, and the robots of past seasons wrap into rows. The 2020 season has its recap, shown before the season that never came.',
+      'Pop-ups: the month in a window\'s header now appears only on offseason news (Stop Build Day no longer says December in March), each product in Apex\'s first launch has its own description, and the performance figures on launch cards stay inside the card.'
+    ] },
     { v: '2.9.0', title: 'Preview of 3.0: ten seasons (2016–2026) and the district model', notes: [
       'A career now covers ten seasons. Start in any year from 2016 to 2026 (there is no 2021 season) and play through to 2026. Five games are new: 2016 FIRST STRONGHOLD, 2017 FIRST STEAMWORKS, 2018 FIRST POWER UP, 2019 DESTINATION: DEEP SPACE and 2020 INFINITE RECHARGE, each with its own field, robot concepts, six AI robot types, strategies, news and chatter. In random order the games are shuffled, but everything below still follows the calendar year.',
       'Careers saved in v2.5 load and finish exactly as before. New features apply to careers started in this version or later.',
@@ -14116,6 +14309,9 @@ window.G = window.G || {};
     const head = hs.worldChamp ? 'WORLD CHAMPIONS' : hs.divWin ? 'Championship division winners' : hs.champs ? 'Championship qualifiers' : hs.events.some(e => e.won) ? 'Regional winners' : hs.events.some(e => e.playoffs) ? 'Playoff team' : 'Building season';
     o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
+    if (hs.loyal && hs.loyal.length) o += UI.card('Vendor loyalty', hs.loyal.map(y => '<div class="mb"><div class="row sm"><b style="color:' + D.VENDORS[y.brand].color + '">' + h(D.VENDORS[y.brand].name) + '</b><span class="sp"></span><span class="muted nowrap">' + y.pts + (y.next != null ? ' / ' + y.next : '') + ' points</span></div>' +
+      '<div class="sm">' + h(D.LOYALTY.names[y.lvl]) + (y.up ? ' ' + UI.tag('new level', 'acc') : '') + '</div>' +
+      '<div class="xs muted">+' + y.gain + ' this season: ' + (y.robot || 0) + ' for the competition robot, ' + (y.buy || 0) + ' for your orders.' + (y.up ? ' A letter from ' + h(D.VENDORS[y.brand].short) + ' arrives in September.' : '') + '</div></div>').join(''), '', 'mb');
     o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(G.Career.goalText(G.S, D.PROGRAM_GOALS[g.id].text, hs.home || null)) + '</span></div>').join('') +
       '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
     o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned, hs.px) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent, hs.px) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money, hs.px) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
@@ -14278,16 +14474,25 @@ window.G = window.G || {};
     const p = x.prod, owned = P().items(S, p.cat).filter(i => i.p === p.id).length, price = P().price(S, p), ok = P().inStock(S, p.id) || !P().inSeason(S);
     const qty = p.cat === 'motor' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' ? [1, 2] : [1];
     const bv = brand(p);
-    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
+    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag('loyalty −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
       '<div class="statrow"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, D.VENDORS[bv].color) + '<span class="v">' + Math.round(p.perf * 100) + '</span></div>' +
       '<div class="row sm wrap"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? UI.tag('always in stock', 'good') : stockTag(S, p.id)) + '</div>' +
       '<div class="row wrap gap4 mt">' + qty.map(n => '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|' + n + '" ' + (ok ? '' : 'disabled') + '>+' + n + ' · ' + U.money(n * price) + '</button>').join('') + '</div></div>';
+  }
+  // a vendor's loyalty level with the team, and what it currently gives
+  function loyalBox(S, slot) {
+    const y = P().loyal(S, slot), sh = P().vendorShare(S)[slot];
+    return '<div class="mt" style="border-top:1px solid var(--line);padding-top:8px">' + UI.loyaltyBar(S, slot) +
+      '<div class="xs muted mt">Points per season. On your competition robot now: <b>' + pct(sh) + '</b> of the electronics (' + Math.round(D.LOYALTY.robot * Math.min(1, sh / D.LOYALTY.full)) + ' of ' + D.LOYALTY.robot + '; ' + pct(D.LOYALTY.full) + ' counts in full). Ordered since the last review: <b>' + U.money((S.vendBought || {})[slot] || 0) + '</b> of ' + U.money(D.LOYALTY.buyFull) + ' (' + Math.round(D.LOYALTY.buy * Math.min(1, ((S.vendBought || {})[slot] || 0) / D.LOYALTY.buyFull)) + ' of ' + D.LOYALTY.buy + ').' + (y.stock ? ' Your orders ship first: +' + pct(y.stock) + ' in-season stock.' : '') + '</div>' +
+      (y.voucher ? '<div class="sm good mt">' + UI.icon('money', 14) + ' Voucher: <b>' + U.money(y.voucher.amt) + '</b> left, good through the ' + (S.cal[y.voucher.until] || '') + ' season. It pays first.</div>' : '') +
+      (y.sale ? '<div class="sm good mt">' + UI.icon('bolt', 14) + ' Loyalty sale: <b>−' + pct(y.sale) + '</b> on everything until Kickoff.</div>' : '') +
+      ((S.loyalShip || []).some(x => x.slot === slot) ? '<div class="sm good mt">' + UI.icon('box', 14) + ' Free parts arrive at Kickoff.</div>' : '') + '</div>';
   }
   function elecTab(S) {
     const sale = P().forSale(S);
     // the premium column: Sterling Motion until it closes in 2019 (then a short gap), Apex Motion from the autumn after
     const prem = P().premium(S), closed = S.cal && !prem, slotV = v => (v === 'A' ? (prem || 'T') : v);
-    let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div></div>'; }).join('') + '</div>';
+    let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div>' + (v !== 'K' && !gone && P().loyalOn(S) ? loyalBox(S, v) : '') + '</div>'; }).join('') + '</div>';
     o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing the premium vendor\'s and Lumen\'s electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to vendor parts costs 5% more hours and a little performance. Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season.' + (S.cal ? ' Sterling Motion and Apex Motion parts fit together (same bolt pattern and connectors), so they never count as mixed.' : ' No product line goes past version III.') + '</div>';
     // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
     D.ELEC_CATS.forEach(cat => {
@@ -14304,7 +14509,7 @@ window.G = window.G || {};
   UI.A.buyProd = arg => {
     const [id, n] = arg.split('|'), r = G.Parts.buy(G.S, id, Number(n));
     if (typeof r === 'string') return UI.err(r);
-    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
+    UI.toast('Bought ' + ((r && r.bought) || n) + '× ' + G.Parts.prod(id).name + (r && r.voucher ? ' (voucher paid ' + U.money(r.voucher) + ')' : '') + (r && r.replaced ? ' (replaced ' + r.replaced + ' older part' + (r.replaced > 1 ? 's' : '') + (r.got ? ', sold for ' + U.money(r.got) : ', recycled') + ')' : ''), 'good');
     UI.render();
   };
 
@@ -14522,6 +14727,12 @@ window.G = window.G || {};
     ] },
     { id: 'parts', icon: 'parts', name: 'Inventory', desc: 'Vendors, stock, wear, kits, game elements', secs: [
       { icon: 'chip', t: 'Two electronics vendors', li: ['The premium vendor (<b>Sterling Motion</b> until it closed in 2019, <b>Apex Motion</b> from 2020): top performance, premium prices. <b>Lumen Robotics</b>: dependable and cheaper. Sterling and Apex parts fit together.', 'Motors, encoders, control hubs and swerve modules come from one of them. Drivetrains always need these.', '<b>Mixing</b> both on the competition robot: hardware and software projects take 10% longer, and the robot loses a little reliability and speed. Use "Premium first" or "Lumen first" to keep one system.', 'Every fall, 1–4 months before Kickoff, each vendor holds a launch event with at least one new product (a pop-up and an inbox post). The previous version stays on sale through the next season; no line goes past version III.'] },
+      { icon: 'trophy', t: 'Vendor loyalty', li: ['Each vendor keeps a <b>loyalty level</b> for your team: Customer, Loyal Team, Preferred Team, Partner Team, Flagship Team. The premium catalogue\'s level carries over from Sterling to Apex.',
+        'A season is worth ' + D.LOYALTY.robot + ' points with a vendor when your competition robot runs on its electronics at your events (' + Math.round(D.LOYALTY.full * 100) + '% of them is enough; kit parts and the other vendor\'s parts count against it), and up to ' + D.LOYALTY.buy + ' more for ordering its parts that year (' + U.money(D.LOYALTY.buyFull) + ' for all of it). "Premium first" or "Lumen first" on the Your robots tab keeps the robot on one vendor.',
+        'Levels come at ' + D.LOYALTY.levels.join(', ') + ' points: a team that stays with one vendor reaches three of them in a ten-season career.',
+        'At each new level the vendor sends a <b>loyalty sponsorship</b> in September, as a pop-up. Choose one: <b>free parts</b> delivered at Kickoff in the newest version, a <b>voucher</b> that pays first when you buy from that vendor and lasts through the next season, or a <b>limited-time offer</b> of ' + Math.round(D.LOYALTY.sale[1] * 100) + '% to ' + Math.round(D.LOYALTY.sale[4] * 100) + '% off everything from that vendor until Kickoff. Higher levels give more.',
+        'From level 1 your in-season orders ship first: +' + Math.round(D.LOYALTY.stock * 100) + '% chance per level that a part from that vendor is in stock.',
+        'The Electronics tab shows each vendor\'s level, your points, and any voucher or sale you hold.'] },
       { icon: 'box', t: 'Kit of Parts and stock', d: flow([['truck', 'Offseason: everything in stock'], ['bolt', 'Kickoff: free kit'], ['incident', 'In season: often sold out']]), li: ['Every team gets a free kit at every Kickoff: 4 brushed motors, 2 low-profile encoders, 2 kitbot gearboxes and game pieces. Only rookies get a control hub, in a bigger first-season kit; veteran teams start with one leftover kit hub.', 'In season, electronics are often <b>sold out</b> for the week. Stock up before Kickoff.', 'More <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub, kitbot gearboxes) can be bought any time: very cheap and never sold out, but much slower. Next to vendor parts they cost 5% more project hours and a little performance. They can\'t be resold.'] },
       { icon: 'garage', t: 'What builds use', li: ['A swerve drive uses 4 modules, 8 motors and 4 encoders; tank drives 4–6 motors and 2 gearboxes; most mechanisms 1–3 motors.', 'Each robot needs one control hub; a <b>second robot</b> needs its own set of electronics.', 'Parts are reusable: the best ones go on the competition robot, the rest on the other robot.'] },
       { icon: 'spare', t: 'Wear and slots', li: ['Parts wear in matches and practice. Worn parts barely slow the robot but fail more often.', 'Each part type has a slot limit; buying more replaces your most worn parts. Replaced parts above 60% condition are sold for you, the rest are recycled.'] },
@@ -14818,6 +15029,7 @@ window.G = window.G || {};
       if (opts.fuzz) { Dev.fuzzTurn(S, log); Dev.check(S, log); }
       if (opts.until && opts.until(S)) break; // stop early, e.g. to inspect a mid-season state in the UI
       if (S.lostYear && S.lostYear.stage === 'choose') { const e = C.pandemicChoose(S, opts.pandemic || ['remote', 'skills']); if (e) { log.push('PROBLEM pandemic choice: ' + e); break; } log.push('2021: season cancelled (' + S.lostYear.picks.join(' + ') + ')'); }
+      if (S.loyalOffer && S.loyalOffer.stage === 'choose') { const O = S.loyalOffer, pk = opts.loyal || ['voucher', 'pack', 'sale'][(S.loyalLog || []).length % 3]; G.Parts.loyalChoose(S, pk); log.push(G.Career.cy(S) + ' loyalty: ' + G.Data.VENDORS[O.brand].name + ' level ' + O.lvl + ' → ' + pk); }
       if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {

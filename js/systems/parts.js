@@ -116,6 +116,7 @@
     // the first brushless motor: premium money through its launch season, and until Apex arrives to compete
     if (S.cal && prod.launchPrice && (P.buyCy(S) <= prod.y || (P.buyCy(S) === prod.y + 1 && P.premium(S) !== 'A'))) base = prod.launchPrice;
     if (S.cal && prod.brand === 'T' && P.clearance(S)) base *= G.Era.CLEAR_PRICE;       // Sterling's closing sale
+    { const off = P.saleFor(S, prod); if (off) base *= 1 - off; }                          // a loyalty sale, until Kickoff
     return Math.round(base * (D.PART_PRICE_DIFF[S.diff] || 1) * (G.Career.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
   };
 
@@ -125,7 +126,8 @@
     const rng = R(), st = {}, d = D.STOCK.diff[S.diff] || 0, season = P.inSeason(S);
     P.forSale(S).forEach(x => {
       const e = D.PART_CAT[x.prod.cat].elec;
-      const p = season ? (e ? D.STOCK.elec : D.STOCK.cots) + d + (x.isNew ? D.STOCK.newRelease : 0) : D.STOCK.off;
+      const ly = season && e && !x.kop && P.loyalOn(S) && S.loyal && S.loyal[x.prod.v] ? D.LOYALTY.stock * S.loyal[x.prod.v].lvl : 0;
+      const p = season ? (e ? D.STOCK.elec : D.STOCK.cots) + d + (x.isNew ? D.STOCK.newRelease : 0) + ly : D.STOCK.off;
       st[x.prod.id] = x.kop ? true : rng.chance(U.clamp(p, 0.1, 1)); // Kit of Parts items never sell out
     });
     D.ELEM_SETS.forEach(e => { st['elem' + e.id] = season ? rng.chance(U.clamp(D.STOCK.elem + d, 0.1, 1)) : true; });
@@ -167,8 +169,13 @@
       if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
     const cost = n * P.price(S, prod);
-    { const e = G.Career.afford(S, cost); if (e) return e; }
-    G.Career.spend(S, cost, n + '× ' + prod.name);
+    // a loyalty voucher from this vendor pays first
+    const vch = P.loyalOn(S) && S.voucher && S.voucher[prod.v] && S.voucher[prod.v].amt > 0 ? S.voucher[prod.v] : null, use = vch ? Math.min(vch.amt, cost) : 0;
+    { const e = G.Career.afford(S, cost - use); if (e) return e; }
+    if (cost - use > 0) G.Career.spend(S, cost - use, n + '× ' + prod.name + (use ? ' (voucher paid ' + U.money(use) + ')' : ''));
+    else S.ledger.unshift({ d: G.Career.dateLabel(S), desc: n + '× ' + prod.name + ' (paid with your ' + D.VENDORS[P.brand(prod)].short + ' voucher)', amt: 0, px: G.Career.px(S) });
+    if (use) { vch.amt -= use; if (vch.amt <= 0) delete S.voucher[prod.v]; }
+    if (P.loyalOn(S) && (prod.v === 'A' || prod.v === 'B')) { const vb = S.vendBought = S.vendBought || { A: 0, B: 0 }; vb[prod.v] += cost; } // this year's orders count for loyalty
     const had = P.items(S, prod.cat).slice();
     const dropped = P.add(S, prod.cat, prodId, n, 1);
     let sold = 0, got = 0;
@@ -177,7 +184,7 @@
       had.filter(it => !keep.has(it)).forEach(it => { const v = it.h > D.SELL_MIN ? P.resale(S, it) : 0; if (v > 0) { sold++; got += v; } });
       if (got) G.Career.earn(S, got, 'Sold ' + sold + ' replaced ' + cat.short.toLowerCase());
     }
-    return { bought: n, replaced: dropped, sold, got };
+    return { bought: n, replaced: dropped, sold, got, voucher: use };
   };
 
   // The product to buy for a category from a vendor (electronics) or the COTS suppliers
@@ -459,6 +466,7 @@
       if (drop) full.push(drop + ' ' + D.PART_CAT[cat].short.toLowerCase());
     });
     S.lastKop = { kit, rookie, full, year: S.year };
+    P.loyalDeliver(S);
     S.elemKop = S.elemKop || {}; S.elemKop[S.year] = true;
     const pre = S.elemPre && S.elemPre[S.year];
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
@@ -466,6 +474,110 @@
       (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
       (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
   };
+  // ======================= vendor loyalty =======================
+  // Loyalty is kept per catalogue: 'A' the premium one (Sterling Motion, then Apex Motion, which honours Sterling's
+  // customer list) and 'B' Lumen Robotics. New careers only: a career from before v3.0 plays on without it.
+  P.loyalOn = S => !!(S && S.cal && S.mode === 'career');
+  const lyState = S => (S.loyal = S.loyal || { A: { pts: 0, lvl: 0 }, B: { pts: 0, lvl: 0 } });
+  // the brand selling in a catalogue right now ('T', 'A' or 'B'), or null while the premium one is between owners
+  P.slotBrand = (S, slot) => (slot === 'A' ? P.premium(S) : 'B');
+  P.loyal = function (S, slot) {
+    const st = lyState(S)[slot], L = D.LOYALTY, lvl = st.lvl, brand = P.slotBrand(S, slot) || (slot === 'A' ? (P.buyCy(S) > G.Era.STERLING_LAST ? 'A' : 'T') : 'B');
+    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: lvl ? L.levels[lvl - 1] : 0, brand, vendor: D.VENDORS[brand],
+      voucher: S.voucher && S.voucher[slot] && S.voucher[slot].amt > 0 ? S.voucher[slot] : null, sale: P.saleOf(S, slot), stock: L.stock * lvl };
+  };
+  // a loyalty sale runs from the letter until Kickoff
+  P.saleOf = (S, slot) => { const s = S.vendSale && S.vendSale[slot]; return s && S.phase === 'off' && S.upcoming === s.up ? s.pct : 0; };
+  P.saleFor = (S, prod) => (prod && (prod.v === 'A' || prod.v === 'B') && S.vendSale ? P.saleOf(S, prod.v) : 0);
+  // how much of the competition robot's electronics each catalogue supplies (kit parts count for nobody)
+  P.vendorShare = function (S) {
+    const v = S.robot ? P.profile(S).vendors : {}, tot = (v.A || 0) + (v.B || 0) + (v.K || 0);
+    return { A: tot ? (v.A || 0) / tot : 0, B: tot ? (v.B || 0) / tot : 0 };
+  };
+  // at every official event the vendors see what is on the robot
+  P.loyalSample = function (S) {
+    if (!P.loyalOn(S) || !S.season) return;
+    const sh = P.vendorShare(S), sv = S.season.vend = S.season.vend || { n: 0, A: 0, B: 0 };
+    sv.n++; sv.A += sh.A; sv.B += sh.B;
+  };
+  // season review: 100 points for a competition robot that ran on this catalogue alone, up to 15 more for the year's
+  // orders; a new level means a letter in the autumn
+  P.loyalSeason = function (S) {
+    if (!P.loyalOn(S)) return null;
+    const sv = S.season && S.season.vend, st = lyState(S), L = D.LOYALTY, out = [];
+    ['A', 'B'].forEach(slot => {
+      // (a season without an official event: what is on the robot at the review)
+      const robot = Math.round(L.robot * Math.min(1, (sv && sv.n ? sv[slot] / sv.n : P.vendorShare(S)[slot]) / L.full)), buy = Math.round(L.buy * Math.min(1, ((S.vendBought || {})[slot] || 0) / L.buyFull)), gain = robot + buy, s = st[slot];
+      if (!gain) return;
+      s.pts += gain;
+      let up = 0;
+      while (L.levels[s.lvl] != null && s.pts >= L.levels[s.lvl]) { s.lvl++; up++; (S.loyalDue = S.loyalDue || []).push({ slot, lvl: s.lvl }); }
+      out.push({ slot, brand: P.loyal(S, slot).brand, gain, robot, buy, pts: s.pts, lvl: s.lvl, up, next: L.levels[s.lvl] != null ? L.levels[s.lvl] : null });
+    });
+    S.vendBought = { A: 0, B: 0 };
+    // a voucher is good through the season after it was given
+    Object.keys(S.voucher || {}).forEach(slot => { const v = S.voucher[slot]; if (v && S.si >= v.until) { if (v.amt > 0) G.Career.inbox(S, 'Voucher expired', 'The ' + U.money(v.amt) + ' left on your ' + P.loyal(S, slot).vendor.name + ' voucher expired with the season.', 'money'); delete S.voucher[slot]; } });
+    return out;
+  };
+  const LOYAL_INTRO = {
+    T: 'A heavy envelope arrives from Sterling Motion: a letter on thick paper, signed in ink by the regional sales director, and a brass plate for the robot cart.',
+    A: 'A box arrives from Apex Motion. Inside: a letter from the founder, a strip of orange stickers for the robot, and a page torn from her list of failed parts with a line through every entry.',
+    B: 'A padded envelope arrives from Lumen Robotics, addressed by hand. Inside: a note from the founder, a roll of teal stickers, and a photo of your robot pinned up on their warehouse wall.'
+  };
+  const LOYAL_TALK = [
+    ['Their stickers are on our robot anyway. Now they are paying for the space.', 'a lead mentor'],
+    ['The vendor rep knew our drive coach by name. That felt strange and good.', 'a student on Team {t}'],
+    ['We switched vendors last year to save two hundred dollars. I am doing the maths again.', 'a treasurer on Team {t}'],
+    ['Free motors are the best motors.', 'every electrical lead, ever'],
+    ['They asked for a photo of the robot for the catalogue. The students argued for an hour about which side is its good side.', 'a mentor on Team {t}'],
+    ['Loyalty goes both ways: when we were short in Week 3 they found us four motors in a day.', 'a team in its ninth season with the same vendor']
+  ];
+  // the letter: the team has reached a new level with a vendor and chooses its loyalty sponsorship
+  P.loyalOffer = function (S, slot, lvl) {
+    const L = D.LOYALTY, brand = P.slotBrand(S, slot), V = D.VENDORS[brand], rng = R();
+    const pack = Object.keys(L.pack[lvl] || {}).filter(cat => { const pr = P.cur(S, cat, slot); return pr && !P.gone(S, pr); }).map(cat => ({ cat, n: L.pack[lvl][cat] }));
+    const O = S.loyalOffer = { slot, brand, lvl, stage: 'choose', pack, packValue: pack.reduce((t, x) => t + x.n * P.cur(S, x.cat, slot).price, 0), voucher: L.voucher[lvl], sale: L.sale[lvl],
+      month: D.MONTHS[S.month], intro: LOYAL_INTRO[brand] || LOYAL_INTRO.B, talk: rng.shuffle(LOYAL_TALK.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', someTeam(S, rng))]) };
+    G.Career.inbox(S, V.name + ' names you a ' + L.names[lvl], O.intro + '\n\nYour team has reached loyalty level ' + lvl + ' with ' + V.name + ' (' + L.names[lvl] + '). Choose your loyalty sponsorship (Headquarters):\n• Free parts at Kickoff: ' + P.packText(S, O) +
+      '\n• A voucher of ' + U.money(O.voucher) + ', good through next season\n• ' + Math.round(O.sale * 100) + '% off everything from ' + V.short + ' until Kickoff\n\nFrom now on your in-season orders with ' + V.short + ' ship first: +' + Math.round(L.stock * lvl * 100) + '% chance that a part is in stock.', 'money');
+    (S.launchQueue = S.launchQueue || []).push({ kind: 'loyalty' });
+    return O;
+  };
+  P.packText = (S, O) => O.pack.map(x => x.n + ' ' + (x.n > 1 ? CAT_WORD[x.cat] : CAT_WORD[x.cat].replace(/s$/, ''))).join(', ') + ' (the newest ' + D.VENDORS[O.brand].short + ' version on sale by then)';
+  // each offseason month from September: one letter at a time
+  P.loyalMonth = function (S) {
+    if (!P.loyalOn(S) || S.loyalOffer || !(S.loyalDue || []).length || S.month < D.LOYALTY.month) return;
+    const i = S.loyalDue.findIndex(d => !!P.slotBrand(S, d.slot)); // the premium catalogue may be between owners
+    if (i < 0) return;
+    const d = S.loyalDue.splice(i, 1)[0];
+    P.loyalOffer(S, d.slot, d.lvl);
+  };
+  // pick: 'pack' (free parts at Kickoff), 'voucher' or 'sale'
+  P.loyalChoose = function (S, pick) {
+    const O = S.loyalOffer;
+    if (!O || O.stage !== 'choose') return 'Nothing to choose';
+    if (!['pack', 'voucher', 'sale'].includes(pick)) return 'Choose one of the three';
+    const V = D.VENDORS[O.brand];
+    let text;
+    if (pick === 'pack') { (S.loyalShip = S.loyalShip || []).push({ slot: O.slot, lvl: O.lvl, list: O.pack }); text = 'Your free parts arrive with the Kit of Parts at Kickoff: ' + P.packText(S, O) + '.'; }
+    else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
+    else { (S.vendSale = S.vendSale || {})[O.slot] = { pct: O.sale, up: S.upcoming }; text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
+    (S.loyalLog = S.loyalLog || []).push({ slot: O.slot, brand: O.brand, lvl: O.lvl, pick, cy: P.buyCy(S) });
+    G.Career.inbox(S, 'Loyalty sponsorship: ' + V.name, text, 'money');
+    S.loyalOffer = null;
+    return null;
+  };
+  // Kickoff: free parts chosen in the autumn arrive with the kit, in the newest version on sale
+  P.loyalDeliver = function (S) {
+    (S.loyalShip || []).forEach(sh => {
+      const got = [];
+      sh.list.forEach(x => { const pr = P.cur(S, x.cat, sh.slot); if (pr && !P.gone(S, pr)) { P.add(S, x.cat, pr.id, x.n, 1); got.push(x.n + '× ' + pr.name); } });
+      if (got.length) G.Career.inbox(S, 'Loyalty parts have arrived', 'In the box next to the Kit of Parts: ' + got.join(', ') + '. With thanks from ' + P.loyal(S, sh.slot).vendor.name + '.', 'dev');
+    });
+    S.loyalShip = [];
+  };
+
+  // ======================= product launch events =======================
   // ======================= product launch events =======================
   const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules' };
   const LAUNCH_INTRO = {
@@ -501,6 +613,9 @@
     ctrlT: 'More channels and a metal case. The manual is forty pages and worth reading.',
     ion: 'No brushes to wear out, twice the power for the weight, and the controller reads the rotor position by itself.',
     apex: 'Every connector latches. Built by people who kept a list of what fails.',
+    apexmotor: 'Brushless, with a connector that locks with a click. The first entry on the founder\'s list of failed parts was a motor lead.',
+    apexenc: 'An absolute encoder in a sealed case with a latching plug. It reads the same after a hard hit as before it.',
+    apexctrl: 'Every port latches and every channel has its own fault light. Built by people who kept a list of what fails.',
     vector: 'The first swerve module you can simply buy: bolt on four, add motors and encoders, and drive sideways.',
     pivot: 'Heavier and a little slower than the premium module, at about two thirds of the price.'
   };
@@ -552,7 +667,7 @@
       const prods = rs.map(r => {
         const g = era ? r.n : P.genAt(S, r.cat, v), np = P.prodAt(S, r.cat, v, g), op0 = g > 1 ? P.prodAt(S, r.cat, v, g - 1) : null, op = op0 && !(era && P.gone(S, op0) && op0.brand !== np.brand) ? op0 : null;
         const own = P.items(S, r.cat).reduce((m, it) => Math.max(m, (PROD[it.p] || {}).perf || 0), 0);
-        const tag = era ? (np.kind === 'brushless' && op0 && op0.kind === 'brushed' && bv === 'B' ? LAUNCH_TAG.ion : bv === 'A' && (!op0 || op0.brand === 'T') ? (r.cat === 'swerve' ? LAUNCH_TAG.vector : LAUNCH_TAG.apex) : r.cat === 'swerve' && g === 1 ? LAUNCH_TAG.pivot : LAUNCH_TAG[r.cat + bv] || '') : LAUNCH_TAG[r.cat + v] || '';
+        const tag = era ? (np.kind === 'brushless' && op0 && op0.kind === 'brushed' && bv === 'B' ? LAUNCH_TAG.ion : bv === 'A' && (!op0 || op0.brand === 'T') ? (r.cat === 'swerve' ? LAUNCH_TAG.vector : LAUNCH_TAG['apex' + r.cat] || LAUNCH_TAG.apex) : r.cat === 'swerve' && g === 1 ? LAUNCH_TAG.pivot : LAUNCH_TAG[r.cat + bv] || '') : LAUNCH_TAG[r.cat + v] || '';
         return { id: np.id, cat: r.cat, name: np.name, oldName: op ? op.name : null, perf: np.perf, oldPerf: op ? op.perf : (op0 ? op0.perf : 0), price: P.price(S, np), oldPrice: op ? P.price(S, op) : 0, tag, own, vs: !op && op0 ? op0.name : null };
       });
       const talk = rng.shuffle(LAUNCH_TALK[bv].slice()).slice(0, rng.int(1, 2)).concat(rng.shuffle(LAUNCH_TALK.any.slice())).slice(0, 3)
@@ -595,6 +710,13 @@
       });
     } else (D.START_PARTS[S.profile] || []).forEach(([cat, v, n, h]) => P.add(S, cat, v === 'C' || v === 'K' ? cat + v : cat + v + 1, n, h));
     S.elem = {}; S.elemPre = {}; S.elemKop = {}; S.vendorPref = null;
+    if (P.loyalOn(S)) {
+      // the vendor whose parts are on the starting shelf already knows the team
+      const cnt = { A: 0, B: 0 }; D.ELEC_CATS.forEach(cat => P.items(S, cat).forEach(it => { const v = PROD[it.p].v; if (cnt[v] != null) cnt[v]++; }));
+      const fav = cnt.A > cnt.B ? 'A' : cnt.B > cnt.A ? 'B' : null;
+      S.loyal = { A: { pts: 0, lvl: 0 }, B: { pts: 0, lvl: 0 } };
+      if (fav) S.loyal[fav].pts = D.LOYALTY.start[S.profile] || 0;
+    }
     if (!S.cal) P.planReleases(S, rng);
     P.rollStock(S);
   };

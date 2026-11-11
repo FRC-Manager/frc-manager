@@ -226,6 +226,7 @@
       if (opts.fuzz) { Dev.fuzzTurn(S, log); Dev.check(S, log); }
       if (opts.until && opts.until(S)) break; // stop early, e.g. to inspect a mid-season state in the UI
       if (S.lostYear && S.lostYear.stage === 'choose') { const e = C.pandemicChoose(S, opts.pandemic || ['remote', 'skills']); if (e) { log.push('PROBLEM pandemic choice: ' + e); break; } log.push('2021: season cancelled (' + S.lostYear.picks.join(' + ') + ')'); }
+      if (S.loyalOffer && S.loyalOffer.stage === 'choose') { const O = S.loyalOffer, pk = opts.loyal || ['voucher', 'pack', 'sale'][(S.loyalLog || []).length % 3]; G.Parts.loyalChoose(S, pk); log.push(G.Career.cy(S) + ' loyalty: ' + G.Data.VENDORS[O.brand].name + ' level ' + O.lvl + ' → ' + pk); }
       if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
