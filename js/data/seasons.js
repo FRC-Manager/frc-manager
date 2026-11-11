@@ -21,7 +21,7 @@
   D.STAT = {
     speed: 'Speed', agility: 'Agility', push: 'Pushing', intake: 'Intake', scoreSpd: 'Scoring Speed',
     accuracy: 'Accuracy', range: 'Range', endgame: 'Endgame', auto: 'Autonomous', vision: 'Vision',
-    amp: 'Amp Skill', algae: 'Algae Skill', balance: 'Auto-Balance', traverse: 'Traverse', feed: 'Feed Rate', rel: 'Reliability'
+    amp: 'Amp Skill', algae: 'Algae Skill', balance: 'Auto-Balance', traverse: 'Traverse', feed: 'Feed Rate', rel: 'Reliability', grip: 'Grip'
   };
   // software stats get knowledge from specific areas
   D.STAT_AREA = { auto: 'autoPath', vision: 'vision', balance: 'autoPath' };
@@ -30,10 +30,10 @@
   const DRIVE = [
     { id: 'kit', name: 'Kitbot Tank', desc: 'Kit-of-parts chassis. Cheap, quick, robust, but slow to turn.', cost: 0, hours: 60, w: 38, cx: 1, areas: ['elec'],
       base: { speed: 40, agility: 25, push: 45 }, ceil: { speed: 62, agility: 42, push: 62 }, look: { drive: 'tank' } },
-    { id: 'wcd', name: 'West Coast Drive', desc: '6-wheel drop-center tank. Fast and a strong pusher.', cost: 1200, hours: 120, w: 42, cx: 2, areas: ['elec'],
+    { id: 'wcd', name: 'West Coast Drive', desc: '6-wheel drop-center tank on two vendor drive sets. Fast, a strong pusher and hard to move: what the strong teams drove before swerve.', cost: 1200, hours: 120, w: 42, cx: 2, areas: ['elec'],
       base: { speed: 50, agility: 32, push: 60 }, ceil: { speed: 82, agility: 52, push: 86 }, look: { drive: 'wcd' } },
-    { id: 'mec', name: 'Mecanum', desc: 'Strafes in any direction. Agile but easily pushed.', cost: 900, hours: 100, w: 36, cx: 2, areas: ['elec'],
-      base: { speed: 45, agility: 55, push: 22 }, ceil: { speed: 72, agility: 80, push: 38 }, look: { drive: 'mecanum' } },
+    { id: 'mec', name: 'Mecanum', desc: 'Strafes in any direction, which makes lining up easy. Slower than a West Coast drive, and its rollers have no grip: a defender shoves it wherever it likes.', cost: 900, hours: 100, w: 36, cx: 2, areas: ['elec'],
+      base: { speed: 38, agility: 50, push: 14 }, ceil: { speed: 58, agility: 72, push: 26 }, caps: { noGrip: true }, look: { drive: 'mecanum' } },
     { id: 'swerve', name: 'Swerve', desc: 'Independent steering modules. The best drivetrain if you can make it reliable. Needs swerve modules from the parts store.', cost: 600, hours: 180, w: 40, cx: 4, areas: ['swerve', 'elec', 'autoPath'],
       base: { speed: 58, agility: 60, push: 50 }, ceil: { speed: 95, agility: 95, push: 76 }, look: { drive: 'swerve' }, req: { part: 'swerve' } }
   ];
@@ -41,10 +41,12 @@
     id: 'code', name: 'Robot Code', desc: 'Your software stack. Upgrade autos and vision with software projects.', cost: 0, hours: 0, w: 0, cx: 2, areas: ['autoPath', 'vision'],
     base: Object.assign({ auto: 30, vision: 12 }, extra ? extra.base : {}), ceil: Object.assign({ auto: 92, vision: 92 }, extra ? extra.ceil : {}), look: {}
   });
+  // The ground intake is optional in the games with an End Effector: without one the end effector collects the pieces itself.
+  const NO_INTAKE = (name, desc) => ({ id: 'none', name, desc, cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} });
   const NONE_END = { id: 'none', name: 'No endgame mechanism', desc: 'Skip the climber. Saves weight, hours and money.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: { endLevel: 0 }, look: { climber: 'none' } };
 
   const S = G.Seasons = {};
-  S._K = { DRIVE, SOFT, NONE_END }; // shared building blocks for the classic games (seasons-classic.js)
+  S._K = { DRIVE, SOFT, NONE_END, NO_INTAKE }; // shared building blocks for the classic games (seasons-classic.js)
 
   // =====================================================================
   S[2022] = {
@@ -117,34 +119,41 @@
     endNames: ['Park', 'Dock'],
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
-      { id: 'intake', name: 'Intake', concepts: [
-        { id: 'sub', name: 'Substation-only claw', desc: 'Grabs pieces from the double substation shelf only.', cost: 300, hours: 70, w: 6, cx: 1, areas: ['arm'],
-          base: { intake: 40 }, ceil: { intake: 72 }, caps: { ground: false, groundCone: false, station: true, cones: true, cubes: true }, look: { intake: 'claw' } },
-        { id: 'gcube', name: 'Ground cube intake + claw', desc: 'Picks cubes off the floor; cones from the shelf.', cost: 800, hours: 140, w: 12, cx: 3, areas: ['intake'],
-          base: { intake: 45 }, ceil: { intake: 86 }, caps: { ground: true, groundCone: false, station: true, cones: true, cubes: true }, look: { intake: 'over' } },
-        { id: 'gall', name: 'Ground cone + cube intake', desc: 'Grabs anything off the floor, even tipped cones.', cost: 1300, hours: 220, w: 15, cx: 4, areas: ['intake', 'arm'],
-          base: { intake: 45 }, ceil: { intake: 93 }, caps: { ground: true, groundCone: true, station: true, cones: true, cubes: true }, look: { intake: 'wide' } }
+      { id: 'intake', name: 'Ground Intake', optional: true, concepts: [
+        NO_INTAKE('No ground intake', 'Cones and cubes come off the substation shelf, straight into the end effector. Saves weight, hours and money.'),
+        { id: 'gcube', name: 'Ground cube intake', desc: 'Picks cubes off the floor and hands them to the end effector; cones still come from the shelf.', cost: 700, hours: 120, w: 10, cx: 3, areas: ['intake'],
+          base: { intake: 45 }, ceil: { intake: 86 }, caps: { ground: true, groundCone: false, station: true }, look: { intake: 'over' } },
+        { id: 'gall', name: 'Ground cone + cube intake', desc: 'Grabs anything off the floor, even tipped cones.', cost: 1200, hours: 200, w: 14, cx: 4, areas: ['intake', 'arm'],
+          base: { intake: 45 }, ceil: { intake: 93 }, caps: { ground: true, groundCone: true, station: true }, look: { intake: 'wide' } }
       ] },
       { id: 'scorer', name: 'Manipulator', concepts: [
-        { id: 'hyb', name: 'Hybrid-only (bottom row)', desc: 'Pushes pieces into the bottom row only. Simple and fast.', cost: 200, hours: 50, w: 6, cx: 1, areas: ['arm'],
+        { id: 'hyb', name: 'No lift (bottom row)', desc: 'The end effector sits low and pushes pieces into the bottom row only. Simple and fast.', cost: 100, hours: 30, w: 4, cx: 1, areas: ['arm'],
           base: { scoreSpd: 50, accuracy: 70 }, ceil: { scoreSpd: 86, accuracy: 97 }, caps: { reach: 1, coneReach: 1 }, look: { manip: 'low' } },
-        { id: 'sja', name: 'Single-jointed arm', desc: 'Reaches mid and top for cubes, mid for cones.', cost: 700, hours: 130, w: 16, cx: 2, areas: ['arm'],
+        { id: 'sja', name: 'Single-jointed arm', desc: 'Reaches mid and top for cubes, mid for cones.', cost: 650, hours: 115, w: 14, cx: 2, areas: ['arm'],
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 80, accuracy: 88 }, caps: { reach: 3, coneReach: 2, tall: 0.3 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Elevator', desc: 'Angled elevator reaching every row. Steady but slower.', cost: 1000, hours: 180, w: 22, cx: 3, areas: ['elevator'],
+        { id: 'elev', name: 'Elevator', desc: 'Angled elevator reaching every row. Steady but slower.', cost: 950, hours: 160, w: 20, cx: 3, areas: ['elevator'],
           base: { scoreSpd: 35, accuracy: 48 }, ceil: { scoreSpd: 80, accuracy: 93 }, caps: { reach: 3, coneReach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevw', name: 'Elevator + wrist', desc: 'Elevator with a wrist: all rows, fast cone placement.', cost: 1500, hours: 240, w: 26, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'elevw', name: 'Elevator + wrist', desc: 'Elevator with a wrist: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 40, accuracy: 48 }, ceil: { scoreSpd: 90, accuracy: 95 }, caps: { reach: 3, coneReach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } },
-        { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1700, hours: 260, w: 24, cx: 5, areas: ['arm'],
+        { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1600, hours: 235, w: 22, cx: 5, areas: ['arm'],
           base: { scoreSpd: 45, accuracy: 40 }, ceil: { scoreSpd: 95, accuracy: 90 }, caps: { reach: 3, coneReach: 3, tall: 1.0 }, look: { manip: 'dja' } }
+      ] },
+      { id: 'effector', name: 'End Effector', pneu: true, concepts: [
+        { id: 'claw', name: 'Pneumatic claw', desc: 'A cylinder closes two jaws on a cone or a cube. Cheap and light, but it has to be lined up, and a hard hit can shake the piece loose.', cost: 250, hours: 55, w: 5, cx: 1, areas: ['arm'],
+          base: { grip: 40 }, ceil: { grip: 72 }, caps: { cones: true, cubes: true }, self: { ground: false, groundCone: false, station: true, lo: 40, hi: 72 }, look: { eff: 'claw' } },
+        { id: 'roller', name: 'Roller gripper', desc: 'Two powered rollers swallow a cone or a cube from any angle and hold on to it.', cost: 600, hours: 110, w: 7, cx: 3, areas: ['intake', 'arm'],
+          base: { grip: 45 }, ceil: { grip: 88 }, caps: { cones: true, cubes: true }, self: { ground: false, groundCone: false, station: true, lo: 44, hi: 80 }, look: { eff: 'claw' } },
+        { id: 'wrist', name: 'Wristed roller gripper', desc: 'A roller gripper on its own wrist: it takes a cone upright, lying down or off the shelf, and turns it the right way up on the way to the node.', cost: 1000, hours: 170, w: 9, cx: 4, areas: ['arm', 'intake'],
+          base: { grip: 48 }, ceil: { grip: 95 }, caps: { cones: true, cubes: true, coneAny: true }, self: { ground: false, groundCone: false, station: true, lo: 46, hi: 84 }, look: { eff: 'claw' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT({ base: { balance: 22 }, ceil: { balance: 95 } })] }
     ],
     archetypes: [
-      { name: 'Elevator + wrist, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'] } },
-      { name: 'Elevator scorer', min: 56, pick: { drive: ['swerve', 'wcd'], intake: ['gcube', 'sub'], scorer: ['elev', 'elevw'] } },
-      { name: 'Arm scorer', min: 36, pick: { drive: ['wcd', 'swerve', 'kit'], intake: 'sub', scorer: 'sja' } },
-      { name: 'Hybrid pusher', min: 0, pick: { drive: 'kit', intake: 'sub', scorer: 'hyb' } },
-      { name: 'Defense / balancer', min: 20, defense: true, pick: { drive: 'wcd', intake: 'sub', scorer: 'hyb' } }
+      { name: 'Elevator + wrist, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
+      { name: 'Elevator scorer', min: 56, pick: { drive: ['swerve', 'wcd'], intake: ['gcube', 'none'], scorer: ['elev', 'elevw'], effector: 'roller' } },
+      { name: 'Arm scorer', min: 36, pick: { drive: ['wcd', 'swerve', 'kit'], intake: 'none', scorer: 'sja', effector: ['claw', 'roller'] } },
+      { name: 'Hybrid pusher', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'hyb', effector: 'claw' } },
+      { name: 'Defense / balancer', min: 20, defense: true, pick: { drive: 'wcd', intake: 'none', scorer: 'hyb', effector: 'claw' } }
     ]
   };
 
@@ -222,21 +231,28 @@
     endNames: ['Park', 'Shallow', 'Deep'],
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
-      { id: 'intake', name: 'Coral Intake', concepts: [
-        { id: 'station', name: 'Coral station funnel', desc: 'Receives coral from the coral station chute.', cost: 250, hours: 60, w: 4, cx: 1, areas: ['intake'],
-          base: { intake: 45 }, ceil: { intake: 82 }, caps: { ground: false, station: true }, look: { intake: 'funnel' } },
-        { id: 'ground', name: 'Ground coral intake', desc: 'Picks coral off the carpet anywhere.', cost: 1000, hours: 180, w: 13, cx: 4, areas: ['intake', 'arm'],
+      { id: 'intake', name: 'Ground Intake', optional: true, concepts: [
+        NO_INTAKE('No ground intake', 'Coral slides down the station chute straight into the end effector. Saves weight, hours and money.'),
+        { id: 'ground', name: 'Ground coral intake', desc: 'Picks coral off the carpet anywhere and hands it to the end effector.', cost: 950, hours: 170, w: 12, cx: 4, areas: ['intake', 'arm'],
           base: { intake: 45 }, ceil: { intake: 93 }, caps: { ground: true, station: true }, look: { intake: 'over' } }
       ] },
-      { id: 'scorer', name: 'Coral Manipulator', concepts: [
-        { id: 'trough', name: 'Trough dropper (L1)', desc: 'Drops coral into the L1 trough only.', cost: 200, hours: 50, w: 5, cx: 1, areas: ['arm'],
+      { id: 'scorer', name: 'Coral Lift', concepts: [
+        { id: 'trough', name: 'Fixed mount (L1 trough)', desc: 'The end effector sits at trough height: Level 1 only.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['arm'],
           base: { scoreSpd: 55, accuracy: 75 }, ceil: { scoreSpd: 88, accuracy: 98 }, caps: { reach: 1 }, look: { manip: 'low' } },
-        { id: 'arm', name: 'Pivot arm (L1–L3)', desc: 'Arm reaching L1 to L3.', cost: 800, hours: 140, w: 15, cx: 3, areas: ['arm'],
+        { id: 'arm', name: 'Pivot arm (L1–L3)', desc: 'Arm reaching L1 to L3.', cost: 750, hours: 125, w: 13, cx: 3, areas: ['arm'],
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 82, accuracy: 90 }, caps: { reach: 3, tall: 0.4 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Elevator (L1–L4)', desc: 'Tall elevator reaching the top branches.', cost: 1300, hours: 210, w: 24, cx: 4, areas: ['elevator'],
+        { id: 'elev', name: 'Elevator (L1–L4)', desc: 'Tall elevator reaching the top branches.', cost: 1250, hours: 190, w: 22, cx: 4, areas: ['elevator'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 88, accuracy: 94 }, caps: { reach: 4, tall: 0.8 }, look: { manip: 'elevator' } },
-        { id: 'elevw', name: 'Elevator + wrist (L1–L4)', desc: 'Fast elevator with a wrist; can knock algae off the reef.', cost: 1800, hours: 270, w: 28, cx: 5, areas: ['elevator', 'arm'],
+        { id: 'elevw', name: 'Elevator + wrist (L1–L4)', desc: 'Fast elevator with a wrist; can knock algae off the reef.', cost: 1700, hours: 245, w: 26, cx: 5, areas: ['elevator', 'arm'],
           base: { scoreSpd: 42, accuracy: 46 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 4, tall: 0.9, algaeRemove: true }, look: { manip: 'elevwrist' } }
+      ] },
+      { id: 'effector', name: 'End Effector', concepts: [
+        { id: 'chute', name: 'Gravity chute', desc: 'An open channel: coral slides in at the station and slides out onto the branch when the robot stops. Nothing to break, but the robot has to be square and still.', cost: 150, hours: 40, w: 3, cx: 1, areas: ['arm'],
+          base: { grip: 42 }, ceil: { grip: 72 }, self: { ground: false, station: true, lo: 45, hi: 78 }, look: { eff: 'funnel' } },
+        { id: 'roller', name: 'Powered roller box', desc: 'Rollers pull the coral in, keep hold of it through a hit and push it out onto the branch.', cost: 600, hours: 110, w: 6, cx: 3, areas: ['intake', 'arm'],
+          base: { grip: 45 }, ceil: { grip: 90 }, self: { ground: false, station: true, lo: 45, hi: 84 }, look: { eff: 'funnel' } },
+        { id: 'pivot', name: 'Pivoting coral head', desc: 'A roller box on its own pivot: it lines the coral up with the branch by itself and flicks algae off the reef on the way past.', cost: 1050, hours: 170, w: 8, cx: 4, areas: ['arm', 'intake'],
+          base: { grip: 48 }, ceil: { grip: 96 }, caps: { algaeRemove: true }, self: { ground: false, station: true, lo: 46, hi: 86 }, look: { eff: 'funnel' } }
       ] },
       { id: 'algae', name: 'Algae', concepts: [
         { id: 'none', name: 'No algae mechanism', desc: 'Ignore algae.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
@@ -255,12 +271,12 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'L4 elevator + net + deep', min: 76, pick: { drive: 'swerve', intake: ['ground', 'station'], scorer: 'elevw', algae: ['net', 'proc'], endgame: 'deep' } },
-      { name: 'L4 elevator + deep', min: 56, pick: { drive: 'swerve', intake: 'station', scorer: ['elev', 'elevw'], algae: ['proc', 'none'], endgame: ['deep', 'shallow'] } },
-      { name: 'Arm scorer', min: 34, pick: { drive: ['swerve', 'wcd'], intake: 'station', scorer: 'arm', algae: ['none', 'proc'], endgame: ['shallow', 'none'] } },
-      { name: 'Trough bot', min: 0, pick: { drive: 'kit', intake: 'station', scorer: 'trough', algae: 'none', endgame: 'none' } },
-      { name: 'Algae specialist', min: 30, pick: { drive: 'wcd', intake: 'station', scorer: 'trough', algae: 'net', endgame: 'shallow' } },
-      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'station', scorer: 'trough', algae: 'none', endgame: 'shallow' } }
+      { name: 'L4 elevator + net + deep', min: 76, pick: { drive: 'swerve', intake: ['ground', 'none'], scorer: 'elevw', effector: ['pivot', 'roller'], algae: ['net', 'proc'], endgame: 'deep' } },
+      { name: 'L4 elevator + deep', min: 56, pick: { drive: 'swerve', intake: 'none', scorer: ['elev', 'elevw'], effector: 'roller', algae: ['proc', 'none'], endgame: ['deep', 'shallow'] } },
+      { name: 'Arm scorer', min: 34, pick: { drive: ['swerve', 'wcd'], intake: 'none', scorer: 'arm', effector: ['roller', 'chute'], algae: ['none', 'proc'], endgame: ['shallow', 'none'] } },
+      { name: 'Trough bot', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'trough', effector: 'chute', algae: 'none', endgame: 'none' } },
+      { name: 'Algae specialist', min: 30, pick: { drive: 'wcd', intake: 'none', scorer: 'trough', effector: 'chute', algae: 'net', endgame: 'shallow' } },
+      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'none', scorer: 'trough', effector: 'chute', algae: 'none', endgame: 'shallow' } }
     ]
   };
 

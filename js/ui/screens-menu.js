@@ -8,15 +8,18 @@
   // =====================================================================
   UI.S.menu = { full: true, html() {
     const auto = G.Save.meta('auto');
-    return '<div class="menu-wrap"><div class="menu-box"><div class="logo">FRC <span>MANAGER</span></div><div class="muted mb">Run a FIRST Robotics Competition team across five seasons — 2022 to 2026. Unofficial fan game.</div>' +
+    return '<div class="menu-wrap"><div class="menu-box"><div class="logo">FRC <span>MANAGER</span></div><div class="muted mb">Run a FIRST Robotics Competition team through ten seasons, from 2016 to 2026. Unofficial fan game.</div>' +
       '<div class="grid g3 mt">' +
-      '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Five seasons, real or random order. Build a program that learns from every robot.</div></div>' +
-      '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one game and a scenario. Graded S to D.</div></div>' +
+      '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Start in any year from 2016 and play through 2026: up to ten seasons, in real or random order. Build a program that learns from every robot.</div></div>' +
+      '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one of the ten games and a scenario. Graded S to D.</div></div>' +
       '<div class="choice" data-act="continueGame" ' + (auto ? '' : 'style="opacity:.5"') + '><div class="lg b">Continue</div><div class="sm muted">' + (auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + (auto.cy || auto.year) + ' · ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet') + '</div></div>' +
       '</div><div class="row mt wrap"><button class="btn" data-act="nav" data-arg="load">Load / import</button><button class="btn" data-act="nav" data-arg="help">How to play</button><button class="btn" data-act="nav" data-arg="notes">What\'s new in v' + h(G.VERSION) + '</button></div>' +
-      '<div class="grid g5 mt">' + G.SEASON_YEARS.map(y => '<div class="card flat"><div class="xs muted">' + y + '</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
+      '<div class="grid g5 mt">' + G.SEASON_YEARS.map(y => '<div class="card flat seasoncard" data-act="seasonCard" data-arg="' + y + '" title="Open this game\'s Kickoff briefing"><div class="xs muted">' + y + '</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
       '<p class="xs dim mt">Version ' + h(G.VERSION) + ' · Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</p></div></div>';
   }, after() { document.querySelectorAll('canvas[data-prev]').forEach(c => G.Render.preview(c, Number(c.dataset.prev))); } };
+  // a season card opens that game's Kickoff briefing, with a way straight into a Single Season Challenge of it
+  UI.A.seasonCard = y => UI.gameBriefModal(Number(y));
+  UI.A.playSeason = y => { UI.closeModal(); UI.A.newGame('single'); UI.st.ng.year = Number(y); UI.render(); };
   UI.A.continueGame = () => { if (G.Save.load('auto')) { UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); } else UI.toast('No autosave found', 'bad'); };
 
   // =====================================================================
@@ -119,6 +122,15 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.3', title: 'Preview of 3.0: end effectors, drive sets, mechanisms in a box and an inbox worth reading', notes: [
+      'End Effector. 2018, 2019, 2023 and 2025 have a new subsystem: the claw or gripper at the end of the lift, with its own Grip stat. A poor one costs placements and a little time on every score. In those games the ground intake is now optional: without one, the end effector collects the pieces itself. Each game offers three (a claw that throws cubes in 2018, one that keeps hold of a missed hatch in 2019, a wristed gripper in 2023, a pivoting coral head in 2025). A robot from an older save gets its end effector automatically.',
+      'Drivetrain parts. The two vendors now sell West Coast drive sets, the standard before swerve: a West Coast drive runs on two of them, and better sets raise its speed and pushing power. Sterling sells them until it closes; Lumen stops making them when it launches its own swerve module and sells the last stock through the 2022 season. A West Coast drive also runs on two COTS Drive gearboxes, at lower performance, so it can always be built. The same gearboxes drive a mecanum (4) or make a kit chassis faster (2). The Kit drivetrain (the old kitbot gearbox) fits the kit chassis only and is the slowest of the three. In the Inventory the drive sets share a Drivetrain section with the swerve modules. Mecanum is slower than it was and nearly helpless against a defender: with the same robots, a West Coast drive scores 1 to 12% more, and keeps that lead when defended.',
+      'Mechanisms in a box. A new story for the lost year: arm, intake, indexer, climber and gripper kits are first sold in August 2021, together with GridTube frame stock that every mechanical build can use (10% fewer hours and 15% less material, on top of the kits). Before that only elevator, shooter and turret kits exist. The catalogue is now called Subsystem COTS. Its Kit of Parts shelf holds four basic subsystem kits (KOP gripper, intake, shooter and lift), sold in every year: each helps only the simplest concept of a subsystem, by 20% of the hours and materials. The Kit drivetrain is listed in the Drivetrain section under Electronics.',
+      'An inbox worth reading. About eighty new messages: mid-season arguments about every game (is a shooter worth it in 2017?), trends in mechanisms, what the two vendors say about each other, and rumours ahead of the calendar\'s big changes. None of them pops up. They sit in the Inbox among the other news, and some are worth acting on.',
+      'Second-hand prices follow the news. A part that has been overtaken sells for less from the day its replacement is on sale: an older version, a brushed motor once brushless ones exist, Sterling parts, West Coast drive sets once swerve modules are sold, a pneumatics kit as motors take over. The Sell tab shows each markdown and the reason.',
+      'Rules. A registration made this turn can be undone for everything it cost, until you press Continue. A team wins the FIRST Impact Award once: Hall of Fame teams are not judged again. Know-how at Level 4 or 5 is tuned to the way things were: a rule, technology or design change costs it half as much again and always takes one level, with or without a specialist mentor. The Knowledge Base needs a 25-hour update every year, or it protects nothing. Facilities wear less than half as fast in the offseason. Pneumatics fade a year later (10% from the 2023 season).',
+      'Also. The 2026 season gets its recap before the career summary, and the season review\'s own button now shows the pop-ups of the new offseason (they were queued but never shown). The season cards on the main menu open that game\'s Kickoff briefing, with a button to play it as a Single Season Challenge. Texts brought up to date: ten seasons on the main menu, how often vendors launch, the Apex founding story (the founder is one of the six engineers), the 2025 recap (four seasons after the lost year).'
+    ] },
     { v: '2.9.2', title: 'Preview of 3.0: the 2016–2020 games checked against the official manuals', notes: [
       'Fields. The five classic fields now follow the zone and element drawings in the game manuals. 2016: the Low Bar stands at the guardrail, straight across from the attackers\' own Secret Passage; the audience picks the defense in position 3 and you pick the other three. 2017: the airship is its real size, with one rope on the face toward the alliance wall and two toward the neutral zone, and the Retrieval Zone is the band in front of the angled Loading Station. 2018: the Scale plates sit where they should and the Exchange is left of centre for each alliance. 2019: the cargo depots are against the wall, the two ships stand apart at the centre line and the rockets are 8 ft from it. 2020: the Shield Generator has its floor bars and its legs at the trench edges, and the Control Panel sits on a tunnel.',
       'Limited game pieces. 2016 has 18 boulders, 2018 has 30 cubes for each alliance and 2020 has 48 Power Cells. A boulder or cell you score comes back out on the other alliance\'s side (their Secret Passage, their Loading Bay). In 2020 that makes two shooters and a defender the strong line-up.',
@@ -339,7 +351,12 @@
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="reviewNext">' + (last ? 'Final summary ▶' : 'Continue to offseason ▶') + '</button></div>';
     return o;
   } };
-  UI.A.reviewNext = function () { const S = G.S; G.Career.advance(S); UI.go(S.phase === 'end' ? 'end' : 'hq'); };
+  UI.A.reviewNext = function () {
+    const S = G.S; G.Career.advance(S); UI.go(S.phase === 'end' ? 'end' : 'hq');
+    if (S.phase !== 'end' && G.Career.dueActivities(S).length) UI.A.activities();
+    else if (S.phase !== 'end' && S.incident) UI.A.incident();
+    else if (S.launchQueue && S.launchQueue.length) UI.launchModal();
+  };
 
   // =====================================================================
   // END / SUMMARY

@@ -158,7 +158,7 @@
     if (S.lastWork && S.lastWork.done.length) UI.toast('Completed: ' + S.lastWork.done.join(', '), 'good');
     if (S.phase === 'kickoff' && before.phase !== 'kickoff') { UI.go('hq'); return UI.kickoffModal(); }
     if (S.phase === 'review') return UI.go('review');
-    if (S.phase === 'end') return UI.go('end');
+    if (S.phase === 'end') { UI.go('end'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); return; }
     UI.render();
     if (G.Career.dueActivities(S).length) UI.A.activities();
     else if (S.incident) UI.A.incident();
@@ -260,7 +260,7 @@
       L.body.map(p => '<p class="story-p">' + h(p) + '</p>').join('') +
       (L.mine ? '<div class="card flat mb" style="border-left:3px solid ' + col + '"><div class="xs muted b">YOUR SEASON</div><div class="sm mt">' + h(L.mine) + '</div></div>' : '') +
       (L.means && L.means.length ? '<div class="card flat mb" style="border-left:3px solid ' + col + '"><div class="xs muted b">WHAT IT MEANS FOR YOU</div><ul class="story-ul">' + L.means.map(x => '<li>' + h(x) + '</li>').join('') + '</ul>' +
-        (hit ? '<div class="row mt"><div class="sp">' + UI.bar(hit.xp1, Math.max(hit.xp0, 1), hit.l1 < hit.l0 ? 'var(--bad)' : 'var(--warn)') + '</div><span class="sm b nowrap">' + h(hit.name) + ': ' + (hit.l1 < hit.l0 ? 'Level ' + hit.l0 + ' → <span class="bad">' + hit.l1 + '</span>' : 'Level ' + hit.l0 + ' (kept)') + '</span></div><div class="xs muted">Know-how −' + hit.pct + '%: ' + hit.xp0 + ' → ' + hit.xp1 + ' XP' + (hit.guard ? ' · <span class="good">your specialist mentor halved the loss</span>' : '') + (hit.xp0 === 0 ? ' · nothing to lose here yet' : '') + '</div>' : '') + '</div>' : '') +
+        (hit ? '<div class="row mt"><div class="sp">' + UI.bar(hit.xp1, Math.max(hit.xp0, 1), hit.l1 < hit.l0 ? 'var(--bad)' : 'var(--warn)') + '</div><span class="sm b nowrap">' + h(hit.name) + ': ' + (hit.l1 < hit.l0 ? 'Level ' + hit.l0 + ' → <span class="bad">' + hit.l1 + '</span>' : 'Level ' + hit.l0 + ' (kept)') + '</span></div><div class="xs muted">Know-how −' + hit.pct + '%: ' + hit.xp0 + ' → ' + hit.xp1 + ' XP' + (hit.guard ? ' · <span class="good">your specialist mentor halved the loss</span>' : '') + (hit.deep ? ' · <span class="warn">Level ' + hit.l0 + ' know-how was tuned to the old way: it loses more and always drops a level</span>' : '') + (hit.xp0 === 0 ? ' · nothing to lose here yet' : '') + '</div>' : '') + '</div>' : '') +
       (L.talk && L.talk.length ? '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + L.talk.map(q => '<div class="sm mt">“' + h(q[0]) + '” <span class="xs muted">— ' + h(q[1]) + '</span></div>').join('') : '') +
       '<div class="row mt"><span class="xs muted">Also in your inbox.</span><span class="sp"></span>' + (more ? '<button class="btn' + (go ? '' : ' primary') + '" data-act="launchNext">Next (' + more + ' more)</button>' : '<button class="btn' + (go ? '' : ' primary') + '" data-act="launchNext">Close</button>') + go + '</div>', { wide: true });
   };
@@ -271,7 +271,7 @@
     const item = i => '<div class="card flat mb" style="border-left:3px solid ' + col + '"><div class="row wrap"><b>' + h(i.title) + '</b> ' + UI.tag(i.tag, rules ? 'warn' : 'info') + '<span class="sp"></span>' + UI.tag(i.name) + '</div>' +
       '<div class="sm muted mt">' + h(i.body) + '</div>' +
       '<div class="row mt"><div class="sp">' + UI.bar(i.xp1, Math.max(i.xp0, 1), i.l1 < i.l0 ? 'var(--bad)' : 'var(--warn)') + '</div><span class="sm b nowrap">' + (i.l1 < i.l0 ? 'Level ' + i.l0 + ' → <span class="bad">' + i.l1 + '</span>' : 'Level ' + i.l0 + ' (kept)') + '</span></div>' +
-      '<div class="xs muted">' + (i.capped ? 'Know-how ' + i.xp0 + ' → ' + i.xp1 + ' XP: only ' + i.base + ' XP still counted as current (XP banked above that was already outdated), then −' + i.pct + '%' : 'Know-how −' + i.pct + '%: ' + i.xp0 + ' → ' + i.xp1 + ' XP') + (i.guard ? ' · <span class="good">your specialist mentor halved the loss</span>' : '') + (i.xp0 === 0 ? ' · nothing to lose here yet' : '') + '</div></div>';
+      '<div class="xs muted">' + (i.capped ? 'Know-how ' + i.xp0 + ' → ' + i.xp1 + ' XP: only ' + i.base + ' XP still counted as current (XP banked above that was already outdated), then −' + i.pct + '%' : 'Know-how −' + i.pct + '%: ' + i.xp0 + ' → ' + i.xp1 + ' XP') + (i.guard ? ' · <span class="good">your specialist mentor halved the loss</span>' : '') + (i.deep ? ' · <span class="warn">Level ' + i.l0 + ' know-how was tuned to the old way: it loses more and always drops a level</span>' : '') + (i.xp0 === 0 ? ' · nothing to lose here yet' : '') + '</div></div>';
     UI.modal('<div class="xs b" style="color:' + col + '">' + (rules ? 'NEXT SEASON · ROBOT RULES AND VENDOR UPDATES' : 'SPOTTED ONLINE · ' + h(String(L.month).toUpperCase())) + '</div><h2>' + h(L.title) + '</h2>' +
       '<p class="muted">' + h(L.intro) + '</p>' + L.items.map(item).join('') +
       '<div class="xs muted b mt">WHAT PEOPLE ARE SAYING</div>' + L.talk.map(q => '<div class="sm mt">“' + h(q[0]) + '” <span class="xs muted">— ' + h(q[1]) + '</span></div>').join('') +
@@ -350,13 +350,27 @@
     G.Save.write('auto');
     UI.go('event');
   };
+  // the game as Kickoff presents it: field, rules in three paragraphs, the strategy note
+  UI.gameBrief = function (year) {
+    const Sz = G.Seasons[year];
+    return '<canvas id="kfield" width="900" height="447" style="width:100%;border-radius:8px"></canvas>' +
+      Sz.brief.map(p => '<p class="muted">' + h(p) + '</p>').join('') +
+      (Sz.meta ? '<div class="hint">' + h(Sz.meta.note) + ' Opponents figure this out over the season, so expect it more in later weeks and in playoffs.</div>' : '');
+  };
+  // from the main menu: any game's Kickoff briefing, and a button that starts a Single Season Challenge of it
+  UI.gameBriefModal = function (year) {
+    const Sz = G.Seasons[year]; if (!Sz) return;
+    const rel = Object.keys(Sz.relevance).filter(k => Sz.relevance[k] > 0).sort((a, b) => Sz.relevance[b] - Sz.relevance[a]);
+    UI.modal('<div class="xs muted">KICKOFF BRIEFING · ' + year + '</div><h2 style="font-size:28px">' + year + ' ' + h(Sz.name) + '</h2><p class="acc b">' + h(Sz.tagline) + '</p>' + UI.gameBrief(year) +
+      '<h3 class="mt">The robot</h3><div class="row wrap gap4">' + Sz.subs.map(sd => UI.tag(sd.name + (sd.optional ? ' (optional)' : ''))).join(' ') + '</div>' +
+      '<h3 class="mt">What this game rewards</h3><div class="row wrap gap4">' + rel.map(k => '<span class="tag">' + h(D.AREA[k].name) + ' <span class="acc">' + '★'.repeat(Sz.relevance[k]) + '</span></span>').join(' ') + '</div>' +
+      '<div class="row mt"><span class="xs muted">In a career this game is played in ' + year + ' (real order) or in any year (random order).</span><span class="sp"></span><button class="btn" data-act="closeModal">Close</button><button class="btn primary" data-act="playSeason" data-arg="' + year + '">Play this season ▶</button></div>',
+      { wide: true, after: () => { const c = document.getElementById('kfield'); G.Render.preview(c, year); } });
+  };
   UI.kickoffModal = function () {
     const S = G.S, Sz = G.Seasons[S.year];
     const rel = Object.keys(Sz.relevance).filter(k => Sz.relevance[k] > 0).sort((a, b) => Sz.relevance[b] - Sz.relevance[a]);
-    UI.modal('<div class="xs muted">KICKOFF · SEASON ' + (S.si + 1) + '</div><h2 style="font-size:28px">' + h(G.Career.seasonName(S)) + '</h2><p class="acc b">' + h(Sz.tagline) + '</p>' +
-      '<canvas id="kfield" width="900" height="447" style="width:100%;border-radius:8px"></canvas>' +
-      Sz.brief.map(p => '<p class="muted">' + h(p) + '</p>').join('') +
-      (Sz.meta ? '<div class="hint">' + h(Sz.meta.note) + ' Opponents figure this out over the season, so expect it more in later weeks and in playoffs.</div>' : '') +
+    UI.modal('<div class="xs muted">KICKOFF · SEASON ' + (S.si + 1) + '</div><h2 style="font-size:28px">' + h(G.Career.seasonName(S)) + '</h2><p class="acc b">' + h(Sz.tagline) + '</p>' + UI.gameBrief(S.year) +
       '<h3 class="mt">Your knowledge vs this game</h3><table class="t"><tr><th>Area</th><th>Relevance</th><th>Your level</th></tr>' +
       rel.map(k => '<tr><td>' + h(D.AREA[k].name) + '</td><td class="acc">' + '★'.repeat(Sz.relevance[k]) + '</td><td>Lv ' + G.Robot.know(S, k) + '</td></tr>').join('') + '</table>' +
       (S.lastKop && S.lastKop.year === S.year ? '<div class="hint mt">' + UI.icon('box', 14) + ' <b>' + (S.lastKop.rookie ? 'Rookie Kit of Parts' : 'Kit of Parts') + '</b>: ' + h(G.Parts.kopText(S.lastKop.kit)) + ' are on your shelves' + (S.lastKop.rookie ? ' (rookies get a bigger kit)' : '') + '.' + (S.lastKop.full.length ? ' Full shelves recycled their weakest parts: ' + h(S.lastKop.full.join(', ')) + '.' : '') + '</div>' : '') +
@@ -492,7 +506,7 @@
       return '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
     }).join('');
     const due = G.Career.dueActivities(S);
-    return UI.head('Inbox', 'inbox', 'News, results and decisions.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
+    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: talk of what the vendors, the rule makers and the market are about to do turns up here first, as ordinary messages among the news and the chatter.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
   } };
   UI.A.badgeAct = () => { const S = G.S; S.settings = S.settings || {}; S.settings.badgeAct = !S.settings.badgeAct; G.Save.write('auto'); UI.render(); };
   UI.A.readMsg = id => { const m = G.S.inbox.find(x => x.id === id); if (m) m.read = true; UI.st.openMsg = UI.st.openMsg === id ? null : id; UI.render(); };
@@ -635,7 +649,7 @@
       G.Robot.describe(S).forEach(d => {
         const s = d.design, c = d.concept;
         const busy = S.projects.some(p => p.sub === d.id && p.type !== 'copy'), copying = S.projects.some(p => p.sub === d.id && p.type === 'copy');
-        let body = s.ver ? '<div class="b">' + h(c.name) + ' ' + UI.tag('v' + s.ver, 'acc') + '</div><div class="sm muted">' + Object.keys(s.stats).map(k => (D.STAT[k] || k) + ' ' + s.stats[k]).join(' · ') + (d.id !== 'soft' ? ' · Rel ' + s.rel : '') + '</div>' + (d.id !== 'soft' ? copiesLine(S, d.id) : '<div class="mb"></div>') : s.concept === 'none' ? '<div class="muted mb">No mechanism</div>' : (G.Seasons.sub(year, d.id) || {}).optional ? '<div class="muted mb">Optional: most robots do without it</div>' : '<div class="warn mb">Not built yet</div>';
+        let body = s.ver ? '<div class="b">' + h(c.name) + ' ' + UI.tag('v' + s.ver, 'acc') + '</div><div class="sm muted">' + Object.keys(s.stats).map(k => (D.STAT[k] || k) + ' ' + s.stats[k]).join(' · ') + (d.id !== 'soft' ? ' · Rel ' + s.rel : '') + '</div>' + (d.id !== 'soft' ? copiesLine(S, d.id) : '<div class="mb"></div>') : s.concept === 'none' ? '<div class="muted mb">' + (d.id === 'intake' && G.Seasons.sub(year, 'effector') ? 'None: the end effector collects the pieces' : 'No mechanism') + '</div>' : (G.Seasons.sub(year, d.id) || {}).optional ? '<div class="muted mb">' + (d.id === 'intake' && G.Seasons.sub(year, 'effector') ? 'Optional: without one, the end effector collects the pieces itself' : 'Optional: most robots do without it') + '</div>' : '<div class="warn mb">Not built yet</div>';
         let btns = '';
         if (d.id === 'soft') {
           btns = '<button class="btn sm" data-act="upgradeModal" data-arg="soft" ' + (busy ? 'disabled' : '') + '>Upgrade code</button><button class="btn sm" data-act="startSimple" data-arg="auto">New auto routine</button><button class="btn sm" data-act="startSimple" data-arg="vision">Vision upgrade</button>';
@@ -649,13 +663,13 @@
       o += UI.card('Program projects', '<div class="col">' +
         '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">Build copies of subsystems here ("Build copy"), or in the Garage a quick test chassis (a simple drivetrain for early code and driver testing) or a full copy of the robot. Pick which robot competes and which one the drivers practice on there.</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
         simpleRow('impact', 'Impact Award submission', 'Write your Impact story. Required to compete for the Impact Award this season (see HQ for your odds).') +
-        (S.equip.kb ? '' : simpleRow('kb', 'Knowledge Base', 'Team wiki + CAD library: halves knowledge decay between seasons.')) + '</div>');
+        kbRow() + '</div>');
       o += '</div>';
       const w = G.Robot.weight(S);
       o += '<div class="row mt sm"><span>Robot weight: <b class="' + (w > 125 ? 'bad' : '') + '">' + w + ' lb</b> / 125 lb</span></div>';
     } else {
       o += '<div class="hint mt">' + (S.phase === 'off' ? 'Robot development begins at Kickoff when the game is revealed. In the offseason, research builds Tech Knowledge that carries into future games.' : 'No robot yet.') + '</div>';
-      if (!S.equip.kb) o += '<div class="mt">' + UI.card('Program projects', simpleRow('kb', 'Knowledge Base', 'Team wiki + CAD library: halves knowledge decay between seasons.')) + '</div>';
+      o += '<div class="mt">' + UI.card('Program projects', kbRow()) + '</div>';
     }
     // research
     o += '<h2 class="mt">Research (pre-season development)</h2><div class="sub">Builds Tech Knowledge directly. Useful any time — essential in the offseason.</div>';
@@ -680,6 +694,13 @@
   function simpleRow(type, name, desc) {
     const q = G.Robot.quote(G.S, { type });
     return '<div class="row"><div class="sp"><b>' + h(name) + '</b><div class="xs muted">' + h(desc) + '</div></div><span class="xs muted">' + q.hours + ' h · ' + U.money(q.cost) + '</span><button class="btn sm" data-act="startSimple" data-arg="' + type + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></div>';
+  }
+  // the Knowledge Base: built once, then brought up to date every year
+  function kbRow() {
+    const S = G.S;
+    if (!S.equip.kb) return simpleRow('kb', 'Knowledge Base', 'Team wiki + CAD library: halves the know-how lost in unused areas at the end of a season. It needs a short update every year after that.');
+    if (G.Career.kbCurrent(S) || S.projects.some(p => p.type === 'kb')) return '<div class="row"><div class="sp"><b>Knowledge Base</b><div class="xs muted">' + (G.Career.kbCurrent(S) ? 'Up to date for this season: unused areas lose half as much know-how. The next yearly update is due after the season.' : 'The yearly update is under way.') + '</div></div>' + UI.tag(G.Career.kbCurrent(S) ? 'up to date' : 'updating', G.Career.kbCurrent(S) ? 'good' : 'info') + '</div>';
+    return simpleRow('kb', 'Knowledge Base: yearly update', 'The wiki and the CAD library are a year old. Until they are updated they do not slow the loss of know-how.');
   }
   UI.A.overtime = v => { G.S.overtime = v; UI.render(); };
   UI.A.robotNick = v => { if (G.S.robot) { G.S.robot.nick = String(v || '').trim().slice(0, 28); G.Save.write('auto'); } };
@@ -798,9 +819,13 @@
       const areas = c.areas.map(a => '<span class="tag ' + (G.Robot.know(S, a) > 0 ? 'good' : core.includes(a) ? 'warn' : '') + '" title="' + (core.includes(a) ? 'Core area: needed for the first-time penalty, build hours and ceilings' : 'Supporting area') + '">' + h(D.AREA[a].name) + ' Lv' + G.Robot.know(S, a) + (core.includes(a) ? ' ★' : '') + '</span>').join(' ');
       const bom = G.Parts.bom(year, subId, c), bomTxt = Object.keys(bom).map(k => bom[k] + ' ' + D.PART_CAT[k].short.toLowerCase()).join(' · ');
       const want = G.Parts.kits(year, subId, c), wantTxt = Object.keys(want).map(k => want[k] + ' ' + D.PART_CAT[k].short.toLowerCase().replace(/s$/, want[k] > 1 ? 's' : '') + ' (' + Math.min(want[k], G.Parts.kitsFree(S, k)) + ' free)').join(' + ');
-      const kitTag = Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '';
+      const kitTag = (Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '') +
+        (q.kop ? UI.tag(D.PART_CAT[q.kop].name + (q.kopUse ? ': −' + Math.round(D.KOP_KIT_HOURS * 100) + '% hours' : q.kitCov ? ' not needed' : ' 0/1'), q.kopUse ? 'good' : '') : '') +
+        (q.frameWant ? UI.tag('GridTube ' + q.frame + '/' + q.frameWant + (q.frame ? ': −' + Math.round(D.FRAME_HOURS * q.frame / q.frameWant * 100) + '% hours' : ''), q.frame >= q.frameWant ? 'good' : q.frame ? 'info' : '') : '');
       return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button></div>' +
-        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
+        '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (subId === 'drive' && G.Parts.driveNote(S, c.id) ? '<div class="xs muted">' + UI.icon('gear', 12) + ' ' + h(G.Parts.driveNote(S, c.id)) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') +
+        (q.kop ? '<div class="xs muted">' + UI.icon('box', 12) + ' Kit of Parts: a ' + h(D.PART_CAT[q.kop].name) + ' (' + G.Parts.kitsFree(S, q.kop) + ' free) saves ' + Math.round(D.KOP_KIT_HOURS * 100) + '% of the hours and ' + Math.round(D.KOP_KIT_COST * 100) + '% of the materials. Only the simplest concept of a subsystem can use one, and not together with a COTS kit.</div>' : '') +
+        (q.frameWant ? '<div class="xs muted">' + UI.icon('parts', 12) + ' GridTube frame stock: can use ' + q.frameWant + ' bundle' + (q.frameWant > 1 ? 's' : '') + ' (' + Math.min(q.frameWant, G.Parts.kitsFree(S, 'kFrame')) + ' free). With all of them: −' + Math.round(D.FRAME_HOURS * 100) + '% hours and −' + Math.round(D.FRAME_COST * 100) + '% materials, on top of the kits.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
     }).join('') + '</div>';
     UI.modal(o, { wide: true });
   };
@@ -837,7 +862,7 @@
   UI.S.know = { html() {
     const S = G.S, rel = S.year && S.phase !== 'off' ? G.Seasons[S.year].relevance : null;
     let o = UI.head('Tech Knowledge', 'know', 'What your program knows how to build. It carries over between seasons — a turret built for one shooting game makes the next one easier. It also dates: unused areas fade, and each offseason rule changes and new designs make part of it outdated.', 'design');
-    o += '<div class="hint mb">Each level: +3 to stat ceilings, −6% build hours, +4 starting reliability, +5% upgrade quality for concepts that use the area. Level 0 on a complex concept means a first-time penalty. Areas not used during a season lose 20% XP (students graduate) unless a mentor specializes in it' + (S.equip.kb ? ' — your Knowledge Base halves this' : '') + '. From your second season, rule and vendor changes in May (−' + Math.round(D.TECH_RULE_PCT * 100) + '% XP in two areas) and new designs in summer (−' + Math.round(D.TECH_DESIGN_PCT * 100) + '% in three) also date what you know; a specialist mentor halves that loss, and XP banked beyond ' + Math.round(D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP) + ' does not count.</div>';
+    o += '<div class="hint mb">Each level: +3 to stat ceilings, −6% build hours, +4 starting reliability, +5% upgrade quality for concepts that use the area. Level 0 on a complex concept means a first-time penalty. Areas not used during a season lose 20% XP (students graduate) unless a mentor specializes in it' + (S.equip.kb ? (G.Career.kbCurrent(S) ? ' — your Knowledge Base halves this' : ' — your Knowledge Base would halve this, but it needs its yearly update (Design Office)') : '') + '. From your second season, rule and vendor changes in May (−' + Math.round(D.TECH_RULE_PCT * 100) + '% XP in two areas) and new designs in summer (−' + Math.round(D.TECH_DESIGN_PCT * 100) + '% in three) also date what you know; a specialist mentor halves that loss, and XP banked beyond ' + Math.round(D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP) + ' does not count. <b>Level ' + D.TECH_DEEP_LVL + ' and 5 know-how is tuned to the way things were</b>: a change costs it half as much again and always takes a level, with or without a mentor.</div>';
     o += '<table class="t"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + h(G.Seasons[S.year].name) + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
     D.AREAS.forEach(a => {
       const xp = S.know[a.id] || 0, l = D.knowLevel(xp), nxt = D.KNOW_THRESH[Math.min(5, l + 1)], prev = D.KNOW_THRESH[l];
@@ -1119,24 +1144,25 @@
     const S = G.S, C = G.Career;
     const nextYear = S.phase === 'off' ? (S.cal ? (S.cal[S.upcoming] || '') : S.orderMode === 'random' && S.mode === 'career' ? 'next season (game revealed at Kickoff)' : (S.order[S.upcoming] || '')) : G.Career.calYear(S);
     const dist = G.World.on(S) ? G.World.myDistrict(S) : null;
+    const undoBtn = key => '<button class="btn sm" data-act="undoReg" data-arg="' + key + '" title="Registered this ' + (S.phase === 'off' ? 'month' : 'week') + ': take it back for everything it cost. Once you press Continue it is final.">Undo</button>';
     let o = UI.head('Calendar', 'calendar', '', 'calendar') + UI.programCalendar(S) + '<h2 class="mt">' + (dist ? 'District event registration' : 'Regional registration') + '</h2><div class="sub">' + (dist ? h(dist.name) + ' events' : 'Regionals') + ' for ' + h(String(nextYear)) + ' · registered ' + S.registered.length + '/' + S.maxEvents + ' · next fee ' + U.money(C.regFee(S)) + (C.isLate(S) ? ' + ' + U.money(D.FEES.late) + ' late fee' : '') + '</div>';
     o += dist ? '<div class="hint mb">One registration fee covers <b>two district events</b>: your first two count for district points. A third is extra (' + U.money(D.FEES.extraDistrict) + ') and earns no points. District events are local, two days long, with about 36 teams and 12 qualification matches each. After week 5 the top ' + dist.dcmp + ' teams on the points list go to the <b>' + h(dist.short) + ' District Championship</b> in week 7 (' + U.money(D.FEES.dcmp) + ', points count three times), and the district sends about ' + G.World.slots(S, dist) + ' teams to the Championship. See the District page for the standings.</div>'
       : '<div class="hint mb">Each regional week costs registration + travel and uses most of that week\'s build hours. Early weeks: weaker opponents but a less developed robot. ' + (C.wildEra(S) ? 'Win a regional or an Impact, Engineering Inspiration or Rookie All-Star award to qualify for the Championship. <b>Wildcards:</b> when a team that has already qualified earns another place at a regional, that place goes to the finalist alliance (captain, then first pick, then second pick), so later weeks hand out more of them.' : 'Win a regional, an Impact/EI award, or enough Regional Pool points (best two events, cut-off ' + C.poolThreshold(S) + ') to qualify for the Championship.') + '</div>';
     // the Week 0 scrimmage comes first, then the regional weeks
     const canScrim = (S.phase === 'kickoff' || (S.phase === 'build' && S.week < 7) || S.phase === 'off');
-    o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? (S.eventsDone['scrim' + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' <button class="btn sm bad" data-act="withdrawScrim">Withdraw</button>') : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>', '', 'mb');
+    o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? (S.eventsDone['scrim' + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'scrim') ? undoBtn('scrim') : '<button class="btn sm bad" data-act="withdrawScrim">Withdraw</button>')) : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>', '', 'mb');
     for (let w = 1; w <= 6; w++) {
       const list = S.regionals.filter(r => r.week === w);
       o += '<div class="card mb"><div class="ct">Week ' + w + (S.phase === 'comp' && S.week === w ? ' ' + UI.tag('this week', 'acc') : '') + '</div><table class="t"><tr><th>' + (dist ? 'District event' : 'Regional') + '</th><th>Region</th><th>Travel</th><th class="num">Teams</th><th>Strength</th><th></th></tr>' +
         list.map(r => {
           const tier = D.travelTier(S.team.region, r.region, r.local), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
           return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="acc">' + '★'.repeat(r.str) + '</td><td>' +
-            (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '" title="' + (C.refundable(S, 'c' + r.week) ? 'Half the fee back' : 'Less than a month away: no refund') + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';
+            (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : C.regUndoable(S, r.id) ? undoBtn(r.id) : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '" title="' + (C.refundable(S, 'c' + r.week) ? 'Half the fee back' : 'Less than a month away: no refund') + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';
         }).join('') + '</table></div>';
     }
     // offseason events
     if (S.phase === 'off') {
-      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + D.OFFSEASON_EVENTS.map(e => '<tr><td>' + e.month + '</td><td>' + h(e.name) + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? (S.eventsDone[e.id + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' <button class="btn sm bad" data-act="withdrawOff" data-arg="' + e.id + '">Withdraw</button>') : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game. Double XP for students, reputation and sponsor goodwill.</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
+      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + D.OFFSEASON_EVENTS.map(e => '<tr><td>' + e.month + '</td><td>' + h(e.name) + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? (S.eventsDone[e.id + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'off:' + e.id) ? undoBtn('off:' + e.id) : '<button class="btn sm bad" data-act="withdrawOff" data-arg="' + e.id + '">Withdraw</button>')) : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game. Double XP for students, reputation and sponsor goodwill.</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
     }
     if (S.phase !== 'off' && S.season.events.length && !dist && !C.wildEra(S)) o += '<div class="mt">' + UI.card('Regional Pool', '<div>Pool total (best two events): <b>' + C.poolTotal(S) + '</b> / cut-off ' + C.poolThreshold(S) + '</div>' + (S.season.champsQualified ? '<div class="good mt">Qualified: ' + h(S.season.champsReason) + '</div>' : '')) + '</div>';
     return o;
@@ -1146,7 +1172,8 @@
   UI.A.withdraw = id => { const r = G.S.regionals.find(x => x.id === id); UI.confirm('Withdraw from ' + r.name + '?', wdText('c' + r.week), 'Withdraw', () => { G.Career.withdraw(G.S, id); UI.render(); }); };
   UI.A.withdrawOff = id => { const o = D.OFFSEASON_EVENTS.find(x => x.id === id); UI.confirm('Withdraw from ' + o.name + '?', wdText('off' + D.MONTHS.indexOf(o.month)), 'Withdraw', () => { G.Career.withdrawOffseason(G.S, id); UI.render(); }); };
   UI.A.withdrawScrim = () => UI.confirm('Withdraw from the Week 0 scrimmage?', wdText('b7'), 'Withdraw', () => { G.Career.withdrawScrimmage(G.S); UI.render(); });
-  UI.A.regScrim = () => { const S = G.S; { const e = G.Career.afford(S, D.FEES.scrimmage); if (e) return UI.err(e); } G.Career.spend(S, D.FEES.scrimmage, 'Week 0 scrimmage'); S.scrimmage = true; UI.render(); };
+  UI.A.regScrim = () => { const S = G.S; { const e = G.Career.afford(S, D.FEES.scrimmage); if (e) return UI.err(e); } G.Career.spend(S, D.FEES.scrimmage, 'Week 0 scrimmage'); S.scrimmage = true; (S.regUndo = S.regUndo || {}).scrim = D.FEES.scrimmage; UI.render(); };
+  UI.A.undoReg = key => { if (!UI.err(G.Career.undoRegister(G.S, key))) { UI.toast('Registration undone: fee returned', 'good'); UI.render(); } };
   UI.A.regOff = id => { if (!UI.err(G.Career.registerOffseason(G.S, id))) UI.render(); };
 
   // =====================================================================

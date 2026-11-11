@@ -53,6 +53,48 @@
     S.robot = Robot.link(R);
     S.projects = S.projects.filter(p => p.type === 'research' || p.type === 'kb');
   };
+  // v2.9.3: the End Effector subsystem (2018, 2019, 2023, 2025). A robot from an earlier save gets one. The old intake
+  // concepts that really were end effectors (a claw, a station funnel) become one and the intake slot is left empty; a
+  // robot with a separate ground intake keeps it and receives an end effector to match its lift.
+  const EFF_FROM = { 2018: { intake: { claw: 'pinch' }, def: 'roller' }, 2019: { intake: { station: 'combo' }, def: 'combo' }, 2023: { intake: { sub: 'claw' }, def: 'roller' }, 2025: { intake: { station: 'roller' }, def: 'roller' } };
+  function migrateEffector(S) {
+    const R = S.robot, M = R && EFF_FROM[R.year];
+    if (!M || !R.bots || !G.Seasons.sub(R.year, 'effector') || R.design.effector) return;
+    const year = R.year;
+    // what the end effector looks like, given an intake entry and a lift entry (design records or built units)
+    const make = (i, s) => {
+      const fromI = !!(i && i.ver && M.intake[i.concept]), cid = fromI ? M.intake[i.concept] : ((i && i.ver) || (s && s.ver) ? M.def : null);
+      if (!cid) return null;
+      const c = G.Seasons.concept(year, 'effector', cid), src = fromI ? i : (s && s.ver ? s : i);
+      const g = U.clamp(Math.round(fromI ? (i.stats && i.stats.intake) || c.base.grip : ((s && s.stats && s.stats.accuracy) || c.base.grip + 15) - 4), c.base.grip, c.ceil.grip + 10);
+      return { fromI, src, rec: { concept: cid, ver: Math.max(1, src.ver || 1), stats: { grip: g }, rel: src.rel == null ? 70 : src.rel, w: c.w, hours: 0 } };
+    };
+    const none = () => ({ concept: 'none', ver: 0, stats: {}, rel: 0, w: 0, hours: 0 });
+    { const e = make(R.design.intake, R.design.scorer);
+      R.design.effector = e ? e.rec : { concept: null, ver: 0, stats: {}, rel: 0, w: 0, hours: 0 };
+      if (e && e.fromI) { R.design.intake = none(); if (R.fam && R.fam.intake) { R.fam.effector = Object.assign({}, R.fam.intake, { c: e.rec.concept }); delete R.fam.intake; } }
+      else if (e && R.fam) R.fam.effector = { c: e.rec.concept, ver: e.rec.ver, f: 0.85 }; }
+    R.bots.forEach(b => {
+      const e = make(b.subs.intake, b.subs.scorer);
+      if (!e) { b.subs.effector = emptyUnit('effector'); return; }
+      b.subs.effector = Object.assign(emptyUnit('effector'), e.rec, { uid: U.uid('u'), cond: e.src.cond == null ? 100 : e.src.cond, hidden: 0, kits: e.fromI ? e.src.kits || null : null });
+      if (e.fromI) b.subs.intake = emptyUnit('intake');
+    });
+    // spares in storage and parts still in the bag: an old claw or funnel is an end effector now
+    const conv = u => { const c = G.Seasons.concept(year, 'effector', M.intake[u.concept]); u.stats = { grip: U.clamp(Math.round((u.stats && u.stats.intake) || c.base.grip), c.base.grip, c.ceil.grip + 10) }; u.concept = c.id; u.sub = 'effector'; u.w = c.w; };
+    (R.store || []).forEach(u => { if (u.sub === 'intake' && M.intake[u.concept]) conv(u); });
+    (R.held || []).forEach(x => { if (x && x.k === 'intake' && x.u && M.intake[x.u.concept]) { conv(x.u); x.k = 'effector'; } });
+    (S.projects || []).forEach(p => {
+      if (p.sub === 'intake' && ((p.concept && M.intake[p.concept]) || (!p.concept && R.design.intake.concept === 'none') || (p.forConcept && M.intake[p.forConcept]))) {
+        p.sub = 'effector';
+        if (p.concept) p.concept = M.intake[p.concept];
+        if (p.forConcept) p.forConcept = M.intake[p.forConcept];
+        if (p.focus === 'intake') p.focus = 'grip';
+        if (p.name) p.name = String(p.name).replace(/intake/i, 'end effector');
+      }
+      if (p.type === 'practiceBot' && p.subs && R.design.intake.concept === 'none') p.subs = p.subs.map(k => (k === 'intake' ? 'effector' : k));
+    });
+  }
   // Saves from before v2.1: one robot (R.subs) plus an optional practice robot
   Robot.migrate = function (S) {
     const R = S && S.robot;
@@ -78,6 +120,7 @@
       R.bots = [{ name: 'Robot 1', subs: b1 }, { name: 'Robot 2', subs: b2 }];
     }
     Robot.link(R);
+    migrateEffector(S);
     (S.projects || []).forEach(p => {
       if (p.kit) { p.kits = { [p.kit]: 1 }; p.kitCov = 1; delete p.kit; }
       if (p.type === 'practiceBot' && !p.subs) { p.bot = Robot.other(R); p.subs = Object.keys(R.design).filter(k => R.design[k].ver); }
@@ -142,9 +185,10 @@
     const era = G.Era.of(S), tb = subId === 'drive' && c.id === 'swerve' && !era.swerve.cots; // team-built swerve (before 2020)
     let v = (c.ceil[stat] || 0) * (tb ? era.swerve.ceil : 1) + 3 * lvlFor(S, subId, c, stat);
     // better motors, swerve modules and sensors raise ceilings (parts on the competition robot)
-    if (S.robot && (stat === 'speed' || stat === 'scoreSpd' || stat === 'auto')) {
+    if (S.robot && (stat === 'speed' || stat === 'push' || stat === 'scoreSpd' || stat === 'auto')) {
       const pp = G.Parts.profile(S);
       if (subId === 'drive' && stat === 'speed') v += 9 * pp.motor + (c.id === 'swerve' ? 4 * pp.swerve : 0);
+      if (subId === 'drive') v += G.Parts.driveQ(S, c.id)[stat] || 0; // what it runs on: kit drivetrain, Drive gearboxes or vendor drive sets
       if (stat === 'scoreSpd') v += 7 * pp.motor;
       if (stat === 'auto') v += 6 * pp.enc + (era.vision.tags ? 2 * (S.robot.visionLvl || 0) : 0); // AprilTags: the robot knows where it is
     }
@@ -153,7 +197,7 @@
   };
   // First time building something complex: any core area still at Level 0
   Robot.firstTime = (S, c) => c.cx >= 3 && Robot.coreAreas(c).some(a => Robot.know(S, a) === 0);
-  // Mechanical COTS kits for a build: up to what the concept can use, from kits free on the shelf (minus `held`).
+  // Subsystem COTS kits for a build: up to what the concept can use, from kits free on the shelf (minus `held`).
   // cov (0–1, price-weighted) is how much of the set you have: it cuts hours, materials and first-build penalties.
   Robot.kitQuote = function (S, year, k, c, held) {
     const want = G.Parts.kits(year, k, c), use = {};
@@ -164,7 +208,17 @@
       wv += want[cat] * D.COTS_PRICE[cat]; uv += n * D.COTS_PRICE[cat] * G.Parts.kitHealth(S, cat);
     });
     const cov = wv ? uv / wv : 0;
-    return { want, use: Object.keys(use).length ? use : null, cov, hours: 1 - (1 - D.KIT_HOURS) * cov, cost: 1 - (1 - D.KIT_COST) * cov };
+    // GridTube frame stock: any mechanical build takes some (the drivetrain too), on top of the mechanism kits
+    const fw = k !== 'soft' && G.Parts.cotsOut(S, 'kFrame') ? D.frameWant(c) : 0;
+    const fn = fw ? Math.max(0, Math.min(fw, G.Parts.kitsFree(S, 'kFrame') - ((held && held.kFrame) || 0))) : 0;
+    if (fn) use.kFrame = fn;
+    const fcov = fw ? fn / fw * G.Parts.kitHealth(S, 'kFrame') : 0;
+    // a Kit of Parts subsystem kit: the simplest concept of a subsystem only, and only when no COTS kit is used
+    const kop = G.Parts.kopKit(year, k, c), kn = kop && cov < 0.01 && G.Parts.kitsFree(S, kop) - ((held && held[kop]) || 0) > 0 ? 1 : 0;
+    if (kn) use[kop] = 1;
+    const kcov = kn * G.Parts.kitHealth(S, kop);
+    return { want, use: Object.keys(use).length ? use : null, cov, frameWant: fw, frame: fn, fcov, kop, kopUse: kn,
+      hours: (1 - (1 - D.KIT_HOURS) * cov) * (1 - D.FRAME_HOURS * fcov) * (1 - D.KOP_KIT_HOURS * kcov), cost: (1 - (1 - D.KIT_COST) * cov) * (1 - D.FRAME_COST * fcov) * (1 - D.KOP_KIT_COST * kcov) };
   };
   // Electronics a robot would need on top of what its slot already uses if concept c went there
   function extraFor(S, bi, k, c) {
@@ -178,7 +232,9 @@
     if (bi == null) bi = R.comp || 0;
     if (bi < 0) return null;
     const miss = G.Parts.shortage(S, extraFor(S, bi, subId, c), bi === (R.comp || 0) ? 'comp' : 'prac');
-    return miss.length ? G.Parts.shortText(miss) : null;
+    // Drive gearboxes can stand in for drive sets and for the kit drivetrain: say so when those are what is missing
+    const alt = subId === 'drive' && miss.some(m => D.DRIVE_ALT[m.cat]) ? '. A West Coast drive or a kit chassis also runs on 2 Drive gearboxes (Subsystem COTS)' : '';
+    return miss.length ? G.Parts.shortText(miss) + alt : null;
   };
   Robot.reqOk = function (S, c) { return null; };
   Robot.weightOf = (R, bi) => Math.round(Object.keys(R.bots[bi].subs).reduce((s, k) => s + (k !== 'soft' && R.bots[bi].subs[k] && R.bots[bi].subs[k].ver ? R.bots[bi].subs[k].w : 0), 0));
@@ -396,7 +452,7 @@
     let m = G.Shop.hwHoursMult(S);
     m *= 1 - 0.12 * G.Career.mentorSkill(S, 'fab') / 100;
     if (G.Career.hasPerk(S, 'fabSpeed')) m *= 0.9;
-    if (G.Parts.count(S, 'pneu') && (subId === 'intake' || subId === 'scorer' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu)) m *= 1 - G.Era.of(S).pneu; // air mattered more before brushless motors
+    if (G.Parts.count(S, 'pneu') && (subId === 'intake' || subId === 'scorer' || subId === 'effector' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu)) m *= 1 - G.Era.of(S).pneu; // air mattered more before brushless motors
     return m * G.Parts.devMult(S);
   }
   function swMult(S) {
@@ -425,12 +481,12 @@
         err = Robot.buildShort(S, spec.sub, c);
         const tb = Robot.teamBuilt(S, spec.sub, c);
         if (tb && !err && G.Shop.lvl(S, 'cnc') < 1 && G.Shop.lvl(S, 'lathe') < 1) err = 'Nobody sells swerve modules yet: machining your own needs a CNC Router or a Lathe (Workshop)';
-        // mechanical COTS kits (as many as are free on the shelf) speed the build and soften first-build penalties
+        // subsystem COTS kits (as many as are free on the shelf) speed the build and soften first-build penalties
         const kq = Robot.kitQuote(S, year, spec.sub, c), first = Robot.firstTime(S, c);
         hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub) * (tb ? tb.hours : 1);
         cost = (0.55 * c.cost + 150 * c.cx) * ef.cost * kq.cost * D.PROTO_COST + (tb ? tb.mat : 0); // materials (a prototype); motors, electronics and kits come from the inventory
+        fields = { kits: kq.use, kitCov: kq.cov, frameWant: kq.frameWant, frame: kq.frame, kop: kq.kop, kopUse: kq.kopUse };
         if (tb) fields.teamBuilt = true;
-        fields = { kits: kq.use, kitCov: kq.cov };
         name = (des && des.ver ? 'Switch to ' : 'Build ') + c.name;
         break;
       }
@@ -500,7 +556,11 @@
         name = 'Test chassis (' + c.name + ') for ' + R.bots[o].name;
         break;
       }
-      case 'kb': { if (S.equip.kb) err = 'Already built'; hours = 60; cost = 0; name = 'Knowledge Base (wiki + CAD library)'; break; }
+      case 'kb': { // built once, then brought up to date every year
+        const up = !!S.equip.kb;
+        if (up && G.Career.kbCurrent(S)) err = 'Up to date for this season';
+        hours = up ? D.KB_UPKEEP_HOURS : 60; cost = 0; name = up ? 'Knowledge Base yearly update' : 'Knowledge Base (wiki + CAD library)'; break;
+      }
       case 'impact': { if (S.season && S.season.impactDone) err = 'Already submitted this season'; hours = 40; cost = 100; name = 'Impact Award submission'; break; }
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === spec.rid);
@@ -510,7 +570,7 @@
     }
     // one design project per subsystem at a time (copies run alongside, one at a time)
     if (spec.sub && S.projects.some(p => p.sub === spec.sub && (spec.type === 'copy') === (p.type === 'copy'))) err = err || (spec.type === 'copy' ? 'A copy of this subsystem is already being built' : 'A project on this subsystem is already running');
-    if (['auto', 'vision', 'practiceBot', 'impact', 'testChassis'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (['auto', 'vision', 'practiceBot', 'impact', 'testChassis', 'kb'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
     if (spec.type === 'testChassis' && S.projects.some(p => p.type === 'practiceBot')) err = err || 'A full copy is already being built for the second robot';
     if (spec.type === 'research' && S.projects.some(p => p.rid === spec.rid)) err = err || 'Already in progress';
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
@@ -521,7 +581,7 @@
       const bi = spec.type === 'build' ? R.comp || 0 : fields.bot, slot = bi >= 0 ? R.bots[bi].subs[spec.sub] : null;
       if ((bi < 0 || (slot && slot.ver)) && Robot.storeRoom(R, spec.sub) < 1) note = 'Storage is full: the oldest stored ' + sd.name.toLowerCase() + ' will be taken apart for spare parts when this finishes.';
     }
-    return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null };
+    return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
   };
   // Permanent slots (base 2 + Design/Fab mentors + sponsor perk + facilities) are capped at MAX_SLOTS; temporary boost/guest slots go on top.
   Robot.MAX_SLOTS = 6;
@@ -651,8 +711,8 @@
       if (d.ver || d.concept === 'none' || busy(sd.id) || sd.optional) continue; // optional mechanisms are the team's call
       const opts = sd.concepts.filter(c => c.id !== 'none' && !Robot.reqOk(S, c));
       const score = c => Object.keys(c.ceil).reduce((t, k) => t + Robot.ceil(S, year, sd.id, c, k) * (STAT_W[k] || 0.7), 0) / Math.max(1, Object.keys(c.ceil).length) - (Robot.firstTime(S, c) ? 12 : 0) - c.cx * 2;
-      const best = opts.sort((p, q) => score(q) - score(p))[0];
-      if (best) { const r = mk({ type: 'build', sub: sd.id, concept: best.id }, 'Build the ' + sd.name + ': ' + best.name, 'Nothing is built for the ' + sd.name + ' yet, and the robot can\'t use it in matches until it is.'); if (r) return r; }
+      // the best concept the shelves allow (a West Coast drive needs two drive sets, a swerve drive four modules)
+      for (const best of opts.sort((p, q) => score(q) - score(p))) { const r = mk({ type: 'build', sub: sd.id, concept: best.id }, 'Build the ' + sd.name + ': ' + best.name, 'Nothing is built for the ' + sd.name + ' yet, and the robot can\'t use it in matches until it is.'); if (r) return r; }
     }
     // 2) over the weight limit (the competition robot)
     if (Robot.weight(S) > Robot.WEIGHT_LIMIT) {
@@ -805,7 +865,12 @@
       }
       case 'auto': R.autoTier = Math.min(3, R.autoTier + 1); Robot.addXP(S, 'autoPath', 50); if (px) R.soft.stats.auto = Math.min(99, (R.soft.stats.auto || 0) + Math.round(5 * px)); G.Career.inbox(S, 'New auto routine', 'The robot can now run: ' + G.Seasons[year].autoTiers[R.autoTier] + '.', 'dev'); break;
       case 'vision': R.visionLvl = Math.min(2, R.visionLvl + 1); R.soft.stats.vision = Math.min(G.Era.of(S).vision.ceil, (R.soft.stats.vision || 0) + 15); Robot.addXP(S, 'vision', 60); G.Career.inbox(S, 'Vision Level ' + R.visionLvl, R.visionLvl === 1 ? 'Auto-aim and auto-align are online.' : 'Pose estimation and shoot-on-the-move are online.', 'dev'); break;
-      case 'kb': S.equip.kb = true; G.Career.inbox(S, 'Knowledge Base online', 'Knowledge decay between seasons is halved.', 'dev'); break;
+      case 'kb': {
+        const first = !S.equip.kb;
+        S.equip.kb = true; S.kbFor = G.Career.kbCycle(S);
+        G.Career.inbox(S, first ? 'Knowledge Base online' : 'Knowledge Base up to date', (first ? 'Areas you do not use lose half as much know-how at the end of the season.' : 'The wiki and the CAD library cover this year\'s rules and this year\'s students again.') + ' It needs an update every year: a short project in the Design Office.', 'dev');
+        break;
+      }
       case 'impact': if (S.season) S.season.impactDone = true; G.Career.inbox(S, 'Impact submission ready', 'Your Impact story is submitted. You can now compete for the Impact Award at every regional this season (see the odds on HQ).', 'dev'); break;
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === p.rid);

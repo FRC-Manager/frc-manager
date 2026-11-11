@@ -32,6 +32,21 @@
       if (sd.id !== 'soft') rels.push(s.rel == null ? 70 : s.rel);
       weight += s.w == null ? c.w : s.w;
     });
+    // Games with an End Effector (the gripper at the end of the lift). Without one the robot cannot hold a game piece.
+    // With one and no separate intake, the end effector collects the pieces itself: how well follows from how developed
+    // it is (the concept's `self` range), and where it can pick up from is the concept's own.
+    const effSd = G.Seasons.sub(year, 'effector');
+    if (effSd) {
+      const eu = subs.effector, ec = eu && eu.ver ? effSd.concepts.find(x => x.id === eu.concept) : null;
+      if (!ec) { cap.noEffector = true; cap.noScorerMain = true; cap.noIntake = true; delete cap.grip; }
+      else if (cap.noIntake && ec.self) {
+        const lo = ec.base.grip, hi = ec.ceil.grip, t = U.clamp(((eu.stats && eu.stats.grip != null ? eu.stats.grip : lo) - lo) / Math.max(1, hi - lo), 0, 1.15);
+        cap.intake = Math.round(ec.self.lo + (ec.self.hi - ec.self.lo) * t);
+        cap.ground = !!ec.self.ground; cap.station = ec.self.station !== false;
+        if (ec.self.groundCone != null) cap.groundCone = ec.self.groundCone;
+        cap.noIntake = false; cap.selfLoad = true;
+      }
+    }
     if (cap.rmax) cap.rangeM = cap.rmin + (cap.rmax - cap.rmin) * (cap.range || 0) / 100;
     if (!subs.drive || !subs.drive.ver) { cap.speed = 15; cap.agility = 15; cap.push = 20; cap.noDrive = true; }
     // no scorer at all?
@@ -57,6 +72,7 @@
       if (c && c.look) Object.assign(lk, c.look);
       if (sd.id !== 'soft') maxVer = Math.max(maxVer, s.ver);
     });
+    if (lk.eff && (lk.intake == null || lk.intake === 'none')) lk.intake = lk.eff; // no separate intake: the end effector is what shows at the front
     lk.ver = maxVer; lk.vision = (extra && extra.visionLvl) || 0;
     return lk;
   };

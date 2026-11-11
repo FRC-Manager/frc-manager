@@ -283,7 +283,7 @@
       const pt = ground ? E.P(m, r.a, m.rng.range(12.6, 14.6), m.rng.range(5.9, 7.6)) : E.P(m, r.a, 15.95, 7.1);
       H.moveTo(m, r, pt, () => {
         if (!H.canCollect(m, r)) return;
-        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1, true) * (type === 'cone' ? 1.15 : 1),
+        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1, true) * (type === 'cone' && !c.coneAny ? 1.15 : 1), // a wristed gripper takes a cone however it lies
           () => { r.held = 1; r.heldType = type; }, 'Grabbing ' + type);
       }, 'To loading zone');
     },

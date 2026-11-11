@@ -436,7 +436,7 @@
           H.addPts(m, r, type === 'hatch' ? (keep ? 5 : 2) : 3, type === 'hatch' ? (keep ? '+5' : '+2') : '+3', spot);
           r.held = 0; r.heldType = null;
           if (b.k === 'rocket' && !ss.rocket && rocketDone19(ss, b.rk)) { ss.rocket = true; H.log(m, r.a, 'ROCKET COMPLETE', 'end'); }
-        } else if (m.rng.chance(r.cap.hatchFloor && type === 'hatch' ? 0.15 : 0.4)) { r.held = 0; r.heldType = null; r.label = 'Dropped it'; }
+        } else if (m.rng.chance((r.cap.hatchFloor && type === 'hatch' ? 0.15 : 0.4) * (r.cap.hatchGrab ? 0.5 : 1))) { r.held = 0; r.heldType = null; r.label = 'Dropped it'; } // an active claw keeps hold of a missed placement
       }, 'Placing ' + (type === 'hatch' ? 'a hatch' : 'cargo') + (b.lvl > 1 ? ' (level ' + b.lvl + ')' : ''));
     }, b.k === 'ship' ? 'To the cargo ship' : 'To the rocket');
   }
@@ -614,7 +614,7 @@
     const sp = spot18(m, r, kind), a = r.a, o = o18(a), ss = m.ss[a];
     H.moveTo(m, r, sp, () => {
       if (!H.canScore(m, r)) return;
-      H.act(r, H.scoreTime(m, r, kind === 'scale' ? 1.9 : kind === 'vault' ? 0.9 : 1.2), () => {
+      H.act(r, H.scoreTime(m, r, kind === 'scale' ? 1.9 : kind === 'vault' ? 0.9 : 1.2) * (r.cap.launch && kind !== 'vault' ? 0.85 : 1), () => { // a launching claw throws the cube from a step back
         r.stats.shots++;
         if (kind === 'vault') { if (ss.vault >= 9) return; ss.vault++; r.stats.hits++; r.stats.cycles++; r.held = 0; r.heldType = null; H.addPts(m, r, 5, 'VAULT +5', sp); return; }
         if (m.rng.chance(H.hit(m, r, kind === 'scale' ? 0.94 : 1.08))) {

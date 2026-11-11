@@ -470,3 +470,5 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .rr-m { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; font-size: 12px; padding: 4px 8px; margin-top: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg2); }
 .rr-m .red { text-align: right; } .rr-m .sc { font-weight: 700; color: var(--muted); min-width: 62px; text-align: center; } .rr-m.me { border-color: var(--accent); } .rr-m.next { box-shadow: 0 0 0 1px var(--accent) inset; }
 @media (max-width: 900px) { .rr { grid-template-columns: 1fr; } }
+.seasoncard { cursor: pointer; transition: border-color .12s, transform .12s; }
+.seasoncard:hover { border-color: var(--accent); transform: translateY(-2px); }

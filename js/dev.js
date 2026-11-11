@@ -200,7 +200,7 @@
     opts = opts || {};
     const log = [];
     const C = G.Career, S0 = opts.resume ? G.S : C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: opts.region || 'Midwest', home: opts.home || null },
-      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, noWorld: opts.noWorld });
+      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, noWorld: opts.noWorld, settings: opts.settings });
     const S = G.S;
     let guard = 0;
     log.probes = []; log.testSpend = 0;
@@ -239,7 +239,7 @@
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
       // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player
-      if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, gearbox: 2 }, opts.vendor || 'B');
+      if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, wcd: 2, gearbox: 4 }, opts.vendor || 'B');
       if (S.phase === 'kickoff') {
         G.Seasons[S.year].subs.forEach(sd => {
           if (sd.id === 'soft' || sd.optional) return;

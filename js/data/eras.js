@@ -20,8 +20,8 @@
     { y: 2018, swerve: { cots: false, hours: 1.5, rel: -6, ceil: 1, mat: 1000 }, vision: { cam: true, max: 2, hours: 1, ceil: 75, tags: false }, aiSwerve: 0.06, aiMotor: -0.33 },
     { y: 2019, aiSwerve: 0.1, aiMotor: -0.2 },
     { y: 2020, swerve: { cots: true, hours: 1, rel: 0, ceil: 1, mat: 0 }, pneu: 0.2, aiSwerve: 0.3, aiMotor: -0.09, bag: false },
-    { y: 2022, pneu: 0.1, aiSwerve: 0.5, aiMotor: 0 },
-    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, aiSwerve: 0.65 },
+    { y: 2022, aiSwerve: 0.5, aiMotor: 0 },
+    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, pneu: 0.1, aiSwerve: 0.65 },
     { y: 2024, pneu: 0.05, aiSwerve: 0.75 }
   ];
 
@@ -122,7 +122,7 @@
     { id: 'visionbox', cy: 2018, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'Vision in a box', btn: 'parts',
       body: ['Until now robot vision was a science project. This autumn two former drive-team programmers started selling a camera with the computer, the lights and the software already inside. You bolt it on, plug it in, and it tells the robot where the target is.',
         'They built the first fifty in an apartment. The waiting list passed a thousand in a week.'],
-      means: ['Vision cameras are now sold in the Inventory, under mechanical parts.', 'Vision Level 1 takes half the hours it used to, and Level 2 is possible for the first time.', 'Expect more robots with auto-aim next season.'],
+      means: ['Vision cameras are now sold in the Inventory, under Subsystem COTS.', 'Vision Level 1 takes half the hours it used to, and Level 2 is possible for the first time.', 'Expect more robots with auto-aim next season.'],
       talk: [['We spent three seasons on our vision code. It is now a checkbox.', 'a programming mentor'], ['I am not crying. It is the green light ring.', 'a student on Team {t}'], ['Calibrated in ten minutes. I do not know what to do with the rest of January.', 'a programmer on Team {t}']] },
     // ---- 2018 ----
     { id: 'recap2018', cy: 2018, at: 'recap', tag: 'SEASON RECAP · 2018', color: 'var(--accent)', title: 'Swerve\'s first light',
@@ -153,20 +153,25 @@
       talk: [['I have signed that bag form eleven times. I am framing the last one.', 'a lead mentor'], ['More time is not the same as more rest.', 'a mentor on Team {t}'], ['We are keeping the bag. It is a good bag.', 'Team {t}']] },
     { id: 'apex', cy: 2020, at: 'off:4', tag: 'VENDOR NEWS · APEX MOTION', color: VC.A, title: 'Apex Motion: founded by someone the parts let down', btn: 'parts',
       body: ['Ten years ago a student driver stood behind the glass in a regional final and watched her robot stop moving. A connector on a motor controller had worked loose. The match ended there, and so did her last season.',
-        'She studied electrical engineering, took a job at Sterling Motion, and kept a list of every part that had ever failed her or anyone she knew. When Sterling closed, she and six of its engineers rented a corner of the old warehouse. Apex Motion\'s first catalogue has four products and one promise: parts that last a season. They kept Sterling\'s bolt pattern and connectors on purpose, so nobody has to throw away a working robot.',
+        'She studied electrical engineering, took a job at Sterling Motion, and kept a list of every part that had ever failed her or anyone she knew. When Sterling closed, she and five of her colleagues (the six engineers of those famous lunches) rented a corner of the old warehouse. Apex Motion\'s first catalogue has four products and one promise: parts that last a season. They kept Sterling\'s bolt pattern and connectors on purpose, so nobody has to throw away a working robot.',
         'The fourth product is the surprise: a swerve module you can simply buy.'],
       means: ['Apex Motion is the new premium vendor: a brushless motor, an encoder and a control hub.', 'Apex and Sterling parts work together with no mixing penalty.', 'The Apex Vector is the first swerve module for sale. A swerve drive no longer needs a machine shop, the extra hours or the luck.', 'Lumen answers by cutting the price of the Ion.'],
       talk: [['Every connector latches. Every single one. I counted.', 'an electrical mentor'], ['She put the list of failed parts on the first page of the catalogue.', 'a forum regular'], ['We machined our own swerve for two years. I am ordering four modules and taking a nap.', 'a mentor on Team {t}'], ['Premium prices again. At least this time the motor spins both ways.', 'a team treasurer']] },
     // ---- 2022 ---- (the 2020 recap and the lost year belong to the pandemic)
+    { id: 'cots', cy: 2022, at: 'off:3', tag: 'NEW PRODUCTS · THE LOST YEAR', color: '#b39dff', title: 'Mechanisms in a box', btn: 'parts',
+      body: ['For fifteen months nobody could get into a machine shop. Students built in garages and on kitchen tables, with a hand drill, a hacksaw and whatever came in the mail. The suppliers noticed, and spent the lockdown designing for exactly that.',
+        'This summer the catalogues are twice as thick. Arm and pivot joints, intake rollers, indexers, climbers and grippers now come as kits that bolt together. And there is GridTube: box tube and gussets drilled on one hole pattern, so that everything from every supplier lines up with everything else. A mechanism that used to need a mill now needs a wrench.'],
+      means: ['New in the Inventory: arm & pivot kits, intake kits, indexer kits, climber kits and gripper kits. Until now only elevator, shooter and turret kits were sold.', 'GridTube frame stock is new too: every mechanical build can use some, drivetrain included, and it saves hours on top of the kits. You can keep a lot of it.', 'A team with few machines loses less to a team with many than it used to.'],
+      talk: [['We built an intake on a kitchen table. The cat helped.', 'a student on Team {t}'], ['One hole pattern. I have waited twenty years for one hole pattern.', 'a design mentor'], ['My mill is feeling a little nervous.', 'a fabrication mentor on Team {t}'], ['It is basically a construction set for adults. I mean students.', 'a forum regular']] },
     { id: 'pivot', cy: 2022, at: 'off:4', tag: 'VENDOR NEWS · LUMEN ROBOTICS', color: VC.B, title: 'Swerve for the rest of us', btn: 'parts',
       body: ['Apex showed that a swerve module could come in a box. Lumen spent the lost year working out how to make one that a team without a title sponsor can afford.',
         'The Pivot is heavier than the Vector and a little slower to steer. It also costs about a third less, and Lumen says it shipped the first batch to rookie teams at cost.'],
-      means: ['Lumen now sells a swerve module too.', 'With two vendors and falling prices, swerve is about to be everywhere.'],
+      means: ['Lumen now sells a swerve module too.', 'Lumen has stopped making West Coast drive sets. What is in stock stays on sale through the 2022 season. After that a new West Coast drive runs on COTS Drive gearboxes, at lower performance, or on sets you already own.', 'With two vendors and falling prices, swerve is about to be everywhere.'],
       talk: [['Four modules for what we used to spend on gearboxes and regret.', 'a team treasurer'], ['The instructions fit on one page. I read them twice out of habit.', 'a student on Team {t}'], ['Tank drive had a good run.', 'a drive coach, converted']] },
-    { id: 'cylinders', cy: 2022, at: 'off:6', tag: 'SPOTTED ONLINE', color: 'var(--info)', title: 'The compressor stays home',
-      body: ['Scroll through this autumn\'s build threads and count the air tanks. There are not many.',
+    { id: 'cylinders', cy: 2023, at: 'off:0', tag: 'SPOTTED ONLINE', color: 'var(--info)', title: 'The compressor stays home',
+      body: ['Scroll through the build threads of the season that just ended and count the air tanks. There are not many.',
         'Brushless motors are now so strong and so cheap that a small motor on a gearbox does what a cylinder used to do, without a compressor, a tank, forty fittings and the leak that nobody can find. Teams that swore by pneumatics for a decade are leaving the whole system in the cupboard.'],
-      means: ['A pneumatics kit still speeds up intake and manipulator builds, but by 10% now instead of 20 to 25%.', 'The gap keeps closing: 5% from 2024.'],
+      means: ['From the 2023 season a pneumatics kit still speeds up intake, manipulator and end effector builds, but by 10% instead of 20%.', 'The gap keeps closing: 5% from 2024.', 'A used pneumatics kit is worth less every year.'],
       talk: [['I can finally hear myself think in the pit.', 'a mentor on Team {t}'], ['Found the leak. It only took four seasons. We are removing the system on Monday.', 'a student on Team {t}'], ['A cylinder is still the fastest way to move something two inches. Fight me.', 'a forum regular']] },
     // the last recap before everything stops: told first, then the pandemic window follows it
     { id: 'recap2020', cy: 2020, at: 'recap', tag: 'SEASON RECAP · 2020', color: 'var(--accent)', title: 'No bag, and swerve in a box',
@@ -206,9 +211,15 @@
       means: ['Hardware alone no longer wins: testing hours, driver practice and code matter more every season.', 'More teams are registering than at any time since 2020.'],
       talk: [['I blinked and they had scored twice.', 'a referee'], ['Same parts as the champions. Not the same practice field.', 'a mentor on Team {t}'], ['Our rookies think this speed is normal.', 'a lead mentor']] },
     { id: 'recap2025', cy: 2025, at: 'recap', tag: 'SEASON RECAP · 2025', color: 'var(--accent)', title: 'Nearly everyone is back',
-      body: ['Five seasons after the lost year, the number of teams has almost returned to where it was. Many of the teams that folded in 2021 never came back; the new ones are led by people who learned the game on swerve and paper tags and have never bagged a robot.',
+      body: ['Four seasons after the lost year, the number of teams has almost returned to where it was. Many of the teams that folded in 2021 never came back; the new ones are led by people who learned the game on swerve and paper tags and have never bagged a robot.',
         'The biggest change is off the field. More than half of all teams will soon play in districts instead of regionals.'],
       means: ['Next season is the last of this career.', 'Districts keep growing: another one forms next season.'],
-      talk: [['Our first-year mentor asked what a bag was. I felt old.', 'a lead mentor'], ['Two events, a district championship and Worlds. My calendar has no weekends.', 'a district team captain'], ['Every year I say it cannot get bigger.', 'a volunteer coordinator']] }
+      talk: [['Our first-year mentor asked what a bag was. I felt old.', 'a lead mentor'], ['Two events, a district championship and Worlds. My calendar has no weekends.', 'a district team captain'], ['Every year I say it cannot get bigger.', 'a volunteer coordinator']] },
+    // the last season of every calendar career: told before the career summary
+    { id: 'recap2026', cy: 2026, at: 'recap', tag: 'SEASON RECAP · 2026', color: 'var(--accent)', title: 'What a decade did',
+      body: ['Set a robot from 2016 beside one from this spring. One skids around on six wheels, runs on brushed motors and finds the goal because a student is pointing at it. The other slides in any direction on modules that came in a box, knows where it is from paper tags on the wall, and was largely bolted together from kits.',
+        'The game changed every January and the sport changed with it: one Championship became two and then one again, the bag came and went, a vendor closed and another was founded in its warehouse, a whole season was lost, and most of the country now plays in districts. Through all of it, the teams that lasted were the ones that kept teaching the next class.'],
+      means: ['This was the last season of your career.', 'Your career summary is next: the banners, the records and the legacy score.'],
+      talk: [['My first drive coach is a judge now. My first driver is my lead mentor.', 'a student on Team {t}'], ['Ten years ago we were three kids and a kit chassis. Look at this pit.', 'a mentor on Team {t}'], ['Same time next January?', 'everyone']] }
   ];
 })();

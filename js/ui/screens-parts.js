@@ -1,5 +1,5 @@
 'use strict';
-/* FRC Manager — Inventory screen (parts shop): what the robots use, the electronics store (two vendors), mechanical COTS,
+/* FRC Manager — Inventory screen (parts shop): what the robots use, the electronics store (two vendors), subsystem COTS,
    game elements (with next season's preorders), spare parts and batteries */
 (function () {
   const U = G.U, D = G.Data, h = U.esc, UI = G.UI, P = () => G.Parts;
@@ -14,7 +14,7 @@
     const season = P().inSeason(S);
     let o = UI.head('Inventory', 'parts', 'Motors, electronics and mechanisms for your robots. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
     const ny = P().nextYear(S);
-    o += UI.tabs(tab, [['robot', 'Your robots', 'garage'], ['elec', 'Electronics', 'chip'], ['cots', 'Mechanical COTS', 'gear'], ['elem', 'Game elements', 'elements']].concat(ny != null ? [['pre', 'Preorder', 'truck']] : []).concat([['sell', 'Sell', 'money'], ['spares', 'Spares & batteries', 'battery']]), 'partsTab');
+    o += UI.tabs(tab, [['robot', 'Your robots', 'garage'], ['elec', 'Electronics', 'chip'], ['cots', 'Subsystem COTS', 'gear'], ['elem', 'Game elements', 'elements']].concat(ny != null ? [['pre', 'Preorder', 'truck']] : []).concat([['sell', 'Sell', 'money'], ['spares', 'Spares & batteries', 'battery']]), 'partsTab');
     if (tab === 'robot') o += robotTab(S);
     else if (tab === 'sell') o += sellTab(S);
     else if (tab === 'pre') o += preTab(S);
@@ -35,7 +35,7 @@
       o += '<div class="grid g3 mb">' +
         '<div class="card flat"><div class="ct">' + UI.it('chip', 'Control system') + '</div>' + (vs.length ? vs.map(v => vtag(v) + ' ' + pr.vendors[v]).join(' ') : '<span class="muted">Kit parts only</span>') +
         (pr.mixed ? '<div class="warnbox mt">Mixed control systems: hardware and software projects take 10% longer, and the robot loses a little reliability and speed.</div>' : pr.kopMix ? '<div class="warnbox mt">Kit of Parts electronics next to vendor ones: hardware and software projects take 5% longer, and the robot loses a little reliability and speed.</div>' : '<div class="xs good mt">' + UI.icon('check', 13) + ' One control system</div>') + '</div>' +
-        '<div class="card flat"><div class="ct">' + UI.it('motor', 'Performance') + '</div>' + UI.stat('Motors', pr.motor * 100) + UI.stat('Sensors', pr.enc * 100) + (a.need.comp.swerve ? UI.stat('Swerve', pr.swerve * 100) : '') + '</div>' +
+        '<div class="card flat"><div class="ct">' + UI.it('motor', 'Performance') + '</div>' + UI.stat('Motors', pr.motor * 100) + UI.stat('Sensors', pr.enc * 100) + (a.need.comp.swerve ? UI.stat('Swerve', pr.swerve * 100) : '') + (a.need.comp.wcd ? UI.stat('Drive sets', pr.wcd * 100) : '') + '</div>' +
         '<div class="card flat"><div class="ct">' + UI.it('spare', 'Wear') + '</div>' + UI.stat('Average health', pr.health * 100, null, UI.colorFor(pr.health * 100)) + '<div class="xs muted">Worn parts barely slow the robot, but they fail more often. New parts automatically go on the competition robot.</div></div></div>';
       if (pr.short) o += '<div class="warnbox mb">The competition robot is short of ' + pr.short + ' part' + (pr.short > 1 ? 's' : '') + ' (kit parts fill in at low performance). Buy them in the Electronics tab.</div>';
     } else o += '<div class="hint mb">No robot this season yet. At Kickoff you get the Kit of Parts; everything else comes from here. Every build needs motors (and more), so stock up now: in season, parts often sell out.</div>';
@@ -55,7 +55,7 @@
     if (S.robot) {
       const R = S.robot, year = R.year;
       const rows = G.Seasons[year].subs.filter(sd => sd.id !== 'soft' && R.subs[sd.id].ver).map(sd => {
-        const s = R.subs[sd.id], c = G.Seasons.concept(year, sd.id, s.concept), b = P().bom(year, sd.id, c);
+        const s = R.subs[sd.id], c = G.Seasons.concept(year, sd.id, s.concept), b = P().shownBom(S, 'comp', sd.id, P().bom(year, sd.id, c));
         return '<div class="row sm"><span class="b">' + h(sd.name) + '</span><span class="muted">' + h(c.name) + '</span><span class="sp"></span>' + Object.keys(b).map(k => b[k] + ' ' + h(D.PART_CAT[k].short.toLowerCase())).join(' · ') + (s.kits ? ' ' + Object.keys(s.kits).map(k => UI.tag(s.kits[k] + ' ' + D.PART_CAT[k].short.toLowerCase().replace(/s$/, s.kits[k] > 1 ? 's' : ''), 'info')).join(' ') : '') + '</div>';
       });
       if (rows.length) o += '<div class="mt">' + UI.card(UI.it('garage', 'What each subsystem uses'), rows.join('') + '<div class="xs muted mt">Plus one control hub per robot' + (R.visionLvl ? ' and ' + R.visionLvl + ' camera' + (R.visionLvl > 1 ? 's' : '') : '') + '. A second robot needs its own set of electronics.</div>') + '</div>';
@@ -67,7 +67,7 @@
   // ---------- selling parts ----------
   // Each part is a chip: its condition and resale value. Parts above 60% the robots don't need can be sold.
   function sellTab(S) {
-    let o = '<div class="hint mb">' + UI.icon('money', 14) + ' Sell parts you no longer need for part of their price: about ' + Math.round(D.RESALE * 100) + '% of today\'s list price at full condition, less as they wear. Only parts above ' + Math.round(D.SELL_MIN * 100) + '% condition can be sold, Kit of Parts items can\'t, and you can\'t sell below what your robots need.</div>';
+    let o = '<div class="hint mb">' + UI.icon('money', 14) + ' Sell parts you no longer need for part of their price: about ' + Math.round(D.RESALE * 100) + '% of today\'s list price at full condition, less as they wear. <b>The second-hand market follows the news:</b> a part that has been overtaken (an older version, a brushed motor once brushless ones are sold, anything from a vendor that closed) fetches less from the day its replacement goes on sale. Only parts above ' + Math.round(D.SELL_MIN * 100) + '% condition can be sold, Kit of Parts items can\'t, and you can\'t sell below what your robots need.</div>';
     let any = false;
     D.PART_CATS.forEach(c => {
       const list = P().items(S, c.id).filter(it => P().prod(it.p) && P().prod(it.p).price && P().prod(it.p).v !== 'K');
@@ -81,7 +81,8 @@
           const pr = P().prod(pid), its = groups[pid].slice().sort((a, b) => b.h - a.h);
           const sellable = its.filter(it => !P().sellBlock(S, c.id, it)).sort((a, b) => a.h - b.h).slice(0, room); // most worn go first
           const total = sellable.reduce((t, it) => t + P().resale(S, it), 0);
-          return '<div class="sellrow"><div class="row sm"><b>' + h(pr.name) + '</b>' + (pr.v === 'A' || pr.v === 'B' ? vtag(brand(pr)) : '') + '<span class="sp"></span>' +
+          const used = P().usedWhy(S, pr), uk = used.reduce((t, x) => t * x.k, 1);
+          return '<div class="sellrow"><div class="row sm"><b>' + h(pr.name) + '</b>' + (pr.v === 'A' || pr.v === 'B' ? vtag(brand(pr)) : '') + (used.length ? '<span class="tag warn" title="' + h(used.map(x => x.why + ' (×' + x.k.toFixed(2) + ')').join('; ')) + '">second-hand −' + Math.round((1 - uk) * 100) + '%</span><span class="xs muted">' + h(used.map(x => x.why).join('; ')) + '</span>' : '') + '<span class="sp"></span>' +
             (sellable.length > 1 ? '<button class="btn sm" data-act="sellAll" data-arg="' + c.id + '|' + pid + '">Sell all ' + sellable.length + ' · +' + U.money(total) + '</button>' : '') + '</div>' +
             '<div class="row wrap gap4 mt">' + its.map(it => {
               const why = P().sellBlock(S, c.id, it), v = P().resale(S, it);
@@ -110,9 +111,9 @@
   // ---------- electronics store ----------
   function prodCard(S, x) {
     const p = x.prod, owned = P().items(S, p.cat).filter(i => i.p === p.id).length, price = P().price(S, p), ok = P().inStock(S, p.id) || !P().inSeason(S);
-    const qty = p.cat === 'motor' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' ? [1, 2] : [1];
+    const qty = p.cat === 'motor' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' || p.cat === 'wcd' || p.cat === 'kdrive' ? [1, 2] : [1];
     const bv = brand(p);
-    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag('loyalty −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
+    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.closing ? UI.tag('discontinued: last stock', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag('loyalty −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
       '<div class="statrow"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, D.VENDORS[bv].color) + '<span class="v">' + Math.round(p.perf * 100) + '</span></div>' +
       '<div class="row sm wrap"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? UI.tag('always in stock', 'good') : stockTag(S, p.id)) + '</div>' +
       '<div class="row wrap gap4 mt">' + qty.map(n => '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|' + n + '" ' + (ok ? '' : 'disabled') + '>+' + n + ' · ' + U.money(n * price) + '</button>').join('') + '</div></div>';
@@ -131,9 +132,9 @@
     // the premium column: Sterling Motion until it closes in 2019 (then a short gap), Apex Motion from the autumn after
     const prem = P().premium(S), closed = S.cal && !prem, slotV = v => (v === 'A' ? (prem || 'T') : v);
     let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div>' + (v !== 'K' && !gone && P().loyalOn(S) ? loyalBox(S, v) : '') + '</div>'; }).join('') + '</div>';
-    o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing the premium vendor\'s and Lumen\'s electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to vendor parts costs 5% more hours and a little performance. Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season.' + (S.cal ? ' Sterling Motion and Apex Motion parts fit together (same bolt pattern and connectors), so they never count as mixed.' : ' No product line goes past version III.') + '</div>';
+    o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing the premium vendor\'s and Lumen\'s electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to vendor parts costs 5% more hours and a little performance. ' + (S.cal ? 'Every autumn at least one vendor, usually both, holds a launch event (September to December, before Kickoff) with one to three new products; the previous version stays on sale through the next season. Sterling Motion and Apex Motion parts fit together (same bolt pattern and connectors), so they never count as mixed. Drivetrain parts (West Coast drive sets, swerve modules) are not part of the control system: they never count as mixed either.' : 'Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season. No product line goes past version III.') + '</div>';
     // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
-    D.ELEC_CATS.forEach(cat => {
+    D.ELEC_CATS.filter(cat => !(S.cal && D.PART_CAT[cat].group === 'drive')).forEach(cat => {
       const c = D.PART_CAT[cat];
       o += '<h2 class="sect">' + UI.it(c.icon, h(c.name)) + ' <span class="xs muted">' + h(c.desc) + ' · you have ' + P().count(S, cat) + '/' + c.max + '</span></h2>';
       o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
@@ -142,6 +143,26 @@
         return '<div class="col">' + (list.length ? list.map(x => prodCard(S, x)).join('') : none ? '<div class="pcard empty xs muted">' + none + '</div>' : '') + '</div>';
       }).join('') + '</div>';
     });
+    // Drivetrain: what the vendors sell to drive on. West Coast drive sets first (the standard before swerve), then
+    // swerve modules once somebody makes them.
+    if (S.cal) {
+      const swOut = sale.some(x => x.prod.cat === 'swerve');
+      o += '<h2 class="sect">' + UI.it('swerve', 'Drivetrain') + ' <span class="xs muted">West Coast drive sets (2 per drive), swerve modules (4 per drive) and the kit drivetrain (2 per kit chassis), motors not included · you have ' + P().count(S, 'wcd') + '/' + D.PART_CAT.wcd.max + ' drive sets, ' + P().count(S, 'swerve') + '/' + D.PART_CAT.swerve.max + ' modules, ' + P().count(S, 'kdrive') + '/' + D.PART_CAT.kdrive.max + ' kit drivetrain sets and ' + P().count(S, 'gearbox') + '/' + D.PART_CAT.gearbox.max + ' Drive gearboxes</span></h2>';
+      o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
+        const list = sale.filter(x => (D.PART_CAT[x.prod.cat].group === 'drive' || (v === 'K' && x.prod.id === 'kdriveK')) && x.prod.v === v).sort((a, b) => (a.prod.cat === 'swerve' ? 1 : 0) - (b.prod.cat === 'swerve' ? 1 : 0) || (a.ending ? 1 : 0) - (b.ending ? 1 : 0));
+        const notes = [];
+        if (v === 'K') notes.push('The kit drivetrain only fits the kit chassis, and it is the slowest way to drive. COTS Drive gearboxes (Subsystem COTS) are the middle step: 2 make a kit chassis faster, 4 drive a mecanum, and 2 carry a West Coast drive when you have no vendor drive sets, at lower performance than the sets.');
+        else {
+          if (!swOut && v === 'A') notes.push('Nobody sells swerve modules yet. A swerve drive means machining your own: a CNC Router or a Lathe, extra hours, and less reliability.');
+          if (v === 'A' && closed) notes.push('Sterling Motion has closed.');
+          else if (v === 'A' && prem === 'A') notes.push('Apex Motion makes no West Coast drive set: its drivetrain is the swerve module.');
+          if (swOut && v === 'B' && !list.some(x => x.prod.cat === 'swerve')) notes.push('No Lumen swerve module yet.');
+          if (v === 'B' && P().lineEnd(S, 'wcd', 'B') === 1) notes.push('Lumen has stopped making West Coast drive sets now that it sells a swerve module. What is in stock is sold through the ' + P().buyCy(S) + ' season. After that a new West Coast drive runs on COTS Drive gearboxes, at lower performance.');
+          if (v === 'B' && P().lineEnd(S, 'wcd', 'B') === 2) notes.push('Lumen no longer sells West Coast drive sets: its drivetrain is the swerve module now. A West Coast drive runs on sets you already own, or on COTS Drive gearboxes at lower performance.');
+        }
+        return '<div class="col">' + list.map(x => prodCard(S, x)).join('') + notes.map(t => '<div class="pcard empty xs muted">' + h(t) + '</div>').join('') + '</div>';
+      }).join('') + '</div>';
+    }
     return o;
   }
   UI.A.buyProd = arg => {
@@ -151,18 +172,28 @@
     UI.render();
   };
 
-  // ---------- mechanical COTS ----------
+  // ---------- subsystem COTS ----------
   function cotsTab(S) {
-    let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Mechanical parts come from many suppliers and always fit. Drive gearboxes, cameras and pneumatics are used like electronics. <b>Mechanism kits are optional:</b> each concept can use a set (a turret shooter: a turret kit and a shooter kit; a traversal climber: up to 4 climber kits). A full set makes the build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster, uses ' + Math.round((1 - D.KIT_COST) * 100) + '% less material and removes first-build penalties; a partial set gives part of that. Kits stay in the subsystem they were built into (on either robot or in storage); take a stored subsystem apart in the Garage to free them. Kits wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own.</div>';
+    let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Subsystem parts and kits come from many suppliers and always fit. Drive gearboxes, cameras and pneumatics are used like electronics. ' + (S.cal && !P().cotsOut(S, 'kFrame') ? 'For now only elevator, shooter and turret kits exist: everything else is cut and drilled in the shop. ' : '') + '<b>Mechanism kits are optional:</b> each concept can use a set (a turret shooter: a turret kit and a shooter kit; a traversal climber: up to 4 climber kits). A full set makes the build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster, uses ' + Math.round((1 - D.KIT_COST) * 100) + '% less material and removes first-build penalties; a partial set gives part of that. Kits stay in the subsystem they were built into (on either robot or in storage); take a stored subsystem apart in the Garage to free them. Kits wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own. <b>Kit of Parts kits</b> (below) are the basic version: each helps only the simplest concept of a subsystem.' + (P().cotsOut(S, 'kFrame') ? ' <b>GridTube frame stock</b> works differently: every mechanical build can use 1 to 3 bundles (the drivetrain too), worth ' + Math.round(D.FRAME_HOURS * 100) + '% fewer hours and ' + Math.round(D.FRAME_COST * 100) + '% less material with all of them, on top of the kits.' : '') + '</div>';
     const onSale = P().forSale(S);
     o += '<div class="grid g3">' + D.COTS_CATS.map(cat => {
-      if (!onSale.some(x => x.prod.id === cat + 'C')) return '<div class="pcard empty" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(D.PART_CAT[cat].icon, 18) + '<b>' + h(D.PART_CAT[cat].name) + '</b><span class="sp"></span>' + UI.tag('not sold yet') + '</div><div class="xs muted">Nobody sells one yet. Vision is home-made for now: Vision Level 1 needs no camera but takes twice the hours, and Level 2 is out of reach.</div></div>';
+      if (!onSale.some(x => x.prod.id === cat + 'C') && D.COTS_FROM[cat]) return ''; // the kits of 2021 are not on the shelf before they exist
+      if (!onSale.some(x => x.prod.id === cat + 'C')) return '<div class="pcard empty" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(D.PART_CAT[cat].icon, 18) + '<b>' + h(D.PART_CAT[cat].name) + '</b><span class="sp"></span>' + UI.tag('not sold yet') + '</div><div class="xs muted">' + 'Nobody sells one yet. Vision is home-made for now: Vision Level 1 needs no camera but takes twice the hours, and Level 2 is out of reach.' + '</div></div>';
       const c = D.PART_CAT[cat], p = P().prod(cat + 'C'), price = P().price(S, p), have = P().count(S, cat), ok = P().inStock(S, p.id) || !P().inSeason(S);
       const free = c.kit ? P().kitsFree(S, cat) : null, room = P().buyRoom(S, p.id), full = room <= 0, swap = !full && have >= c.max;
-      return '<div class="pcard" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + stockTag(S, p.id) + '</div><div class="xs muted">' + h(c.desc) + (c.kit ? ' Helps ' + h(Object.keys(D.KIT_FOR_AREA).filter(k => D.KIT_FOR_AREA[k] === cat).map(k => D.AREA[k].name.toLowerCase()).join(' and ')) + ' builds.' : '') + '</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button></div></div>';
+      return '<div class="pcard" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + stockTag(S, p.id) + '</div><div class="xs muted">' + h(c.desc) + (c.kit && Object.keys(D.KIT_FOR_AREA).some(k => D.KIT_FOR_AREA[k] === cat) ? ' Helps ' + h(Object.keys(D.KIT_FOR_AREA).filter(k => D.KIT_FOR_AREA[k] === cat).map(k => D.AREA[k].name.toLowerCase()).join(' and ')) + ' builds.' : '') + '</div>' +
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button>' + (cat === 'kFrame' && !full && !swap ? '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|6" ' + (ok ? '' : 'disabled') + '>+6 · ' + U.money(6 * price) + '</button>' : '') + '</div></div>';
     }).join('') + '</div>';
-    o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + ' <span class="xs muted">cheap, basic, always in stock</span></h2><div class="grid g3">' + P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec).map(x => prodCard(S, x)).join('') + '</div>';
+    // Kit of Parts: basic subsystem kits for the simplest concepts (the kit drivetrain is under Electronics, Drivetrain;
+    // careers from before v3.0 have no Drivetrain section, so theirs stays here)
+    const kopKit = x => {
+      const p = x.prod, c = D.PART_CAT[p.cat], price = P().price(S, p), have = P().count(S, p.cat), free = P().kitsFree(S, p.cat), full = P().buyRoom(S, p.id) <= 0;
+      return '<div class="pcard" style="--vc:' + D.VENDORS.K.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + UI.tag('always in stock', 'good') + '</div><div class="xs muted">' + h(c.desc) + ' Helps ' + h(c.helps) + ': ' + Math.round(D.KOP_KIT_HOURS * 100) + '% fewer hours, ' + Math.round(D.KOP_KIT_COST * 100) + '% less material.</div>' +
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (full ? 'disabled' : '') + '>' + (full ? 'Full' : 'Buy') + '</button></div></div>';
+    };
+    const kops = P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec);
+    o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + ' <span class="xs muted">basic subsystem kits: cheap, always in stock, and only for the simplest concept of a subsystem (a build that uses a COTS kit does not need one)</span></h2><div class="grid g3">' +
+      kops.filter(x => D.PART_CAT[x.prod.cat].kop).map(kopKit).join('') + (S.cal ? '' : kops.filter(x => x.prod.id === 'kdriveK').map(x => prodCard(S, x)).join('')) + '</div>';
     return o;
   }
 

@@ -238,7 +238,7 @@
   E.avoid = avoid;
   function speedOf(m, r) {
     const c = r.cap;
-    let v = 3.6 * (0.45 + 0.55 * c.speed / 100) * r.drvF * PACE[r.plan.pace].spd;
+    let v = 3.6 * (0.45 + 0.55 * c.speed / 100) * r.drvF * PACE[r.plan.pace].spd * (c.noGrip ? 0.88 : 1); // mecanum rollers turn a good part of the motors' work into sideways slip
     if (r.defBy) v *= r.defSlow;
     if (r.plan.avoid) v *= 0.93;
     if (r.fault && r.fault.slow) v *= 0.5;
@@ -360,6 +360,7 @@
       log(m, d.a, d.team + ' releases the pin on ' + t.team, 'def');
     }
   }
+  const NOGRIP = 0.2; // mecanum rollers have no sideways grip: a defender in contact cancels most of the drive's agility
   function defensePass(m) {
     for (const r of m.robots) { r.defBy = null; r.defSlow = 1; }
     const DF = m.R.defense || { eff: 1, foul: 1 }; // how much defense matters in this game
@@ -372,7 +373,7 @@
       if (DF.zone) {
         for (const o of m.robots) {
           if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
-          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility) / 200) * (1 - DEF_DRILL * o.defSkill) * awareK(o), 0.6, 0.97);
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility * (o.cap.noGrip ? NOGRIP : 1)) / 200) * (1 - DEF_DRILL * o.defSkill) * awareK(o), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
@@ -389,7 +390,7 @@
       }
       if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
-        const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
+        const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility * (t.cap.noGrip ? NOGRIP : 1) - 0.3 * t.cap.push) / 100;
         // turrets shoot on the move, so a defender slows them half as much (a season may say otherwise: DF.turretK)
         t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? (DF.turretK == null ? 0.5 : DF.turretK) : 1) * (1 - DEF_DRILL * t.defSkill) * awareK(t), 0.35, 0.97);
         pinCheck(m, d, t, dd, DF);
@@ -589,6 +590,10 @@
   // ---------- helpers exposed to season rules ----------
   // a season may say that a defender in contact also slows what the robot is doing with its game pieces (DF.act: 0.4 = 40% longer)
   const jostle = (m, r) => (r.defBy && m.R.defense && m.R.defense.act ? 1 + m.R.defense.act * (r.cap.turret ? 0.6 : 1) : 1);
+  // an end effector's Grip: how surely it takes, holds and lets go of a game piece (seasons with an End Effector only).
+  // A poor one costs placements and a little time on every score; a developed one gives both back.
+  const GRIP = E.GRIP = { h0: 0.9, h1: 0.15, t0: 1.06, t1: -0.13 };
+  const gripK = (r, at0, per100) => (r.cap.grip == null ? 1 : at0 + per100 * r.cap.grip / 100);
   const H = E.H = {
     P: E.P, dist, opp, moveTo, act, waitUntil, speedOf, log, foul, avoid,
     canCollect: (m, r) => !r.cap.noIntake && !r.perm.intake && !(r.jam.intake > m.t),
@@ -606,7 +611,7 @@
     },
     scoreTime(m, r, base, stat) {
       const s = stat == null ? r.cap.scoreSpd : stat;
-      return base * (1.5 - 0.8 * s / 100) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK) * jostle(m, r);
+      return base * (1.5 - 0.8 * s / 100) * (stat == null ? gripK(r, GRIP.t0, GRIP.t1) : 1) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK) * jostle(m, r);
     },
     endDue: (m, r) => m.phase !== 'auto' && !r.end && !r.endBusy && endgameDue(m, r),
     aimTime(m, r) {
@@ -615,7 +620,7 @@
     },
     hit(m, r, mult, distPen, stat) {
       const a = stat == null ? r.cap.accuracy : stat;
-      let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1);
+      let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1) * (stat == null ? gripK(r, GRIP.h0, GRIP.h1) : 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
       if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1) * (1 - DEF_DRILL * r.defSkill);
       p *= 0.95 + 0.05 * r.opF;

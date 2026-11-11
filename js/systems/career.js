@@ -782,6 +782,7 @@
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
     S.sponsors.forEach(sp => { delete sp.undo; });
+    delete S.regUndo; // registrations made last turn are final now
     G.Save.write('auto');
     return null;
   };
@@ -992,6 +993,7 @@
   };
 
   // ======================= registration =======================
+  C.regFee0 = function (S, n) { if (S.team.home && G.World.on(S)) return n === 0 ? D.FEES.firstRegional : n === 1 ? 0 : D.FEES.extraDistrict; return n === 0 ? D.FEES.firstRegional : D.FEES.addRegional; };
   C.regFee = function (S) { const n = S.registered.length; if (S.team.home && G.World.on(S)) return n === 0 ? D.FEES.firstRegional : n === 1 ? 0 : D.FEES.extraDistrict; return n === 0 ? D.FEES.firstRegional : D.FEES.addRegional; };
   C.evWord = (S, plural) => (S.team.home && G.World.on(S) ? (plural ? 'district events' : 'district event') : (plural ? 'regionals' : 'regional'));
   C.canRegister = function (S, r) {
@@ -1013,6 +1015,25 @@
     { const e = C.afford(S, fee); if (e) return e; }
     C.spend(S, fee, 'Registration: ' + r.name);
     S.registered.push(id);
+    (S.regUndo = S.regUndo || {})[id] = fee - C.regFee0(S, S.registered.length - 1); // the late fee, if one was charged
+    return null;
+  };
+  // Until you press Continue, a registration made this turn can be taken back for everything it cost. Keys: a regional's
+  // id, 'off:' + an offseason event's id, 'scrim'. (After that it is a withdrawal: half back a month ahead, else nothing.)
+  C.regUndoable = (S, key) => !!(S.regUndo && S.regUndo[key] != null);
+  C.undoRegister = function (S, key) {
+    if (!C.regUndoable(S, key)) return 'That registration is final: withdraw instead';
+    let back = 0, name = '';
+    if (key === 'scrim') { S.scrimmage = false; back = S.regUndo[key]; name = 'Week 0 scrimmage'; }
+    else if (String(key).indexOf('off:') === 0) { const o = D.OFFSEASON_EVENTS.find(x => x.id === key.slice(4)); S.offReg = S.offReg.filter(x => x !== o.id); back = S.regUndo[key]; name = o.name; }
+    else {
+      // the fee schedule counts places, so the place given back is the last one paid for (plus this one's late fee)
+      const r = S.regionals.find(x => x.id === key);
+      S.registered = S.registered.filter(x => x !== key);
+      back = C.regFee(S) + S.regUndo[key]; name = r ? r.name : 'event';
+    }
+    delete S.regUndo[key];
+    if (back) C.spend(S, -back, 'Registration undone: ' + name);
     return null;
   };
   // Weeks from now until a calendar slot (offseason months count as four weeks)
@@ -1030,7 +1051,8 @@
     if (!r || !S.registered.includes(id) || S.eventsDone[id]) return;
     const refund = C.refundable(S, 'c' + r.week);
     S.registered = S.registered.filter(x => x !== id);
-    if (refund) C.earn(S, Math.round((S.registered.length === 0 ? D.FEES.firstRegional : D.FEES.addRegional) * 0.5), 'Withdrawal refund: ' + r.name);
+    if (S.regUndo) delete S.regUndo[id];
+    if (refund && C.regFee(S)) C.earn(S, Math.round(C.regFee(S) * 0.5), 'Withdrawal refund: ' + r.name); // half of what the last place cost
     return refund;
   };
   C.withdrawOffseason = function (S, id) {
@@ -1038,6 +1060,7 @@
     if (!o || !S.offReg.includes(id) || S.eventsDone[o.id + S.year]) return;
     const refund = C.refundable(S, 'off' + D.MONTHS.indexOf(o.month));
     S.offReg = S.offReg.filter(x => x !== id);
+    if (S.regUndo) delete S.regUndo['off:' + id];
     if (refund) C.earn(S, Math.round(o.fee * 0.5), 'Withdrawal refund: ' + o.name);
     return refund;
   };
@@ -1045,6 +1068,7 @@
     if (!S.scrimmage || S.eventsDone['scrim' + S.year]) return;
     const refund = C.refundable(S, 'b7');
     S.scrimmage = false;
+    if (S.regUndo) delete S.regUndo.scrim;
     if (refund) C.earn(S, Math.round(D.FEES.scrimmage * 0.5), 'Withdrawal refund: Week 0 scrimmage');
     return refund;
   };
@@ -1349,7 +1373,8 @@
   C.rollChampsImpact = function (S) {
     const s = S.season, me = S.team.num, rng = G.R;
     const eligible = S.hallOfFame == null && s.events.some(e => e.kind === 'regional' && (e.awards || []).includes('impact'));
-    const field = Object.keys(S.teams).map(k => S.teams[k]).filter(t => t.num !== me).sort((a, b) => b.impact - a.impact).slice(0, 70).map(t => ({ num: t.num, v: t.impact * 0.9 + rng.norm(0, 4) }));
+    const hof = S.hof || []; // Hall of Fame teams have won it and are not judged again
+    const field = Object.keys(S.teams).map(k => S.teams[k]).filter(t => t.num !== me && !hof.includes(t.num)).sort((a, b) => b.impact - a.impact).slice(0, 70).map(t => ({ num: t.num, v: t.impact * 0.9 + rng.norm(0, 4) }));
     const ir = C.impactRating(S);
     if (eligible) field.push({ num: me, v: ir.score + rng.norm(0, 4) });
     field.sort((a, b) => b.v - a.v);
@@ -1400,6 +1425,7 @@
     }
     if ((all || stage === 'win') && !ci.told.win) {
       ci.told.win = true;
+      S.hof = S.hof || []; if (!S.hof.includes(ci.winner)) S.hof.push(ci.winner); // one FIRST Impact Award per team, ever
       if (ci.out === 'winner') {
         ci.result = 'winner'; ci.cele = C.impactCele(S, 'winner'); S.hallOfFame = S.si;
         S.rep = 100; S.morale = 100; S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 20); });
@@ -1418,9 +1444,14 @@
     const xp0 = S.know[area] || 0, l0 = D.knowLevel(xp0), guard = S.mentors.some(m => m.spec === area);
     // XP banked far above the top level is old know-how: only the first 125% of the top level still counts as current
     const top = Math.round(D.KNOW_THRESH[D.KNOW_THRESH.length - 1] * D.TECH_CAP), base = Math.min(xp0, top);
-    const xp1 = Math.round(base * (1 - pct * (guard ? 0.5 : 1)));
+    // Deep know-how (the two highest levels) is tuned to the way things were, so it adapts worst: it loses half as much
+    // again and always drops a level, specialist mentor or not (the mentor still softens how far it falls). One change
+    // never takes more than one level.
+    const deep = l0 >= D.TECH_DEEP_LVL, k = pct * (deep ? D.TECH_DEEP : 1) * (guard ? 0.5 : 1);
+    let xp1 = Math.round(base * (1 - k)), forced = false;
+    if (deep) { const lo = D.KNOW_THRESH[l0 - 1], hi = D.KNOW_THRESH[l0]; forced = D.knowLevel(xp1) >= l0; xp1 = U.clamp(xp1, lo, Math.round(lo + (hi - lo) * (guard ? 0.85 : 0.6))); }
     S.know[area] = xp1;
-    return { area, name: D.AREA[area].name, xp0, xp1, l0, l1: D.knowLevel(xp1), guard, pct: Math.round(pct * (guard ? 0.5 : 1) * 100), base, capped: xp0 > top };
+    return { area, name: D.AREA[area].name, xp0, xp1, l0, l1: D.knowLevel(xp1), guard, pct: Math.round(k * 100), base, capped: xp0 > top, deep, forced };
   };
   function techNews(S, kind, picks, pct) {
     const rng = G.R, year = C.calYear(S, S.order[S.upcoming]) || '';
@@ -1428,9 +1459,10 @@
     const talk = rng.shuffle(picks.reduce((a, x) => a.concat(x.talk || []), []).concat(rng.shuffle(D.TECH_TALK[kind].slice()))).slice(0, 3).map(q => [q[0], q[1].replace('{t}', techTeam(S, rng))]);
     const lost = items.filter(i => i.l1 < i.l0), guard = items.filter(i => i.guard);
     const take = (lost.length ? 'Knowledge levels down: ' + lost.map(i => i.name + ' ' + i.l0 + ' → ' + i.l1).join(', ') + '.' : 'No knowledge level lost, but the XP is gone.') +
-      (guard.length ? ' Your specialist mentor' + (guard.length > 1 ? 's' : '') + ' halved the loss in ' + guard.map(i => i.name).join(' and ') + '.' : ' A mentor who specializes in an area halves its loss.') + ' Research (Design Office) wins it back.';
+      (guard.length ? ' Your specialist mentor' + (guard.length > 1 ? 's' : '') + ' halved the loss in ' + guard.map(i => i.name).join(' and ') + '.' : ' A mentor who specializes in an area halves its loss.') +
+      (items.some(i => i.deep) ? ' Know-how at Level ' + D.TECH_DEEP_LVL + ' or 5 is tuned to the way things were: it loses half as much again and always drops a level, mentor or not.' : '') + ' Research (Design Office) wins it back.';
     const L = { kind, title: kind === 'rules' ? 'Rule and vendor changes for ' + (year || 'next season') : 'New designs spotted online', month: D.MONTHS[S.month], year, intro: rng.pick(D.TECH_INTRO[kind]), items, talk, take };
-    const text = L.intro + '\n\n' + items.map(i => i.title + ' (' + i.tag + ') — ' + i.body + '\n→ ' + i.name + ': ' + (i.capped ? i.xp0 + ' → ' + i.xp1 + ' XP (only ' + i.base + ' XP still counted as current, then −' + i.pct + '%' : '−' + i.pct + '% know-how (' + i.xp0 + ' → ' + i.xp1 + ' XP') + (i.l1 < i.l0 ? ', Level ' + i.l0 + ' → ' + i.l1 : '') + ')').join('\n\n') +
+    const text = L.intro + '\n\n' + items.map(i => i.title + ' (' + i.tag + ') — ' + i.body + '\n→ ' + i.name + ': ' + (i.capped ? i.xp0 + ' → ' + i.xp1 + ' XP (only ' + i.base + ' XP still counted as current, then −' + i.pct + '%' : '−' + i.pct + '% know-how (' + i.xp0 + ' → ' + i.xp1 + ' XP') + (i.l1 < i.l0 ? ', Level ' + i.l0 + ' → ' + i.l1 : '') + (i.deep ? '; Level ' + i.l0 + ' know-how was tuned to the old way, so it lost more and dropped a level' : '') + ')').join('\n\n') +
       '\n\nWhat people are saying:\n' + talk.map(q => '“' + q[0] + '” — ' + q[1]).join('\n') + '\n\n' + take;
     C.inbox(S, L.title, text, 'know');
     (S.launchQueue = S.launchQueue || []).push(L);
@@ -1583,7 +1615,7 @@
     if (s.hit) L.hit = C.techHit(S, s.hit.area, s.hit.pct);
     if (s.at === 'recap') L.mine = C.seasonLine(S);
     const text = s.body.join('\n\n') + (L.mine ? '\n\nYour season: ' + L.mine : '') + (L.means.length ? '\n\nWhat it means for you:\n' + L.means.map(x => '• ' + x).join('\n') : '') +
-      (L.hit ? '\n→ ' + L.hit.name + ': −' + L.hit.pct + '% know-how (' + L.hit.xp0 + ' → ' + L.hit.xp1 + ' XP' + (L.hit.l1 < L.hit.l0 ? ', Level ' + L.hit.l0 + ' → ' + L.hit.l1 : '') + ')' : '') +
+      (L.hit ? '\n→ ' + L.hit.name + ': −' + L.hit.pct + '% know-how (' + L.hit.xp0 + ' → ' + L.hit.xp1 + ' XP' + (L.hit.l1 < L.hit.l0 ? ', Level ' + L.hit.l0 + ' → ' + L.hit.l1 : '') + (L.hit.deep ? '; Level ' + L.hit.l0 + ' know-how was tuned to the old way, so it lost more and dropped a level' : '') + ')' : '') +
       (L.talk.length ? '\n\nWhat people are saying:\n' + L.talk.map(q => '“' + q[0] + '” — ' + q[1]).join('\n') : '');
     C.inbox(S, s.title, text, s.hit ? 'know' : 'info');
     (S.launchQueue = S.launchQueue || []).push(L);
@@ -1779,7 +1811,8 @@
     S.mentors = S.mentors.filter(m => !gone.includes(m));
     if (gone.length) C.inbox(S, 'Mentors moving on', gone.map(m => m.name).join(', ') + ' decided not to return next season.', 'staff');
     // knowledge decay
-    const decay = S.equip.kb ? 0.1 : 0.2;
+    const decay = C.kbCurrent(S) ? 0.1 : 0.2;
+    if (S.equip.kb && !C.kbCurrent(S)) C.inbox(S, 'The Knowledge Base was out of date', 'Nobody updated the wiki and the CAD library this year, so they did not slow the loss of know-how in the areas you left unused. The yearly update is a short project in the Design Office.', 'know');
     D.AREAS.forEach(a => { if (!S.usedAreas[a.id] && !S.mentors.some(m => m.spec === a.id)) S.know[a.id] = Math.round((S.know[a.id] || 0) * (1 - decay)); });
     s.loyal = G.Parts.loyalSeason(S);
     S.history.push({
@@ -1792,9 +1825,16 @@
     S.phase = 'review';
     S.champsPaid = null;
   };
+  // The Knowledge Base only works while it is kept up: it covers the season it was built or last updated for.
+  C.kbCycle = S => S.si + (['off', 'review', 'end'].includes(S.phase) ? 1 : 0);
+  C.kbCurrent = S => !!(S.equip.kb && (S.kbFor == null || S.kbFor >= C.kbCycle(S)));
   C.endReview = function (S) {
     const last = S.upcoming >= S.order.length || S.mode === 'single';
-    if (last || (S.support <= 0 && !S.settings.noFail)) { S.phase = 'end'; S.endReason = S.support <= 0 && !last ? 'fired' : 'complete'; G.Save.write('auto'); return; }
+    if (last || (S.support <= 0 && !S.settings.noFail)) {
+      S.phase = 'end'; S.endReason = S.support <= 0 && !last ? 'fired' : 'complete';
+      if (last) C.fireStories(S, 'recap'); // the last season's year in review, shown before the career summary
+      G.Save.write('auto'); return;
+    }
     S.phase = 'off'; S.month = 0; S.week = 0;
     const imp = 0;
     S.season = newSeasonState(null); S.season.impact = imp;
@@ -1802,6 +1842,7 @@
     if (S.robot && G.Robot.held(S).length) { const fit = G.Robot.installHeld(S); if (fit.length) C.inbox(S, 'The bag is open', 'The season is over and the robot is out of the bag. The parts that were still packed are on it now: ' + fit.join(', ') + '.', 'dev'); }
     if (C.pandemicDue(S)) { C.fireStories(S, 'recap'); C.startPandemic(S); return; } // 2020: the year in review, then there is no summer and no 2021 season
     C.fireStories(S, 'recap'); C.fireStories(S, 'off:0'); // the year in review, and what the summer brings
+    if (S.equip.kb) C.inbox(S, 'The Knowledge Base needs its yearly update', 'The rules have changed and the students who wrote half the wiki have graduated. A short project in the Design Office (' + D.KB_UPKEEP_HOURS + ' hours) brings the wiki and the CAD library up to date for the coming season. Left as it is, it will not slow the loss of know-how at the end of next season.', 'know');
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
     G.Parts.teaser(S);
@@ -1919,6 +1960,7 @@
     { const e = C.afford(S, o.fee); if (e) return e; }
     C.spend(S, o.fee, 'Offseason: ' + o.name);
     S.offReg.push(id);
+    (S.regUndo = S.regUndo || {})['off:' + id] = o.fee;
     return null;
   };
   // ======================= Feeder programs =======================
@@ -1974,6 +2016,7 @@
   };
   // older saves: a feeder count becomes that many established, balanced programs
   C.migrate = function (S) {
+    if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {
       const n = U.clamp(S.feeders || 0, 0, D.FEEDER_MAX);
       S.programs = [];

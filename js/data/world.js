@@ -96,40 +96,40 @@
   // Effects scale with level and with efficiency (40% at 0 condition → 100% at full condition).
   // fx values are per level. wear = condition lost per in-season week / offseason month / event attended.
   D.EQUIP = [
-    { id: 'printer', name: '3D Printing', upkeep: 250, wear: { season: 2.5, off: 3, event: 0 },
+    { id: 'printer', name: '3D Printing', upkeep: 250, wear: { season: 2.5, off: 1.2, event: 0 },
       levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm', cost: 4500 }, { name: 'Industrial printer', cost: 10000 }],
       fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: 'Faster prototypes and custom parts: fewer hours on hardware projects.' },
-    { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 3, event: 0 },
+    { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 1.2, event: 0 },
       levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC router + vertical mill', cost: 20000 }],
       fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Precise parts: fewer hardware hours, stronger upgrades, more reliable new builds.' },
-    { id: 'lathe', name: 'Machine Shop', upkeep: 450, wear: { season: 2, off: 2, event: 0 },
+    { id: 'lathe', name: 'Machine Shop', upkeep: 450, wear: { season: 2, off: 0.8, event: 0 },
       levels: [{ name: 'Lathe & mill', cost: 7500 }, { name: 'CNC lathe', cost: 15000 }],
       fx: { spare: [0.3, 0.45], rel: [3, 5], slot: [0, 1] }, desc: 'Make your own spare parts (cheaper spares) and more reliable new builds.' },
-    { id: 'laptops', name: 'Programming Station', upkeep: 250, wear: { season: 1.5, off: 2, event: 0 },
+    { id: 'laptops', name: 'Programming Station', upkeep: 250, wear: { season: 1.5, off: 0.8, event: 0 },
       levels: [{ name: 'Laptops + sim software', cost: 2000 }, { name: 'Dev workstations', cost: 6000 }, { name: 'Hardware-in-the-loop bench', cost: 11000 }],
       fx: { soft: [0.2, 0.3, 0.38], slot: [0, 1, 1] }, desc: 'Fewer hours on software, auto and vision projects.' },
-    { id: 'charger', name: 'Battery Station', upkeep: 100, wear: { season: 0.5, off: 0.5, event: 4 },
+    { id: 'charger', name: 'Battery Station', upkeep: 100, wear: { season: 0.5, off: 0.2, event: 4 },
       levels: [{ name: 'Charger cart', cost: 500 }, { name: 'Smart charging station', cost: 1800 }],
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
-    { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.5, event: 6 },
+    { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.2, event: 6 },
       levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }],
       fx: { repair: [0.25, 0.45] }, desc: 'Faster pit repairs between matches.' },
-    { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.5, event: 5 },
+    { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.2, event: 5 },
       levels: [{ name: 'Team trailer', cost: 18000 }],
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
-    { id: 'pfield', name: 'Practice Field', upkeep: 300, wear: { season: 2, off: 1.5, event: 0 },
+    { id: 'pfield', name: 'Practice Field', upkeep: 300, wear: { season: 2, off: 0.6, event: 0 },
       levels: [{ name: 'Basic practice area', cost: 2500 }, { name: 'Half field', cost: 6500 }, { name: 'Full field', cost: 12000 }],
       fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Weekly testing hours on a real field, for development testing of any project and for driver practice (a test chassis or second robot gives testing hours too, and adds to these). Driver practice needs this season\'s game elements for full value.' },
-    { id: 'ebench', name: 'Electronics Workbench', upkeep: 150, wear: { season: 1.5, off: 1.5, event: 0 },
+    { id: 'ebench', name: 'Electronics Workbench', upkeep: 150, wear: { season: 1.5, off: 0.6, event: 0 },
       levels: [{ name: 'Soldering bench', cost: 900 }, { name: 'Electronics lab', cost: 3500 }, { name: 'PCB fabrication', cost: 9000 }],
       fx: { elec: [0.06, 0.12, 0.18], partWear: [0.1, 0.2, 0.3] }, desc: 'Clean wiring, proper crimps and, at the top level, your own circuit boards: fewer brownouts and comms dropouts in matches, and motors and electronics wear more slowly.' },
-    { id: 'weld', name: 'Welding Station', upkeep: 300, wear: { season: 2, off: 2, event: 0 },
+    { id: 'weld', name: 'Welding Station', upkeep: 300, wear: { season: 2, off: 0.8, event: 0 },
       levels: [{ name: 'MIG welder and table', cost: 3000 }, { name: 'TIG welding bay', cost: 8500 }],
       fx: { weld: [0.25, 0.4], weldRel: [2, 4] }, desc: 'Welded frames, gussets and repairs: hardening and lightweighting projects take fewer hours and do more, and new builds come out more reliable.' },
-    { id: 'meeting', name: 'Team Meeting Room', upkeep: 100, wear: { season: 1, off: 1, event: 0 },
+    { id: 'meeting', name: 'Team Meeting Room', upkeep: 100, wear: { season: 1, off: 0.4, event: 0 },
       levels: [{ name: 'Meeting corner', cost: 600 }, { name: 'Team classroom', cost: 2500 }, { name: 'Presentation room', cost: 6000 }],
       fx: { outreach: [0.1, 0.18, 0.25], pitch: [6, 10, 14] }, desc: 'A place to plan, rehearse and host visitors: outreach activities count for more, and your Impact Award presenters practice here.' },
-    { id: 'ftc', name: 'FTC Team Space', upkeep: 200, wear: { season: 1.5, off: 1.5, event: 0 },
+    { id: 'ftc', name: 'FTC Team Space', upkeep: 200, wear: { season: 1.5, off: 0.6, event: 0 },
       levels: [{ name: 'One FTC field', cost: 2500 }, { name: 'Two FTC fields', cost: 5000 }, { name: 'FTC lab with three fields', cost: 8000 }],
       fx: { ftc: [1, 2, 3] }, desc: 'Run your own FTC teams in the building. Each one takes a feeder program slot, costs far less than an outside program and sends you much stronger recruits.' }
   ];
@@ -293,7 +293,10 @@
   // Rule and vendor changes arrive at the start of each offseason and hit next season; new designs spread online in one
   // month between July and September. Each one makes part of the team's know-how outdated: the area loses a share of
   // its XP (counted from at most TECH_CAP × the top level, so banked XP is no shield). A specialist mentor halves the loss.
+  // Know-how at Level TECH_DEEP_LVL or above is tuned to the old way: it loses TECH_DEEP × as much and always drops a level.
   D.TECH_RULE_PCT = 0.25; D.TECH_DESIGN_PCT = 0.15; D.TECH_CAP = 1.25; D.TECH_RULES_N = 2; D.TECH_DESIGNS_N = 3;
+  D.TECH_DEEP = 1.5; D.TECH_DEEP_LVL = 4;
+  D.KB_UPKEEP_HOURS = 25; // the Knowledge Base's yearly update (the first build takes 60 hours)
   D.TECH_RULES = [
     { id: 'wiring', area: 'elec', tag: 'Robot rules', title: 'New wiring rules', body: 'Next season\'s robot rules rewrite the electrical section: new wire-gauge tables, every branch circuit protected on its own, and the main breaker has to sit where a referee can reach it. Half of your wiring standard is now a history lesson.',
       talk: [['Our inspection checklist just became a collector\'s item.', 'an electrical mentor'], ['So the zip-tie budget goes up. Again.', 'a team treasurer']] },

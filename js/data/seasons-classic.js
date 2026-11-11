@@ -1,7 +1,7 @@
 'use strict';
 /* FRC Manager — the classic games (2016–2020): season definitions. Same shape as seasons.js. */
 (function () {
-  const S = G.Seasons, K = S._K, DRIVE = K.DRIVE, SOFT = K.SOFT, NONE_END = K.NONE_END;
+  const S = G.Seasons, K = S._K, DRIVE = K.DRIVE, SOFT = K.SOFT, NONE_END = K.NONE_END, NO_INTAKE = K.NO_INTAKE;
 
   // =====================================================================
   S[2020] = {
@@ -97,23 +97,30 @@
     },
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
-      { id: 'intake', name: 'Game-Piece Intake', concepts: [
-        { id: 'station', name: 'Loading-station pickup', desc: 'Takes hatch panels and cargo from the human player at the Loading Station. Nothing off the floor.', cost: 200, hours: 50, w: 5, cx: 1, areas: ['intake'],
-          base: { intake: 40 }, ceil: { intake: 68 }, caps: { ground: false, station: true }, look: { intake: 'none' } },
-        { id: 'ground', name: 'Ground cargo intake', desc: 'A roller intake that takes cargo from the depot and the floor. Hatch panels still come from the Loading Station.', cost: 700, hours: 130, w: 12, cx: 3, areas: ['intake'],
+      { id: 'intake', name: 'Floor Intake', optional: true, concepts: [
+        NO_INTAKE('No floor intake', 'Hatch panels and cargo both come from the human player at the Loading Station, straight into the end effector. Saves weight, hours and money.'),
+        { id: 'ground', name: 'Ground cargo intake', desc: 'A roller intake that takes cargo from the depot and the floor and passes it up. Hatch panels still come from the Loading Station.', cost: 650, hours: 120, w: 11, cx: 3, areas: ['intake'],
           base: { intake: 45 }, ceil: { intake: 88 }, caps: { ground: true, station: true }, look: { intake: 'over' } },
-        { id: 'floor', name: 'Floor hatch pickup + cargo intake', desc: 'Picks hatch panels off the carpet too: a dropped panel is no longer lost, and loading is quicker.', cost: 1100, hours: 190, w: 15, cx: 4, areas: ['intake', 'arm'],
+        { id: 'floor', name: 'Floor hatch pickup + cargo intake', desc: 'Picks hatch panels off the carpet too: a dropped panel is no longer lost, and loading is quicker.', cost: 1050, hours: 180, w: 14, cx: 4, areas: ['intake', 'arm'],
           base: { intake: 48 }, ceil: { intake: 95 }, caps: { ground: true, station: true, hatchFloor: true }, look: { intake: 'under' } }
       ] },
-      { id: 'scorer', name: 'Manipulator & Lift', pneu: true, concepts: [
-        { id: 'low', name: 'Fixed hatch plate + cargo roller', desc: 'A hook-and-loop plate for hatches and a roller for cargo at bumper height: the cargo ship and the lowest rocket level.', cost: 300, hours: 70, w: 9, cx: 1, areas: ['arm'],
-          base: { scoreSpd: 50, accuracy: 62 }, ceil: { scoreSpd: 84, accuracy: 95 }, caps: { reach: 1, hatch: true, cargo: true }, look: { manip: 'low' } },
-        { id: 'arm', name: 'Two-level arm', desc: 'A pivoting arm that reaches the second rocket level.', cost: 800, hours: 140, w: 14, cx: 3, areas: ['arm'],
-          base: { scoreSpd: 42, accuracy: 48 }, ceil: { scoreSpd: 82, accuracy: 92 }, caps: { reach: 2, hatch: true, cargo: true, tall: 0.2 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Three-level elevator', desc: 'An elevator to all three rocket levels: the only way to complete a rocket.', cost: 1400, hours: 210, w: 19, cx: 4, areas: ['elevator', 'arm'],
-          base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 86, accuracy: 93 }, caps: { reach: 3, hatch: true, cargo: true, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevfast', name: 'Fast elevator + active hatch claw', desc: 'A quick cascade elevator with a claw that grabs and releases hatches: the fastest cycles on every level.', cost: 1900, hours: 260, w: 22, cx: 5, areas: ['elevator', 'arm', 'intake'],
-          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 3, hatch: true, cargo: true, tall: 0.6 }, look: { manip: 'elevwrist' } }
+      { id: 'scorer', name: 'Lift', pneu: true, concepts: [
+        { id: 'low', name: 'Fixed mount (no lift)', desc: 'The end effector is bolted on at bumper height: the cargo ship and the lowest rocket level.', cost: 150, hours: 35, w: 5, cx: 1, areas: ['arm'],
+          base: { scoreSpd: 50, accuracy: 62 }, ceil: { scoreSpd: 84, accuracy: 95 }, caps: { reach: 1 }, look: { manip: 'low' } },
+        { id: 'arm', name: 'Two-level arm', desc: 'A pivoting arm that reaches the second rocket level.', cost: 750, hours: 125, w: 12, cx: 3, areas: ['arm'],
+          base: { scoreSpd: 42, accuracy: 48 }, ceil: { scoreSpd: 82, accuracy: 92 }, caps: { reach: 2, tall: 0.2 }, look: { manip: 'arm' } },
+        { id: 'elev', name: 'Three-level elevator', desc: 'An elevator to all three rocket levels: the only way to complete a rocket.', cost: 1300, hours: 190, w: 17, cx: 4, areas: ['elevator', 'arm'],
+          base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 86, accuracy: 93 }, caps: { reach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
+        { id: 'elevfast', name: 'Fast cascade elevator + wrist', desc: 'A quick cascade elevator with a wrist that points the end effector at the port or the hatch: the fastest way to every level.', cost: 1750, hours: 235, w: 20, cx: 5, areas: ['elevator', 'arm'],
+          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } }
+      ] },
+      { id: 'effector', name: 'End Effector', pneu: true, concepts: [
+        { id: 'plate', name: 'Hook-and-loop hatch plate', desc: 'A plate covered in hook tape: push it against a hatch panel and the panel sticks, push the panel onto the ship and it stays there. Hatches only, so cargo has to come from a partner.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['arm'],
+          base: { grip: 42 }, ceil: { grip: 70 }, caps: { hatch: true, cargo: false }, self: { ground: false, station: true, lo: 40, hi: 66 }, look: { eff: 'claw' } },
+        { id: 'combo', name: 'Hatch plate + cargo roller', desc: 'The plate for hatch panels and a roller above it for cargo. What most robots carried.', cost: 350, hours: 70, w: 6, cx: 2, areas: ['arm', 'intake'],
+          base: { grip: 44 }, ceil: { grip: 84 }, caps: { hatch: true, cargo: true }, self: { ground: false, station: true, lo: 40, hi: 70 }, look: { eff: 'claw' } },
+        { id: 'active', name: 'Active hatch claw + cargo roller', desc: 'Fingers that open inside the hatch panel and let go on command, with a roller for cargo: a missed placement stays in the claw instead of falling on the carpet.', cost: 800, hours: 130, w: 8, cx: 4, areas: ['arm', 'intake'],
+          base: { grip: 48 }, ceil: { grip: 96 }, caps: { hatch: true, cargo: true, hatchGrab: true }, self: { ground: false, station: true, lo: 44, hi: 78 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'HAB Climber', concepts: [
         Object.assign({}, NONE_END, { name: 'No climber (drive onto Level 1)', desc: 'Every robot can drive up the ramp to HAB Level 1 for 3 points. Saves weight, hours and money.' }),
@@ -127,12 +134,12 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', endgame: ['l3', 'l3buddy'] } },
-      { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', endgame: ['l3', 'l2'] } },
-      { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'station'], scorer: 'arm', endgame: ['l2', 'none'] } },
-      { name: 'Cargo-ship cycler', min: 16, pick: { drive: ['kit', 'wcd'], intake: ['station', 'ground'], scorer: 'low', endgame: ['l2', 'none'] } },
-      { name: 'Kitbot hatch plate', min: 0, pick: { drive: 'kit', intake: 'station', scorer: 'low', endgame: 'none' } },
-      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'station', scorer: 'low', endgame: 'l2' } }
+      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy'] } },
+      { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', effector: ['combo', 'active'], endgame: ['l3', 'l2'] } },
+      { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'none'], scorer: 'arm', effector: 'combo', endgame: ['l2', 'none'] } },
+      { name: 'Cargo-ship cycler', min: 16, pick: { drive: ['kit', 'wcd'], intake: ['none', 'ground'], scorer: 'low', effector: 'combo', endgame: ['l2', 'none'] } },
+      { name: 'Kitbot hatch plate', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'low', effector: ['combo', 'plate'], endgame: 'none' } },
+      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'none', scorer: 'low', effector: 'plate', endgame: 'l2' } }
     ]
   };
 
@@ -157,21 +164,28 @@
     },
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
-      { id: 'intake', name: 'Cube Intake', pneu: true, concepts: [
-        { id: 'claw', name: 'Pinch claw', desc: 'Two arms that squeeze a cube. The robot has to line up on it exactly.', cost: 250, hours: 60, w: 7, cx: 1, areas: ['intake'],
-          base: { intake: 40 }, ceil: { intake: 68 }, caps: { ground: true, station: true }, look: { intake: 'claw' } },
-        { id: 'wheeled', name: 'Wheeled intake', desc: 'Compliant wheels pull a cube in from any angle.', cost: 700, hours: 130, w: 12, cx: 3, areas: ['intake'],
+      { id: 'intake', name: 'Floor Intake', optional: true, concepts: [
+        NO_INTAKE('No separate intake', 'The end effector picks the cubes up itself: drive up, lower the lift and grab. Most robots did exactly this. Saves weight, hours and money.'),
+        { id: 'wheeled', name: 'Wheeled floor intake', desc: 'Compliant wheels on the frame pull a cube in from any angle and pass it to the end effector.', cost: 600, hours: 110, w: 10, cx: 3, areas: ['intake'],
           base: { intake: 45 }, ceil: { intake: 88 }, caps: { ground: true, station: true }, look: { intake: 'over' } },
-        { id: 'wide', name: 'Wide intake with centring wheels', desc: 'Touch it, own it: grabs a cube off the pile at full speed and squares it up by itself.', cost: 1100, hours: 190, w: 15, cx: 4, areas: ['intake'],
+        { id: 'wide', name: 'Wide intake with centring wheels', desc: 'Touch it, own it: grabs a cube off the pile at full speed and squares it up by itself.', cost: 1000, hours: 170, w: 13, cx: 4, areas: ['intake'],
           base: { intake: 50 }, ceil: { intake: 95 }, caps: { ground: true, station: true, wide: 1.25 }, look: { intake: 'wide' } }
       ] },
       { id: 'scorer', name: 'Lift', concepts: [
-        { id: 'low', name: 'Switch-height arm', desc: 'Lifts a cube over the Switch fence and pushes cubes through the Exchange. Cannot reach the Scale.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['arm'],
+        { id: 'low', name: 'Switch-height arm', desc: 'Lifts a cube over the Switch fence and pushes cubes through the Exchange. Cannot reach the Scale.', cost: 350, hours: 70, w: 8, cx: 2, areas: ['arm'],
           base: { scoreSpd: 48, accuracy: 60 }, ceil: { scoreSpd: 84, accuracy: 95 }, caps: { reach: 1 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Scale elevator', desc: 'A two-stage elevator that puts cubes on the Scale, even when it is tipped against you.', cost: 1300, hours: 200, w: 19, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'elev', name: 'Scale elevator', desc: 'A two-stage elevator that puts cubes on the Scale, even when it is tipped against you.', cost: 1200, hours: 180, w: 17, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 85, accuracy: 93 }, caps: { reach: 2, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevfast', name: 'Fast elevator + wrist', desc: 'A quick continuous elevator with a wrist that shoots cubes onto the plate. The robots that owned the Scale had one.', cost: 1900, hours: 260, w: 22, cx: 5, areas: ['elevator', 'arm', 'intake'],
+        { id: 'elevfast', name: 'Fast elevator + wrist', desc: 'A quick continuous elevator with a wrist that tilts the end effector over the plate. The robots that owned the Scale had one.', cost: 1750, hours: 235, w: 20, cx: 5, areas: ['elevator', 'arm'],
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } }
+      ] },
+      { id: 'effector', name: 'End Effector', pneu: true, concepts: [
+        { id: 'pinch', name: 'Pinch claw', desc: 'Two arms and a cylinder squeeze the cube. The robot has to line up on it exactly, and a hard hit can shake it loose.', cost: 200, hours: 45, w: 5, cx: 1, areas: ['arm'],
+          base: { grip: 40 }, ceil: { grip: 68 }, self: { ground: true, station: true, lo: 40, hi: 68 }, look: { eff: 'claw' } },
+        { id: 'roller', name: 'Roller claw', desc: 'Powered compliant wheels pull the cube in and spit it out: no lining up, and it lets go the moment it is over the plate.', cost: 550, hours: 100, w: 8, cx: 3, areas: ['intake', 'arm'],
+          base: { grip: 45 }, ceil: { grip: 88 }, self: { ground: true, station: true, lo: 45, hi: 86 }, look: { eff: 'claw' } },
+        { id: 'launch', name: 'Launching roller claw', desc: 'Rollers fast enough to throw the cube: it scores from a step back, before the lift has finished moving.', cost: 900, hours: 150, w: 10, cx: 4, areas: ['intake', 'arm'],
+          base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [
         NONE_END,
@@ -183,12 +197,12 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: 'elevfast', endgame: ['buddy', 'hook'] } },
-      { name: 'Scale elevator + climb', min: 56, pick: { drive: ['wcd', 'swerve'], intake: 'wheeled', scorer: 'elev', endgame: 'hook' } },
-      { name: 'Switch and vault bot', min: 34, pick: { drive: ['wcd', 'kit'], intake: 'wheeled', scorer: 'low', endgame: ['hook', 'none'] } },
-      { name: 'Claw switch bot', min: 14, pick: { drive: 'kit', intake: 'claw', scorer: 'low', endgame: 'none' } },
-      { name: 'Kitbot cube pusher', min: 0, pick: { drive: 'kit', intake: 'claw', scorer: 'low', endgame: 'none' } },
-      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'claw', scorer: 'low', endgame: 'hook' } }
+      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: 'elevfast', effector: ['launch', 'roller'], endgame: ['buddy', 'hook'] } },
+      { name: 'Scale elevator + climb', min: 56, pick: { drive: ['wcd', 'swerve'], intake: ['wheeled', 'none'], scorer: 'elev', effector: 'roller', endgame: 'hook' } },
+      { name: 'Switch and vault bot', min: 34, pick: { drive: ['wcd', 'kit'], intake: ['wheeled', 'none'], scorer: 'low', effector: 'roller', endgame: ['hook', 'none'] } },
+      { name: 'Claw switch bot', min: 14, pick: { drive: 'kit', intake: 'none', scorer: 'low', effector: 'pinch', endgame: 'none' } },
+      { name: 'Kitbot cube pusher', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'low', effector: 'pinch', endgame: 'none' } },
+      { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', intake: 'none', scorer: 'low', effector: 'pinch', endgame: 'hook' } }
     ]
   };
 
@@ -242,9 +256,9 @@
     ],
     archetypes: [
       // most teams ran gears and a rope and nothing else: a shooter only paid for itself on the strongest robots
-      { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
-      { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
-      { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['mec', 'wcd', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },
+      { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
+      { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
+      { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['wcd', 'mec', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },
       { name: 'Gear gripper + climb', min: 36, pick: { drive: ['wcd', 'mec', 'kit'], scorer: ['active', 'slot'], fuel: 'none', endgame: ['winch', 'fast'] } },
       { name: 'Gear slot + rope', min: 16, pick: { drive: 'kit', scorer: 'slot', fuel: ['none', 'none', 'none', 'none', 'dump'], endgame: ['winch', 'none'] } },
       { name: 'Kitbot gear slot', min: 0, pick: { drive: 'kit', scorer: 'slot', fuel: 'none', endgame: 'none' } },
