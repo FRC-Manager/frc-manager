@@ -2,17 +2,17 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-**▶ [Play in your browser](https://txtaylor2997.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
+**▶ [Play the 3.0 beta in your browser](https://frc-manager.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
 
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1® or Frontier Developments. Sponsors, regionals, offseason events and opponent teams are fictional or randomly generated.
 
 ## How to play
 
-1. Play [online](https://txtaylor2997.github.io/frc-manager/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
+1. Play [online](https://frc-manager.github.io/frc-manager/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **2.9.2**, a preview of 3.0 that is not published yet (the public site still runs 2.5). The main menu's **What's new** page has the version notes.
+Current version: **2.9.2**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic.
 
