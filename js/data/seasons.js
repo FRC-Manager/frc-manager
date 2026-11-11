@@ -103,7 +103,7 @@
 
   // =====================================================================
   S[2023] = {
-    year: 2023, name: 'CHARGED UP', pieceName: 'Cones & Cubes', sym: 'mirror',
+    year: 2023, hpLoad: 1, name: 'CHARGED UP', pieceName: 'Cones & Cubes', sym: 'mirror',
     tagline: 'Place cones and cubes on the Grid, then balance on the Charge Station.',
     brief: [
       'Robots pick up Cones and Cubes from the Loading Zone and place them on the GRID: bottom (any piece), mid and top rows (cone or cube nodes).',
@@ -150,7 +150,7 @@
 
   // =====================================================================
   S[2024] = {
-    year: 2024, name: 'CRESCENDO', pieceName: 'Notes', sym: 'mirror',
+    year: 2024, hpLoad: 1, name: 'CRESCENDO', pieceName: 'Notes', sym: 'mirror',
     tagline: 'Score notes in the Speaker and Amp, then get onstage. Top alliances learn to feed notes across the field.',
     brief: [
       'Robots collect Notes (foam rings) and score them in the SPEAKER (2 pts, 5 when AMPLIFIED) or the AMP (1 pt).',
@@ -208,7 +208,7 @@
 
   // =====================================================================
   S[2025] = {
-    year: 2025, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'rotate', // rotationally symmetric: cages on your left, processor on your right
+    year: 2025, hpLoad: 1, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'rotate', // rotationally symmetric: cages on your left, processor on your right
     tagline: 'Fill the Reef with coral, process algae and climb the Barge cages.',
     brief: [
       'Robots place Coral (PVC tubes) on the REEF: L1 trough (2), L2 (3), L3 (4) and L4 (5), worth more in auto. Algae (balls) sit on the reef blocking branches.',

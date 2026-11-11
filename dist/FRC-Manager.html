@@ -551,7 +551,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.9.1';
+  G.VERSION = '2.9.2';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -718,7 +718,7 @@ window.G = window.G || {};
 
   // =====================================================================
   S[2023] = {
-    year: 2023, name: 'CHARGED UP', pieceName: 'Cones & Cubes', sym: 'mirror',
+    year: 2023, hpLoad: 1, name: 'CHARGED UP', pieceName: 'Cones & Cubes', sym: 'mirror',
     tagline: 'Place cones and cubes on the Grid, then balance on the Charge Station.',
     brief: [
       'Robots pick up Cones and Cubes from the Loading Zone and place them on the GRID: bottom (any piece), mid and top rows (cone or cube nodes).',
@@ -765,7 +765,7 @@ window.G = window.G || {};
 
   // =====================================================================
   S[2024] = {
-    year: 2024, name: 'CRESCENDO', pieceName: 'Notes', sym: 'mirror',
+    year: 2024, hpLoad: 1, name: 'CRESCENDO', pieceName: 'Notes', sym: 'mirror',
     tagline: 'Score notes in the Speaker and Amp, then get onstage. Top alliances learn to feed notes across the field.',
     brief: [
       'Robots collect Notes (foam rings) and score them in the SPEAKER (2 pts, 5 when AMPLIFIED) or the AMP (1 pt).',
@@ -823,7 +823,7 @@ window.G = window.G || {};
 
   // =====================================================================
   S[2025] = {
-    year: 2025, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'rotate', // rotationally symmetric: cages on your left, processor on your right
+    year: 2025, hpLoad: 1, name: 'REEFSCAPE', pieceName: 'Coral & Algae', sym: 'rotate', // rotationally symmetric: cages on your left, processor on your right
     tagline: 'Fill the Reef with coral, process algae and climb the Barge cages.',
     brief: [
       'Robots place Coral (PVC tubes) on the REEF: L1 trough (2), L2 (3), L3 (4) and L4 (5), worth more in auto. Algae (balls) sit on the reef blocking branches.',
@@ -970,10 +970,10 @@ window.G = window.G || {};
 
   // =====================================================================
   S[2020] = {
-    year: 2020, name: 'INFINITE RECHARGE', pieceName: 'Power Cells', sym: 'rotate',
+    year: 2020, hpLoad: 1, name: 'INFINITE RECHARGE', pieceName: 'Power Cells', sym: 'rotate',
     tagline: 'Shoot power cells into the Power Port, spin the Control Panel and hang from the Shield Generator.',
     brief: [
-      'Robots carry up to five Power Cells (yellow foam balls) and shoot them into the POWER PORT at the far end of the field: 1 point in the Bottom Port, 2 in the Outer Port, 3 when the shot drops through to the Inner Port. Everything counts double in auto.',
+      'Robots carry up to five Power Cells (yellow foam balls) and shoot them into the POWER PORT at the far end of the field: 1 point in the Bottom Port, 2 in the Outer Port, 3 when the shot drops through to the Inner Port. Everything counts double in auto. Only 48 cells are in play, and every cell you score comes back out through the OTHER alliance\'s Loading Bay (yours starts with five).',
       'Scored cells charge three STAGES of 9, 20 and 20 cells. Stage 2 ends with ROTATION CONTROL (spin the Control Panel three to five turns, 10 points) and Stage 3 with POSITION CONTROL (stop it on the right colour, 20 points).',
       'In the last 30 seconds robots park under the Shield Generator (5) or HANG from its switch (25); a level switch adds 15. Bonus RPs: Shield Operational (65 endgame points) and Shield Energized (Stage 3 completed).'
     ],
@@ -983,16 +983,16 @@ window.G = window.G || {};
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'upper', name: 'High ports' }, { id: 'lower', name: 'Bottom port' }],
     endNames: ['Park', 'Hang'],
     news: {
-      prot: 'The Target Zone and the Loading Zone are protected all match, every alliance is safe in its own Trench Run, and the Rendezvous Point belongs to the climbers in the last 30 seconds.',
+      prot: 'The Target Zone and the Loading Zone are protected all match, every alliance is safe in its own Trench Run (contact there is a tech foul), and the Rendezvous Point belongs to the climbers in the last 30 seconds. A defender may wait just outside the tape, and the mouth of a Trench Run is where defenders wait.',
       updates: ['Team Update: a Power Cell stuck in the Power Port counts once it has passed the sensor. Poking it out with a robot does not count twice.', 'Team Update: the Control Panel must rest on the colour for five seconds. Four and a half is not five.', 'Team Update: robots may not reach above 45 inches outside the Rendezvous Point. Tall climbers, mind the Trench.', 'Team Update: a robot carrying six Power Cells is carrying one too many, however it got there.'],
       chatter: [['Yellow ball census', 'Power Cells found so far: under the couch (3), in the drill-press chip tray (1), in the principal\'s car (1). Nobody is asking how.'], ['Colour wheel', 'The practice Control Panel has been spun so often that the bearing sings. {student} says it is a C sharp.'], ['Trench limbo', 'The robot is 27.9 inches tall and the Control Panel is 28. {driver} holds their breath every time.']]
     },
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
       { id: 'frame', name: 'Frame Height', minor: true, concepts: [
-        { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter and climber. Must cross mid-field over the Shield Generator\'s floor rails, which slows it down.', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
+        { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter and climber, but too tall for the Trench: it has to cross mid-field over the steel bars on the Shield Generator\'s floor. That is slower, open to defenders, and hard on swerve modules and mecanum wheels (a tank drive just rolls over).', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
           base: { traverse: 45 }, ceil: { traverse: 80 }, caps: { lowProfile: false }, look: { frame: 'std' } },
-        { id: 'low', name: 'Trench-height frame', desc: 'Under 28 inches: drives under the Control Panel through the protected Trench Run, the fastest and safest way across the field.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
+        { id: 'low', name: 'Trench-height frame', desc: 'Under 28 inches: drives under the Control Panel through the protected Trench Run, with no bars to cross and nobody allowed to touch it. The tunnel is one robot wide, so two trench runners get in each other\'s way, and a defender can wait at its mouth. Everything sits low: the climb takes longer and a defender can block some of its shots.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
           base: { traverse: 60 }, ceil: { traverse: 95 }, caps: { lowProfile: true }, look: { frame: 'low' } }
       ] },
       { id: 'intake', name: 'Intake & Indexer', concepts: [
@@ -1025,12 +1025,14 @@ window.G = window.G || {};
         { id: 'hook', name: 'Hook and winch', desc: 'A telescoping hook and a winch to hang from the Generator Switch.', cost: 600, hours: 110, w: 11, cx: 2, areas: ['climb'],
           base: { endgame: 40 }, ceil: { endgame: 85 }, caps: { endLevel: 1 }, look: { climber: 'hook' } },
         { id: 'level', name: 'Climber with a sliding carriage', desc: 'Hangs, then slides along the bar to bring the switch level: 15 more points and most of the Shield Operational bonus.', cost: 1100, hours: 180, w: 15, cx: 4, areas: ['climb'],
-          base: { endgame: 35 }, ceil: { endgame: 93 }, caps: { endLevel: 1, leveler: true }, look: { climber: 'hook2' } }
+          base: { endgame: 35 }, ceil: { endgame: 93 }, caps: { endLevel: 1, leveler: true }, look: { climber: 'hook2' } },
+        { id: 'buddy', name: 'Buddy climber (lifts a partner)', desc: 'Hangs and takes a partner that parked beneath the switch up with it: two hangs from one mechanism, 50 of the 65 points for Shield Operational. Heavy and slow to build, and it does nothing if both partners climb by themselves.', cost: 1600, hours: 250, w: 21, cx: 5, areas: ['climb'],
+          base: { endgame: 30 }, ceil: { endgame: 90 }, caps: { endLevel: 1, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook'] } },
+      { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'level', 'hook', 'buddy'] } },
       { name: 'Hood shooter + hang', min: 56, pick: { drive: ['swerve', 'wcd'], frame: ['low', 'std'], intake: 'over', scorer: 'hood', panel: ['spin', 'none'], endgame: 'hook' } },
       { name: 'Wall shooter + hang', min: 36, pick: { drive: ['wcd', 'kit'], frame: 'std', intake: 'over', scorer: 'fixed', panel: 'none', endgame: ['hook', 'none'] } },
       { name: 'Bottom-port dumper', min: 16, pick: { drive: 'kit', frame: 'std', intake: ['bay', 'over'], scorer: 'dump', panel: ['none', 'spin'], endgame: ['hook', 'none'] } },
@@ -1041,11 +1043,11 @@ window.G = window.G || {};
 
   // =====================================================================
   S[2019] = {
-    year: 2019, name: 'DESTINATION: DEEP SPACE', pieceName: 'Hatch Panels & Cargo', sym: 'mirror',
+    year: 2019, hpLoad: 1, name: 'DESTINATION: DEEP SPACE', pieceName: 'Hatch Panels & Cargo', sym: 'mirror',
     tagline: 'Seal the rockets and the cargo ship with hatch panels, load them with cargo, and climb back onto the HAB.',
     brief: [
       'Robots start on the HAB platform. For the first 15 seconds a SANDSTORM hides the field from the drivers: robots run autonomously or are driven through an on-board camera. Leaving the HAB is worth 3 points, or 6 from Level 2.',
-      'Each alliance has a CARGO SHIP with 8 bays and two ROCKETS with 3 levels of 2 bays. A HATCH PANEL (2 points) seals a bay; only then can CARGO (3 points) be loaded into it. The six side bays of the cargo ship start with a blank panel, so cargo can go straight in.',
+      'Each alliance has a CARGO SHIP with 8 bays and two ROCKETS with 3 levels of 2 bays. A HATCH PANEL (2 points) seals a bay; only then can CARGO (3 points) be loaded into it. The six side bays of the cargo ship start with a blank panel, so cargo can go straight in. The two bays in its nose start with cargo inside: a hatch put on during the sandstorm keeps it (5 points at once); without one it rolls out when the sandstorm ends.',
       'In the last 30 seconds robots climb back onto the HAB: Level 1 (3), Level 2 (6) or Level 3 (12). Bonus RPs: one complete Rocket (6 hatches and 6 cargo) and HAB Docking (15 climb points).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 3, major: 10 },
@@ -1054,7 +1056,7 @@ window.G = window.G || {};
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'rocket', name: 'Finish a rocket' }, { id: 'ship', name: 'Cargo ship first' }],
     endNames: ['—', 'HAB 1', 'HAB 2', 'HAB 3'],
     news: {
-      prot: 'Nobody may touch a robot on its own HAB platform in the last 30 seconds. Everywhere else is open, and one robot per alliance may cross the field to play defense.',
+      prot: 'Nobody may touch a robot inside its own HAB Zone at any time: it runs from rail to rail behind the HAB Line and includes the Loading Stations and the depots. In the last 20 seconds nobody touches a rocket either. Everywhere else is open, and one robot per alliance may cross the field to play defense.',
       updates: ['Team Update: a hatch panel held on by hope and one strip of hook-and-loop counts as attached. Barely.', 'Team Update: only one robot per alliance may be on the opponents\' side of the field. Count before you cross.', 'Team Update: a robot is on HAB Level 3 when its bumpers are fully above it. The suction cup is not a bumper.', 'Team Update: cargo that rolls out of an unsealed bay scores nothing, and no, you may not hold it in with the robot.'],
       chatter: [['Sandstorm practice', '{driver} has been driving the practice robot with a cardboard box over their head "for realism". Sandstorm scores are up. Shin injuries too.'], ['Hatch frisbee', 'The hatch panels fly surprisingly well. {mentor} has confiscated four.'], ['Level 3', 'The Level 3 climber lifted the robot nineteen inches, paused, and set it down again very gently on {student}\'s lunch.']]
     },
@@ -1084,7 +1086,7 @@ window.G = window.G || {};
           base: { endgame: 45 }, ceil: { endgame: 88 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
         { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 4, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 90 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
-        { id: 'l3buddy', name: 'Level 3 lift with partner ramps', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 5, areas: ['climb'],
+        { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 5, areas: ['climb'],
           base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
@@ -1104,8 +1106,8 @@ window.G = window.G || {};
     year: 2018, name: 'FIRST POWER UP', pieceName: 'Power Cubes', sym: 'mirror',
     tagline: 'Tip the Switch and the Scale your way with power cubes, feed the Vault for power-ups, and climb to face the boss.',
     brief: [
-      'Each alliance has a SWITCH on its own side and shares the tall SCALE at mid-field. They are balances: put more Power Cubes on your plate than the opponents have on theirs and you OWN it. Every second of ownership scores 1 point (2 in auto). Which plate is yours changes every match and is only announced at the start.',
-      'Cubes pushed through the EXCHANGE go to the VAULT: 5 points each, and they buy three POWER-UPS, played by the drive coach. FORCE gives ownership for 10 seconds, BOOST doubles ownership points for 10 seconds, LEVITATE is a free climb.',
+      'Each alliance has a SWITCH on its own side and shares the tall SCALE at mid-field. They are balances: put more Power Cubes on your plate than the opponents have on theirs and you OWN it. Taking ownership scores 1 point and every second of it another (2 in auto). Which plate is yours changes every match and is only announced at the start.',
+      'Cubes pushed through the EXCHANGE go to the VAULT: 5 points each, and they buy three POWER-UPS, played by the drive coach. FORCE gives ownership for 10 seconds, BOOST doubles ownership points for 10 seconds, LEVITATE is a free climb. Each alliance has 30 cubes to work with: ten in its pile, six behind its Switch, seven in each Portal.',
       'In the last 30 seconds robots CLIMB the rung on the Scale tower (30) or park on the platform (5). Bonus RPs: Auto Quest (all three robots cross the auto line and you own your Switch when auto ends) and Face the Boss (three climbs; Levitate counts as one).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
@@ -1114,7 +1116,7 @@ window.G = window.G || {};
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'scale', name: 'Hold the Scale' }, { id: 'switch', name: 'Hold our Switch' }, { id: 'vault', name: 'Feed the Vault' }],
     endNames: ['Park', 'Climb'],
     news: {
-      prot: 'A robot at its own end of the Scale (the null territory) may not be touched, and neither may one feeding the Exchange. The platform belongs to the climbers in the last 30 seconds.',
+      prot: 'A robot at its own end of the Scale (the null territory) may not be touched: that is a tech foul. Neither may one feeding the Exchange. The platform belongs to the climbers in the last 30 seconds.',
       updates: ['Team Update: a Power Cube counts on a plate when it is fully supported by it. Leaning on the fence is not supported.', 'Team Update: throwing a cube onto the Scale from across the field is legal. Hitting a referee with it is not.', 'Team Update: Levitate may be played at any time, but it only helps if somebody has not climbed.', 'Team Update: robots may not pull opponents off the rung. Yes, somebody tried.'],
       chatter: [['Milk crates', 'The practice cubes are milk crates in yellow covers. The cafeteria has asked, politely, for the crates back.'], ['Game data', '{student} wrote the plate assignment on their hand so the autonomous would "definitely know". The robot went left anyway.'], ['Vault duty', '{driver} has fed the practice Exchange 300 cubes this week and now calls the human player "the bank".']]
     },
@@ -1140,7 +1142,7 @@ window.G = window.G || {};
         NONE_END,
         { id: 'hook', name: 'Hook and winch', desc: 'Hooks the rung seven feet up and winches the robot off the ground.', cost: 700, hours: 120, w: 12, cx: 3, areas: ['climb'],
           base: { endgame: 40 }, ceil: { endgame: 88 }, caps: { endLevel: 1 }, look: { climber: 'hook2' } },
-        { id: 'buddy', name: 'Climber with partner forks', desc: 'Climbs and carries a partner up with it: two climbs from one mechanism, and with Levitate the Face the Boss bonus.', cost: 1500, hours: 240, w: 20, cx: 5, areas: ['climb'],
+        { id: 'buddy', name: 'Buddy climber (partner forks)', desc: 'Climbs and carries a partner that parked on the platform up with it: two climbs from one mechanism, and with Levitate the Face the Boss bonus.', cost: 1500, hours: 240, w: 20, cx: 5, areas: ['climb'],
           base: { endgame: 32 }, ceil: { endgame: 92 }, caps: { endLevel: 1, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
@@ -1158,20 +1160,20 @@ window.G = window.G || {};
   // =====================================================================
   G.Data.STAT.fuel = 'Fuel Shooting';
   S[2017] = {
-    year: 2017, name: 'FIRST STEAMWORKS', pieceName: 'Gears & Fuel', sym: 'mirror',
+    year: 2017, hpLoad: 1, name: 'FIRST STEAMWORKS', pieceName: 'Gears & Fuel', sym: 'mirror',
     tagline: 'Deliver gears to start the airship\'s rotors, fire fuel into the boiler, and climb the rope before take-off.',
     brief: [
       'Robots carry GEARS from the Loading Station at the far end of the field to the pegs of their AIRSHIP, where the human-player pilots haul them up. The four ROTORS need 1, 2, 4 and 6 gears (one spare gear is already on board). Each turning rotor is worth 40 points, or 60 if it turns in auto.',
-      'FUEL (small balls, hundreds of them) goes into the BOILER: three balls in the high goal make 1 kPa of pressure, nine in the low goal. In auto every high-goal ball is a whole kPa. Each kPa is 1 point.',
+      'FUEL (small balls, hundreds of them) goes into the BOILER: three balls in the high goal make 1 kPa of pressure, nine in the low goal. In auto every high-goal ball is a whole kPa. Each kPa is 1 point. The boiler counts five balls a second in each goal and stops at the buzzer, so fuel shot in the last seconds of auto pays teleop rates. Each of the five hoppers on the rails is tipped once and its hundred balls roll all over the carpet: a shooter catches what it can, and an alliance facing a shooter sends a gear robot to tip those hoppers first so nothing is caught. After that there is no store to go back to, and fuel has to be swept up off the floor a few balls at a time.',
       'In the last 30 seconds robots climb their ROPE: 50 points each. Bonus RPs: 40 kPa of pressure, and all four rotors turning. In playoffs these are worth 20 and 100 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
     relevance: { swerve: 2, shooter: 2, turret: 1, elevator: 0, arm: 1, intake: 3, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
     autoTiers: ['Cross the base line', 'Gear on a peg', 'Gear + preloaded fuel', 'Gear + hopper of fuel'], autoPieces: [0, 1, 1, 1],
-    coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'gears', name: 'Gears only' }, { id: 'fuel', name: 'Fuel when possible' }],
+    coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'gears', name: 'Gears only' }, { id: 'fuel', name: 'Fuel when possible' }, { id: 'deny', name: 'Tip their hoppers first' }],
     endNames: ['—', 'Climb'],
     news: {
-      prot: 'Nobody may touch a robot in its own Retrieval Zone or in the Key in front of its Boiler, and the ropes belong to the climbers in the last 30 seconds.',
+      prot: 'Nobody may touch a robot in its own Retrieval Zone (a tech foul) or in the Key in front of its Boiler, and the ropes belong to the climbers in the last 30 seconds.',
       updates: ['Team Update: a gear counts when the pilot has it on the airship. A gear on the floor of the airship is still on the airship.', 'Team Update: pilots may not lean out past the railing. This is a safety rule and also a physics rule.', 'Team Update: ropes are supplied by the teams. Yes, the knot matters. No, we will not tie it for you.', 'Team Update: fuel that bounces out of the high goal does not count, even if it was very close.'],
       chatter: [['Fuel everywhere', 'Fuel balls found this week: the gym (41), the band room (6), a tuba (1).'], ['Rope committee', 'The rope committee has tested nine ropes and four knots. {student} now ties a bowline faster than their shoelaces.'], ['Pilot school', '{driver} dropped a gear on the practice airship and the whole shop went quiet. The human player has asked for gloves with more grip.']]
     },
@@ -1187,11 +1189,11 @@ window.G = window.G || {};
       ] },
       { id: 'fuel', name: 'Fuel System', optional: true, minor: true, concepts: [
         { id: 'none', name: 'No fuel system', desc: 'Gears and the rope only. Most robots did exactly this.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: { fuelHigh: false, fuelLow: false, storage: 0 }, look: {} },
-        { id: 'dump', name: 'Low-goal dumper (40 balls)', desc: 'Catches a hopper of fuel and tips it into the low goal. Nine balls make one kPa, so it is slow pressure, but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
+        { id: 'dump', name: 'Low-goal dumper (40 balls)', desc: 'Catches fuel as a hopper is tipped, sweeps up what lies on the carpet afterwards, and tips it into the low goal. Nine balls make one kPa, so it is slow pressure (a handful of points a match), but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
           base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 40 }, look: { shooter: 'dump', hopper: 20 } },
-        { id: 'shoot', name: 'High-goal shooter (30 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
+        { id: 'shoot', name: 'High-goal shooter (30 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 30 }, look: { shooter: 'fixed', hopper: 20 } },
-        { id: 'mega', name: 'High-volume shooter + big hopper (70 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
+        { id: 'mega', name: 'High-volume shooter + big hopper (70 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
           base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 70 }, look: { shooter: 'wide', hopper: 45 } }
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
@@ -1204,10 +1206,12 @@ window.G = window.G || {};
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Floor gears + shooter + fast climb', min: 78, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
-      { name: 'Floor gears + fast climb', min: 58, pick: { drive: ['mec', 'wcd', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'shoot'], endgame: 'fast' } },
+      // most teams ran gears and a rope and nothing else: a shooter only paid for itself on the strongest robots
+      { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
+      { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
+      { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['mec', 'wcd', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },
       { name: 'Gear gripper + climb', min: 36, pick: { drive: ['wcd', 'mec', 'kit'], scorer: ['active', 'slot'], fuel: 'none', endgame: ['winch', 'fast'] } },
-      { name: 'Gear slot + low-goal dumper', min: 16, pick: { drive: 'kit', scorer: 'slot', fuel: ['dump', 'none'], endgame: ['winch', 'none'] } },
+      { name: 'Gear slot + rope', min: 16, pick: { drive: 'kit', scorer: 'slot', fuel: ['none', 'none', 'none', 'none', 'dump'], endgame: ['winch', 'none'] } },
       { name: 'Kitbot gear slot', min: 0, pick: { drive: 'kit', scorer: 'slot', fuel: 'none', endgame: 'none' } },
       { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', scorer: 'slot', fuel: 'none', endgame: 'winch' } }
     ]
@@ -1230,8 +1234,8 @@ window.G = window.G || {};
     year: 2016, name: 'FIRST STRONGHOLD', pieceName: 'Boulders', sym: 'rotate',
     tagline: 'Cross the enemy defenses, weaken their tower with boulders, and scale it before time runs out.',
     brief: [
-      'Between your robots and the enemy TOWER stand five DEFENSES: the low bar, and four chosen by the opponents from the portcullis, cheval de frise, moat, ramparts, drawbridge, sally port, rock wall and rough terrain. Crossing one scores 5 points (10 in auto), twice per defense, after which it is DAMAGED.',
-      'Robots carry one BOULDER at a time into the courtyard and score it in the tower: 2 points in a low goal, 5 in a high goal (5 and 10 in auto). Eight boulders WEAKEN the tower.',
+      'Between your robots and the enemy TOWER stand five DEFENSES: the low bar, one picked by the audience, and three chosen by the opponents, from the portcullis, cheval de frise, moat, ramparts, drawbridge, sally port, rock wall and rough terrain. Crossing one scores 5 points (10 in auto), twice per defense, after which it is DAMAGED.',
+      'Robots carry one BOULDER at a time into the courtyard and score it in the tower: 2 points in a low goal, 5 in a high goal (5 and 10 in auto). Eight boulders WEAKEN the tower (ten at a District Championship and the Championship). Only 18 boulders are in play: one you score rolls back out through the OTHER alliance\'s Secret Passage, and a miss stays in the courtyard.',
       'In the last 20 seconds robots drive onto the tower\'s base to CHALLENGE it (5) or climb it to SCALE (15). Bonus RPs: BREACH (four of the five defenses damaged) and CAPTURE (the tower weakened and all three robots on it). In playoffs these are worth 20 and 25 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 5, major: 5 },
@@ -1240,7 +1244,7 @@ window.G = window.G || {};
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'breach', name: 'Breach first' }, { id: 'tower', name: 'Boulders first' }],
     endNames: ['Challenge', 'Scale'],
     news: {
-      prot: 'A robot may not be touched while it is crossing a defense or collecting in its own Secret Passage. In the courtyard everything goes, and one defender may wait there.',
+      prot: 'A robot may not be touched while it is crossing a defense or collecting in its own Secret Passage (a tech foul there also makes the tower one boulder stronger). In the courtyard everything goes, and one defender may wait there, until the last 20 seconds: then it may not touch the attackers.',
       updates: ['Team Update: a defense is crossed when the whole robot has gone from the neutral zone into the courtyard. Halfway and back is a nice try.', 'Team Update: a boulder that bounces out of the high goal does not weaken the tower, however loudly the crowd cheers.', 'Team Update: robots taller than 4 ft 6 in may not exist in the courtyard. Blockers, measure twice.', 'Team Update: the audience picks one defense per match. The audience likes the drawbridge. Sorry.'],
       chatter: [['Low bar', 'The robot is 14.9 inches tall and the low bar is 15. {driver} ducks every time it goes under.'], ['Defense carpentry', 'The parents built all nine practice defenses in one weekend. The moat is now a permanent feature of the shop, and of {student}\'s shins.'], ['Boulder dust', 'The foam boulders shed grey dust on everything. {mentor} has started calling it "castle weather".']]
     },
@@ -1249,7 +1253,7 @@ window.G = window.G || {};
       { id: 'frame', name: 'Frame Height', minor: true, concepts: [
         { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter. Cannot use the low bar, the one defense that is always there and always quick.', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
           base: {}, ceil: {}, caps: { lowProfile: false }, look: { frame: 'std' } },
-        { id: 'low', name: 'Low-bar frame', desc: 'Under 15 inches with everything folded: goes under the low bar every cycle, right next to where the boulders come out.', cost: 300, hours: 80, w: 2, cx: 3, areas: ['elec'],
+        { id: 'low', name: 'Low-bar frame', desc: 'Under 15 inches with everything folded: goes under the low bar every cycle, straight across the neutral zone from where your boulders come out.', cost: 300, hours: 80, w: 2, cx: 3, areas: ['elec'],
           base: {}, ceil: {}, caps: { lowProfile: true }, look: { frame: 'low' } }
       ] },
       { id: 'intake', name: 'Intake & Defense Tools', pneu: true, concepts: [
@@ -2167,6 +2171,7 @@ window.G = window.G || {};
       headless: !!o.headless, playoff: !!o.playoff, calls: o.calls == null ? 3 : o.calls, callsUsed: 0, pending: [],
       diff: o.diff || 1, coachSkill: o.coachSkill || 50, playerTeam: o.playerTeam || null,
       defPick: o.defPick || null, puPref: o.puPref || null, // classic games: the defenses chosen for an alliance (2016), an alliance's power-up order (2018)
+      aud16: o.aud16 || null, towerStrength: o.towerStrength || null, // 2016: the audience's defense for this round, and the tower's starting strength (10 at championships)
       feedIQ: Object.assign({ red: 0, blue: 0 }, o.feedIQ || {}) // how well each alliance runs alternative strategies (2024 note feeding)
     };
     ['red', 'blue'].forEach(a => {
@@ -2324,12 +2329,13 @@ window.G = window.G || {};
   }
   // Plans around field elements: the first element on the way gets a waypoint beside it, then both legs are checked
   // again (a couple of levels deep). Solid elements (o.h = physical radius) are inflated by half a robot.
-  function avoid(m, a, b, depth, noEnd) {
+  function avoid(m, a, b, depth, noEnd, low) {
     depth = depth || 0; if (noEnd == null) noEnd = !!a.endBusy;
+    if (low == null) low = !!(a.cap && a.cap.lowProfile); // elements marked "under" (a low tunnel) only stop robots that do not fit beneath them
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
     let hit = null;
     for (const o of m.obs) {
-      if (o.end && noEnd) continue;
+      if ((o.end && noEnd) || (o.under && low)) continue;
       const rad = o.h ? Math.max(o.r, o.h + RR + 0.05) : o.r;
       const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1);
       const cx = a.x + dx * t, cy = a.y + dy * t;
@@ -2345,13 +2351,13 @@ window.G = window.G || {};
       const p = { x: o.x + nx / nl * off * k, y: o.y + ny / nl * off * k };
       const c = { x: U.clamp(p.x, 0.45, FW - 0.45), y: U.clamp(p.y, 0.45, FH - 0.45) };
       let bad = Math.hypot(p.x - c.x, p.y - c.y);
-      for (const q of m.obs) if (q !== o && q.h && !(q.end && noEnd)) bad += Math.max(0, q.h + RR - Math.hypot(c.x - q.x, c.y - q.y));
+      for (const q of m.obs) if (q !== o && q.h && !(q.end && noEnd) && !(q.under && low)) bad += Math.max(0, q.h + RR - Math.hypot(c.x - q.x, c.y - q.y));
       return { c, bad };
     };
     const s1 = side(1), s2 = s1.bad > 0.15 ? side(-1) : null;
     const w = s2 && s2.bad < s1.bad ? s2.c : s1.c;
     if (depth >= 2) return [w, b];
-    return avoid(m, a, w, depth + 1, noEnd).concat(avoid(m, w, b, depth + 1, noEnd));
+    return avoid(m, a, w, depth + 1, noEnd, low).concat(avoid(m, w, b, depth + 1, noEnd, low));
   }
   // Unstick: try headings from "slightly sideways" round to "straight back" and take the first one with room to drive
   function sidestep(m, r, goal, n) {
@@ -2359,7 +2365,7 @@ window.G = window.G || {};
     const room = p => {
       let c = Math.min(p.x - RR, FW - RR - p.x, p.y - RR, FH - RR - p.y) + 0.43;
       for (const o of m.robots) if (o !== r) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - 2 * RR);
-      for (const o of m.obs) if (o.h && !(o.end && r.endBusy)) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - o.h - RR);
+      for (const o of m.obs) if (o.h && !(o.end && r.endBusy) && !(o.under && r.cap.lowProfile)) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - o.h - RR);
       return c;
     };
     let best = null, bc = -1e9;
@@ -2427,7 +2433,7 @@ window.G = window.G || {};
       for (const r of rs) {
         if (fixed(r)) continue;
         for (const o of m.obs) {
-          if (!o.h || (o.end && (r.endBusy || r.end))) continue;
+          if (!o.h || (o.end && (r.endBusy || r.end)) || (o.under && r.cap.lowProfile)) continue;
           const dx = r.x - o.x, dy = r.y - o.y, d = Math.hypot(dx, dy), min = o.h + RR;
           if (d >= min) continue;
           if (d < 1e-4) { r.x = o.x + min; continue; }
@@ -2459,9 +2465,12 @@ window.G = window.G || {};
   function defendStep(m, r) {
     const t = r.defT;
     if (!t || t.dead || t.st === 'done' || t.climbing) { r.st = 'idle'; r.defT = null; return; }
-    const guard = m.R.guard(m, t.a), prot = m.R.protect ? m.R.protect(m, t) : '';
+    const guard = m.R.guard(m, t.a, t), prot = m.R.protect ? m.R.protect(m, t) : '';
+    // a season may give the defender a place to wait while its target is protected (2020: across the mouth of the Trench Run)
+    const block = prot && !(r.backoff > m.t) && m.R.blockSpot ? m.R.blockSpot(m, r, t, prot) : null;
     let goal;
-    if (prot || r.backoff > m.t) {
+    if (block) { goal = block; r.label = 'Blocking the way out of the ' + prot; }
+    else if (prot || r.backoff > m.t) {
       // pin count used up, or the target is in a protected zone: give it room (6 ft) and wait beside its path
       const gx = guard.x - t.x, gy = guard.y - t.y, gl = Math.hypot(gx, gy) || 1, nx = -gy / gl, ny = gx / gl;
       const side = (r.x - t.x) * nx + (r.y - t.y) * ny >= 0 ? 1 : -1, room = prot ? 1.9 : 2.0;
@@ -2511,14 +2520,20 @@ window.G = window.G || {};
       }
       const pz = prot(t);
       if (pz) {
-        // contact with a robot in its protected zone is a foul, whoever starts it
-        if (dd < 2 * RR + 0.03 && m.rng.next() < 0.15 * DT) foul(m, d, !!DF.protMajor, pz);
+        // contact with a robot in its protected zone is a foul, whoever starts it (a tech foul where the manual says so).
+        // In the endgame the manuals award the climb instead (DF.credit: the level the robot is credited with).
+        if (dd < 2 * RR + 0.03 && m.rng.next() < 0.15 * DT) {
+          const cr = m.inEnd && DF.credit && DF.credit[pz];
+          if (cr) { if (!t.endCredit) { t.endCredit = cr; log(m, d.a, d.team + ' touched ' + t.team + ' (' + pz + '): ' + t.team + ' is credited with the climb', 'foul'); } }
+          else foul(m, d, !!DF.protMajor || !!(DF.major && DF.major[pz]), pz);
+        }
         continue;
       }
       if (dd < (DF.range || 1.4) && !t.climbing) {
         t.defBy = d;
         const inner = 0.5 + (d.cap.push * (0.8 + 0.2 * d.drvF) - 0.6 * t.cap.agility - 0.3 * t.cap.push) / 100;
-        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? 0.5 : 1) * (1 - DEF_DRILL * t.defSkill) * awareK(t), 0.35, 0.97);
+        // turrets shoot on the move, so a defender slows them half as much (a season may say otherwise: DF.turretK)
+        t.defSlow = U.clamp(1 - 0.4 * inner * DF.eff * (t.cap.turret ? (DF.turretK == null ? 0.5 : DF.turretK) : 1) * (1 - DEF_DRILL * t.defSkill) * awareK(t), 0.35, 0.97);
         pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
@@ -2533,6 +2548,7 @@ window.G = window.G || {};
     const pts = major ? m.S.foul.major : m.S.foul.minor;
     m.score[opp(r.a)].foul += pts; r.stats.fouls++;
     log(m, r.a, (major ? 'MAJOR FOUL' : 'Foul') + ' on ' + r.team + (why ? ' (' + why + ')' : '') + ' (+' + pts + ' ' + opp(r.a) + ')', 'foul');
+    if (m.R.onFoul) m.R.onFoul(m, r, !!major, why);
   }
 
   // ---------- faults ----------
@@ -2683,6 +2699,8 @@ window.G = window.G || {};
   // ---------- finish ----------
   function finish(m) {
     m.done = true; m.phase = 'done'; m.t = m.total;
+    // a robot touched in its protected endgame zone counts as having climbed (to the credited level)
+    m.robots.forEach(r => { if (r.endCredit && !r.dead && !(r.end && r.end.lvl >= r.endCredit)) r.end = { lvl: r.endCredit, credited: true }; });
     m.R.finishEnd(m, H);
     ['red', 'blue'].forEach(a => { const s = m.score[a]; s.total = s.auto + s.tele + s.end + s.foul; });
     const res = {};
@@ -2698,7 +2716,8 @@ window.G = window.G || {};
     res.robots = m.robots.map(r => ({
       team: r.team, a: r.a, pts: r.stats.pts, cycles: r.stats.cycles, shots: r.stats.shots, hits: r.stats.hits,
       fouls: r.stats.fouls, faults: r.stats.faults.slice(), defTime: Math.round(r.defTime), contacts: Math.round(r.contacts),
-      end: r.end, dead: r.dead, pace: r.plan.pace, role: r.plan.role, autoOK: r.autoOK
+      end: r.end, dead: r.dead, pace: r.plan.pace, role: r.plan.role, autoOK: r.autoOK,
+      bumps: r.stats.bumps || 0 // rough ground driven over (2020: the generator's steel bars): extra drivetrain wear
     }));
     m.result = res;
     log(m, null, 'FINAL — Red ' + res.red.score + ' : ' + res.blue.score + ' Blue', 'phase');
@@ -2710,18 +2729,26 @@ window.G = window.G || {};
   }
 
   // ---------- helpers exposed to season rules ----------
+  // a season may say that a defender in contact also slows what the robot is doing with its game pieces (DF.act: 0.4 = 40% longer)
+  const jostle = (m, r) => (r.defBy && m.R.defense && m.R.defense.act ? 1 + m.R.defense.act * (r.cap.turret ? 0.6 : 1) : 1);
   const H = E.H = {
     P: E.P, dist, opp, moveTo, act, waitUntil, speedOf, log, foul, avoid,
     canCollect: (m, r) => !r.cap.noIntake && !r.perm.intake && !(r.jam.intake > m.t),
     canScore: (m, r) => !r.cap.noScorer && !r.perm.scorer && !(r.jam.scorer > m.t),
-    collectTime(m, r, kind, base) {
+    // fed: the piece comes straight from a human player even though the robot picks it off the floor (a gear, a cone, a
+    // note or a coral dropped at the station), so their skill counts there too
+    collectTime(m, r, kind, base, fed) {
       const i = r.cap.intake, P = PACE[r.plan.pace];
-      let t = kind === 'ground' ? base * (1.6 - 0.9 * i / 100) : base * (1.4 - 0.55 * i / 100) * (1.15 - 0.3 * (m.hp[r.a] || 50) / 100);
-      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1) * (1 - 0.4 * r.confK); // practiced crews handle game pieces faster
+      // Loading from a human player: in the games where they feed the robot all match (season.hpLoad: 2017, 2019, 2020,
+      // 2023, 2024, 2025) their skill decides the pace: an expert crew loads in about two thirds of the time an average
+      // one needs, a beginner takes a fifth longer. Elsewhere they hardly touch the game pieces (5%).
+      const hpW = m.S.hpLoad ? 0.45 : 0.05, hpF = 1 - hpW * (((m.hp && m.hp[r.a]) || 50) - 60) / 50;
+      let t = kind === 'ground' ? base * (1.6 - 0.9 * i / 100) * (fed ? hpF : 1) : base * (1.4 - 0.55 * i / 100) * hpF;
+      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1) * (1 - 0.4 * r.confK) * jostle(m, r); // practiced crews handle game pieces faster
     },
     scoreTime(m, r, base, stat) {
       const s = stat == null ? r.cap.scoreSpd : stat;
-      return base * (1.5 - 0.8 * s / 100) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK);
+      return base * (1.5 - 0.8 * s / 100) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK) * jostle(m, r);
     },
     endDue: (m, r) => m.phase !== 'auto' && !r.end && !r.endBusy && endgameDue(m, r),
     aimTime(m, r) {
@@ -2793,7 +2820,8 @@ window.G = window.G || {};
   };
   // a robot's position in its own alliance's field coordinates (E.P is its own inverse)
   const loc = (m, r) => E.P(m, r.a, r.x, r.y), RR = E.RR;
-  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => m.hp[a] = Math.max(40, ...m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40))); };
+  // an alliance puts its two best human players where the game pieces are handled: their average is its human-player skill
+  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => { const h = m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40).sort((p, q) => q - p); m.hp[a] = Math.max(40, Math.round(((h[0] || 40) + (h[1] == null ? h[0] || 40 : h[1])) / 2)); }); };
 
   // =====================================================================
   // 2022 RAPID REACT
@@ -3058,7 +3086,7 @@ window.G = window.G || {};
       const pt = ground ? E.P(m, r.a, m.rng.range(12.6, 14.6), m.rng.range(5.9, 7.6)) : E.P(m, r.a, 15.95, 7.1);
       H.moveTo(m, r, pt, () => {
         if (!H.canCollect(m, r)) return;
-        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1) * (type === 'cone' ? 1.15 : 1),
+        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1, true) * (type === 'cone' ? 1.15 : 1),
           () => { r.held = 1; r.heldType = type; }, 'Grabbing ' + type);
       }, 'To loading zone');
     },
@@ -3167,7 +3195,7 @@ window.G = window.G || {};
     const pt = ground ? E.P(m, r.a, m.rng.range(13.4, 15.0), m.rng.range(0.9, 2.5)) : E.P(m, r.a, 15.45, 0.95);
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
+      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9, true), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
     }, 'To source');
   }
   function pass24(m, r) {
@@ -3475,7 +3503,7 @@ window.G = window.G || {};
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
       const take = () => {
-        const ct = H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7);
+        const ct = H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7, true);
         ss.stFree[k] = m.t + ct * 0.6 + 0.5; // the human player needs a moment before the next coral drops
         H.act(r, ct, () => { r.held = 1; r.heldType = 'coral'; }, ground ? 'Intaking coral' : 'At coral station');
       };
@@ -3667,7 +3695,7 @@ window.G = window.G || {};
       if (ss.depot > 0) opts.push({ pt: E.P(m, r.a, 0.7, 6.5), n: Math.min(need, ss.depot), rate, src: 'depot', k: 1 });
       if (m.neutral >= 3) opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: Math.min(need, Math.floor(m.neutral)), rate: rate * dens26(m), src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
     }
-    opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.0 + 1.6 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 });
+    opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.6 + 0.4 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 }); // the human player at the Outpost matters little
     let best = null, bv = 1e9;
     for (const o of opts) {
       const t = (H.travelEst(m, r, o.pt) * o.k + o.n / o.rate + 0.6) / Math.max(1, o.n);
@@ -3901,21 +3929,43 @@ window.G = window.G || {};
   const leavePt = (r, d) => ({ x: U.clamp(r.sx + (r.a === 'blue' ? d : -d), 0.6, FW - 0.6), y: r.sy });
   // a robot's position in its own alliance's field coordinates (E.P is its own inverse)
   const loc = (m, r) => E.P(m, r.a, r.x, r.y);
-  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => m.hp[a] = Math.max(40, ...m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40))); };
+  // an alliance puts its two best human players where the game pieces are handled: their average is its human-player skill
+  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => { const h = m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40).sort((p, q) => q - p); m.hp[a] = Math.max(40, Math.round(((h[0] || 40) + (h[1] == null ? h[0] || 40 : h[1])) / 2)); }); };
   const inBox = (q, x0, x1, y0, y1) => q.x >= x0 && q.x <= x1 && q.y >= y0 && q.y <= y1;
 
   // =====================================================================
   // 2020 INFINITE RECHARGE
   // Field (blue's coordinates; red is rotated): an alliance shoots at the Power Port on the FAR wall and reloads at the
-  // Loading Bay on its OWN wall, so a cycle runs the length of the field. Its Trench Run (with the Control Panel) lies
-  // along the near-side rail; the Shield Generator and its switch stand in the middle.
+  // Loading Bay on its OWN wall, so a cycle runs the length of the field. Its Trench Run lies along the near-side
+  // rail, with the Control Panel on a low tunnel (the Trench) that only robots under 28 inches fit through. The Shield
+  // Generator stands turned 22.5 degrees in the middle: steel bars an inch high (the BOUNDARIES) ring its floor and
+  // cross it, so driving through is a bumpy ride.
+  // Power Cells are limited (48 in play): one scored drops into the corral behind the port, which is in the OTHER
+  // alliance's station, and comes back through THEIR Loading Bay. A Loading Bay starts with five.
   // =====================================================================
-  const G20 = { port: { x: FW - 0.12, y: FH - 2.4 }, bay: { x: 0.75, y: FH - 2.5 }, line: FW - 3.05, panel: { x: 7.0, y: FH - 0.75 }, trench: { x0: 5.6, x1: 10.9, y0: FH - 1.45, y1: FH - 0.05 }, sw: { x: FW / 2 + 0.38, y: FH / 2 + 0.92, dx: 0.924, dy: -0.383 },
-    // Shield Generator: a square turned 22.5 degrees that fills the gap between the two Trench Runs; its four pillars
-    // (left, top, right, bottom, from the field's centre) stand at the trench edges
-    gen: [[-2.5, -1.04], [1.04, -2.5], [2.5, 1.04], [-1.04, 2.5]],
-    trenchCells: [[9.9, FH - 0.75], [9.0, FH - 0.75], [8.1, FH - 0.75], [6.3, FH - 0.5], [6.3, FH - 1.0]], midCells: [[5.6, 5.63], [6.09, 4.58], [6.4, 6.0], [9.73, 5.98], [9.9, 4.9]] };
+  const G20 = { port: { x: FW - 0.12, y: FH - 2.4 }, bay: { x: 0.75, y: FH - 2.5 }, line: FW - 3.05, sector: 3.05,
+    panel: { x: FW / 2 - 1.16, y: FH - 0.75 }, trench: { x0: FW / 2 - 2.745, x1: FW / 2 + 2.745, y0: FH - 1.45, y1: FH - 0.05 },
+    sw: { x: FW / 2 + 0.33, y: FH / 2 + 0.79, dx: 0.924, dy: -0.383 },
+    // Shield Generator, from the field's centre: d runs along its long axis (the black bars that divide red from blue),
+    // n across it (toward blue's Trench Run). The floor inside the bars is 2 x genA by 2 x genB; the four truss legs
+    // stand just outside its corners (left, top, right, bottom as drawn).
+    d: [0.924, -0.383], n: [0.383, 0.924], genA: 1.915, genB: 1.735,
+    gen: [[-2.55, -0.95], [1.13, -2.47], [2.55, 0.95], [-1.13, 2.47]],
+    trenchCells: [[FW / 2 + 1.83, FH - 0.75], [FW / 2 + 0.91, FH - 0.75], [FW / 2, FH - 0.75], [FW / 2 - 1.65, FH - 0.52], [FW / 2 - 1.65, FH - 0.98]] };
+  const gen20 = p => { const dx = p.x - FW / 2, dy = p.y - FH / 2; return { a: dx * G20.d[0] + dy * G20.d[1], b: dx * G20.n[0] + dy * G20.n[1] }; };
+  const genPt20 = (a, b) => [FW / 2 + a * G20.d[0] + b * G20.n[0], FH / 2 + a * G20.d[1] + b * G20.n[1]];
+  // five cells on the bars of each alliance's half, at the corner toward the port it shoots at: three on the end bar,
+  // two on the outer bar; cells nobody preloaded go further along the outer bar
+  G20.midCells = [genPt20(G20.genA, 0.4), genPt20(G20.genA, 0.82), genPt20(G20.genA, 1.24), genPt20(1.5, G20.genB), genPt20(1.08, G20.genB)];
+  G20.spareCell = k => genPt20(0.66 - 0.42 * k, G20.genB);
   Rules.G20 = G20;
+  // on a BOUNDARY bar (the four sides of the generator floor and the cross inside it), within a wheelbase of it?
+  function onBar20(p) {
+    const g = gen20(p), A = G20.genA, B = G20.genB, w = 0.33, aa = Math.abs(g.a), bb = Math.abs(g.b);
+    if (aa > A + w || bb > B + w) return false;
+    return aa > A - w || bb > B - w || aa < w || bb < w;
+  }
+  const inGen20 = (p, pad) => { const g = gen20(p); return Math.abs(g.a) < G20.genA + (pad || 0) && Math.abs(g.b) < G20.genB + (pad || 0); };
   const CAP20 = [9, 20, 20];
   const port20 = (m, a) => E.P(m, a, G20.port.x, G20.port.y);
   // loose cells are neutral: any robot may take them. Misses bounce back in front of the port.
@@ -3932,10 +3982,15 @@ window.G = window.G || {};
     }
     return best;
   }
+  // There is one Loading Bay and it is 5 ft wide: one robot is fed at a time. The bay is taken for as long as that robot
+  // is still loading (however long a defender makes it take), and a moment more while it backs out.
+  const bayBusy20 = (m, ss, r) => { const b = ss.bayBot; return !!(b && b !== r && !b.dead && b.st === 'act' && b.mem.atBay) || (ss.bayFree > m.t && ss.bayBot !== r); };
   function collect20(m, r, pt, kind) {
-    const cap = r.cap.storage || 3;
+    const cap = r.cap.storage || 3, ss = m.ss[r.a];
     if (kind === 'ground') { pt.claim = r.team; pt.claimT = m.t + 6; }
-    H.moveTo(m, r, kind === 'ground' ? pt : E.P(m, r.a, G20.bay.x, G20.bay.y + (r.slot - 1) * 0.5), () => {
+    const queue = kind !== 'ground' && bayBusy20(m, ss, r); // somebody is in the Loading Zone: line up outside it
+    r.mem.atBay = false;
+    H.moveTo(m, r, kind === 'ground' ? pt : E.P(m, r.a, G20.bay.x + (queue ? 1.1 : 0), G20.bay.y + (queue ? (r.slot - 1) * 0.95 : 0)), () => {
       if (!H.canCollect(m, r)) return;
       if (kind === 'ground') {
         if (!m.cells.includes(pt)) return; // someone else got there first
@@ -3944,13 +3999,33 @@ window.G = window.G || {};
           r.held++; r.heldType = 'cell'; if (m.phase === 'auto') r.mem.got = (r.mem.got || 0) + 1;
         }, 'Intaking a cell');
       } else {
-        const n = cap - r.held;
-        H.act(r, n * H.collectTime(m, r, 'station', 0.75), () => { r.held = cap; r.heldType = 'cell'; }, 'Loading ' + n + ' cells');
+        // the human player hands over what the bay holds: the five it started with, then whatever the opponents scored
+        // Only one robot fits in the Loading Zone (the bay is 5 ft wide): the next one waits its turn.
+        const n = Math.min(cap - r.held, ss.bay);
+        if (n <= 0) return;
+        if (queue || bayBusy20(m, ss, r)) { r.label = 'Queueing at the Loading Bay'; r.st = 'wait'; r.timer = 0.8; return; }
+        ss.bayBot = r; r.mem.atBay = true;
+        H.act(r, n * H.collectTime(m, r, 'station', 0.75), () => {
+          r.mem.atBay = false; ss.bayFree = m.t + 0.6;
+          const k = Math.min(n, ss.bay, cap - r.held); if (k <= 0) return; ss.bay -= k; r.held += k; r.heldType = 'cell';
+        }, 'Loading ' + n + ' cell' + (n > 1 ? 's' : ''));
       }
     }, kind === 'ground' ? 'To a cell' : 'To the Loading Bay');
   }
   // how far off the port's centre line a spot is, 0 (straight on) to 1 (60° or more): side shots cannot reach the Inner Port
   function offAxis20(m, a, spot) { const g = port20(m, a); return U.clamp(Math.abs(Math.atan2(spot.y - g.y, Math.abs(spot.x - g.x))) / (Math.PI / 3), 0, 1); }
+  // Where to shoot from. No full-court shots: a robot wholly inside its own Sector (the end with its Loading Bay) may not
+  // send cells into the opponents' Sector, so the spot is always past its own Sector line. A shooter with the range uses
+  // the far end of its own Trench Run, where nobody may touch it; nobody stops on the generator floor to shoot.
+  function spot20(m, r, goal) {
+    const R = (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1);
+    const tr = E.P(m, r.a, G20.trench.x1 - 0.7 - r.slot * 0.8, FH - 0.75);
+    if (R * 0.88 >= E.dist(tr, goal)) return tr;
+    const z = r.a === 'blue' ? { x0: G20.sector - RR + 0.1, x1: FW - 0.5 } : { x0: 0.5, x1: FW - G20.sector + RR - 0.1 };
+    let p = H.shootSpot(m, r, goal, { x0: z.x0, x1: z.x1, y0: 0.5, y1: FH - 0.5 });
+    for (let i = 0; i < 14 && inGen20(p, 0.55); i++) p = { x: p.x + (goal.x - p.x) * 0.1, y: p.y + (goal.y - p.y) * 0.1 };
+    return p;
+  }
   function score20(m, r) {
     const c = r.cap, goal = port20(m, r.a), ss = m.ss[r.a];
     let upper = !!c.upper;
@@ -3959,7 +4034,7 @@ window.G = window.G || {};
       else if (r.plan.target === 'auto') upper = 2.2 * H.hit(m, r, 0.84, 0.05) > 1.0 * H.hit(m, r, 1.15);
     }
     let spot;
-    if (upper) spot = H.shootSpot(m, r, goal, null);
+    if (upper) spot = spot20(m, r, goal);
     else { const q = E.P(m, r.a, G20.port.x - 0.75, G20.port.y + (r.slot - 1) * 0.55); spot = q; }
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
@@ -3968,14 +4043,19 @@ window.G = window.G || {};
         let pts = 0;
         const pen = upper ? H.rangePen(m, r, goal) : 0, off = offAxis20(m, r.a, r);
         const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) : 0;
+        // a trench-height robot shoots from low down: a defender in its face blocks some of it
+        const blk = upper && c.lowProfile && r.defBy ? 0.85 : 1;
         for (let i = 0; i < n; i++) {
-          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 : 1.12, pen));
+          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 : 1.12, pen) * blk);
           r.stats.shots++; H.shotFx(m, r, goal, hit);
           if (!hit) { spawnCell20(m, r.a); continue; }
           r.stats.hits++;
           const inner = upper && m.rng.chance(pInner), v = upper ? (inner ? 3 : 2) : 1;
           pts += m.phase === 'auto' ? v * 2 : v;
           ss.cells++; if (inner) ss.inner++;
+          // into the corral behind the port: the other alliance's human players have it now, and a sharp one has it
+          // back on the rack in two seconds (a slow one takes six)
+          m.ss[E.opp(r.a)].bayQ.push(m.t + 6 - 4 * (m.hp[E.opp(r.a)] || 50) / 100);
           // only cells scored while a stage is charging count toward it; Stage 1 cannot finish before teleop
           if (ss.stage <= 3 && !ss.need) {
             ss.sc++;
@@ -4003,7 +4083,7 @@ window.G = window.G || {};
   function panel20(m, r) {
     const ss = m.ss[r.a], kind = ss.need;
     ss.panelBy = r.team;
-    H.moveTo(m, r, E.P(m, r.a, G20.panel.x + 0.75, G20.panel.y), () => {
+    H.moveTo(m, r, E.P(m, r.a, G20.panel.x + 0.95, G20.panel.y), () => {
       if (ss.need !== kind) { ss.panelBy = null; return; }
       H.act(r, (kind === 'rot' ? 6.5 : 8.5) * (1.35 - 0.5 * r.drv.mech / 100) * (kind === 'pos' && (r.cap.visionLvl || 0) >= 1 ? 0.85 : 1), () => {
         ss.panelBy = null;
@@ -4018,39 +4098,115 @@ window.G = window.G || {};
   }
   Rules[2020] = {
     leavePts: 5, tempo: { c: 3.9, s: 2.7 },
-    endgame: { levels: [{ name: 'Hang', pts: 25, time: 6.5, drop: 0.06 }], park: 5 },
+    // a trench-height robot has further to reach for the rung
+    endgame: { levels: [{ name: 'Hang', pts: 25, time: (m, r) => 6.5 * (r.cap.lowProfile ? 1.2 : 1), drop: 0.06 }], park: 5 },
     init(m) {
       setHp(m);
       m.cells = []; m.obs = [];
-      // Shield Generator: four pillars, at the edges of the Trench Runs
-      G20.gen.forEach(p => m.obs.push({ x: FW / 2 + p[0], y: FH / 2 + p[1], r: 0.28, h: 0.2 }));
+      // Shield Generator: four truss legs, at the edges of the Trench Runs
+      G20.gen.forEach(p => m.obs.push({ x: FW / 2 + p[0], y: FH / 2 + p[1], r: 0.3, h: 0.22 }));
       ['red', 'blue'].forEach(a => {
-        // five cells in each Trench Run and five around each alliance's side of the Shield Generator
+        // the Trench: a tunnel 28 inches high from the generator's leg to the guardrail. Taller robots cannot pass.
+        const t = E.P(m, a, G20.panel.x, FH - 0.74); m.obs.push({ x: t.x, y: t.y, r: 0.7, h: 0.62, under: true });
+        // five cells in each Trench Run and five on the bars of each alliance's half of the Shield Generator; a robot
+        // that cannot shoot leaves its three preloads on the bars as well
         G20.trenchCells.forEach(p => { const q = E.P(m, a, p[0], p[1]); m.cells.push({ x: q.x, y: q.y, t: 0, trench: a }); });
         G20.midCells.forEach(p => { const q = E.P(m, a, p[0], p[1]); m.cells.push({ x: q.x, y: q.y, t: 0 }); });
-        m.ss[a] = { cells: 0, inner: 0, stage: 1, sc: 0, need: null, rot: false, pos: false, panelBy: null, level: false, endPts: 0 };
+        const bots = m.robots.filter(r => r.a === a), pre = bots.filter(r => r.cap.upper || r.cap.lower).length;
+        for (let k = 0; k < 3 * (bots.length - pre); k++) { const p = G20.spareCell(k), q = E.P(m, a, p[0], p[1]); m.cells.push({ x: q.x, y: q.y, t: 0 }); }
+        m.ss[a] = { cells: 0, inner: 0, stage: 1, sc: 0, need: null, rot: false, pos: false, panelBy: null, level: false, endPts: 0, bay: 5, bayQ: [], bayBot: null, bayFree: 0, buddy: false };
       });
       m.robots.forEach(r => { r.held = (r.cap.upper || r.cap.lower) ? Math.min(3, r.cap.storage || 3) : 0; if (r.held) r.heldType = 'cell'; });
     },
     // robots start on their Initiation Line, in front of the port they shoot at (the far wall from their drivers)
     start(m, r) { return E.P(m, r.a, G20.line, [G20.port.y, 7.2, 4.3][r.slot]); },
     aimAt: (m, r) => port20(m, r.a),
-    // where this alliance wants to be (its shooting spot): a defender gets in the way of it
-    guard(m, a) { return E.P(m, a, FW - 3.6, G20.port.y); },
-    // Target Zone and Loading Zone (always), the alliance's own Trench Run, and the Rendezvous Point in the endgame
+    // where this alliance wants to be (its shooting spot): a defender gets in the way of it. A robot on its way to a mouth
+    // of its Trench Run wants to be there first, so that is where the defender meets it.
+    guard(m, a, t) {
+      if (t && t.path && t.path.length > 1) {
+        const w = E.P(m, a, t.path[0].x, t.path[0].y), T = G20.trench;
+        if (w.y > T.y0 - 0.2 && (Math.abs(w.x - (T.x0 - 0.3)) < 0.25 || Math.abs(w.x - (T.x1 + 0.3)) < 0.25)) return t.path[0];
+      }
+      return E.P(m, a, FW - 3.6, G20.port.y);
+    },
+    // Nobody may touch a robot from inside its Trench Run, so the defender parks across the mouth it is going to come out
+    // of, just outside the tape. The tunnel under the Control Panel is one robot wide: a partner sharing the trench
+    // queues up behind.
+    blockSpot(m, d, t, zone) {
+      // a robot loading at its bay may not be touched while its bumpers are in the Loading Zone: the defender waits a
+      // robot's length outside it, on the line the robot will drive out along
+      if (zone === 'Loading Zone') {
+        const dest = t.path && t.path.length ? t.path[0] : null, g = dest ? E.P(m, t.a, dest.x, dest.y) : { x: 6, y: G20.bay.y };
+        const y = U.clamp(G20.bay.y + (g.y - G20.bay.y) * 0.35, G20.bay.y - 1.2, G20.bay.y + 1.2);
+        return E.P(m, t.a, 0.76 + 3 * RR + 0.25, y);
+      }
+      if (zone !== 'Trench Run') return null;
+      const T = G20.trench, dest = t.path && t.path.length ? t.path[t.path.length - 1] : null;
+      const far = dest ? E.P(m, t.a, dest.x, dest.y).x > T.x1 : loc(m, t).x > (T.x0 + T.x1) / 2 + 1.2;
+      return E.P(m, t.a, far ? T.x1 + 1.0 : T.x0 - 1.0, FH - 0.75);
+    },
+    // Target Zone and Loading Zone (always), the alliance's own Trench Run, and its half of the Rendezvous Point in the endgame
     protect(m, r) {
       const q = loc(m, r);
-      if (q.x > FW - 0.9 && Math.abs(q.y - G20.port.y) < 1.1) return 'Target Zone';
-      if (q.x < 1.0 && Math.abs(q.y - G20.bay.y) < 1.3) return 'Loading Zone';
-      if (inBox(q, G20.trench.x0, G20.trench.x1, G20.trench.y0, G20.trench.y1)) return 'Trench Run';
-      if (m.total - m.t <= 30 && Math.abs(q.x - FW / 2) < 2.7 && Math.abs(q.y - FH / 2) < 2.6) return 'Rendezvous Point';
+      if (q.x > FW - 0.76 - RR && Math.abs(q.y - G20.port.y) < 0.61 + RR) return 'Target Zone';
+      if (q.x < 0.76 + RR && Math.abs(q.y - G20.bay.y) < 0.76 + RR) return 'Loading Zone';
+      if (inBox(q, G20.trench.x0, G20.trench.x1, G20.trench.y0 - 0.1, G20.trench.y1)) return 'Trench Run';
+      if (m.total - m.t <= 30) { const g = gen20(q); if (Math.abs(g.a) < G20.genA + 0.1 && g.b > -0.1 && g.b < G20.genB + 0.1) return 'Rendezvous Point'; }
       return '';
     },
-    // tall robots cross mid-field over the generator's floor rails; trench-height robots slip under the Control Panel
+    // every robot slows down over the generator's steel bars (big wheels and a stiff frame help). In a Trench Run there
+    // is no overtaking: the lane is one robot wide, so whoever is behind a slow or blocked robot crawls along behind it.
+    // The bars are hard on swerve modules and mecanum wheels (a tank drive just rolls over them): every crossing is
+    // counted for the wear after the match, and now and then a module or a roller is knocked out on the spot.
     slow(m, r) {
-      if (r.cap.lowProfile) return 1;
-      const q = loc(m, r);
-      return q.x > 5.6 && q.x < 10.9 ? 0.72 + 0.28 * (r.cap.traverse || 45) / 100 : 1;
+      const bar = onBar20(r), holo = r.look.drive === 'swerve' || r.look.drive === 'mecanum';
+      if (bar && !r.mem.bar && r.st === 'move' && holo) {
+        r.stats.bumps = (r.stats.bumps || 0) + 1;
+        if (!(r.fault && r.fault.slow) && m.rng.chance(0.0022 * E.PACE[r.plan.pace].wear)) {
+          const what = r.look.drive === 'swerve' ? 'Swerve module bent' : 'Mecanum wheel damaged';
+          r.fault = { slow: true, until: m.total + 9, label: what.toUpperCase() };
+          r.stats.faults.push(what + ' on the bars'); H.log(m, r.a, r.team + ': ' + what.toLowerCase() + ' on the generator bars', 'fault');
+        }
+      }
+      r.mem.bar = bar;
+      if (bar) return 0.25 + 0.45 * (r.cap.traverse || 45) / 100;
+      const T = G20.trench, inLane = p => (p.y > T.y0 - 0.15 || p.y < FH - T.y0 + 0.15) && p.x > T.x0 - 1.1 && p.x < T.x1 + 1.1;
+      if (r.st !== 'move' || !r.path.length || !inLane(r)) return 1;
+      const dir = Math.sign(r.path[0].x - r.x) || 1;
+      for (const o of m.robots) {
+        if (o === r || o.dead && false) continue;
+        const ahead = (o.x - r.x) * dir;
+        if (ahead > 0.3 && ahead < 1.5 && Math.abs(o.y - r.y) < 0.8 && inLane(o)) return 0.3;
+      }
+      return 1;
+    },
+    // A trench-height robot crosses the field through its own Trench Run, under the Control Panel: no bars, and nobody
+    // may touch it there. Everybody else has to drive through the Shield Generator.
+    route(m, r, from, to) {
+      if (!r.cap.lowProfile || r.endBusy || inGen20(from, 0.4) || inGen20(to, 0.4)) return null;
+      const n = Math.ceil(E.dist(from, to) / 0.3); let hit = false;
+      for (let i = 1; i < n && !hit; i++) hit = inGen20({ x: from.x + (to.x - from.x) * i / n, y: from.y + (to.y - from.y) * i / n }, 0.2);
+      if (!hit) return null;
+      const f = loc(m, r), g = E.P(m, r.a, to.x, to.y), T = G20.trench, y = FH - 0.75, fwd = g.x > f.x;
+      const w = [{ x: T.x0 - 0.3, y }, { x: T.x1 + 0.3, y }]; if (!fwd) w.reverse();
+      const inRun = p => p.x > T.x0 - 0.3 && p.x < T.x1 + 0.3 && p.y > T.y0 - 0.2;
+      const via = []; if (!inRun(f)) via.push(w[0]); if (!inRun(g)) via.push(w[1]);
+      let len = 0, cur = f; via.concat([g]).forEach(p => { len += E.dist(cur, p); cur = p; });
+      const holo = r.look.drive === 'swerve' || r.look.drive === 'mecanum';
+      if (len > E.dist(f, g) + (holo ? 4.5 : 2.4)) return null; // too far round: take the bumps (swerve and mecanum drivers go a long way round to spare their wheels)
+      let pts = [], at = { x: r.x, y: r.y };
+      via.map(p => E.P(m, r.a, p.x, p.y)).concat([to]).forEach(p => { pts = pts.concat(H.avoid(m, at, p, 0, false, true)); at = p; });
+      return pts;
+    },
+    // scored cells reach the other alliance's Loading Bay a few seconds later; a station may hold fifteen, the rest
+    // must go back onto the carpet at once
+    tick(m) {
+      ['red', 'blue'].forEach(a => {
+        const ss = m.ss[a];
+        while (ss.bayQ.length && ss.bayQ[0] <= m.t) { ss.bayQ.shift(); ss.bay++; }
+        while (ss.bay > 15) { ss.bay--; const q = E.P(m, a, G20.bay.x + m.rng.range(0.9, 2.6), G20.bay.y + m.rng.range(-1.2, 1.2)); m.cells.push({ x: q.x, y: U.clamp(q.y, 0.45, FH - 0.45), t: m.t + 0.6 }); }
+      });
     },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0];
@@ -4074,28 +4230,51 @@ window.G = window.G || {};
       if (!c.upper && !c.lower) { r.label = 'No scorer'; return; }
       if (r.held >= cap && H.canScore(m, r)) return score20(m, r);
       if (r.held < cap && H.canCollect(m, r)) {
-        const near = c.ground ? ground20(m, r, r.held > 0 ? 2.6 : 5) : null;
+        // The Loading Bay is where cells come from: the human players hand over five at a time (it only has what the
+        // opponents have scored, and the five it started with). Cells on the carpet are picked up when they are close.
+        const want = cap - r.held, bayNear = loc(m, r).x < FW / 2 && ss.bay >= Math.min(want, 3);
+        const near = c.ground ? ground20(m, r, r.held > 0 ? 2.4 : bayNear ? 2.0 : 4.2) : null;
         if (near) return collect20(m, r, near, 'ground');
         if (r.held >= 3 && H.canScore(m, r)) return score20(m, r);
-        return collect20(m, r, null, 'station');
+        if (ss.bay >= Math.min(want, c.ground ? 3 : 1)) return collect20(m, r, null, 'station');
+        const any = c.ground ? ground20(m, r, null) : null; // any loose cell on the field
+        if (any) return collect20(m, r, any, 'ground');
+        if (ss.bay > 0) return collect20(m, r, null, 'station');
+        if (r.held > 0 && H.canScore(m, r)) return score20(m, r);
+        // no cells anywhere: wait by the bay for the next ones to come round
+        const w = E.P(m, r.a, G20.bay.x + 0.5, G20.bay.y + (r.slot - 1) * 0.7);
+        if (E.dist(r, w) > 0.7) return H.moveTo(m, r, w, null, 'Waiting for cells');
+        r.label = 'Waiting for cells'; r.st = 'wait'; r.timer = 1; return;
       }
       if (r.held > 0 && H.canScore(m, r)) return score20(m, r);
       r.label = r.jam.intake ? 'Intake jammed' : r.jam.scorer ? 'Shooter jammed' : 'Waiting';
     },
+    // the defender goes for the opponents' best scorer; a turret is no help on a cycle this long, and a robot that runs
+    // the trench is the one to stop (the mouth of a Trench Run is the narrowest place on the field)
+    defTarget(m, r) {
+      const os = m.robots.filter(x => x.a !== r.a && !x.dead && (x.cap.upper || x.cap.lower));
+      const val = q => (q.stats.pts + (q.cap.scoreSpd + q.cap.accuracy + q.cap.intake + q.cap.speed) / 4) * (q.cap.lowProfile ? 1.15 : 1);
+      return os.sort((p, q) => val(q) - val(p))[0] || null;
+    },
     // robots hang side by side along the alliance's Generator Switch (or park under it)
-    endSpot(m, r, lvl) { const k = (r.slot - 1) * 0.9; return E.P(m, r.a, G20.sw.x + k * G20.sw.dx + (lvl ? 0 : 0.21), G20.sw.y + k * G20.sw.dy + (lvl ? 0 : 0.5)); },
+    endSpot(m, r, lvl) { const k = (r.slot - 1) * 0.9; return E.P(m, r.a, G20.sw.x + k * G20.sw.dx + (lvl ? 0 : 0.19), G20.sw.y + k * G20.sw.dy + (lvl ? 0 : 0.46)); },
     finishEnd(m) {
       ['red', 'blue'].forEach(a => {
-        const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && !r.dead), hang = bots.filter(r => r.end.lvl > 0);
+        const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && !r.dead);
+        // A buddy climber takes a partner that parked beneath the switch up with it: a robot may be carried by a partner
+        // inside the Rendezvous Point, and one hanging from a hanging robot hangs too.
+        const lifter = bots.find(r => r.end.lvl > 0 && r.cap.buddy), rider = lifter && bots.filter(r => !(r.end.lvl > 0) && r.end.park)[0];
+        if (rider && m.rng.chance(U.clamp(0.4 + 0.5 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end = { lvl: 1, lifted: true }; ss.buddy = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' off the floor', 'end'); }
+        const hang = bots.filter(r => r.end.lvl > 0);
         let pts = 0;
         hang.forEach(r => { pts += 25; r.stats.pts += 25; });
         bots.filter(r => !(r.end.lvl > 0) && r.end.park).forEach(r => { pts += 5; r.stats.pts += 5; });
         // the switch is level if the hanging robots balance it: easy alone at the centre, harder with company, and a
-        // sliding carriage fixes most of it
+        // sliding carriage fixes most of it. Opponents who touched a hanging robot hand over the level bonus too.
         if (hang.length) {
           const lev = hang.filter(r => r.cap.leveler).length, skill = U.avg(hang.map(r => (r.cap.endgame || 40) / 100));
           const p = U.clamp([0, 0.4, 0.2, 0.14][hang.length] + 0.3 * skill + 0.3 * Math.min(1, lev / Math.max(1, hang.length - 0.5)), 0.05, 0.97);
-          if (m.rng.chance(p)) { ss.level = true; pts += 15; H.log(m, a, 'The Generator Switch is LEVEL (+15)', 'end'); }
+          if (hang.some(r => r.end.credited) || m.rng.chance(p)) { ss.level = true; pts += 15; H.log(m, a, 'The Generator Switch is LEVEL (+15)', 'end'); }
         }
         ss.endPts = pts; m.score[a].end += pts;
       });
@@ -4109,27 +4288,36 @@ window.G = window.G || {};
     },
     hud(m, a) {
       const ss = m.ss[a];
-      return [ss.stage >= 4 ? 'ENERGIZED' : 'STAGE ' + ss.stage + ' · ' + Math.min(ss.sc, CAP20[ss.stage - 1]) + '/' + CAP20[ss.stage - 1]].concat(ss.need ? [ss.need === 'rot' ? 'ROTATION CONTROL' : 'POSITION CONTROL'] : []);
+      return [ss.stage >= 4 ? 'ENERGIZED' : 'STAGE ' + ss.stage + ' · ' + Math.min(ss.sc, CAP20[ss.stage - 1]) + '/' + CAP20[ss.stage - 1]].concat(ss.need ? [ss.need === 'rot' ? 'ROTATION CONTROL' : 'POSITION CONTROL'] : []).concat(['BAY ' + ss.bay]);
     }
   };
-  Rules[2020].defense = { eff: 1.3, foul: 1.3, range: 1.8, zone: 0.45, pin: 5, reset: 3 };
+  // contact in a protected zone is a tech foul; a robot touched in its Rendezvous Point in the endgame is credited with
+  // the hang (and the level switch)
+  // (a turret does not help a robot drive the length of the field past a defender: turretK)
+  Rules[2020].defense = { eff: 2.0, foul: 1.3, range: 1.8, zone: 0.45, pin: 5, reset: 3, turretK: 0.85, act: 1.0, major: { 'Target Zone': true, 'Loading Zone': true, 'Trench Run': true }, credit: { 'Rendezvous Point': 1 } };
   Rules[2020].faults = { brown: 1.3, tip: 0.8, tipAll: 0.1, comms: 1.0 };
-  S[2020].meta = { defense: false, note: 'Scoring wins in INFINITE RECHARGE: the Trench Run, the Target Zone and the Loading Zone are all protected, so a defender only gets a few seconds at mid-field. Top alliances run three shooters, and one of them carries a Control Panel spinner.',
+  S[2020].meta = { defense: true, note: 'Power Cells are the scarce thing in INFINITE RECHARGE: 48 are in play, and every one you score comes back out through the OTHER alliance\'s Loading Bay. A third shooter soon has nothing to shoot, so top alliances run two shooters and a defender who keeps the opponents off their cycle. The Target Zone, the Loading Zone and each alliance\'s own Trench Run are protected: a trench-height robot can cross the field without being touched, while a tall one has to bump through the Shield Generator.',
     faults: 'Common failures: brownouts from flywheels and indexers running together, and cells jamming in the indexer.' };
   S[2020].tiebreak = 'Shield Generator';
 
   // =====================================================================
   // 2019 DESTINATION: DEEP SPACE
-  // Field (mirrored): each alliance has the HAB platform and two Loading Stations on its own wall, a Cargo Ship in its
-  // half and a Rocket on each side rail. A bay takes a hatch panel first, then cargo.
+  // Field (mirrored): each alliance has the HAB platform, two cargo depots and two Loading Stations on its own wall,
+  // a Cargo Ship in its half (the two ships stand stern to stern, 9 in. off the centre line) and a Rocket on each side
+  // rail, 8 ft from the centre line. A bay takes a hatch panel first, then cargo. The two bays in the ship's nose start
+  // with cargo inside: it stays if a hatch goes on during the sandstorm, and rolls out when the floors tilt if not.
   // =====================================================================
-  const G19 = { habX: 2.44, stations: [[0.75, 0.7], [0.75, FH - 0.7]], depots: [[1.35, 1.85], [1.35, FH - 1.85]] };
+  const G19 = { habX: 2.44, stations: [[0.75, 0.7], [0.75, FH - 0.7]],
+    // depots: 1.11 m deep boxes against the alliance wall on either side of the HAB (centre lines), and where a robot stands to reach in
+    depotY: [FH / 2 - 2.2, FH / 2 + 2.2], depots: [[1.6, FH / 2 - 2.2], [1.6, FH / 2 + 2.2]],
+    nose: FW / 2 - 2.66, stern: FW / 2 - 0.23, shipX: [FW / 2 - 1.59, FW / 2 - 1.04, FW / 2 - 0.49], rocketX: FW / 2 - 2.44 };
+  Rules.G19 = G19;
   const PL19 = { hatch: [1.3, 1.8, 2.3], cargo: [1.1, 1.6, 2.1] };
   function bays19() {
     const b = [];
-    [FH / 2 - 0.3, FH / 2 + 0.3].forEach(y => b.push({ k: 'ship', lvl: 1, x: 5.08, y, hatch: 0, cargo: 0, front: true }));
-    [FH / 2 - 1.28, FH / 2 + 1.28].forEach(y => [6.45, 7.0, 7.55].forEach(x => b.push({ k: 'ship', lvl: 1, x, y, hatch: 2, cargo: 0 }))); // a blank panel is already on: cargo can go straight in
-    [0, 1].forEach(rk => { const y = rk ? FH - 1.05 : 1.05; [1, 2, 3].forEach(lvl => [5.3, 6.35].forEach(x => b.push({ k: 'rocket', rk, lvl, x, y, hatch: 0, cargo: 0 }))); });
+    [FH / 2 - 0.3, FH / 2 + 0.3].forEach(y => b.push({ k: 'ship', lvl: 1, x: G19.nose - 0.53, y, hatch: 0, cargo: 0, front: true, pre: true })); // staged with cargo inside
+    [FH / 2 - 1.28, FH / 2 + 1.28].forEach(y => G19.shipX.forEach(x => b.push({ k: 'ship', lvl: 1, x, y, hatch: 2, cargo: 0 }))); // a blank panel is already on: cargo can go straight in
+    [0, 1].forEach(rk => { const y = rk ? FH - 1.05 : 1.05; [1, 2, 3].forEach(lvl => [G19.rocketX - 0.53, G19.rocketX + 0.53].forEach(x => b.push({ k: 'rocket', rk, lvl, x, y, hatch: 0, cargo: 0 }))); });
     return b;
   }
   const rocketDone19 = (ss, rk) => ss.bays.filter(b => b.k === 'rocket' && b.rk === rk).every(b => b.hatch && b.cargo);
@@ -4143,7 +4331,7 @@ window.G = window.G || {};
       if (b.lvl > reach) continue;
       if (b.claim && b.claim !== r.team && b.claimT > m.t) continue;
       if (type === 'hatch' ? b.hatch : (!b.hatch || b.cargo)) continue;
-      let val = type === 'hatch' ? 3.1 : 3; // a hatch is worth 2 and opens a bay for 3 more
+      let val = type === 'hatch' ? (b.pre && m.phase === 'auto' ? 5.6 : 3.1) : 3; // a hatch is worth 2 and opens a bay for 3 more (in the sandstorm it also keeps the cargo staged in the nose)
       if (b.k === 'rocket') val += ss.goal === b.rk || r.plan.target === 'rocket' ? 2.2 + (reach >= 3 ? 0.5 * (b.lvl - 1) : 0) : -0.4;
       else if (r.plan.target === 'ship') val += 1.5;
       const q = E.P(m, r.a, b.x, b.y), t = E.dist(r, q) / 2.6 + PL19[type][b.lvl - 1] + 2.5;
@@ -4153,7 +4341,8 @@ window.G = window.G || {};
     return best ? { b: best, ev: bv } : null;
   }
   function place19(m, r, b) {
-    const type = r.heldType === 'hatch' ? 'hatch' : 'cargo', spot = E.P(m, r.a, b.x, b.y);
+    // hatches go on the angled sides of a rocket, cargo in through the port on its front face
+    const type = r.heldType === 'hatch' ? 'hatch' : 'cargo', spot = b.k === 'rocket' && type === 'cargo' ? E.P(m, r.a, G19.rocketX + (r.slot - 1) * 0.2, b.rk ? FH - 1.3 : 1.3) : E.P(m, r.a, b.x, b.y);
     b.claim = r.team; b.claimT = m.t + 9;
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
@@ -4162,10 +4351,13 @@ window.G = window.G || {};
         r.stats.shots++;
         if (m.rng.chance(H.hit(m, r, [1.1, 1.0, 0.93][b.lvl - 1] * (type === 'hatch' ? 0.95 : 1)))) {
           const ss = m.ss[r.a];
+          // a hatch put on a nose bay during the sandstorm keeps the cargo that was staged inside it
+          const keep = type === 'hatch' && b.pre && m.phase === 'auto';
           if (type === 'hatch') b.hatch = 1; else b.cargo = 1;
+          if (keep) { b.cargo = 1; b.pre = false; }
           r.stats.hits++; r.stats.cycles++;
           if (m.phase === 'auto') r.mem.got = (r.mem.got || 0) + 1;
-          H.addPts(m, r, type === 'hatch' ? 2 : 3, type === 'hatch' ? '+2' : '+3', spot);
+          H.addPts(m, r, type === 'hatch' ? (keep ? 5 : 2) : 3, type === 'hatch' ? (keep ? '+5' : '+2') : '+3', spot);
           r.held = 0; r.heldType = null;
           if (b.k === 'rocket' && !ss.rocket && rocketDone19(ss, b.rk)) { ss.rocket = true; H.log(m, r.a, 'ROCKET COMPLETE', 'end'); }
         } else if (m.rng.chance(r.cap.hatchFloor && type === 'hatch' ? 0.15 : 0.4)) { r.held = 0; r.heldType = null; r.label = 'Dropped it'; }
@@ -4208,7 +4400,7 @@ window.G = window.G || {};
       setHp(m);
       m.obs = [];
       ['red', 'blue'].forEach(a => {
-        const c = E.P(m, a, 6.95, FH / 2); m.obs.push({ x: c.x, y: c.y, r: 1.2, h: 0.7 }); // the cargo ship
+        [G19.nose + 0.7, G19.stern - 0.65].forEach(x => { const c = E.P(m, a, x, FH / 2); m.obs.push({ x: c.x, y: c.y, r: 1.15, h: 0.7 }); }); // the cargo ship
         const bots = m.robots.filter(r => r.a === a), hi = bots.filter(r => (r.cap.reach || 1) >= 3);
         // going for a rocket needs a three-level robot and an alliance quick enough to fill twelve places
         const goal = hi.length && (bots.some(r => r.isPlayer && (r.plan.rpHunt || r.plan.target === 'rocket')) || U.avg(bots.map(r => r.cap.scoreSpd || 0)) >= 58) ? 0 : null;
@@ -4226,9 +4418,18 @@ window.G = window.G || {};
     // leaving the HAB in the sandstorm: 3 points, 6 from Level 2
     onTeleop(m) {
       m.robots.forEach(r => { if (r.left) { const p = r.mem.hab2 ? 6 : 3; m.score[r.a].auto += p; r.stats.pts += p; } });
+      // the bay floors tilt: cargo staged in a nose bay that got no hatch rolls out
+      ['red', 'blue'].forEach(a => m.ss[a].bays.forEach(b => { b.pre = false; }));
     },
     guard(m, a) { return E.P(m, a, 4.6, FH / 2 - 1.4); },
-    protect(m, r) { const q = loc(m, r); return m.total - m.t <= 30 && q.x < G19.habX + RR && Math.abs(q.y - FH / 2) < 2.1 ? 'HAB Zone' : ''; },
+    // The HAB Zone runs from rail to rail behind the HAB Line, Loading Stations and depots included: a robot wholly inside
+    // its own may not be touched at any time. In the last 20 seconds of a qualification match nobody touches a rocket.
+    protect(m, r) {
+      const q = loc(m, r);
+      if (q.x < G19.habX - RR + 0.08) return 'HAB Zone';
+      if (!m.playoff && m.total - m.t <= 20 && Math.abs(q.x - G19.rocketX) < 1.5 && (q.y < 1.9 || q.y > FH - 1.9)) return 'Rocket';
+      return '';
+    },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0], left = m.T.auto - m.t;
       if (r.mem.got == null) r.mem.got = 0;
@@ -4262,7 +4463,8 @@ window.G = window.G || {};
     },
     finishEnd(m) {
       ['red', 'blue'].forEach(a => {
-        const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && r.end.lvl > 0 && !r.dead);
+        // only a robot that left the HAB Zone at some point in the match earns a climb bonus
+        const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && r.end.lvl > 0 && !r.dead && (r.left || r.end.credited));
         // a Level 3 lift with partner ramps carries one partner up with it
         const lifter = bots.find(r => r.end.lvl >= 3 && r.cap.buddy), rider = lifter && bots.filter(r => r !== lifter && r.end.lvl < 3).sort((p, q) => p.end.lvl - q.end.lvl)[0];
         if (rider && m.rng.chance(U.clamp(0.45 + 0.45 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lvl = 3; rider.end.lifted = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' to HAB Level 3', 'end'); }
@@ -4279,20 +4481,26 @@ window.G = window.G || {};
     hud(m, a) { const ss = m.ss[a]; return ss.rocket ? ['ROCKET COMPLETE'] : ss.goal != null ? ['ROCKET ' + rocketFill19(ss, ss.goal) + '/12'] : []; },
     baysOf: (m, a) => m.ss[a].bays
   };
-  Rules[2019].defense = { eff: 2.3, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3 };
+  // a robot touched inside its HAB Zone in the last 30 seconds is credited with HAB Level 3
+  Rules[2019].defense = { eff: 2.3, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3, credit: { 'HAB Zone': 3 } };
   Rules[2019].faults = { brown: 0.9, tip: 1.7, tipAll: 0.3, comms: 1.0 };
-  S[2019].meta = { defense: true, note: 'Defense wins in DEEP SPACE: nothing but the HAB is protected, so one robot parked in front of the other alliance\'s rocket or Loading Station can halve its cycles. Strong drivetrains matter more than in any other game.',
+  S[2019].meta = { defense: true, note: 'Defense wins in DEEP SPACE: only the HAB Zone at each end is safe (it runs from rail to rail, Loading Stations included), so one robot parked in front of the other alliance\'s rocket, or in the lane out of its HAB Zone, can halve its cycles. Strong drivetrains matter more than in any other game.',
     faults: 'Common failures: tip-overs from tall elevators under defense, and falls from HAB Level 2 and 3.' };
   S[2019].tiebreak = 'HAB climb';
 
   // =====================================================================
   // 2018 FIRST POWER UP
-  // Field (mirrored): each alliance has a Switch on its side; the Scale stands at mid-field. Each is a balance with a
-  // plate per alliance, and which plate is whose is drawn at random for every match. More cubes on your plate than
-  // on the opponents' = ownership = a point every second (two in auto).
+  // Field (drawn mirrored; the real one is rotated, which only shows in the Exchange and the plate colours): each
+  // alliance has a Switch on its side; the Scale stands at mid-field. Each is a balance with a plate per alliance, and
+  // which plate is whose is drawn at random for every match. More cubes on your plate than on the opponents' =
+  // ownership = a point when you take it and a point every second after (two in auto).
+  // Cubes are limited (60 in play): ten in each alliance's pile, six behind each Switch, seven in each Portal.
   // =====================================================================
   const H18 = FH / 2;
-  const G18 = { autoLine: 3.05, swX: 4.27, pY: [2.75, FH - 2.75], scX: FW / 2, scY: [1.85, FH - 1.85], exch: { x: 0.95, y: H18 - 0.9 }, pile: { x: 3.25, y: H18 }, lineX: 5.4, rung: { x: FW / 2 - 0.85, y: H18 } };
+  const G18 = { autoLine: 3.05, swX: 4.27, pY: [H18 - 1.37, H18 + 1.37], scX: FW / 2, scY: [H18 - 1.83, H18 + 1.83], nullX: 0.915, nullY: 2.42,
+    // the Exchange is left of centre as each alliance looks down the field: above the centre line for blue, below it for red
+    exch: { x: 0.95, dy: 0.85, y: a => H18 + (a === 'red' ? 0.85 : -0.85) }, pile: { x: 3.25, y: H18 }, lineX: 5.4, rung: { x: FW / 2 - 0.85, y: H18 }, portalY: [0.8, FH - 0.8] };
+  Rules.G18 = G18;
   const o18 = a => (a === 'red' ? 'blue' : 'red');
   // cubes on alliance a's plate and on the other plate, for: its own switch, the scale, the opponents' switch
   const swOwn18 = (m, a) => m.sw[a][m.side[a].sw] - m.sw[a][1 - m.side[a].sw];
@@ -4307,7 +4515,7 @@ window.G = window.G || {};
     if (kind === 'scale') return E.P(m, r.a, G18.scX - 1.15, G18.scY[s.sc]);
     if (kind === 'switch') return E.P(m, r.a, G18.swX + (q.x > G18.swX ? 1.0 : -1.0), G18.pY[s.sw]);
     if (kind === 'deny') return E.P(m, r.a, FW - G18.swX - 1.0, G18.pY[1 - m.side[o18(r.a)].sw]);
-    return E.P(m, r.a, G18.exch.x, G18.exch.y); // the Exchange
+    return E.P(m, r.a, G18.exch.x, G18.exch.y(r.a)); // the Exchange
   }
   // what to do with the next cube: the plate that most needs it, or the Vault
   function want18(m, r) {
@@ -4344,21 +4552,26 @@ window.G = window.G || {};
     }, kind === 'scale' ? 'To the Scale' : kind === 'vault' ? 'To the Exchange' : kind === 'switch' ? 'To our Switch' : 'To their Switch');
   }
   // nearest cube on the way to where it will go: the pile by the Switch, the line behind it, or a Portal at the far end
+  // (seven cubes each, less the preloads). False when the alliance has no cube left anywhere.
+  const cubes18 = ss => ss.pile + ss.line + ss.portal[0] + ss.portal[1];
   function collect18(m, r, kind) {
     const ss = m.ss[r.a], tgt = spot18(m, r, kind), src = [];
     if (ss.pile > 0) src.push({ k: 'pile', p: E.P(m, r.a, G18.pile.x - 0.35, G18.pile.y + (r.slot - 1) * 0.5) });
     if (ss.line > 0) src.push({ k: 'line', p: E.P(m, r.a, G18.lineX + 0.45, H18 + ((6 - ss.line) - 2.5) * 0.66) });
-    [0.8, FH - 0.8].forEach(y => src.push({ k: 'portal', p: E.P(m, r.a, FW - 1.0, y) }));
+    G18.portalY.forEach((y, i) => { if (ss.portal[i] > 0) src.push({ k: 'portal', i, p: E.P(m, r.a, FW - 1.0, y) }); });
+    if (!src.length) return false;
     const best = src.sort((p, q) => (E.dist(r, p.p) + E.dist(p.p, tgt) + (p.k === 'portal' ? 1.5 : 0)) - (E.dist(r, q.p) + E.dist(q.p, tgt) + (q.k === 'portal' ? 1.5 : 0)))[0];
+    const left = () => (best.k === 'portal' ? ss.portal[best.i] : ss[best.k]);
     r.mem.want = kind;
     H.moveTo(m, r, best.p, () => {
-      if (!H.canCollect(m, r)) return;
-      if (best.k !== 'portal' && ss[best.k] <= 0) return;
+      if (!H.canCollect(m, r) || left() <= 0) return;
       H.act(r, (best.k === 'portal' ? H.collectTime(m, r, 'station', 1.5) : H.collectTime(m, r, 'ground', 1.25)) / (r.cap.wide || 1), () => {
-        if (best.k !== 'portal') { if (ss[best.k] <= 0) return; ss[best.k]--; }
+        if (left() <= 0) return;
+        if (best.k === 'portal') ss.portal[best.i]--; else ss[best.k]--;
         r.held = 1; r.heldType = 'pcube';
       }, best.k === 'portal' ? 'Loading at the Portal' : 'Grabbing a cube');
     }, best.k === 'portal' ? 'To the Portal' : 'To a cube');
+    return true;
   }
   const PU18 = { lev: ['lev', 'boost', 'force'], boost: ['boost', 'lev', 'force'], force: ['force', 'boost', 'lev'] };
   // the drive coaches play the power-ups (one at a time). A sharper coach notices the moment sooner.
@@ -4394,26 +4607,33 @@ window.G = window.G || {};
     init(m) {
       setHp(m);
       // the plate assignment (the "game data"): which plate of each balance belongs to whom
-      const scTop = m.rng.chance(0.5) ? 0 : 1;
-      m.side = { blue: { sw: m.rng.chance(0.5) ? 0 : 1, sc: scTop }, red: { sw: m.rng.chance(0.5) ? 0 : 1, sc: 1 - scTop } };
+      // The field draws one of four states: an alliance's plate is on the same side (as it looks down the field) on both
+      // Switches, so the two Switches are turned copies of each other, like the Scale.
+      const scTop = m.rng.chance(0.5) ? 0 : 1, swTop = m.rng.chance(0.5) ? 0 : 1;
+      m.side = { blue: { sw: swTop, sc: scTop }, red: { sw: 1 - swTop, sc: 1 - scTop } };
       m.sw = { red: [0, 0], blue: [0, 0] }; m.scale = [0, 0]; m.pu = null; m.sec = 0;
       m.obs = [{ x: FW / 2, y: H18, r: 0.75, h: 0.5 }];
       ['red', 'blue'].forEach(a => {
-        const c = E.P(m, a, G18.swX, H18); m.obs.push({ x: c.x, y: c.y, r: 0.95, h: 0.6 });
+        // the Switch and its fence: 3.9 m across the field, with a lane of 2.1 m to each guardrail
+        [H18, G18.pY[0], G18.pY[1]].forEach(y => { const c = E.P(m, a, G18.swX, y); m.obs.push({ x: c.x, y: c.y, r: 0.95, h: y === H18 ? 0.6 : 0.52 }); });
         const bots = m.robots.filter(r => r.a === a);
         const scalers = bots.filter(r => (r.cap.reach || 1) >= 2).sort((p, q) => (q.cap.scoreSpd || 0) - (p.cap.scoreSpd || 0)).slice(0, 2).map(r => r.team);
         // in auto one robot takes the Switch (Auto Quest needs it): the one with the simplest routine
         const autoSw = bots.filter(r => (r.cap.autoTier || 0) >= 1).sort((p, q) => (p.cap.autoTier || 0) - (q.cap.autoTier || 0) || (p.cap.reach || 1) - (q.cap.reach || 1) || p.slot - q.slot)[0];
-        m.ss[a] = { pile: 10, line: 6, vault: 0, cols: { lev: 0, boost: 0, force: 0 }, used: { lev: false, boost: false, force: false }, quest: false, runs: 0, climbs: 0, swSec: 0, scSec: 0, scalers, autoSw: autoSw ? autoSw.team : null };
+        // seven cubes in each Portal, less the three preloads (at least five must stay in each)
+        const pre = Math.min(3, bots.length);
+        m.ss[a] = { pile: 10, line: 6, portal: [7 - Math.ceil(pre / 2), 7 - Math.floor(pre / 2)], vault: 0, cols: { lev: 0, boost: 0, force: 0 }, used: { lev: false, boost: false, force: false }, quest: false, runs: 0, climbs: 0, swSec: 0, scSec: 0, swOwn: false, scOwn: false, scalers, autoSw: autoSw ? autoSw.team : null };
       });
       m.robots.forEach(r => { r.held = 1; r.heldType = 'pcube'; });
     },
-    start(m, r) { return E.P(m, r.a, 0.6, [H18 + 0.4, 1.4, FH - 1.4][r.slot]); },
+    start(m, r) { return E.P(m, r.a, 0.6, [H18 + (r.a === 'red' ? -0.45 : 0.45), 1.4, FH - 1.4][r.slot]); },
     guard(m, a) { return E.P(m, a, G18.scX - 1.6, H18); },
     protect(m, r) {
       const q = loc(m, r), s = m.side[r.a];
-      if (Math.abs(q.x - G18.scX) < 1.9 && Math.abs(q.y - G18.scY[s.sc]) < 1.1 && q.x < G18.scX + 0.2) return 'Null Territory';
-      if (q.x < 1.5 && Math.abs(q.y - G18.exch.y) < 0.9) return 'Exchange Zone';
+      // Null Territory: 6 ft along the field by 7 ft 11 in from the guardrail, at the end of the Scale where the alliance's
+      // plate is (bumpers breaking its plane are enough, as long as the robot is not in the opponents' Platform Zone)
+      if (Math.abs(q.x - G18.scX) < G18.nullX + RR && (s.sc ? q.y > FH - G18.nullY - RR : q.y < G18.nullY + RR) && q.x < G18.scX + 0.2) return 'Null Territory';
+      if (q.x < 0.95 + RR && Math.abs(q.y - G18.exch.y(r.a)) < 0.61 + RR) return 'Exchange Zone';
       if (m.total - m.t <= 30 && Math.abs(q.x - G18.scX) < 1.7 && Math.abs(q.y - H18) < 1.5 && q.x < G18.scX) return 'Platform Zone';
       return '';
     },
@@ -4431,8 +4651,11 @@ window.G = window.G || {};
         // ownership points are credited to the robots that put the cubes there (whole points, remainders carried over)
         const give = (pts, what) => { m.score[a][key] += pts; const tot = bots.reduce((n, r) => n + (r.mem[what] || 0), 0);
           bots.forEach(r => { r.mem.ownF = (r.mem.ownF || 0) + (tot ? pts * (r.mem[what] || 0) / tot : pts / bots.length); const w = Math.floor(r.mem.ownF); if (w > 0) { r.stats.pts += w; r.mem.ownF -= w; } }); };
-        if (ownsSw18(m, a)) { ss.swSec++; give((auto ? 2 : 1) * (boosted18(m, a, 'sw') ? 2 : 1), 'switch'); }
-        if (ownsSc18(m, a)) { ss.scSec++; give((auto ? 2 : 1) * (boosted18(m, a, 'sc') ? 2 : 1), 'scale'); }
+        // a point (two in auto) the moment ownership is established, then one for every second it lasts
+        const sw = ownsSw18(m, a), sc = ownsSc18(m, a);
+        if (sw) { ss.swSec++; give((auto ? 2 : 1) * (boosted18(m, a, 'sw') ? 2 : 1) * (ss.swOwn ? 1 : 2), 'switch'); }
+        if (sc) { ss.scSec++; give((auto ? 2 : 1) * (boosted18(m, a, 'sc') ? 2 : 1) * (ss.scOwn ? 1 : 2), 'scale'); }
+        ss.swOwn = sw; ss.scOwn = sc;
         // the Vault's columns fill in the coach's order: Levitate, then Boost, then Force (unless the alliance asked otherwise)
         let v = ss.vault; (PU18[(m.puPref && m.puPref[a]) || 'lev'] || PU18.lev).forEach(k => { ss.cols[k] = Math.min(3, v); v = Math.max(0, v - 3); });
       });
@@ -4446,7 +4669,7 @@ window.G = window.G || {};
         // a scale auto goes for the Scale, everything else for the alliance's own Switch
         const kind = tier >= 2 && reach >= 2 && m.ss[r.a].autoSw !== r.team && (r.mem.got === 0 || scLead18(m, r.a) <= 1) ? 'scale' : 'switch';
         if (r.held) return place18(m, r, kind);
-        if (left > 5 && H.canCollect(m, r) && m.ss[r.a].line > 0) return collect18(m, r, kind);
+        if (left > 5 && H.canCollect(m, r) && m.ss[r.a].line > 0 && collect18(m, r, kind)) return;
       }
       if (!r.left) H.moveTo(m, r, E.P(m, r.a, G18.autoLine + 0.9, r.slot === 0 ? H18 + 1.9 : loc(m, r).y), null, 'Auto-run');
       else r.label = 'Auto done';
@@ -4457,7 +4680,8 @@ window.G = window.G || {};
         return place18(m, r, want18(m, r));
       }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
-      return collect18(m, r, want18(m, r));
+      if (collect18(m, r, want18(m, r))) return;
+      r.label = 'No cubes left'; r.st = 'wait'; r.timer = 2;
     },
     endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, G18.rung.x, H18 + (r.slot - 1) * 0.5) : E.P(m, r.a, G18.rung.x - 0.6, H18 + (r.slot - 1) * 1.0); },
     finishEnd(m) {
@@ -4484,12 +4708,14 @@ window.G = window.G || {};
     hud(m, a) {
       const ss = m.ss[a], out = [];
       if (ownsSc18(m, a)) out.push('SCALE'); if (ownsSw18(m, a)) out.push('SWITCH');
-      out.push('VAULT ' + ss.vault + '/9');
+      out.push('VAULT ' + ss.vault + '/9'); out.push('CUBES ' + cubes18(ss));
       if (m.pu && m.pu.until > m.t && m.pu.a === a) out.push(m.pu.kind.toUpperCase() + '!');
       return out;
     }
   };
-  Rules[2018].defense = { eff: 1.4, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3 };
+  // contact with a robot in its Null Territory is a tech foul; a robot touched in its Platform Zone in the endgame is
+  // credited with the climb
+  Rules[2018].defense = { eff: 1.4, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3, major: { 'Null Territory': true }, credit: { 'Platform Zone': 1 } };
   Rules[2018].faults = { brown: 1.0, tip: 1.8, tipAll: 0.3, comms: 1.0 };
   S[2018].meta = { defense: false, note: 'Ownership wins in FIRST POWER UP: the alliance that holds the Scale for most of the match almost always wins, so the best elevators go there and the third robot feeds the Vault and keeps the Switch. A robot at its own end of the Scale cannot be touched, which leaves little room for defense.',
     faults: 'Common failures: tip-overs with the elevator up at the Scale, and cubes jammed sideways in the intake.' };
@@ -4497,15 +4723,19 @@ window.G = window.G || {};
 
   // =====================================================================
   // 2017 FIRST STEAMWORKS
-  // Field (mirrored): each alliance has its Airship (three gear pegs toward its wall, three ropes on the far side),
-  // its Boiler in a corner of its own wall, two fuel Hoppers on the side rails, and its Loading Station for gears in
-  // the far corner. Gears turn rotors; fuel makes pressure; the human players are the pilots who haul the gears up.
+  // Field (mirrored): each alliance has its Airship at the edge of its Launchpad (gear pegs on the three faces toward
+  // its wall; ropes on the wall face and on the two faces toward the neutral zone), its Boiler in a corner of its own
+  // wall, fuel Hoppers on the side rails, and its Loading Station for gears across the far corner. Gears turn rotors;
+  // fuel makes pressure; the human players are the pilots who haul the gears up.
   // =====================================================================
   const H17 = FH / 2;
-  const G17 = { base: 2.36, ship: { x: 3.95, y: H17, r: 1.15 }, pegs: [[2.9, H17], [3.42, H17 - 0.98], [3.42, H17 + 0.98]], ropes: [[5.0, H17], [4.48, H17 - 0.98], [4.48, H17 + 0.98]],
-    boiler: { x: 0.35, y: FH - 0.35 }, key: { x: 1.7, y: FH - 1.6 }, station: { x: FW - 0.95, y: 1.0 }, hoppers: [[3.2, FH - 0.45], [5.2, 0.45]] };
+  const G17 = { base: 2.37, lp: 4.7, ship: { x: 3.8, y: H17, r: 1.03 }, pegs: [[2.9, H17], [3.35, H17 - 0.78], [3.35, H17 + 0.78]], ropes: [[2.22, H17], [4.6, H17 - 1.36], [4.6, H17 + 1.36]],
+    boiler: { x: 0.35, y: FH - 0.35 }, key: { x: 1.7, y: FH - 1.6 }, keyLeg: 2.78, station: { x: FW - 1.2, y: 1.0 }, hoppers: [[3.05, FH - 0.45], [5.25, 0.45]], midHopper: [FW / 2, FH - 0.45],
+    // the angled Loading Station across the far corner (rail point, wall point) and the tape of the Retrieval Zone in front of it
+    stationWall: [[FW - 1.85, 0], [FW, 1.0]], retrTape: [[FW - 4.1, 0], [FW, 2.15]] };
   Rules.G17 = G17;
   const ROTOR17 = [1, 3, 7, 13];
+  const inRetr17 = q => q.y < 2.15 * (q.x - (FW - 4.1)) / 4.1 + 0.15;
   // rotors that the gears on board can turn (the spare gear on the airship may only be used once auto is over)
   function rotors17(m, a) {
     const ss = m.ss[a], have = ss.gears + (m.phase === 'auto' ? 0 : 1), n = ROTOR17.filter(k => k <= have).length;
@@ -4522,12 +4752,29 @@ window.G = window.G || {};
     const gain = Math.floor(ss.kpa + 1e-9) - before;
     if (gain > 0) H.addPts(m, r, gain, '+' + gain + ' kPa', E.P(m, r.a, G17.boiler.x + 0.4, G17.boiler.y - 0.4));
   }
+  // The boiler counts five balls a second in each goal. A ball is worth what the period pays when it is COUNTED, so fuel
+  // shot in the last seconds of auto pays teleop rates, and whatever is still inside at the final buzzer is lost.
+  function boil17(m) {
+    ['red', 'blue'].forEach(a => {
+      const ss = m.ss[a];
+      ['hi', 'lo'].forEach(g => {
+        const q = ss.q[g];
+        if (!q.length) { ss.qc[g] = 0; return; }
+        ss.qc[g] += 5 * E.DT;
+        while (ss.qc[g] >= 1 && q.length) {
+          ss.qc[g] -= 1; const e = q[0]; e.n--; ss.fuel++;
+          kpa17(m, e.r, g === 'hi' ? (m.phase === 'auto' ? 1 : 1 / 3) : (m.phase === 'auto' ? 1 / 3 : 1 / 9));
+          if (e.n <= 0) q.shift();
+        }
+      });
+    });
+  }
   // gears: the Loading Station at the far end, then a peg. The pilot's hands decide how long the peg is busy.
   function gearFetch17(m, r) {
-    const st = E.P(m, r.a, G17.station.x, G17.station.y + r.slot * 0.55);
+    const st = E.P(m, r.a, G17.station.x + (r.slot - 1) * 0.45, G17.station.y + (r.slot - 1) * 0.24);
     H.moveTo(m, r, st, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, r.cap.gearFloor ? 'ground' : 'station', r.cap.gearFloor ? 1.1 : 1.9), () => { r.held = 1; r.heldType = 'gear'; }, 'Loading a gear');
+      H.act(r, H.collectTime(m, r, r.cap.gearFloor ? 'ground' : 'station', r.cap.gearFloor ? 1.1 : 1.9, true), () => { r.held = 1; r.heldType = 'gear'; }, 'Loading a gear');
     }, 'To the Loading Station');
   }
   function gearPlace17(m, r) {
@@ -4553,18 +4800,63 @@ window.G = window.G || {};
       }, 'On the peg');
     }, 'To the airship');
   }
-  // fuel: a field Hopper (or the preload), then the Key in front of the Boiler
+  // Fuel. There are five hoppers along the rails, a hundred balls each, and each is tipped on its own, once: by a robot
+  // that wants the fuel (it catches what lands on it), by an opposing gear robot that wants to keep that fuel from being
+  // caught, or by somebody who just drove into the panel. Either way the balls pour out and roll all over the carpet. After that there is no store to drive back to: fuel has to be swept up off the floor, a few balls
+  // a second, fewer as it thins out. An alliance has two hoppers on its own side; the fifth, at mid-field on the boiler
+  // side, belongs to whoever gets there first.
+  const fuelLeft17 = (m, ss) => ss.hop.some(h => h > 0) || m.hopMid > 0 || ss.floor >= 8;
   function fuelLoad17(m, r) {
-    const ss = m.ss[r.a], i = [0, 1].filter(k => ss.hop[k] > 0).sort((p, q) => E.dist(r, E.P(m, r.a, G17.hoppers[p][0], G17.hoppers[p][1])) - E.dist(r, E.P(m, r.a, G17.hoppers[q][0], G17.hoppers[q][1])))[0];
-    if (i == null) return false;
-    const hp = G17.hoppers[i], pt = E.P(m, r.a, hp[0], hp[1] + (hp[1] > H17 ? -0.75 : 0.75));
-    H.moveTo(m, r, pt, () => {
-      H.act(r, 3.2 * (1.35 - 0.5 * (r.cap.fuel || 40) / 100), () => {
-        // a hopper tips fifty balls at a time; what the robot does not catch is lost on the carpet
-        const n = Math.min(ss.hop[i], 50), got = Math.min(r.cap.storage - (r.fuel || 0), Math.round(n * (0.6 + 0.35 * (r.cap.fuel || 40) / 100)));
-        ss.hop[i] -= n; r.fuel = (r.fuel || 0) + Math.max(0, got);
-      }, 'Catching a hopper');
+    const ss = m.ss[r.a], f = r.cap.fuel || 40, room = () => Math.max(0, r.cap.storage - (r.fuel || 0));
+    const src = [0, 1].filter(k => ss.hop[k] > 0).map(k => ({ k, p: G17.hoppers[k] }));
+    if (m.hopMid > 0 && m.phase !== 'auto') src.push({ k: 'mid', p: G17.midHopper });
+    if (!src.length) {
+      if (ss.floor < 8 || m.phase === 'auto') return false;
+      const x = m.rng.range(2.4, FW / 2 - 0.6), y = x < 5.3 ? (m.rng.chance(0.5) ? m.rng.range(0.9, H17 - 1.7) : m.rng.range(H17 + 1.7, FH - 0.9)) : m.rng.range(0.9, FH - 0.9);
+      H.moveTo(m, r, E.P(m, r.a, x, y), () => {
+        if (!H.canCollect(m, r)) return;
+        const secs = 5.5, rate = (0.4 + 1.5 * f / 100) * (r.cap.storage >= 60 ? 1.3 : 1) * U.clamp(ss.floor / 260, 0.1, 1);
+        H.act(r, secs, () => { const got = Math.max(0, Math.min(room(), Math.floor(ss.floor), Math.round(rate * secs))); ss.floor -= got; r.fuel = (r.fuel || 0) + got; }, 'Sweeping up fuel');
+      }, 'To loose fuel');
+      return true;
+    }
+    const pos = s => E.P(m, r.a, s.p[0], s.p[1] + (s.p[1] > H17 ? -0.75 : 0.75));
+    const best = src.sort((p, q) => E.dist(r, pos(p)) - E.dist(r, pos(q)))[0];
+    H.moveTo(m, r, pos(best), () => {
+      H.act(r, 3.2 * (1.35 - 0.5 * f / 100), () => {
+        // the whole hopper comes down at once: the robot keeps what lands in it, the rest rolls away across the carpet
+        const left = best.k === 'mid' ? m.hopMid : ss.hop[best.k];
+        if (left <= 0) return; // somebody tipped it first
+        const got = Math.min(room(), Math.round(left * (0.3 + 0.3 * f / 100)));
+        tip17(m, r.a, best.k, got);
+        r.fuel = (r.fuel || 0) + got;
+      }, 'Tipping a hopper');
     }, 'To a hopper');
+    return true;
+  }
+  // A hopper is tipped once and all of it comes out. Whoever tipped it to catch fuel keeps `got`; the rest rolls onto the
+  // carpet on that side of the field (the middle one spills both ways).
+  function tip17(m, a, k, got) {
+    if (k === 'mid') { const n = m.hopMid; m.hopMid = 0; m.ss.red.floor += (n - got) / 2; m.ss.blue.floor += (n - got) / 2; return n; }
+    const ss = m.ss[a], n = ss.hop[k]; ss.hop[k] = 0; ss.floor += n - got; return n;
+  }
+  // the denial run: tip the other alliance's hoppers that are still full (and the middle one, unless a partner wants it)
+  function deny17(m, r) {
+    const o = E.opp(r.a), so = m.ss[o], ss = m.ss[r.a];
+    if (m.t > m.T.auto + 60) { ss.denier = null; return false; }
+    const ownFuel = m.robots.some(x => x.a === r.a && !x.dead && (x.cap.fuelHigh || x.cap.fuelLow));
+    const tg = [0, 1].filter(k => so.hop[k] > 0).map(k => ({ k, p: E.P(m, o, G17.hoppers[k][0], G17.hoppers[k][1] + (G17.hoppers[k][1] > H17 ? -0.75 : 0.75)) }));
+    if (!ownFuel && m.hopMid > 0) tg.push({ k: 'mid', p: { x: G17.midHopper[0], y: G17.midHopper[1] - 0.75 } });
+    if (!tg.length) { ss.denier = null; return false; }
+    const best = tg.sort((p, q) => E.dist(r, p.p) - E.dist(r, q.p))[0];
+    H.moveTo(m, r, best.p, () => {
+      H.act(r, 1.0, () => {
+        const full = best.k === 'mid' ? m.hopMid > 0 : so.hop[best.k] > 0;
+        if (!full) return;
+        tip17(m, o, best.k, 0);
+        H.log(m, r.a, r.team + ' tipped ' + (best.k === 'mid' ? 'the middle hopper' : 'a hopper on the other side') + ': no easy fuel there now', 'end');
+      }, 'Tipping their hopper');
+    }, 'To their hopper');
     return true;
   }
   function fuelShoot17(m, r) {
@@ -4575,11 +4867,12 @@ window.G = window.G || {};
       const f = r.cap.fuel || 40, rate = hi ? (3 + 10 * f / 100) * (r.cap.storage >= 60 ? 1.35 : 1) : 16;
       const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - (hi ? H.aimTime(m, r) : 0.4)))));
       H.act(r, (hi ? H.aimTime(m, r) : 0.4) + n / rate, () => {
-        const p = hi ? H.hit(m, r, 0.9, 0.04, f) : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
+        // a stream of fuel into a small goal: an average shooter sprays most of it, only a well-developed one is worth carrying
+        const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
         r.fuel -= n; r.stats.shots += n; r.stats.hits += hits; r.stats.cycles++;
         H.shotFx(m, r, by, hits > n / 2);
-        m.ss[r.a].fuel += hits;
-        kpa17(m, r, hits * (hi ? (m.phase === 'auto' ? 1 : 1 / 3) : (m.phase === 'auto' ? 1 / 3 : 1 / 9)));
+        if (hits > 0) m.ss[r.a].q[hi ? 'hi' : 'lo'].push({ r, n: hits }); // into the boiler: counted five a second
+        m.ss[r.a].floor += (n - hits) * 0.7; // most of what misses bounces off the nets back onto the carpet
       }, hi ? 'Shooting fuel' : 'Dumping fuel');
     }, 'To the boiler');
   }
@@ -4599,24 +4892,47 @@ window.G = window.G || {};
     leftCheck: (m, r) => loc(m, r).x > G17.base + 0.3,
     init(m) {
       setHp(m);
-      m.obs = [];
+      m.obs = []; m.hopMid = 100; m.sec17 = 0;
       ['red', 'blue'].forEach(a => {
-        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.15, h: 0.95 });
-        m.ss[a] = { gears: 0, rotors: 0, autoRotors: 0, kpa: 0, fuel: 0, hop: [100, 100], peg: [0, 0, 0] };
+        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.1, h: 0.9 });
+        m.ss[a] = { gears: 0, rotors: 0, autoRotors: 0, kpa: 0, fuel: 0, hop: [100, 100], floor: 0, denier: null, peg: [0, 0, 0], q: { hi: [], lo: [] }, qc: { hi: 0, lo: 0 } };
       });
       m.robots.forEach(r => { if (r.cap.gear) { r.held = 1; r.heldType = 'gear'; } r.fuel = (r.cap.fuelHigh || r.cap.fuelLow) ? Math.min(10, r.cap.storage || 0) : 0; });
     },
     start(m, r) { return E.P(m, r.a, 0.55, [H17, H17 - 1.9, H17 + 1.9][r.slot]); },
     aimAt: (m, r) => (r.fuel > 0 ? E.P(m, r.a, G17.boiler.x, G17.boiler.y) : null),
     guard(m, a) { return E.P(m, a, FW - 4.6, 2.3); },
+    // the Retrieval Zone in front of the Loading Station and the Key in front of the Boiler (always); the ropes in the endgame
     protect(m, r) {
       const q = loc(m, r);
-      if (q.x > FW - 2.3 && q.y < 2.4) return 'Retrieval Zone';
-      if (q.x < 2.5 && q.y > FH - 2.5 && q.x + (FH - q.y) < 3.6) return 'Key';
-      if (m.total - m.t <= 30 && Math.hypot(q.x - G17.ship.x, q.y - G17.ship.y) < 2.0 && q.x > G17.ship.x) return 'Rope';
+      if (inRetr17(q)) return 'Retrieval Zone';
+      if (q.x + (FH - q.y) < G17.keyLeg + 0.3) return 'Key';
+      if (m.total - m.t <= 30 && G17.ropes.some(p => Math.hypot(q.x - p[0], q.y - p[1]) < 1.0)) return 'Rope';
       return '';
     },
-    onTeleop(m) { ['red', 'blue'].forEach(a => rotors17(m, a)); }, // the spare gear comes into play
+    tick(m) {
+      boil17(m);
+      // once a second: a robot driving along the rail can knock a hopper's panel in without meaning to
+      m.sec17 += E.DT;
+      if (m.sec17 < 1) return;
+      m.sec17 -= 1;
+      const near = p => m.robots.some(r => !r.dead && r.st === 'move' && Math.hypot(r.x - p.x, r.y - p.y) < 0.95);
+      ['red', 'blue'].forEach(a => [0, 1].forEach(k => { if (m.ss[a].hop[k] > 0 && near(E.P(m, a, G17.hoppers[k][0], G17.hoppers[k][1])) && m.rng.chance(0.15)) tip17(m, a, k, 0); }));
+      if (m.hopMid > 0 && near({ x: G17.midHopper[0], y: G17.midHopper[1] }) && m.rng.chance(0.15)) tip17(m, null, 'mid', 0);
+    },
+    onTeleop(m) {
+      ['red', 'blue'].forEach(a => {
+        rotors17(m, a); // the spare gear comes into play
+        // Denying fuel: an alliance that has seen a fuel system on the other side sends a gear robot past their hoppers
+        // first thing in teleop, so the fuel is on the carpet before anybody can catch it. (The coach can order it too.)
+        const o = E.opp(a), bots = m.robots.filter(r => r.a === a && !r.dead);
+        const asked = bots.find(r => r.plan.target === 'deny');
+        const theirFuel = m.robots.some(r => r.a === o && !r.dead && (r.cap.fuelHigh || r.cap.fuelLow));
+        const cands = bots.filter(r => !r.isPlayer && !(r.cap.fuelHigh || r.cap.fuelLow) && r.plan.role !== 'defend' && r.cap.gear);
+        const strat = U.avg(bots.map(r => r.drv.strat || 50));
+        m.ss[a].denier = asked ? asked.team : (theirFuel && cands.length && m.rng.chance(U.clamp(0.3 + 0.6 * strat / 100, 0.25, 0.9)) ? cands.sort((p, q) => (q.cap.speed || 0) - (p.cap.speed || 0))[0].team : null);
+      });
+    },
     autoDecide(m, r) {
       const tier = r.cap.autoTier || 0, c = r.cap, left = m.T.auto - m.t;
       if (r.mem.got == null) r.mem.got = 0;
@@ -4625,7 +4941,7 @@ window.G = window.G || {};
       if (c.gear && tier >= 1 && r.held && !r.mem.gearTried && H.canScore(m, r)) { r.mem.gearTried = 1; return gearPlace17(m, r); }
       if (fuelBot && H.canScore(m, r) && left > 3) {
         // the best fuel autos trigger a hopper first; the others fire the ten preloaded balls
-        if (tier >= 3 && c.storage >= 60 && !r.mem.hop && left > 9 && fuelLoad17(m, r)) { r.mem.hop = 1; return; }
+        if (tier >= 3 && c.storage >= 60 && !r.mem.hop && left > 9 && m.ss[r.a].hop.some(h => h > 0) && fuelLoad17(m, r)) { r.mem.hop = 1; return; }
         if (r.fuel > 0) return fuelShoot17(m, r);
       }
       if (!r.left) H.moveTo(m, r, E.P(m, r.a, G17.base + 0.8, r.slot === 0 ? H17 + 2.4 : loc(m, r).y), null, 'Across the base line');
@@ -4633,17 +4949,19 @@ window.G = window.G || {};
     },
     decide(m, r) {
       const c = r.cap, ss = m.ss[r.a];
+      if (ss.denier === r.team && !r.held && deny17(m, r)) return;
       if (r.held) { if (!H.canScore(m, r)) { r.label = 'Gear mechanism jammed'; return; } if (ss.gears < 12) return gearPlace17(m, r); r.held = 0; r.heldType = null; }
       if (fuelRole17(m, r)) {
         if (!H.canScore(m, r)) { r.label = 'Shooter jammed'; return; }
-        if ((r.fuel || 0) >= Math.min(c.storage, 25) || ((r.fuel || 0) > 0 && !ss.hop.some(h => h > 0))) return fuelShoot17(m, r);
+        if ((r.fuel || 0) >= Math.min(c.storage, 25) || ((r.fuel || 0) > 0 && !fuelLeft17(m, ss))) return fuelShoot17(m, r);
         if (fuelLoad17(m, r)) return;
         if (r.fuel > 0) return fuelShoot17(m, r);
       }
       if (c.gear && ss.gears < 12) { if (!H.canCollect(m, r)) { r.label = 'Gear mechanism jammed'; return; } return gearFetch17(m, r); }
       r.label = 'Nothing left to do';
     },
-    endSpot(m, r) { const p = G17.ropes[r.slot]; return E.P(m, r.a, p[0] + 0.55, p[1] + (r.slot === 1 ? -0.3 : r.slot === 2 ? 0.3 : 0)); },
+    // each robot has its own rope: one hangs on the face toward the alliance wall, two on the faces toward the neutral zone
+    endSpot(m, r) { const p = G17.ropes[r.slot]; return E.P(m, r.a, p[0], p[1]); },
     finishEnd(m) {
       ['red', 'blue'].forEach(a => {
         const ss = m.ss[a];
@@ -4661,7 +4979,9 @@ window.G = window.G || {};
     },
     hud(m, a) { const ss = m.ss[a], nx = ROTOR17[ss.rotors]; return ['ROTORS ' + ss.rotors + '/4' + (nx ? ' · GEARS ' + (ss.gears + (m.phase === 'auto' ? 0 : 1)) + '/' + nx : ''), Math.floor(ss.kpa + 1e-9) + ' kPa']; }
   };
-  Rules[2017].defense = { eff: 1.7, foul: 1.2, range: 1.7, zone: 0.45, pin: 5, reset: 3 };
+  // contact in the other alliance's Retrieval Zone is a tech foul; a robot touched at its rope in the last 30 seconds is
+  // credited with the climb
+  Rules[2017].defense = { eff: 1.7, foul: 1.2, range: 1.7, zone: 0.45, pin: 5, reset: 3, major: { 'Retrieval Zone': true }, credit: { Rope: 1 } };
   Rules[2017].faults = { brown: 0.9, tip: 0.6, tipAll: 0.1, comms: 1.0 };
   S[2017].meta = { defense: true, note: 'Gears and ropes win in FIRST STEAMWORKS: four rotors and three climbs beat almost anything, and fuel only decides matches between the very best. A defender in the lane between the Loading Station and the airship costs the other alliance a rotor. The human players matter here: the pilots haul every gear up by hand.',
     faults: 'Common failures: dropped gears on the peg, missed rope catches, and fuel jammed in the shooter.' };
@@ -4669,12 +4989,15 @@ window.G = window.G || {};
 
   // =====================================================================
   // 2016 FIRST STRONGHOLD
-  // Field (mirrored): an alliance attacks the tower on the FAR wall. Between the neutral zone and that tower's
-  // courtyard stand five defenses in five lanes. Boulders come out of the Secret Passage on the neutral-zone side,
-  // next to the low bar, so every cycle crosses a defense twice.
+  // Field (rotated): an alliance attacks the tower on the FAR wall. Between the neutral zone and that tower's
+  // courtyard stand the Outer Works: five defenses in five lanes, the low bar in position 1 at the guardrail. Each
+  // alliance's Secret Passage runs along the other guardrail, from its own wall past its own Outer Works to the
+  // neutral zone, so the attackers' boulders come out straight across from the low bar they attack.
+  // Boulders are limited (18 in play): one scored drops into the DEFENDERS' castle and comes back out through their
+  // Secret Passage; a miss stays in the courtyard.
   // =====================================================================
-  const H16 = FH / 2, PASS16 = 1.35, LINE16 = 10.25, LANE16 = i => (i + 0.5) * (FH - PASS16) / 5;
-  const G16 = { tower: { x: FW - 0.45, y: H16 }, src: { x: 6.0, y: 0.7 }, mid: FW / 2, line: LINE16, pass: PASS16, ownEnd: FW - LINE16 + 0.65 };
+  const H16 = FH / 2, PASS16 = 1.36, LINE16 = FW / 2 + 2.79, LANE16 = i => (i + 0.5) * (FH - PASS16) / 5;
+  const G16 = { tower: { x: FW - 0.45, y: H16 + 0.3 }, src: { x: 6.7, y: 0.7 }, mid: FW / 2, line: LINE16, half: 0.61, pass: PASS16, ownEnd: 7.3, midY: k => H16 - 2.89 + k * 1.156 };
   Rules.G16 = G16;
   // defense types: category, how long a crossing takes, how often a robot hangs up on it, what it needs
   const DEF16 = {
@@ -4689,6 +5012,7 @@ window.G = window.G || {};
     rough: { n: 'Rough Terrain', ab: 'RT', cat: 'D', k: 0.95, stuck: 0.03 }
   };
   Rules.DEF16 = DEF16;
+  const CATS16 = { A: ['portcullis', 'cheval'], B: ['moat', 'ramparts'], C: ['drawbridge', 'sallyport'], D: ['rockwall', 'rough'] };
   const canCross16 = (r, d) => { const T = DEF16[d.type]; return !T.need || !!r.cap[T.need]; };
   const crossTime16 = (r, d) => 2.2 * DEF16[d.type].k * (1.75 - 1.15 * (r.cap.traverse || 40) / 100) / (0.85 + 0.15 * r.drvF);
   const side16 = (m, r) => (loc(m, r).x > LINE16 ? 'c' : 'n');
@@ -4700,7 +5024,7 @@ window.G = window.G || {};
     if (!lanes.length) { r.label = 'No defense it can cross'; r.st = 'wait'; r.timer = 2; return; }
     const y0 = loc(m, r).y, want = dir === 1 && !breached16(ss) && r.plan.target !== 'tower';
     const best = lanes.sort((p, q) => {
-      const v = x => crossTime16(r, x.d) * (1 + 2.2 * DEF16[x.d.type].stuck * (1.3 - (r.cap.traverse || 40) / 100)) + Math.abs(LANE16(x.i) - y0) / 2.4 - (want && x.d.dmg < 2 ? (r.plan.target === 'breach' ? 6 : 3.2) : 0) + (x.d.busy > m.t ? 2 : 0);
+      const v = x => crossTime16(r, x.d) * (1 + 2.2 * DEF16[x.d.type].stuck * (1.3 - (r.cap.traverse || 40) / 100)) + Math.abs(LANE16(x.i) - y0) / 2.4 - (want && x.d.dmg < 2 ? (r.plan.target === 'breach' ? 8 : 6) : 0) + (x.d.busy > m.t ? 2 : 0);
       return v(p) - v(q);
     })[0], d = best.d, ly = LANE16(best.i);
     d.busy = m.t + 4;
@@ -4735,24 +5059,40 @@ window.G = window.G || {};
         const hit = m.rng.chance(H.hit(m, r, upper ? 0.82 : 1.15, upper ? H.rangePen(m, r, tw) : 0));
         r.stats.shots++; r.stats.cycles++; H.shotFx(m, r, tw, hit);
         r.held = 0; r.heldType = null;
-        if (!hit) return;
+        if (!hit) { ss.loose.push(m.t); return; } // the boulder bounces back into the courtyard
         r.stats.hits++; ss.boulders++;
+        m.ss[E.opp(a)].stock++; // into the defenders' castle: their human players roll it out through their Secret Passage
         const p = m.phase === 'auto' ? (upper ? 10 : 5) : (upper ? 5 : 2);
         H.addPts(m, r, p, '+' + p, tw);
         if (ss.boulders === ss.strength) H.log(m, a, 'The tower is WEAKENED', 'end');
       }, upper ? 'Shooting the high goal' : 'Low goal');
     }, 'To the tower');
   }
+  // the next boulder: one of the three on the midline within reach, or the alliance's own Secret Passage, where its human
+  // players roll out what the castle holds (three at the start, then every boulder the opponents score). False: none left.
   function fetch16(m, r) {
     const ss = m.ss[r.a];
-    // the boulders on the midline first, then the Secret Passage, where the human players roll them back out
-    const midI = ss.mid > 0 && m.t < 40 ? ss.mid : 0;
-    const pt = midI ? E.P(m, r.a, G16.mid - 0.45, 0.9 + (3 - midI) * 1.28) : E.P(m, r.a, G16.src.x - r.slot * 0.75, G16.src.y);
+    if (ss.mid <= 0 && ss.stock <= 0) return false;
+    const useMid = ss.mid > 0 && (ss.stock <= 0 || m.t < 40), midI = ss.mid;
+    const pt = useMid ? E.P(m, r.a, G16.mid - 0.45, G16.midY(3 - midI)) : E.P(m, r.a, G16.src.x - r.slot * 0.75, G16.src.y);
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      if (midI && ss.mid <= 0) return;
-      H.act(r, H.collectTime(m, r, 'ground', midI ? 1.0 : 1.3) * (midI ? 1 : 1.25 - 0.4 * (m.hp[r.a] || 50) / 100), () => { if (midI) { if (ss.mid <= 0) return; ss.mid--; } r.held = 1; r.heldType = 'boulder'; }, 'Picking up a boulder');
-    }, midI ? 'To the midline' : 'To the Secret Passage');
+      if (useMid ? ss.mid <= 0 : ss.stock <= 0) return;
+      H.act(r, H.collectTime(m, r, 'ground', useMid ? 1.0 : 1.3) * (useMid ? 1 : 1.05 - 0.1 * (m.hp[r.a] || 50) / 100), () => { // the human players only roll the boulders out
+        if (useMid) { if (ss.mid <= 0) return; ss.mid--; } else { if (ss.stock <= 0) return; ss.stock--; }
+        r.held = 1; r.heldType = 'boulder';
+      }, 'Picking up a boulder');
+    }, useMid ? 'To the midline' : 'To the Secret Passage');
+    return true;
+  }
+  // a boulder that missed lies in the courtyard: grab it again
+  function loose16(m, r) {
+    const ss = m.ss[r.a], k = ss.loose.length - 1;
+    const pt = E.P(m, r.a, G16.tower.x - 1.9 - (k % 3) * 0.5, G16.tower.y + (k % 2 ? 1.3 : -1.3));
+    H.moveTo(m, r, pt, () => {
+      if (!H.canCollect(m, r) || !ss.loose.length) return;
+      H.act(r, H.collectTime(m, r, 'ground', 1.1), () => { if (!ss.loose.length) return; ss.loose.pop(); r.held = 1; r.heldType = 'boulder'; }, 'Picking up a loose boulder');
+    }, 'To a loose boulder');
   }
   Rules[2016] = {
     leavePts: 0, tempo: { c: 2.6, s: 2.2 },
@@ -4761,14 +5101,18 @@ window.G = window.G || {};
     init(m) {
       setHp(m);
       m.obs = [];
+      // one defense is the audience's: position 3, the same on both sides (the event passes it in; a loose match draws it here)
+      if (!m.aud16) { const c = m.rng.pick(['A', 'B', 'C', 'D']); m.aud16 = { cat: c, type: m.rng.pick(CATS16[c]) }; }
       ['red', 'blue'].forEach(a => {
-        // the defenses this alliance has to cross were chosen by the other side: one from each category, in random lanes,
-        // with the low bar always in the lane beside the Secret Passage
-        const cats = { A: ['portcullis', 'cheval'], B: ['moat', 'ramparts'], C: ['drawbridge', 'sallyport'], D: ['rockwall', 'rough'] };
+        // the defenses this alliance has to cross were chosen by the other side: one from each of the three groups the
+        // audience left. Positions from the guardrail to the defenders' Secret Passage: 1 low bar, 3 audience, 2/4/5 theirs.
         const bots = m.robots.filter(r => r.a === a), ask = (m.defPick && m.defPick[a]) || {};
-        const types = ['A', 'B', 'C', 'D'].map(c => ask[c] || (c === 'D' ? (m.rng.chance(0.65) ? 'rockwall' : 'rough') : m.rng.pick(cats[c])));
-        m.rng.shuffle(types);
-        m.ss[a] = { def: types.map(t => ({ type: t, dmg: 0, busy: 0 })).concat([{ type: 'lowbar', dmg: 0, busy: 0 }]), boulders: 0, strength: m.towerStrength || 8, breach: false, capture: false, mid: 3, onTower: 0, reach: 0 };
+        const own = ['A', 'B', 'C', 'D'].filter(c => c !== m.aud16.cat).map(c => ask[c] || (c === 'D' ? (m.rng.chance(0.65) ? 'rockwall' : 'rough') : m.rng.pick(CATS16[c])));
+        m.rng.shuffle(own);
+        const order = ['lowbar', own[0], m.aud16.type, own[1], own[2]];
+        // boulders: one preloaded per robot that can score (the others' go to the castle), three more in the castle
+        const pre = bots.filter(r => r.cap.lower || r.cap.upper).length;
+        m.ss[a] = { def: order.map(t => ({ type: t, dmg: 0, busy: 0 })), boulders: 0, strength: m.towerStrength || 8, breach: false, capture: false, mid: 3, stock: 3 + (bots.length - pre), loose: [], onTower: 0, reach: 0 };
         const tw = E.P(m, a, G16.tower.x + 0.1, G16.tower.y); m.obs.push({ x: tw.x, y: tw.y, r: 0.6, h: 0.5 });
         bots.forEach(r => { if (r.cap.lower || r.cap.upper) { r.held = 1; r.heldType = 'boulder'; } });
       });
@@ -4780,16 +5124,23 @@ window.G = window.G || {};
       return E.P(m, r.a, FW / 2 - 0.8 - (r.slot % 2) * 0.45, LANE16(lane) + (r.slot - 1) * 0.12); // on the auto line, facing the defense
     },
     aimAt: (m, r) => (side16(m, r) === 'c' ? E.P(m, r.a, G16.tower.x, G16.tower.y) : null),
-    guard(m, a) { return E.P(m, a, FW - 2.6, H16); },
+    guard(m, a) { return E.P(m, a, FW - 2.6, G16.tower.y); },
     protect(m, r) {
       if (r.crossing) return 'Outer Works';
       const q = loc(m, r);
       if (q.x < G16.ownEnd && q.y < PASS16) return 'Secret Passage';
+      if (m.total - m.t <= 20 && q.x > LINE16 + G16.half) return 'Tower'; // the last 20 seconds: a defender may not touch attackers in the courtyard
       return '';
     },
+    // a tech foul also makes the tower the offenders attack one boulder stronger
+    onFoul(m, r, major) { if (major) { m.ss[r.a].strength++; H.log(m, r.a, 'Tech foul: the tower is one boulder stronger for ' + r.a, 'foul'); } },
     onTeleop(m) {
       // auto: reaching a defense without crossing it is worth 2
       m.robots.forEach(r => { if (r.mem.reached && !r.mem.crossed) { m.score[r.a].auto += 2; r.stats.pts += 2; m.ss[r.a].reach++; } r.crossing = false; });
+    },
+    // boulders nobody picks up in a courtyard find their way back to the defenders' castle
+    tick(m) {
+      ['red', 'blue'].forEach(a => { const ss = m.ss[a]; while (ss.loose.length && m.t - ss.loose[0] > 20) { ss.loose.shift(); m.ss[E.opp(a)].stock++; } });
     },
     autoDecide(m, r) {
       const tier = r.cap.autoTier || 0, left = m.T.auto - m.t;
@@ -4819,8 +5170,13 @@ window.G = window.G || {};
         return shoot16(m, r);
       }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
-      if (sd === 'c') return cross16(m, r, -1, null);
-      return fetch16(m, r);
+      if (sd === 'c') return ss.loose.length ? loose16(m, r) : cross16(m, r, -1, null);
+      if (fetch16(m, r)) return;
+      // no boulder to be had: go after one lying in the courtyard, damage a defense on the way, or wait for the castle
+      if (ss.loose.length || !breached16(ss)) return cross16(m, r, 1, null);
+      const w = E.P(m, r.a, G16.src.x - r.slot * 0.75, G16.src.y + 0.9);
+      if (E.dist(r, w) > 0.6) return H.moveTo(m, r, w, null, 'Waiting for boulders');
+      r.label = 'Waiting for boulders'; r.st = 'wait'; r.timer = 1.2;
     },
     endSpot(m, r, lvl) { return E.P(m, r.a, G16.tower.x - (lvl ? 0.75 : 1.05), G16.tower.y + (r.slot - 1) * 0.85); },
     finishEnd(m) {
@@ -4840,12 +5196,14 @@ window.G = window.G || {};
         { key: 'capture', name: 'Capture', val: Math.min(ss.boulders, ss.strength), thr: ss.strength, ok: !!ss.capture, unit: 'boulders' }
       ];
     },
-    hud(m, a) { const ss = m.ss[a]; return ['TOWER ' + Math.max(0, ss.strength - ss.boulders), 'DEFENSES ' + ss.def.filter(d => d.dmg >= 2).length + '/4']; },
+    hud(m, a) { const ss = m.ss[a]; return ['TOWER ' + Math.max(0, ss.strength - ss.boulders), 'DEFENSES ' + ss.def.filter(d => d.dmg >= 2).length + '/4', 'BOULDERS ' + ss.stock]; },
     defOf: (m, a) => m.ss[a].def
   };
-  Rules[2016].defense = { eff: 2.2, foul: 1.1, range: 1.8, zone: 0.45, pin: 5, reset: 3 };
+  // contact in the other alliance's Secret Passage is a tech foul; an attacker touched in the courtyard in the last
+  // 20 seconds is credited with a scale
+  Rules[2016].defense = { eff: 2.2, foul: 1.1, range: 1.8, zone: 0.45, pin: 5, reset: 3, major: { 'Secret Passage': true }, credit: { Tower: 1 } };
   Rules[2016].faults = { brown: 0.9, tip: 1.6, tipAll: 0.5, comms: 1.25 };
-  S[2016].meta = { defense: true, note: 'A blocker wins matches in FIRST STRONGHOLD: one robot waiting in its own courtyard can smother every shot taken from the tower\'s base. The answer is a shooter with range, and a low frame that slips under the low bar beside the Secret Passage. Breaching is routine; capturing the tower decides the rankings.',
+  S[2016].meta = { defense: true, note: 'A blocker wins matches in FIRST STRONGHOLD: one robot waiting in its own courtyard can smother every shot taken from the tower\'s base. The answer is a shooter with range, and a low frame: the low bar stands straight across the neutral zone from your own Secret Passage, the shortest cycle on the field. Boulders are scarce (18 in play) and every one you score rolls back out to the other alliance, so misses hurt. Breaching is routine; capturing the tower decides the rankings.',
     faults: 'Common failures: robots hung up on the moat and the rock wall, radios shaken loose by the defenses, and tip-overs on the ramparts.' };
   S[2016].tiebreak = 'tower';
 })();
@@ -5281,6 +5639,16 @@ window.G = window.G || {};
     if (meta.defense) return playoff ? 0.35 + 0.55 * k : 0.12 + 0.5 * k;
     return playoff ? 0.05 + 0.25 * (1 - k) : 0.04 + 0.2 * (1 - k);
   };
+  // 2016: the audience picks one defense for every round of matches (position 3, the same for both alliances). The
+  // category rotates A, B, C, D from a random start; which of its two defenses wins the cheer is up to the crowd.
+  Ev.audience16 = function (ev, match) {
+    if (!ev || ev.year !== 2016 || !match) return null;
+    const per = Math.max(1, Math.ceil(((ev.teams || []).length || 24) / 6));
+    const rd = match.playoff ? 500 + ((match.key || match.n || 0) % 97) : Math.floor(((match.n || 1) - 1) / per);
+    const cat = 'ABCD'[(hash(ev.seed, 1601) + rd) % 4];
+    const two = Object.keys(G.Rules.DEF16).filter(k => G.Rules.DEF16[k].cat === cat);
+    return { cat, type: two[hash(ev.seed, 1613 + rd * 31) % two.length] };
+  };
   Ev.buildEngine = function (ev, match, opts) {
     const S = G.S;
     const playoff = !!match.playoff;
@@ -5289,7 +5657,8 @@ window.G = window.G || {};
     const mine = match.red.includes(S.team.num) ? 'red' : match.blue.includes(S.team.num) ? 'blue' : null, opp = mine === 'red' ? 'blue' : 'red', p = ev.plan || {};
     const defPick = mine && ev.year === 2016 && (p.defA || p.defB || p.defC || p.defD) ? { [opp]: { A: p.defA || null, B: p.defB || null, C: p.defC || null, D: p.defD || null } } : null;
     const puPref = mine && ev.year === 2018 && p.puPref ? { [mine]: p.puPref } : null;
-    return G.Engine.create({ defPick, puPref,
+    return G.Engine.create({ defPick, puPref, aud16: Ev.audience16(ev, match),
+      towerStrength: ev.year === 2016 && ['dcmp', 'champs', 'einstein'].includes(ev.kind) ? 10 : null, // FIRST raised the tower from 8 to 10 for the championships
       year: ev.year, red: ens.red, blue: ens.blue, seed: hash(ev.seed, (match.key || match.n) * 7919 + (match.game || 0)),
       headless: !!(opts && opts.headless), playoff, diff: { easy: 0.6, normal: 1, hard: 1.3 }[S.diff] || 1,
       calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num, feedIQ: ens.feedIQ
@@ -6796,7 +7165,9 @@ window.G = window.G || {};
   };
   Robot.applyWear = function (S, rr, playoff) {
     const R = S.robot, P = G.Engine.PACE[rr.pace || 'bal'];
-    const extra = 1 + rr.defTime / 30 + rr.contacts / 15;
+    // rough ground (2020: the steel bars under the Shield Generator) only counts for swerve and mecanum drives: the match
+    // engine reports the crossings (rr.bumps) for those two and nothing for a tank drive
+    const extra = 1 + rr.defTime / 30 + rr.contacts / 15 + (rr.bumps || 0) * 0.03;
     Object.keys(R.subs).forEach(k => {
       const s = R.subs[k];
       if (!s || !s.ver || k === 'soft') return;
@@ -9721,10 +10092,13 @@ window.G = window.G || {};
   const DRIVE_CATS = { swerve: 1, gearbox: 1 };
   P.wearMatch = function (S, rr) {
     if (!S.inv) return;
-    const a = P.alloc(S), rng = R(), hit = 1 + Math.min(1.5, ((rr && rr.defTime) || 0) / 40);
+    const a = P.alloc(S), rng = R(), bumps = (rr && rr.bumps) || 0, hit = 1 + Math.min(1.5, ((rr && rr.defTime) || 0) / 40);
+    // bars and bumps (counted for swerve and mecanum drives only): swerve modules take the worst of it; a mecanum drive
+    // has no modules, so its gearboxes carry the damage
+    const rough = { swerve: 1 + Math.min(2, bumps * 0.035), gearbox: G.Robot.compDrive(S) === 'mec' ? 1 + Math.min(2, bumps * 0.035) : 1 };
     S.wearTick = (S.wearTick || 0) + 1;
     Object.keys(a.comp).forEach(cat => a.comp[cat].forEach(it => {
-      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit : 1) * (1 - G.Shop.fx(S, 'ebench', 'partWear')));
+      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit * (rough[cat] || 1) : 1) * (1 - G.Shop.fx(S, 'ebench', 'partWear')));
     }));
   };
   P.wearPractice = function (S, hours, bi) {
@@ -11468,37 +11842,42 @@ window.G = window.G || {};
   Rd.SHOTS[2020] = { col: CELL, r: 0.09 };
   const WHEEL = ['#ffd23f', '#e5484d', '#30c27a', '#3e8cff'];
   FIELD[2020] = function (ctx, s, sym, m) {
-    const g = G.Rules.G20;
+    const g = G.Rules.G20, A = g.genA, B = g.genB;
+    const gp = (a, b) => ({ x: CX + a * g.d[0] + b * g.n[0], y: CY + a * g.d[1] + b * g.n[1] }); // a point on the generator floor
     ['blue', 'red'].forEach(a => {
+      const ss = m && m.ss ? m.ss[a] : null;
       // the alliance's Sector in front of its own station, closed by the Initiation Line the opponents start on
       arect(ctx, s, sym, a, 0.1, 0.06, 2.95, FH - 0.12, tint(a, 0.07), null, 0);
       aline(ctx, s, sym, a, 3.05, 0.06, 3.05, FH - 0.06, TAPE, 1.5);
-      // Loading Zone on its own wall (the opponents' Target Zone is beside it, drawn with the other alliance)
-      apoly(ctx, s, sym, a, [[0.1, g.bay.y - 0.75], [0.1, g.bay.y + 0.75], [0.85, g.bay.y]], tint(a, 0.3), alc(a), 2);
+      // Loading Zone on its own wall (5 ft wide; the opponents' Target Zone is beside it, drawn with the other alliance);
+      // the number is what the Loading Bay holds: five to start with, then every cell the opponents score
+      apoly(ctx, s, sym, a, [[0.1, g.bay.y - 0.76], [0.1, g.bay.y + 0.76], [0.86, g.bay.y]], tint(a, 0.3), alc(a), 2);
       atext(ctx, s, sym, a, 'LOADING', 1.5, g.bay.y + 0.08, alc(a), 7);
-      // the Power Port it shoots at, with the Target Zone, on the far wall
-      apoly(ctx, s, sym, a, [[FW - 0.1, g.port.y - 0.75], [FW - 0.1, g.port.y + 0.75], [FW - 0.85, g.port.y]], tint(a, 0.45), alc(a), 2);
+      atext(ctx, s, sym, a, ss ? String(ss.bay) : '5', 0.4, g.bay.y + 0.1, CELL, 9);
+      // the Power Port it shoots at, with the Target Zone (4 ft wide), on the far wall
+      apoly(ctx, s, sym, a, [[FW - 0.1, g.port.y - 0.61], [FW - 0.1, g.port.y + 0.61], [FW - 0.86, g.port.y]], tint(a, 0.45), alc(a), 2);
       { const q = P(sym, a, FW - 0.2, g.port.y); circ(ctx, s, q.x, q.y, 0.3, '#2b3138', alc(a), 2.5); circ(ctx, s, q.x, q.y, 0.12, DARK, '#e8edf2', 1); }
       atext(ctx, s, sym, a, 'TARGET', FW - 1.5, g.port.y + 0.08, alc(a), 7);
-      // Trench Run along the side rail, with the Control Panel
+      // Trench Run along the side rail; the Trench (a 28 in. tunnel from the generator's leg to the rail) carries the Control Panel
       arect(ctx, s, sym, a, g.trench.x0, g.trench.y0, g.trench.x1 - g.trench.x0, g.trench.y1 - g.trench.y0, tint(a, 0.2), alc(a), 1.5);
-      atext(ctx, s, sym, a, 'TRENCH RUN', 9.0, FH - 1.2, alc(a), 7);
-      { const c = P(sym, a, g.panel.x, g.panel.y), r0 = 0.42 * s;
+      atext(ctx, s, sym, a, 'TRENCH RUN', CX + 1.3, FH - 1.2, alc(a), 7);
+      arect(ctx, s, sym, a, g.panel.x - 0.52, g.trench.y0, 1.04, g.trench.y1 - g.trench.y0, 'rgba(170,180,190,0.28)', '#8d97a1', 1.5);
+      { const c = P(sym, a, g.panel.x, g.panel.y), r0 = 0.41 * s;
         for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.moveTo(c.x * s, c.y * s); ctx.arc(c.x * s, c.y * s, r0, i * Math.PI / 4, (i + 1) * Math.PI / 4); ctx.closePath(); ctx.fillStyle = WHEEL[i % 4]; ctx.fill(); }
-        circ(ctx, s, c.x, c.y, 0.42, null, '#e8edf2', 1.5); circ(ctx, s, c.x, c.y, 0.09, DARK); }
+        circ(ctx, s, c.x, c.y, 0.41, null, '#e8edf2', 1.5); circ(ctx, s, c.x, c.y, 0.09, DARK); }
     });
-    // Shield Generator: a square turned on the field that fills the gap between the Trench Runs, four pillars at the
-    // trench edges, the two halves of the Rendezvous Point and a Generator Switch in each
-    const pil = g.gen.map(p => ({ x: CX + p[0], y: CY + p[1] }));
-    const mid = (p, q) => ({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }), mA = mid(pil[0], pil[3]), mB = mid(pil[1], pil[2]);
-    poly(ctx, s, [pil[0], pil[1], mB, mA], tint('red', 0.2), null, 0); poly(ctx, s, [mA, mB, pil[2], pil[3]], tint('blue', 0.2), null, 0);
-    poly(ctx, s, pil, null, '#8d97a1', 3);
-    line(ctx, s, mA.x, mA.y, mB.x, mB.y, '#8d97a1', 2);
-    pil.forEach(p => rect(ctx, s, p.x - 0.17, p.y - 0.17, 0.34, 0.34, '#5d6670', METAL, 1.5));
+    // Shield Generator: turned 22.5 degrees between the Trench Runs. Its floor is ringed and crossed by the BOUNDARIES
+    // (steel bars an inch high: red's half toward red's trench, blue's toward blue's, a black pair between them);
+    // four truss legs at the corners, and a Generator Switch over each half.
+    poly(ctx, s, [gp(-A, -B), gp(A, -B), gp(A, 0), gp(-A, 0)], tint('red', 0.2), null, 0); poly(ctx, s, [gp(-A, 0), gp(A, 0), gp(A, B), gp(-A, B)], tint('blue', 0.2), null, 0);
+    { const bar = (p, q, col, w) => line(ctx, s, p.x, p.y, q.x, q.y, col, w);
+      bar(gp(-A, -B), gp(A, -B), alc('red'), 3); bar(gp(-A, -B), gp(-A, 0), alc('red'), 3); bar(gp(A, -B), gp(A, 0), alc('red'), 3);
+      bar(gp(-A, B), gp(A, B), alc('blue'), 3); bar(gp(-A, B), gp(-A, 0), alc('blue'), 3); bar(gp(A, B), gp(A, 0), alc('blue'), 3);
+      bar(gp(-A, 0), gp(A, 0), '#0b0d10', 5); bar(gp(0, -B), gp(0, B), '#0b0d10', 3); }
+    g.gen.forEach(p => rect(ctx, s, CX + p[0] - 0.19, CY + p[1] - 0.19, 0.38, 0.38, '#5d6670', METAL, 1.5));
     ['blue', 'red'].forEach(a => { const q = P(sym, a, g.sw.x, g.sw.y), L = 1.45, ux = g.sw.dx * L, uy = g.sw.dy * L;
       line(ctx, s, q.x - ux, q.y - uy, q.x + ux, q.y + uy, '#e8edf2', 6); line(ctx, s, q.x - ux, q.y - uy, q.x + ux, q.y + uy, alc(a), 3);
-      const t = P(sym, a, g.sw.x + 0.45, g.sw.y + 1.05); text(ctx, s, 'RENDEZVOUS POINT', t.x, t.y, alc(a), 7); });
-    text(ctx, s, 'SHIELD GENERATOR', CX, CY + 0.09, '#e8edf2', 8);
+      const t = P(sym, a, g.sw.x + 0.4, g.sw.y + 0.5); text(ctx, s, 'RENDEZVOUS', t.x, t.y, alc(a), 6); });
     // power cells: live positions during a match, the starting layout otherwise
     if (m && m.cells) m.cells.forEach(p => { if (p.t <= m.t) ball(ctx, s, p.x, p.y, 0.09, CELL); });
     else ['blue', 'red'].forEach(a => g.trenchCells.concat(g.midCells).forEach(p => { const q = P(sym, a, p[0], p[1]); ball(ctx, s, q.x, q.y, 0.09, CELL); }));
@@ -11515,13 +11894,16 @@ window.G = window.G || {};
     circ(ctx, s, x, y, 0.19, '#1d2227', '#59626c', 1);
     if (b && b.hatch) circ(ctx, s, x, y, 0.16, null, b.hatch === 2 ? '#8d97a1' : HATCH, Math.max(2, s * 0.05));
     if (b && b.cargo) ball(ctx, s, x, y, 0.1, CARGO);
+    else if (b && b.pre) ball(ctx, s, x, y, 0.1, 'rgba(255,138,61,0.5)'); // staged cargo: it stays only if a hatch goes on in the sandstorm
   }
   FIELD[2019] = function (ctx, s, sym, m) {
-    const H2 = FH / 2;
-    line(ctx, s, CX, 0.06, CX, H2 - 0.72, TAPE, 1.5); line(ctx, s, CX, H2 + 0.72, CX, FH - 0.06, TAPE, 1.5); // the centre line
+    const H2 = FH / 2, g = G.Rules.G19, rx = g.rocketX;
+    line(ctx, s, CX, 0.06, CX, FH - 0.06, TAPE, 1.5); // the centre line (the ships stand 9 in. either side of it)
     ['blue', 'red'].forEach(a => {
-      const bays = m && m.ss && m.ss[a] ? m.ss[a].bays : null, get = i => (bays ? bays[i] : (i >= 2 && i < 8 ? { hatch: 2 } : null));
-      // HAB Zone: the Level 1 ramp, two Level 2 platforms and Level 3 in the middle
+      const bays = m && m.ss && m.ss[a] ? m.ss[a].bays : null, get = i => (bays ? bays[i] : (i >= 2 && i < 8 ? { hatch: 2 } : i < 2 ? { pre: true } : null));
+      // HAB Zone: everything behind the HAB Line, from rail to rail. The platform: the Level 1 ramp, two Level 2 decks and
+      // Level 3 in the middle
+      arect(ctx, s, sym, a, 0.1, 0.06, 2.34, FH - 0.12, tint(a, 0.07), null, 0);
       arect(ctx, s, sym, a, 0.1, H2 - 1.95, 2.34, 3.9, tint(a, 0.22), alc(a), 2);
       arect(ctx, s, sym, a, 0.1, H2 - 1.75, 1.12, 1.15, 'rgba(255,255,255,0.10)', alc(a), 1.5);
       arect(ctx, s, sym, a, 0.1, H2 + 0.6, 1.12, 1.15, 'rgba(255,255,255,0.10)', alc(a), 1.5);
@@ -11532,19 +11914,20 @@ window.G = window.G || {};
       // Loading Stations in the corners and the cargo depots beside the HAB
       [[0.1, 0.1], [0.1, FH - 1.3]].forEach(p => arect(ctx, s, sym, a, p[0], p[1], 0.75, 1.2, tint(a, 0.2), alc(a), 2));
       atext(ctx, s, sym, a, 'LOAD', 0.48, 1.5, alc(a), 7); atext(ctx, s, sym, a, 'LOAD', 0.48, FH - 1.45, alc(a), 7);
-      [[1.35, 1.85], [1.35, FH - 1.85]].forEach((p, i) => { const n = m && m.ss && m.ss[a] ? m.ss[a].depot[i] : 6; arect(ctx, s, sym, a, p[0] - 0.5, p[1] - 0.32, 1.0, 0.64, null, '#59626c', 1);
-        for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + (k % 3 - 1) * 0.24, p[1] + (k < 3 ? -0.12 : 0.12)); ball(ctx, s, q.x, q.y, 0.1, CARGO); } });
-      // Cargo Ship: the two ships stand nose out, back to back on the centre line; two front bays and three on each side
-      apoly(ctx, s, sym, a, [[5.65, H2 - 0.38], [6.0, H2 - 0.72], [CX, H2 - 0.72], [CX, H2 + 0.72], [6.0, H2 + 0.72], [5.65, H2 + 0.38]], tint(a, 0.28), alc(a), 2);
-      [[5.92, H2 - 0.21], [5.92, H2 + 0.21]].forEach((p, i) => { const q = P(sym, a, p[0], p[1]); bay19(ctx, s, q.x, q.y, get(i)); });
-      [H2 - 0.5, H2 + 0.5].forEach((y, j) => [6.45, 7.0, 7.55].forEach((x, i) => { const q = P(sym, a, x, y); bay19(ctx, s, q.x, q.y, get(2 + j * 3 + i)); }));
+      g.depotY.forEach((y, i) => { const n = m && m.ss && m.ss[a] ? m.ss[a].depot[i] : 6; arect(ctx, s, sym, a, 0.1, y - 0.28, 1.02, 0.56, null, '#8d97a1', 1);
+        for (let k = 0; k < n; k++) { const q = P(sym, a, 0.3 + (k % 3) * 0.3, y + (k < 3 ? -0.13 : 0.13)); ball(ctx, s, q.x, q.y, 0.1, CARGO); } });
+      // Cargo Ship: the two ships stand nose out, stern to stern, 9 in. off the centre line; two bays in the nose (staged
+      // with cargo) and three on each side (staged with blank panels)
+      apoly(ctx, s, sym, a, [[g.nose, H2 - 0.38], [g.nose + 0.35, H2 - 0.71], [g.stern, H2 - 0.71], [g.stern, H2 + 0.71], [g.nose + 0.35, H2 + 0.71], [g.nose, H2 + 0.38]], tint(a, 0.28), alc(a), 2);
+      [[g.nose + 0.27, H2 - 0.21], [g.nose + 0.27, H2 + 0.21]].forEach((p, i) => { const q = P(sym, a, p[0], p[1]); bay19(ctx, s, q.x, q.y, get(i)); });
+      [H2 - 0.5, H2 + 0.5].forEach((y, j) => g.shipX.forEach((x, i) => { const q = P(sym, a, x, y); bay19(ctx, s, q.x, q.y, get(2 + j * 3 + i)); }));
       // Rockets on the side rails: three levels (the row nearest the field is level 1), two bays each
       [0, 1].forEach(rk => {
         const y0 = rk ? FH - 0.08 : 0.08, d = rk ? -1 : 1;
-        apoly(ctx, s, sym, a, [[5.2, y0], [6.6, y0], [6.3, y0 + d * 0.62], [5.5, y0 + d * 0.62]], tint(a, 0.3), alc(a), 2);
-        [1, 2, 3].forEach(lvl => [5.68, 6.12].forEach((x, i) => { const q = P(sym, a, x, y0 + d * (0.62 - 0.19 * lvl + 0.04)); const b = bays ? bays[8 + rk * 6 + (lvl - 1) * 2 + i] : null;
+        apoly(ctx, s, sym, a, [[rx - 0.72, y0], [rx + 0.72, y0], [rx + 0.4, y0 + d * 0.7], [rx - 0.4, y0 + d * 0.7]], tint(a, 0.3), alc(a), 2);
+        [1, 2, 3].forEach(lvl => [rx - 0.22, rx + 0.22].forEach((x, i) => { const q = P(sym, a, x, y0 + d * (0.7 - 0.2 * lvl + 0.03)); const b = bays ? bays[8 + rk * 6 + (lvl - 1) * 2 + i] : null;
           circ(ctx, s, q.x, q.y, 0.085, b && b.cargo ? CARGO : '#1d2227', b && b.hatch ? HATCH : '#59626c', b && b.hatch ? 2 : 1); }));
-        atext(ctx, s, sym, a, 'ROCKET', 5.9, y0 + d * 0.95, alc(a), 7);
+        atext(ctx, s, sym, a, 'ROCKET', rx, y0 + d * 1.02, alc(a), 7);
       });
     });
     text(ctx, s, 'CARGO SHIPS', CX, H2 + 1.08, '#cfd6dd', 7);
@@ -11557,9 +11940,10 @@ window.G = window.G || {};
   Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.17 };
   function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.11 + (i % 3 - 1) * 0.25, y - 0.11 + Math.floor(i / 3) * 0.25 * dir, 0.22, 0.22, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
   FIELD[2018] = function (ctx, s, sym, m) {
-    const H2 = FH / 2, side = m && m.side ? m.side : { blue: { sw: 0, sc: 0 }, red: { sw: 0, sc: 1 } }, pY = [2.75, FH - 2.75], scY = [1.85, FH - 1.85];
-    // Null Territory at each end of the Scale, then the two halves of the Platform Zone
-    [0, 1].forEach(k => rect(ctx, s, CX - 0.95, k ? FH - 2.45 : 0.06, 1.9, 2.39, NULLT + '0.10)', NULLT + '0.75)', 2));
+    const g = G.Rules.G18, H2 = FH / 2, side = m && m.side ? m.side : { blue: { sw: 0, sc: 0 }, red: { sw: 1, sc: 1 } }, pY = g.pY, scY = g.scY;
+    // Null Territory at each end of the Scale (6 ft along the field, 7 ft 11 in out from the guardrail), then the two
+    // halves of the Platform Zone
+    [0, 1].forEach(k => rect(ctx, s, CX - g.nullX, k ? FH - g.nullY : 0.06, 2 * g.nullX, g.nullY - 0.06, NULLT + '0.10)', NULLT + '0.75)', 2));
     text(ctx, s, 'NULL TERRITORY', CX, 0.42, NULLT + '0.9)', 6); text(ctx, s, 'NULL TERRITORY', CX, FH - 0.28, NULLT + '0.9)', 6);
     ['blue', 'red'].forEach(a => {
       const o = a === 'blue' ? 'red' : 'blue', ss = m && m.ss ? m.ss[a] : null;
@@ -11575,16 +11959,20 @@ window.G = window.G || {};
       arect(ctx, s, sym, a, 2.5, H2 - 0.6, 1.08, 1.2, tint(a, 0.2), NULLT + '0.75)', 1.5);
       { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.12, q.y - 0.12, 0.24, 0.24, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
       { const n = ss ? ss.line : 6; for (let i = 6 - n; i < 6; i++) { const q = P(sym, a, 5.15, H2 + (i - 2.5) * 0.66); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } }
-      arect(ctx, s, sym, a, 0.1, H2 - 1.5, 0.9, 1.2, tint(a, 0.2), alc(a), 2); atext(ctx, s, sym, a, 'EXCHANGE', 0.68, H2 - 1.68, alc(a), 6);
-      if (ss) atext(ctx, s, sym, a, 'VAULT ' + ss.vault, 0.75, H2 + 0.05, CUBE, 8);
-      [[FW - 0.95, 0.1], [FW - 0.95, FH - 1.2]].forEach(p => arect(ctx, s, sym, a, p[0], p[1], 0.85, 1.1, tint(a, 0.2), alc(a), 2));
+      // the Exchange Zone (4 ft by 3 ft) is left of centre as the alliance looks down the field
+      { const ey = g.exch.y(a), up = ey < H2;
+        arect(ctx, s, sym, a, 0.1, ey - 0.61, 0.9, 1.22, tint(a, 0.2), alc(a), 2); atext(ctx, s, sym, a, 'EXCHANGE', 0.68, up ? ey - 0.78 : ey + 0.92, alc(a), 6);
+        if (ss) atext(ctx, s, sym, a, 'VAULT ' + ss.vault, 0.75, up ? ey + 0.95 : ey - 0.78, CUBE, 8); }
+      // the Portals in the far corners, with the cubes they still hold
+      [[FW - 0.95, 0.1], [FW - 0.95, FH - 1.2]].forEach((p, i) => { arect(ctx, s, sym, a, p[0], p[1], 0.85, 1.1, tint(a, 0.2), alc(a), 2);
+        const n = ss ? ss.portal[i] : 7; for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + 0.2 + (k % 3) * 0.22, p[1] + 0.2 + Math.floor(k / 3) * 0.22); rect(ctx, s, q.x - 0.08, q.y - 0.08, 0.16, 0.16, CUBE, 'rgba(0,0,0,0.4)', 1); } });
       atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, 1.45, alc(a), 6); atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, FH - 1.35, alc(a), 6);
     });
     // the Scale: tower with a rung on each side, arm and the two plates
     line(ctx, s, CX, scY[0], CX, scY[1], '#cfd6dd', 5);
     rect(ctx, s, CX - 0.3, H2 - 0.45, 0.6, 0.9, '#4a525b', '#aab4be', 1.5);
     line(ctx, s, CX - 0.75, H2 - 0.45, CX - 0.75, H2 + 0.45, '#e8edf2', 3); line(ctx, s, CX + 0.75, H2 - 0.45, CX + 0.75, H2 + 0.45, '#e8edf2', 3);
-    [0, 1].forEach(k => { const col = side.blue.sc === k ? 'blue' : 'red'; rect(ctx, s, CX - 0.55, scY[k] - 0.75, 1.1, 1.5, tint(col, 0.35), alc(col), 2.5); cubes18(ctx, s, CX, scY[k] - 0.15, m && m.scale ? m.scale[k] : 0, 1); });
+    [0, 1].forEach(k => { const col = side.blue.sc === k ? 'blue' : 'red'; rect(ctx, s, CX - 0.61, scY[k] - 0.46, 1.22, 0.92, tint(col, 0.35), alc(col), 2.5); cubes18(ctx, s, CX, scY[k] - 0.2, m && m.scale ? m.scale[k] : 0, 1); });
     text(ctx, s, 'SCALE', CX, H2 + 0.85, '#cfd6dd', 8);
   };
 
@@ -11595,37 +11983,44 @@ window.G = window.G || {};
   Rd.PIECES.gear = { shape: 'gear', col: GEAR, r: 0.2 };
   Rd.SHOTS[2017] = { col: FUEL, r: 0.06, many: true };
   FIELD[2017] = function (ctx, s, sym, m) {
-    const H2 = FH / 2, g = G.Rules.G17, sx = g.ship.x, R = g.ship.r, LP = 5.2;
+    const H2 = FH / 2, g = G.Rules.G17, sx = g.ship.x, R = g.ship.r, LP = g.lp, KL = g.keyLeg;
     // Neutral Zone between the two Launchpad Lines
     rect(ctx, s, LP, 0.06, FW - 2 * LP, FH - 0.12, 'rgba(90,170,70,0.10)', null, 0);
     text(ctx, s, 'NEUTRAL ZONE', CX, H2 + 0.08, 'rgba(160,210,140,0.6)', 8);
     ['blue', 'red'].forEach(a => {
       const ss = m && m.ss ? m.ss[a] : null;
-      // Launchpad (the alliance's own end) with the Base Line; the Launchpad Line closes it
+      // Launchpad (the alliance's own end) with the Base Line; the Launchpad Line runs along the airship's far face
       arect(ctx, s, sym, a, 0.1, 0.06, LP - 0.1, FH - 0.12, tint(a, 0.08), null, 0);
       aline(ctx, s, sym, a, g.base, 0.06, g.base, FH - 0.06, TAPE, 1.5);
       aline(ctx, s, sym, a, LP, 0.06, LP, FH - 0.06, alc(a), 1.5);
-      // Airship: a hexagon with a flat side to the alliance wall; three pegs on the near sides, three ropes on the far sides, four rotors on deck
-      { const pts = []; for (let i = 0; i < 6; i++) { const t = (i * 60 + 30) * Math.PI / 180; pts.push([sx + Math.cos(t) * R, H2 + Math.sin(t) * R]); }
-        apoly(ctx, s, sym, a, pts, 'rgba(0,0,0,0.38)', alc(a), 2.5); }
+      // Airship: a hexagon with a flat face to the alliance wall (the rail overhangs the deck). Gear pegs on the three
+      // faces toward the wall; ropes on the wall face and on the two faces toward the neutral zone; four rotors on deck.
+      { const hex = rad => { const pts = []; for (let i = 0; i < 6; i++) { const t = (i * 60 + 30) * Math.PI / 180; pts.push([sx + Math.cos(t) * rad, H2 + Math.sin(t) * rad]); } return pts; };
+        apoly(ctx, s, sym, a, hex(1.48), null, 'rgba(170,180,190,0.35)', 1);
+        apoly(ctx, s, sym, a, hex(R), 'rgba(0,0,0,0.38)', alc(a), 2.5); }
       g.pegs.forEach((p, k) => aline(ctx, s, sym, a, p[0], p[1], p[0] - (k ? 0.2 : 0.38), p[1] + (k === 1 ? -0.32 : k === 2 ? 0.32 : 0), '#e8edf2', 3));
-      g.ropes.forEach(p => { const q = P(sym, a, p[0], p[1]); circ(ctx, s, q.x, q.y, 0.1, '#c9a66b', '#7a6238', 1.5); });
-      for (let i = 0; i < 4; i++) { const q = P(sym, a, sx - 0.34 + (i % 2) * 0.68, H2 - 0.34 + Math.floor(i / 2) * 0.68), on = ss && ss.rotors > i; circ(ctx, s, q.x, q.y, 0.25, on ? 'rgba(242,201,76,0.35)' : '#1d2227', on ? GEAR : '#59626c', on ? 2.5 : 1); if (on) { line(ctx, s, q.x - 0.21, q.y, q.x + 0.21, q.y, GEAR, 2); line(ctx, s, q.x, q.y - 0.21, q.x, q.y + 0.21, GEAR, 2); } }
-      atext(ctx, s, sym, a, ss ? 'GEARS ' + ss.gears : 'AIRSHIP', sx, H2 + R + 0.42, alc(a), 7);
+      g.ropes.forEach(p => { const dx = p[0] - sx, dy = p[1] - H2, dl = Math.hypot(dx, dy) || 1; aline(ctx, s, sym, a, sx + dx / dl * 1.25, H2 + dy / dl * 1.25, p[0], p[1], '#7a6238', 2);
+        const q = P(sym, a, p[0], p[1]); circ(ctx, s, q.x, q.y, 0.1, '#c9a66b', '#7a6238', 1.5); });
+      for (let i = 0; i < 4; i++) { const q = P(sym, a, sx - 0.3 + (i % 2) * 0.6, H2 - 0.3 + Math.floor(i / 2) * 0.6), on = ss && ss.rotors > i; circ(ctx, s, q.x, q.y, 0.22, on ? 'rgba(242,201,76,0.35)' : '#1d2227', on ? GEAR : '#59626c', on ? 2.5 : 1); if (on) { line(ctx, s, q.x - 0.18, q.y, q.x + 0.18, q.y, GEAR, 2); line(ctx, s, q.x, q.y - 0.18, q.x, q.y + 0.18, GEAR, 2); } }
+      atext(ctx, s, sym, a, ss ? 'GEARS ' + ss.gears : 'AIRSHIP', sx, H2 + 1.48 + 0.34, alc(a), 7);
       // Boiler and its Key in the corner of the alliance's own wall
-      apoly(ctx, s, sym, a, [[0.08, FH - 2.7], [2.7, FH - 0.08], [0.08, FH - 0.08]], tint(a, 0.25), alc(a), 1.5);
+      apoly(ctx, s, sym, a, [[0.08, FH - KL], [KL, FH - 0.08], [0.08, FH - 0.08]], tint(a, 0.25), alc(a), 1.5);
       apoly(ctx, s, sym, a, [[0.08, FH - 1.0], [1.0, FH - 0.08], [0.08, FH - 0.08]], '#3d454e', '#e8edf2', 2);
-      atext(ctx, s, sym, a, 'KEY', 1.3, FH - 1.25, alc(a), 7);
+      atext(ctx, s, sym, a, 'KEY', 1.35, FH - 1.3, alc(a), 7);
       atext(ctx, s, sym, a, ss ? Math.floor(ss.kpa + 1e-9) + ' kPa' : 'BOILER', 0.72, FH - 0.24, '#e8edf2', 6);
-      // fuel Hoppers on the side rails, and the Retrieval Zone (gears) in the far corner
+      // fuel Hoppers on the side rails
       g.hoppers.forEach((p, i) => { const n = ss ? ss.hop[i] : 100, y = p[1] > H2 ? FH - 0.3 : 0.3; arect(ctx, s, sym, a, p[0] - 0.55, y - 0.22, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.25)' : 'rgba(0,0,0,0.3)', alc(a), 1.5);
         for (let k = 0; k < Math.ceil(n / 25); k++) { const q = P(sym, a, p[0] - 0.36 + k * 0.24, y); ball(ctx, s, q.x, q.y, 0.08, FUEL); } });
-      apoly(ctx, s, sym, a, [[FW - 0.08, 0.08], [FW - 2.3, 0.08], [FW - 0.08, 2.3]], tint(a, 0.25), alc(a), 1.5);
-      atext(ctx, s, sym, a, 'RETRIEVAL', FW - 0.85, 0.8, alc(a), 6);
+      // fuel spilled from the tipped hoppers lies all over the alliance's end of the carpet
+      if (ss && ss.floor > 4) { const n = Math.min(70, Math.round(ss.floor / 4)); for (let k = 1; k <= n; k++) { const fx = 1.3 + ((k * 0.754878) % 1) * (CX - 1.7), fy = 0.5 + ((k * 0.569840) % 1) * (FH - 1.0); if (Math.hypot(fx - sx, fy - H2) < 1.6) continue; const q = P(sym, a, fx, fy); ball(ctx, s, q.x, q.y, 0.05, FUEL); } }
+      // the Loading Station (gears) stands across the far corner; the Retrieval Zone is the band in front of it
+      apoly(ctx, s, sym, a, [[g.retrTape[0][0], 0.08], [g.stationWall[0][0], 0.08], [FW - 0.08, g.stationWall[1][1]], [FW - 0.08, g.retrTape[1][1]]], tint(a, 0.25), alc(a), 1.5);
+      apoly(ctx, s, sym, a, [[g.stationWall[0][0], 0.08], [FW - 0.08, 0.08], [FW - 0.08, g.stationWall[1][1]]], '#3d454e', alc(a), 2);
+      atext(ctx, s, sym, a, 'RETRIEVAL', FW - 2.25, 0.62, alc(a), 6);
     });
-    // the fifth hopper stands on the rail at mid-field
-    rect(ctx, s, CX - 0.55, FH - 0.52, 1.1, 0.44, 'rgba(200,232,60,0.18)', '#8d97a1', 1.5);
-    for (let k = 0; k < 4; k++) ball(ctx, s, CX - 0.36 + k * 0.24, FH - 0.3, 0.08, FUEL);
+    // the fifth hopper stands on the rail at mid-field: whoever gets there first
+    { const n = m && m.hopMid != null ? m.hopMid : 100; rect(ctx, s, CX - 0.55, FH - 0.52, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.18)' : 'rgba(0,0,0,0.3)', '#8d97a1', 1.5);
+      for (let k = 0; k < Math.ceil(n / 25); k++) ball(ctx, s, CX - 0.36 + k * 0.24, FH - 0.3, 0.08, FUEL); }
   };
 
   // =====================================================================
@@ -11636,33 +12031,42 @@ window.G = window.G || {};
   Rd.SHOTS[2016] = { col: BOULDER, r: 0.13 };
   const DEFCOL = { L: '#8d97a1', A: '#c98a3c', B: '#4f9fd1', C: '#9b6bff', D: '#7a8f5a' };
   FIELD[2016] = function (ctx, s, sym, m) {
-    const H2 = FH / 2, g = G.Rules.G16, LINE = g.line, PASS = g.pass, LH = (FH - PASS) / 5, D16 = G.Rules.DEF16;
+    const g = G.Rules.G16, LINE = g.line, HW = g.half, PASS = g.pass, LH = (FH - PASS) / 5, D16 = G.Rules.DEF16, TY = g.tower.y;
     line(ctx, s, CX, 0.06, CX, FH - 0.06, TAPE, 1.5);
-    text(ctx, s, 'NEUTRAL ZONE', CX + 1.2, 0.5, 'rgba(207,214,221,0.5)', 7);
+    // the auto lines, a foot either side of the midline
+    [CX - 0.3, CX + 0.3].forEach(x => line(ctx, s, x, 0.06, x, FH - 0.06, 'rgba(48,194,122,0.4)', 1));
+    text(ctx, s, 'NEUTRAL ZONE', CX + 1.35, FH / 2 + 0.08, 'rgba(207,214,221,0.5)', 7);
     ['blue', 'red'].forEach(a => {
       const o = a === 'blue' ? 'red' : 'blue', ss = m && m.ss ? m.ss[a] : null;
-      // (in the attackers' coordinates) the enemy courtyard and tower on the far wall
-      arect(ctx, s, sym, a, LINE + 0.68, 0.06, FW - LINE - 0.74, FH - PASS - 0.06, tint(o, 0.08), null, 0);
-      atext(ctx, s, sym, a, 'COURTYARD', LINE + 2.8, 1.0, tint(o, 0.8), 8);
-      apoly(ctx, s, sym, a, [[FW - 0.08, H2 - 1.5], [FW - 0.95, H2 - 1.0], [FW - 1.3, H2], [FW - 0.95, H2 + 1.0], [FW - 0.08, H2 + 1.5]], 'rgba(170,180,190,0.22)', alc(o), 2);
-      apoly(ctx, s, sym, a, [[FW - 0.08, H2 - 0.62], [FW - 0.55, H2 - 0.4], [FW - 0.55, H2 + 0.4], [FW - 0.08, H2 + 0.62]], '#3d454e', '#e8edf2', 2);
-      atext(ctx, s, sym, a, ss ? String(Math.max(0, ss.strength - ss.boulders)) : '8', FW - 0.32, H2 + 0.1, ss && ss.boulders >= ss.strength ? '#30c27a' : '#e8edf2', 10);
-      atext(ctx, s, sym, a, 'TOWER', FW - 0.75, H2 + 1.85, alc(o), 7);
-      // the Outer Works the attackers cross: five defenses (the low bar beside the defenders' Secret Passage), a pip per crossing
-      const defs = ss ? ss.def : [{ type: 'portcullis' }, { type: 'moat' }, { type: 'sallyport' }, { type: 'rockwall' }, { type: 'lowbar' }];
-      arect(ctx, s, sym, a, LINE - 0.68, 0.06, 1.36, FH - PASS - 0.06, 'rgba(214,200,80,0.10)', null, 0);
+      // (in the attackers' coordinates) the enemy courtyard and tower on the far wall; the tower stands a little toward
+      // the defenders' Secret Passage
+      arect(ctx, s, sym, a, LINE + HW, 0.06, FW - LINE - HW - 0.06, FH - PASS - 0.06, tint(o, 0.08), null, 0);
+      atext(ctx, s, sym, a, 'COURTYARD', LINE + 2.6, 1.0, tint(o, 0.8), 8);
+      apoly(ctx, s, sym, a, [[FW - 0.08, TY - 1.5], [FW - 0.95, TY - 1.0], [FW - 1.3, TY], [FW - 0.95, TY + 1.0], [FW - 0.08, TY + 1.5]], 'rgba(170,180,190,0.22)', alc(o), 2);
+      apoly(ctx, s, sym, a, [[FW - 0.08, TY - 0.62], [FW - 0.55, TY - 0.4], [FW - 0.55, TY + 0.4], [FW - 0.08, TY + 0.62]], '#3d454e', '#e8edf2', 2);
+      atext(ctx, s, sym, a, ss ? String(Math.max(0, ss.strength - ss.boulders)) : '8', FW - 0.32, TY + 0.1, ss && ss.boulders >= ss.strength ? '#30c27a' : '#e8edf2', 10);
+      atext(ctx, s, sym, a, 'TOWER', FW - 0.75, TY + 1.85, alc(o), 7);
+      // boulders that missed lie in the courtyard
+      if (ss) ss.loose.forEach((t, k) => { const q = P(sym, a, g.tower.x - 1.9 - (k % 3) * 0.5, TY + (k % 2 ? 1.3 : -1.3)); ball(ctx, s, q.x, q.y, 0.13, BOULDER); });
+      // the Outer Works the attackers cross: position 1 (the low bar) at the guardrail, position 5 beside the defenders'
+      // Secret Passage, position 3 the audience's choice; a pip per crossing
+      const defs = ss ? ss.def : [{ type: 'lowbar' }, { type: 'portcullis' }, { type: 'moat' }, { type: 'sallyport' }, { type: 'rockwall' }];
+      arect(ctx, s, sym, a, LINE - HW, 0.06, 2 * HW, FH - PASS - 0.06, 'rgba(214,200,80,0.10)', null, 0);
       defs.forEach((d, i) => {
         const T = D16[d.type], done = (d.dmg || 0) >= 2;
-        arect(ctx, s, sym, a, LINE - 0.6, i * LH + 0.1, 1.2, LH - 0.14, done ? 'rgba(48,194,122,0.16)' : 'rgba(0,0,0,0.38)', DEFCOL[T.cat], 2);
+        arect(ctx, s, sym, a, LINE - HW + 0.04, i * LH + 0.1, 2 * HW - 0.08, LH - 0.14, done ? 'rgba(48,194,122,0.16)' : 'rgba(0,0,0,0.38)', DEFCOL[T.cat], 2);
         atext(ctx, s, sym, a, T.ab, LINE, (i + 0.5) * LH - 0.08, DEFCOL[T.cat], 10);
+        if (i === 2) atext(ctx, s, sym, a, 'CROWD', LINE, (i + 0.5) * LH - 0.42, 'rgba(232,237,242,0.55)', 5);
         [0, 1].forEach(k => { const q = P(sym, a, LINE - 0.22 + k * 0.44, (i + 0.5) * LH + 0.36); circ(ctx, s, q.x, q.y, 0.09, (d.dmg || 0) > k ? '#30c27a' : '#1d2227', '#8d97a1', 1); });
       });
-      // the alliance's own Secret Passage: along the rail on its own half, from its wall to its own Outer Works
+      // the alliance's own Secret Passage: along the rail from its wall, past its own Outer Works, into the neutral zone.
+      // The boulders its castle has to give wait at the mouth (three at the start, then whatever the opponents score).
       arect(ctx, s, sym, a, 0.08, 0.08, g.ownEnd - 0.08, PASS - 0.12, tint(a, 0.4), alc(a), 2);
-      atext(ctx, s, sym, a, 'SECRET PASSAGE', 2.6, PASS / 2 + 0.1, '#e8edf2', 8);
-      [5.1, 5.75, 6.4].forEach(x => { const q = P(sym, a, x, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, 0.12, BOULDER); });
+      atext(ctx, s, sym, a, 'SECRET PASSAGE', 2.4, PASS / 2 + 0.1, '#e8edf2', 8);
+      { const n = ss ? ss.stock : 3; for (let k = 0; k < Math.min(6, n); k++) { const q = P(sym, a, g.ownEnd - 0.35 - k * 0.45, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, 0.12, BOULDER); }
+        if (n > 6) atext(ctx, s, sym, a, '+' + (n - 6), g.ownEnd - 3.3, PASS / 2 + 0.1, BOULDER, 8); }
       // boulders on the midline: three within each alliance's reach
-      { const n = ss ? ss.mid : 3; for (let k = 3 - n; k < 3; k++) { const q = P(sym, a, CX, 0.9 + k * 1.28); ball(ctx, s, q.x, q.y, 0.13, BOULDER); } }
+      { const n = ss ? ss.mid : 3; for (let k = 3 - n; k < 3; k++) { const q = P(sym, a, CX, g.midY(k)); ball(ctx, s, q.x, q.y, 0.13, BOULDER); } }
     });
   };
 })();
@@ -12533,7 +12937,7 @@ window.G = window.G || {};
       '<label class="f">Human player<select class="inp" data-chg="dt" data-k="hp">' + opts(S.driveTeam.hp) + '</select></label>' +
       '<label class="f">Coach<select class="inp" data-chg="dt" data-k="coach">' + opts(S.driveTeam.coach, true) + '</select></label>' +
       '<label class="f" title="Optional. In the pits before every match: Mechanism speeds up repairs, Composure catches mistakes such as wrong code, a loose bumper or a flat battery">Technician<select class="inp" data-chg="dt" data-k="tech">' + opts(S.driveTeam.tech, false, true) + '</select></label></div>' +
-      '<div class="row mt"><span class="xs muted sp">Driver: Driving, Awareness, Composure · Operator: Mechanism, Composure · HP: HP skill · Coach: Strategy · Technician: Mechanism (pit repairs up to +' + Math.round(100 * 85 / D.TECH_ROLE.repair) + '%), Composure (fewer pre-match mistakes) · ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1)</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
+      '<div class="row mt"><span class="xs muted sp">Driver: Driving, Awareness, Composure · Operator: Mechanism, Composure · HP: HP skill (' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? 'loads the robot all match in this game: it sets the cycle speed' : 'a small part in this game') + ') · Coach: Strategy · Technician: Mechanism (pit repairs up to +' + Math.round(100 * 85 / D.TECH_ROLE.repair) + '%), Composure (fewer pre-match mistakes) · ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1)</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
     // activities
     const lim = G.Career.actLimits(S), C = G.Career, ir = C.impactRating(S);
     o += UI.card(UI.it('trophy', 'Impact Award ') + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),
@@ -12558,7 +12962,7 @@ window.G = window.G || {};
       th('Drive', 'Driving. Driver: how fast the robot moves and lines up to score.', 'num') + th('Aware', 'Awareness. Driver: reads the field, so defenders cost less time and fewer fouls happen. Also one half of an Impact Award presenter.', 'num') +
       th('Comp', 'Composure. Driver and Operator (their average): holding up against defense, fewer tips and fouls, following Coach Calls. Technician: fewer pre-match mistakes.', 'num') +
       th('Mech', 'Mechanism skill. Operator: faster intake and scoring actions. Technician: faster pit repairs between matches.', 'num') +
-      th('HP', 'Human Player skill: feeding and throwing game pieces, in the seasons where the human player handles them.', 'num') +
+      th('HP', 'Human Player skill: how fast the robot is loaded. It counts for a lot in the games where the human player feeds the robot all match (2017, 2019, 2020, 2023, 2024, 2025) and for little in the others.', 'num') +
       th('Strat', 'Strategy. Drive Coach: better Coach Calls and a better read of the season\'s strategies. Also the other half of an Impact Award presenter.', 'num') +
       th('Potential', 'How far this student can still grow. Skills grow by playing matches in a role and by driver practice.') + th('Matches', 'Official matches played on the drive team, in any role.', 'num') + th('Role', 'Current drive team role (set above).') + '</tr>' +
       S.students.slice().sort((a, b) => b.grade - a.grade).map(s => {
@@ -13631,6 +14035,7 @@ window.G = window.G || {};
     // plan
     const sel = (k, opts, cur) => '<select class="inp" data-chg="plan" data-k="' + k + '">' + opts.map(x => '<option value="' + x[0] + '" ' + (String(cur) === String(x[0]) ? 'selected' : '') + '>' + x[1] + '</option>').join('') + '</select>';
     const roles = [['score', 'Score'], ['defend', 'Play defense']].concat(ev.year === 2026 ? [['feed', 'Feed fuel to partners']] : []);
+    const aud16 = ev.year === 2016 ? G.Ev.audience16(ev, obj) : null; // the audience's defense for this round of matches
     const endL = [[9, ev.year === 2026 ? 'Only if worth it' : 'Highest possible']].concat(Sz.endNames.map((n, i) => [i, i === 0 ? (G.Rules[ev.year].endgame.park ? 'Park only' : 'No endgame') : n]).filter(x => x[0] > 0 || true));
     o += '<div class="card hl"><div class="ct">Match plan (free)</div><div class="col">' +
       '<label class="f">Role' + sel('role', roles, plan.role) + '</label>' +
@@ -13639,8 +14044,9 @@ window.G = window.G || {};
       '<label class="f">Pace' + sel('pace', [['push', 'Push (faster, riskier)'], ['bal', 'Balanced'], ['cons', 'Conserve (safer, slower)']], plan.pace) + '</label>' +
       '<label class="f">Endgame timing' + sel('endTiming', [['early', 'Early (safe)'], ['std', 'Standard'], ['late', 'Late (max cycles)']], plan.endTiming) + '</label>' +
       '<label class="f">Endgame target' + sel('endLevel', endL, plan.endLevel) + '</label>' +
-      (ev.year === 2016 ? '<div class="f"><span title="Each alliance chooses the defenses the other one has to cross: one of each kind. The Low Bar is always there.">Their defenses (one of each kind)</span><div class="grid g2" style="gap:6px">' +
-        ['A', 'B', 'C', 'D'].map(c => sel('def' + c, [['', c + ': coach decides']].concat(Object.keys(G.Rules.DEF16).filter(k => G.Rules.DEF16[k].cat === c).map(k => { const T = G.Rules.DEF16[k]; return [k, T.n + ' (' + (T.k >= 1.4 ? 'slow' : T.k >= 1.2 ? 'medium' : 'quick') + (T.stuck >= 0.1 ? ', robots get stuck' : '') + (T.need ? ', needs a tool' : '') + ')']; })), plan['def' + c] || '')).join('') + '</div></div>' : '') +
+      (ev.year === 2016 ? '<div class="f"><span title="Each alliance chooses three of the defenses the other one has to cross, one of each kind. The fourth kind is the audience\'s pick, the same on both sides, and the Low Bar is always there.">Their defenses (one of each kind)</span>' +
+        (aud16 ? '<div class="xs muted" style="margin:2px 0 6px">This round the audience picked the <b>' + h(G.Rules.DEF16[aud16.type].n) + '</b> (position 3, on both sides). The Low Bar is always in position 1, across from your Secret Passage.</div>' : '') + '<div class="grid g2" style="gap:6px">' +
+        ['A', 'B', 'C', 'D'].filter(c => !aud16 || c !== aud16.cat).map(c => sel('def' + c, [['', c + ': coach decides']].concat(Object.keys(G.Rules.DEF16).filter(k => G.Rules.DEF16[k].cat === c).map(k => { const T = G.Rules.DEF16[k]; return [k, T.n + ' (' + (T.k >= 1.4 ? 'slow' : T.k >= 1.2 ? 'medium' : 'quick') + (T.stuck >= 0.1 ? ', robots get stuck' : '') + (T.need ? ', needs a tool' : '') + ')']; })), plan['def' + c] || '')).join('') + '</div></div>' : '') +
       (ev.year === 2018 ? '<label class="f"><span title="Cubes fed through the Exchange fill the Vault, three per power-up. Levitate lifts one robot for free at the end. Boost doubles your Switch and Scale points for 10 seconds. Force gives you the Switch and Scale for 10 seconds. The drive coach decides when to play them.">Power-up order (Vault)</span>' + sel('puPref', [['', 'Levitate, then Boost, then Force'], ['boost', 'Boost, then Levitate, then Force'], ['force', 'Force, then Boost, then Levitate']], plan.puPref || '') + '</label>' : '') +
       '<label class="row sm"><input type="checkbox" data-chg="planChk" data-k="rpHunt" ' + (plan.rpHunt ? 'checked' : '') + '> Chase bonus ranking points</label>' +
       '<label class="row sm"><input type="checkbox" data-chg="planChk" data-k="avoid" ' + (plan.avoid ? 'checked' : '') + '> Avoid contact (fewer fouls, slower)</label></div>';
@@ -14117,6 +14523,14 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.2', title: 'Preview of 3.0: the 2016–2020 games checked against the official manuals', notes: [
+      'Fields. The five classic fields now follow the zone and element drawings in the game manuals. 2016: the Low Bar stands at the guardrail, straight across from the attackers\' own Secret Passage; the audience picks the defense in position 3 and you pick the other three. 2017: the airship is its real size, with one rope on the face toward the alliance wall and two toward the neutral zone, and the Retrieval Zone is the band in front of the angled Loading Station. 2018: the Scale plates sit where they should and the Exchange is left of centre for each alliance. 2019: the cargo depots are against the wall, the two ships stand apart at the centre line and the rockets are 8 ft from it. 2020: the Shield Generator has its floor bars and its legs at the trench edges, and the Control Panel sits on a tunnel.',
+      'Limited game pieces. 2016 has 18 boulders, 2018 has 30 cubes for each alliance and 2020 has 48 Power Cells. A boulder or cell you score comes back out on the other alliance\'s side (their Secret Passage, their Loading Bay). In 2020 that makes two shooters and a defender the strong line-up.',
+      '2020 in detail. Robots slow down over the steel bars under the Shield Generator, and the bars wear swerve modules and mecanum wheels (a tank drive is not affected). A trench-height robot crosses under the Control Panel instead, where nobody may touch it. The tunnel is one robot wide, so two trench runners hold each other up, and defenders wait at its mouth and outside the Loading Zone. A low frame climbs more slowly and a defender can block some of its shots.',
+      'Rules from the manuals. Contact in a protected zone is a tech foul where the manual says so, and touching a robot in its endgame zone awards it the climb. 2016: the tower has strength 10 at District Championships and the Championship, a tech foul makes it one stronger, and attackers in the courtyard may not be touched in the last 20 seconds. 2017: the boiler counts five balls a second and stops at the buzzer. 2018: taking ownership scores a point at once. 2019: the HAB Zone is protected all match and includes the Loading Stations, and the two bays in the ship\'s nose start with cargo that a sandstorm hatch keeps.',
+      'Human players. In 2017, 2019, 2020, 2023, 2024 and 2025 the human player feeds the robot all match, and their skill now sets the loading speed: 5 to 10% of an alliance\'s score between a beginner and an expert crew. In 2016, 2018, 2022 and 2026 it hardly matters. An alliance uses its two best human players.',
+      '2017 fuel and buddy climbs. Most 2017 teams now run gears and a rope and nothing else: a fuel shooter misses most of what it fires until it is well developed, so it only pays on strong robots. Each of the five hoppers is tipped once, on its own: by a shooter catching its fuel, or by an opposing gear robot sent to tip it first so that nothing is caught (your coach can order that with "Tip their hoppers first"). The fuel then lies all over the carpet and has to be swept up, slowly. A buddy climber, which lifts a partner that parked underneath, is on offer in 2018, 2019 and now 2020, the games whose rules allowed it.'
+    ] },
     { v: '2.9.1', title: 'Preview of 3.0: vendor loyalty, a longer banner wall and the 2020 recap', notes: [
       'Vendor loyalty. Each vendor keeps a loyalty level for your team, built from the seasons your competition robot runs on its electronics and from what you order. Every new level brings a loyalty sponsorship as a pop-up in September, with a choice of free parts at Kickoff, a voucher, or a sale until Kickoff; a team that stays with one vendor gets three in a ten-season career. Loyal teams also find parts in stock more often in season. The Electronics tab shows your level with each vendor.',
       'History: the banner wall uses smaller banners once a long career has hung many of them, a District Championship win now earns a banner, and the robots of past seasons wrap into rows. The 2020 season has its recap, shown before the season that never came.',
@@ -14753,7 +15167,7 @@ window.G = window.G || {};
       { icon: 'mentors', t: 'Mentors', li: ['Design and fabrication mentors add project slots; each role has its own benefits.'] },
       { icon: 'outreach', t: 'Outreach and fundraising', li: ['Up to 3 activities a week (12 a month in the offseason), each type once a week.', 'Repeating an activity <b>in the same month</b> pays less; it resets every month.', 'Facilities, sponsors, mentors and the trailer unlock more activities.'] },
       { icon: 'trophy', t: 'Impact Award', li: ['Needs a submission (Design Office) and a strong Impact rating built over several seasons of outreach.', 'The rating has five parts: this season\'s outreach (' + Math.round(G.Career.IMPACT_W.outreach * 100) + '%), your track record over three seasons (' + Math.round(G.Career.IMPACT_W.record * 100) + '%), Presentation (' + Math.round(G.Career.IMPACT_W.pitch * 100) + '%), feeder programs (' + Math.round(G.Career.IMPACT_W.programs * 100) + '%) and reputation (' + Math.round(G.Career.IMPACT_W.rep * 100) + '%). The Team page shows each one; hover a line for what moves it.', '<b>Presentation</b> is 60% of your Business mentor\'s skill, plus 60% of your two best presenters\' average Strategy and Awareness, plus a Team Meeting Room. Without a Business mentor it stays low whatever else you do.', 'Regional winners are judged again at the Championship for the <b>FIRST Impact Award</b>: six Finalists are named before Einstein Final 1 and the winner after it. Both earn a blue banner; the winner joins the Hall of Fame and is invited to every future Championship.', 'You don\'t have to play on Einstein to be there: a regional Impact winner that is out of the tournament watches the finals from the stands and hears the announcement on the field.'] },
-      { icon: 'team', t: 'Drive team roles', li: ['<b>Driver</b>: Driving (speed and line-up), Awareness (less time lost to defenders, fewer fouls), Composure.', '<b>Operator</b>: Mechanism skill (faster intake and scoring), Composure.', '<b>Human Player</b>: HP skill. <b>Coach</b>: Strategy (Coach Calls, reading the season\'s strategies). A student coaches when their Strategy beats the adult behind the glass.', '<b>Technician</b> (optional): Mechanism speeds up pit repairs, Composure catches pre-match mistakes such as wrong code or a loose bumper.', 'Skills grow by playing matches in a role and by driver practice. "Auto-pick best" fills all five seats.'] },
+      { icon: 'team', t: 'Drive team roles', li: ['<b>Driver</b>: Driving (speed and line-up), Awareness (less time lost to defenders, fewer fouls), Composure.', '<b>Operator</b>: Mechanism skill (faster intake and scoring), Composure.', '<b>Human Player</b>: HP skill. In the games where the human player feeds the robot all match (2017, 2019, 2020, 2023, 2024, 2025) it sets how fast the robot is loaded: an expert crew needs about two thirds of the time an average one does, which is worth 5 to 10% of an alliance\'s score. An alliance uses its two best human players. In the others (2016, 2018, 2022, 2026) it hardly matters.', '<b>Coach</b>: Strategy (Coach Calls, reading the season\'s strategies). A student coaches when their Strategy beats the adult behind the glass.', '<b>Technician</b> (optional): Mechanism speeds up pit repairs, Composure catches pre-match mistakes such as wrong code or a loose bumper.', 'Skills grow by playing matches in a role and by driver practice. "Auto-pick best" fills all five seats.'] },
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
@@ -14773,13 +15187,14 @@ window.G = window.G || {};
     ] },
     { id: 'matches', icon: 'play', name: 'Matches', desc: 'Coach calls, defense, faults', secs: [
       { icon: 'mentors', t: 'Coach Calls', li: ['3–6 calls a match: pace, role (score / defend / feed), target, endgame timing and level, bonus RPs, avoid contact, reset a fault.'] },
-      { icon: 'shield', t: 'Defense and pins', li: ['Pins last at most 5 s (through 2024) or 3 s (2025–2026), then the defender backs off six feet.', 'Protected zones: Launch Pad and late Hangar (2022), Community and Loading Zone (2023), Source, Amp, Podium and late Stage (2024), Reef and Barge Zones (2025), the Tower late in the match (2026).', 'Before 2022: a robot crossing a defense and the Secret Passage (2016), the Key, the Retrieval Zone and the ropes late in the match (2017), the Null Territory, the Exchange and the Platform late in the match (2018), the HAB late in the match (2019), the Trench Run, Target Zone, Loading Zone and the Rendezvous Point late in the match (2020).', 'Turrets shoot on the move and are hard to defend.'] },
+      { icon: 'shield', t: 'Defense and pins', li: ['Pins last at most 5 s (through 2024) or 3 s (2025–2026), then the defender backs off six feet.', 'Protected zones: Launch Pad and late Hangar (2022), Community and Loading Zone (2023), Source, Amp, Podium and late Stage (2024), Reef and Barge Zones (2025), the Tower late in the match (2026).', 'Before 2022: a robot crossing a defense and the Secret Passage (2016), the Key, the Retrieval Zone and the ropes late in the match (2017), the Null Territory, the Exchange and the Platform late in the match (2018), the whole HAB Zone with its Loading Stations, and the rockets in the last 20 seconds (2019), the Trench Run, Target Zone, Loading Zone and the Rendezvous Point late in the match (2020).', 'In those games, contact in the Secret Passage, the Retrieval Zone, the Null Territory and the 2020 zones is a tech foul, and touching a robot in its endgame zone hands it the climb.', 'Turrets shoot on the move and are hard to defend.'] },
       { icon: 'incident', t: 'Faults and falls', li: ['Low condition, low reliability, worn parts and hidden faults raise the chance of brownouts, jams and breakdowns.', 'An electrical shakedown on a second robot and an Electronics Workbench cut brownouts and comms dropouts.', 'A failed high climb can end in a fall.'] },
-      { icon: 'history', t: 'Classic games (2016–2020)', li: ['<b>2016 FIRST STRONGHOLD</b>: each alliance chooses the defenses the other one has to cross, one of each kind (your choice is on the pre-match page). A low robot slips under the Low Bar; a blocker in its own courtyard smothers shots from the tower\'s base. Breaching is routine; capturing the tower decides the rankings.',
-        '<b>2017 FIRST STEAMWORKS</b>: gears turn rotors and every robot climbs a rope. Four rotors and three climbs beat almost anything; fuel only decides matches between the very best. A fuel system is optional.',
-        '<b>2018 FIRST POWER UP</b>: the Switch and the Scale score every second you own them. Cubes fed through the Exchange fill the Vault and buy Levitate, Boost and Force; the order is on the pre-match page and the drive coach plays them.',
-        '<b>2019 DESTINATION: DEEP SPACE</b>: hatch panels and cargo on the Cargo Ship and the Rockets, and a climb onto the HAB. Almost nothing is protected, so defense is at its strongest.',
-        '<b>2020 INFINITE RECHARGE</b>: shooters and the Trench Run. Nearly everything an alliance needs is protected, so scoring wins; one robot spins the Control Panel.'] },
+      { icon: 'history', t: 'Classic games (2016–2020)', li: ['<b>2016 FIRST STRONGHOLD</b>: each alliance chooses three of the defenses the other one has to cross and the audience picks a fourth (your choice is on the pre-match page). A low robot slips under the Low Bar, which stands straight across from its own Secret Passage; a blocker in its own courtyard smothers shots from the tower\'s base. Only 18 boulders are in play, and one you score rolls back out on the other alliance\'s side. Breaching is routine; capturing the tower decides the rankings.',
+        '<b>2017 FIRST STEAMWORKS</b>: gears turn rotors and every robot climbs a rope. Four rotors and three climbs beat almost anything; fuel only decides matches between the very best (the boiler counts five balls a second and stops at the buzzer). A fuel system is optional, and most teams leave it out: a shooter only earns its weight on a strong, well-developed robot.',
+        '<b>2018 FIRST POWER UP</b>: the Switch and the Scale score every second you own them. Cubes fed through the Exchange fill the Vault and buy Levitate, Boost and Force; the order is on the pre-match page and the drive coach plays them. Each alliance has 30 cubes.',
+        '<b>2019 DESTINATION: DEEP SPACE</b>: hatch panels and cargo on the Cargo Ship and the Rockets, and a climb onto the HAB. Only the HAB Zone at each end is protected (it includes the Loading Stations), so defense in mid-field is at its strongest.',
+        '<b>2020 INFINITE RECHARGE</b>: 48 Power Cells are in play and each one you score goes to the other alliance\'s Loading Bay, so two shooters and a defender is the strong line-up. A trench-height robot crosses the field under the Control Panel, where nobody may touch it; a tall one bumps over the steel bars of the Shield Generator, which wears swerve and mecanum drives. The tunnel is one robot wide and defenders wait at its mouth. One robot spins the Control Panel.',
+        '<b>Buddy climbs</b>: a climber that lifts a partner is on offer in the games whose rules allowed it: 2018 (partner forks), 2019 (partner ramps to HAB Level 3) and 2020 (a partner hung from the Generator Switch). The partner has to park underneath. In 2016 every robot needs its own rung, in 2017 its own rope, and no game from 2022 on allows it.'] },
       { icon: 'scout', t: 'Season strategies', li: ['<b>2024 CRESCENDO</b>: every shooter can put notes in the Amp. Fixed shooters do it slowly and unreliably, pivot and turret shooters moderately; an amp mechanism is far better. Late in the season, alliances feed notes across the field.', '<b>2025 REEFSCAPE</b>: the Reef has six faces with their own branches. The faces nearest the coral stations fill first; the last coral means driving around to the far side.', '<b>2026 REBUILT</b>: fuel is tracked across the field. While their hub is inactive, alliances lob fuel from the neutral zone into their own zone (hoarding), so the next scoring shift starts with short cycles.', 'How well your alliance runs these depends on your <b>strategy read</b>: a Strategy mentor, the coach\'s Strategy, driver practice and the events you have played and scouted. Opponents pick them up over the season.'] }
     ] }
   ];

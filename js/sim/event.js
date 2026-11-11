@@ -232,6 +232,16 @@
     if (meta.defense) return playoff ? 0.35 + 0.55 * k : 0.12 + 0.5 * k;
     return playoff ? 0.05 + 0.25 * (1 - k) : 0.04 + 0.2 * (1 - k);
   };
+  // 2016: the audience picks one defense for every round of matches (position 3, the same for both alliances). The
+  // category rotates A, B, C, D from a random start; which of its two defenses wins the cheer is up to the crowd.
+  Ev.audience16 = function (ev, match) {
+    if (!ev || ev.year !== 2016 || !match) return null;
+    const per = Math.max(1, Math.ceil(((ev.teams || []).length || 24) / 6));
+    const rd = match.playoff ? 500 + ((match.key || match.n || 0) % 97) : Math.floor(((match.n || 1) - 1) / per);
+    const cat = 'ABCD'[(hash(ev.seed, 1601) + rd) % 4];
+    const two = Object.keys(G.Rules.DEF16).filter(k => G.Rules.DEF16[k].cat === cat);
+    return { cat, type: two[hash(ev.seed, 1613 + rd * 31) % two.length] };
+  };
   Ev.buildEngine = function (ev, match, opts) {
     const S = G.S;
     const playoff = !!match.playoff;
@@ -240,7 +250,8 @@
     const mine = match.red.includes(S.team.num) ? 'red' : match.blue.includes(S.team.num) ? 'blue' : null, opp = mine === 'red' ? 'blue' : 'red', p = ev.plan || {};
     const defPick = mine && ev.year === 2016 && (p.defA || p.defB || p.defC || p.defD) ? { [opp]: { A: p.defA || null, B: p.defB || null, C: p.defC || null, D: p.defD || null } } : null;
     const puPref = mine && ev.year === 2018 && p.puPref ? { [mine]: p.puPref } : null;
-    return G.Engine.create({ defPick, puPref,
+    return G.Engine.create({ defPick, puPref, aud16: Ev.audience16(ev, match),
+      towerStrength: ev.year === 2016 && ['dcmp', 'champs', 'einstein'].includes(ev.kind) ? 10 : null, // FIRST raised the tower from 8 to 10 for the championships
       year: ev.year, red: ens.red, blue: ens.blue, seed: hash(ev.seed, (match.key || match.n) * 7919 + (match.game || 0)),
       headless: !!(opts && opts.headless), playoff, diff: { easy: 0.6, normal: 1, hard: 1.3 }[S.diff] || 1,
       calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num, feedIQ: ens.feedIQ

@@ -911,7 +911,9 @@
   };
   Robot.applyWear = function (S, rr, playoff) {
     const R = S.robot, P = G.Engine.PACE[rr.pace || 'bal'];
-    const extra = 1 + rr.defTime / 30 + rr.contacts / 15;
+    // rough ground (2020: the steel bars under the Shield Generator) only counts for swerve and mecanum drives: the match
+    // engine reports the crossings (rr.bumps) for those two and nothing for a tank drive
+    const extra = 1 + rr.defTime / 30 + rr.contacts / 15 + (rr.bumps || 0) * 0.03;
     Object.keys(R.subs).forEach(k => {
       const s = R.subs[k];
       if (!s || !s.ver || k === 'soft') return;

@@ -17,7 +17,8 @@
   };
   // a robot's position in its own alliance's field coordinates (E.P is its own inverse)
   const loc = (m, r) => E.P(m, r.a, r.x, r.y), RR = E.RR;
-  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => m.hp[a] = Math.max(40, ...m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40))); };
+  // an alliance puts its two best human players where the game pieces are handled: their average is its human-player skill
+  const setHp = m => { m.hp = {}; ['red', 'blue'].forEach(a => { const h = m.robots.filter(r => r.a === a).map(r => r.drv.hp || 40).sort((p, q) => q - p); m.hp[a] = Math.max(40, Math.round(((h[0] || 40) + (h[1] == null ? h[0] || 40 : h[1])) / 2)); }); };
 
   // =====================================================================
   // 2022 RAPID REACT
@@ -282,7 +283,7 @@
       const pt = ground ? E.P(m, r.a, m.rng.range(12.6, 14.6), m.rng.range(5.9, 7.6)) : E.P(m, r.a, 15.95, 7.1);
       H.moveTo(m, r, pt, () => {
         if (!H.canCollect(m, r)) return;
-        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1) * (type === 'cone' ? 1.15 : 1),
+        H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.3 : 2.1, true) * (type === 'cone' ? 1.15 : 1),
           () => { r.held = 1; r.heldType = type; }, 'Grabbing ' + type);
       }, 'To loading zone');
     },
@@ -391,7 +392,7 @@
     const pt = ground ? E.P(m, r.a, m.rng.range(13.4, 15.0), m.rng.range(0.9, 2.5)) : E.P(m, r.a, 15.45, 0.95);
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
+      H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9, true), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
     }, 'To source');
   }
   function pass24(m, r) {
@@ -699,7 +700,7 @@
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
       const take = () => {
-        const ct = H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7);
+        const ct = H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.7, true);
         ss.stFree[k] = m.t + ct * 0.6 + 0.5; // the human player needs a moment before the next coral drops
         H.act(r, ct, () => { r.held = 1; r.heldType = 'coral'; }, ground ? 'Intaking coral' : 'At coral station');
       };
@@ -891,7 +892,7 @@
       if (ss.depot > 0) opts.push({ pt: E.P(m, r.a, 0.7, 6.5), n: Math.min(need, ss.depot), rate, src: 'depot', k: 1 });
       if (m.neutral >= 3) opts.push({ pt: E.P(m, r.a, m.rng.range(5.7, 8.0), m.rng.range(0.9, 7.3)), n: Math.min(need, Math.floor(m.neutral)), rate: rate * dens26(m), src: 'neutral', k: c.lowProfile ? 1.25 : 1.6 });
     }
-    opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.0 + 1.6 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 });
+    opts.push({ pt: E.P(m, r.a, 0.65, 0.95), n: need, rate: (1.6 + 0.4 * (m.hp[r.a] || 50) / 100) / T26().c, src: 'outpost', k: 1 }); // the human player at the Outpost matters little
     let best = null, bv = 1e9;
     for (const o of opts) {
       const t = (H.travelEst(m, r, o.pt) * o.k + o.n / o.rate + 0.6) / Math.max(1, o.n);

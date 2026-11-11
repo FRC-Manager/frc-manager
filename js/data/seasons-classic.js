@@ -5,10 +5,10 @@
 
   // =====================================================================
   S[2020] = {
-    year: 2020, name: 'INFINITE RECHARGE', pieceName: 'Power Cells', sym: 'rotate',
+    year: 2020, hpLoad: 1, name: 'INFINITE RECHARGE', pieceName: 'Power Cells', sym: 'rotate',
     tagline: 'Shoot power cells into the Power Port, spin the Control Panel and hang from the Shield Generator.',
     brief: [
-      'Robots carry up to five Power Cells (yellow foam balls) and shoot them into the POWER PORT at the far end of the field: 1 point in the Bottom Port, 2 in the Outer Port, 3 when the shot drops through to the Inner Port. Everything counts double in auto.',
+      'Robots carry up to five Power Cells (yellow foam balls) and shoot them into the POWER PORT at the far end of the field: 1 point in the Bottom Port, 2 in the Outer Port, 3 when the shot drops through to the Inner Port. Everything counts double in auto. Only 48 cells are in play, and every cell you score comes back out through the OTHER alliance\'s Loading Bay (yours starts with five).',
       'Scored cells charge three STAGES of 9, 20 and 20 cells. Stage 2 ends with ROTATION CONTROL (spin the Control Panel three to five turns, 10 points) and Stage 3 with POSITION CONTROL (stop it on the right colour, 20 points).',
       'In the last 30 seconds robots park under the Shield Generator (5) or HANG from its switch (25); a level switch adds 15. Bonus RPs: Shield Operational (65 endgame points) and Shield Energized (Stage 3 completed).'
     ],
@@ -18,16 +18,16 @@
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'upper', name: 'High ports' }, { id: 'lower', name: 'Bottom port' }],
     endNames: ['Park', 'Hang'],
     news: {
-      prot: 'The Target Zone and the Loading Zone are protected all match, every alliance is safe in its own Trench Run, and the Rendezvous Point belongs to the climbers in the last 30 seconds.',
+      prot: 'The Target Zone and the Loading Zone are protected all match, every alliance is safe in its own Trench Run (contact there is a tech foul), and the Rendezvous Point belongs to the climbers in the last 30 seconds. A defender may wait just outside the tape, and the mouth of a Trench Run is where defenders wait.',
       updates: ['Team Update: a Power Cell stuck in the Power Port counts once it has passed the sensor. Poking it out with a robot does not count twice.', 'Team Update: the Control Panel must rest on the colour for five seconds. Four and a half is not five.', 'Team Update: robots may not reach above 45 inches outside the Rendezvous Point. Tall climbers, mind the Trench.', 'Team Update: a robot carrying six Power Cells is carrying one too many, however it got there.'],
       chatter: [['Yellow ball census', 'Power Cells found so far: under the couch (3), in the drill-press chip tray (1), in the principal\'s car (1). Nobody is asking how.'], ['Colour wheel', 'The practice Control Panel has been spun so often that the bearing sings. {student} says it is a C sharp.'], ['Trench limbo', 'The robot is 27.9 inches tall and the Control Panel is 28. {driver} holds their breath every time.']]
     },
     subs: [
       { id: 'drive', name: 'Drivetrain', concepts: DRIVE },
       { id: 'frame', name: 'Frame Height', minor: true, concepts: [
-        { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter and climber. Must cross mid-field over the Shield Generator\'s floor rails, which slows it down.', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
+        { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter and climber, but too tall for the Trench: it has to cross mid-field over the steel bars on the Shield Generator\'s floor. That is slower, open to defenders, and hard on swerve modules and mecanum wheels (a tank drive just rolls over).', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
           base: { traverse: 45 }, ceil: { traverse: 80 }, caps: { lowProfile: false }, look: { frame: 'std' } },
-        { id: 'low', name: 'Trench-height frame', desc: 'Under 28 inches: drives under the Control Panel through the protected Trench Run, the fastest and safest way across the field.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
+        { id: 'low', name: 'Trench-height frame', desc: 'Under 28 inches: drives under the Control Panel through the protected Trench Run, with no bars to cross and nobody allowed to touch it. The tunnel is one robot wide, so two trench runners get in each other\'s way, and a defender can wait at its mouth. Everything sits low: the climb takes longer and a defender can block some of its shots.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
           base: { traverse: 60 }, ceil: { traverse: 95 }, caps: { lowProfile: true }, look: { frame: 'low' } }
       ] },
       { id: 'intake', name: 'Intake & Indexer', concepts: [
@@ -60,12 +60,14 @@
         { id: 'hook', name: 'Hook and winch', desc: 'A telescoping hook and a winch to hang from the Generator Switch.', cost: 600, hours: 110, w: 11, cx: 2, areas: ['climb'],
           base: { endgame: 40 }, ceil: { endgame: 85 }, caps: { endLevel: 1 }, look: { climber: 'hook' } },
         { id: 'level', name: 'Climber with a sliding carriage', desc: 'Hangs, then slides along the bar to bring the switch level: 15 more points and most of the Shield Operational bonus.', cost: 1100, hours: 180, w: 15, cx: 4, areas: ['climb'],
-          base: { endgame: 35 }, ceil: { endgame: 93 }, caps: { endLevel: 1, leveler: true }, look: { climber: 'hook2' } }
+          base: { endgame: 35 }, ceil: { endgame: 93 }, caps: { endLevel: 1, leveler: true }, look: { climber: 'hook2' } },
+        { id: 'buddy', name: 'Buddy climber (lifts a partner)', desc: 'Hangs and takes a partner that parked beneath the switch up with it: two hangs from one mechanism, 50 of the 65 points for Shield Operational. Heavy and slow to build, and it does nothing if both partners climb by themselves.', cost: 1600, hours: 250, w: 21, cx: 5, areas: ['climb'],
+          base: { endgame: 30 }, ceil: { endgame: 90 }, caps: { endLevel: 1, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook'] } },
+      { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'level', 'hook', 'buddy'] } },
       { name: 'Hood shooter + hang', min: 56, pick: { drive: ['swerve', 'wcd'], frame: ['low', 'std'], intake: 'over', scorer: 'hood', panel: ['spin', 'none'], endgame: 'hook' } },
       { name: 'Wall shooter + hang', min: 36, pick: { drive: ['wcd', 'kit'], frame: 'std', intake: 'over', scorer: 'fixed', panel: 'none', endgame: ['hook', 'none'] } },
       { name: 'Bottom-port dumper', min: 16, pick: { drive: 'kit', frame: 'std', intake: ['bay', 'over'], scorer: 'dump', panel: ['none', 'spin'], endgame: ['hook', 'none'] } },
@@ -76,11 +78,11 @@
 
   // =====================================================================
   S[2019] = {
-    year: 2019, name: 'DESTINATION: DEEP SPACE', pieceName: 'Hatch Panels & Cargo', sym: 'mirror',
+    year: 2019, hpLoad: 1, name: 'DESTINATION: DEEP SPACE', pieceName: 'Hatch Panels & Cargo', sym: 'mirror',
     tagline: 'Seal the rockets and the cargo ship with hatch panels, load them with cargo, and climb back onto the HAB.',
     brief: [
       'Robots start on the HAB platform. For the first 15 seconds a SANDSTORM hides the field from the drivers: robots run autonomously or are driven through an on-board camera. Leaving the HAB is worth 3 points, or 6 from Level 2.',
-      'Each alliance has a CARGO SHIP with 8 bays and two ROCKETS with 3 levels of 2 bays. A HATCH PANEL (2 points) seals a bay; only then can CARGO (3 points) be loaded into it. The six side bays of the cargo ship start with a blank panel, so cargo can go straight in.',
+      'Each alliance has a CARGO SHIP with 8 bays and two ROCKETS with 3 levels of 2 bays. A HATCH PANEL (2 points) seals a bay; only then can CARGO (3 points) be loaded into it. The six side bays of the cargo ship start with a blank panel, so cargo can go straight in. The two bays in its nose start with cargo inside: a hatch put on during the sandstorm keeps it (5 points at once); without one it rolls out when the sandstorm ends.',
       'In the last 30 seconds robots climb back onto the HAB: Level 1 (3), Level 2 (6) or Level 3 (12). Bonus RPs: one complete Rocket (6 hatches and 6 cargo) and HAB Docking (15 climb points).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 3, major: 10 },
@@ -89,7 +91,7 @@
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'rocket', name: 'Finish a rocket' }, { id: 'ship', name: 'Cargo ship first' }],
     endNames: ['—', 'HAB 1', 'HAB 2', 'HAB 3'],
     news: {
-      prot: 'Nobody may touch a robot on its own HAB platform in the last 30 seconds. Everywhere else is open, and one robot per alliance may cross the field to play defense.',
+      prot: 'Nobody may touch a robot inside its own HAB Zone at any time: it runs from rail to rail behind the HAB Line and includes the Loading Stations and the depots. In the last 20 seconds nobody touches a rocket either. Everywhere else is open, and one robot per alliance may cross the field to play defense.',
       updates: ['Team Update: a hatch panel held on by hope and one strip of hook-and-loop counts as attached. Barely.', 'Team Update: only one robot per alliance may be on the opponents\' side of the field. Count before you cross.', 'Team Update: a robot is on HAB Level 3 when its bumpers are fully above it. The suction cup is not a bumper.', 'Team Update: cargo that rolls out of an unsealed bay scores nothing, and no, you may not hold it in with the robot.'],
       chatter: [['Sandstorm practice', '{driver} has been driving the practice robot with a cardboard box over their head "for realism". Sandstorm scores are up. Shin injuries too.'], ['Hatch frisbee', 'The hatch panels fly surprisingly well. {mentor} has confiscated four.'], ['Level 3', 'The Level 3 climber lifted the robot nineteen inches, paused, and set it down again very gently on {student}\'s lunch.']]
     },
@@ -119,7 +121,7 @@
           base: { endgame: 45 }, ceil: { endgame: 88 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
         { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 4, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 90 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
-        { id: 'l3buddy', name: 'Level 3 lift with partner ramps', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 5, areas: ['climb'],
+        { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 5, areas: ['climb'],
           base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
@@ -139,8 +141,8 @@
     year: 2018, name: 'FIRST POWER UP', pieceName: 'Power Cubes', sym: 'mirror',
     tagline: 'Tip the Switch and the Scale your way with power cubes, feed the Vault for power-ups, and climb to face the boss.',
     brief: [
-      'Each alliance has a SWITCH on its own side and shares the tall SCALE at mid-field. They are balances: put more Power Cubes on your plate than the opponents have on theirs and you OWN it. Every second of ownership scores 1 point (2 in auto). Which plate is yours changes every match and is only announced at the start.',
-      'Cubes pushed through the EXCHANGE go to the VAULT: 5 points each, and they buy three POWER-UPS, played by the drive coach. FORCE gives ownership for 10 seconds, BOOST doubles ownership points for 10 seconds, LEVITATE is a free climb.',
+      'Each alliance has a SWITCH on its own side and shares the tall SCALE at mid-field. They are balances: put more Power Cubes on your plate than the opponents have on theirs and you OWN it. Taking ownership scores 1 point and every second of it another (2 in auto). Which plate is yours changes every match and is only announced at the start.',
+      'Cubes pushed through the EXCHANGE go to the VAULT: 5 points each, and they buy three POWER-UPS, played by the drive coach. FORCE gives ownership for 10 seconds, BOOST doubles ownership points for 10 seconds, LEVITATE is a free climb. Each alliance has 30 cubes to work with: ten in its pile, six behind its Switch, seven in each Portal.',
       'In the last 30 seconds robots CLIMB the rung on the Scale tower (30) or park on the platform (5). Bonus RPs: Auto Quest (all three robots cross the auto line and you own your Switch when auto ends) and Face the Boss (three climbs; Levitate counts as one).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
@@ -149,7 +151,7 @@
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'scale', name: 'Hold the Scale' }, { id: 'switch', name: 'Hold our Switch' }, { id: 'vault', name: 'Feed the Vault' }],
     endNames: ['Park', 'Climb'],
     news: {
-      prot: 'A robot at its own end of the Scale (the null territory) may not be touched, and neither may one feeding the Exchange. The platform belongs to the climbers in the last 30 seconds.',
+      prot: 'A robot at its own end of the Scale (the null territory) may not be touched: that is a tech foul. Neither may one feeding the Exchange. The platform belongs to the climbers in the last 30 seconds.',
       updates: ['Team Update: a Power Cube counts on a plate when it is fully supported by it. Leaning on the fence is not supported.', 'Team Update: throwing a cube onto the Scale from across the field is legal. Hitting a referee with it is not.', 'Team Update: Levitate may be played at any time, but it only helps if somebody has not climbed.', 'Team Update: robots may not pull opponents off the rung. Yes, somebody tried.'],
       chatter: [['Milk crates', 'The practice cubes are milk crates in yellow covers. The cafeteria has asked, politely, for the crates back.'], ['Game data', '{student} wrote the plate assignment on their hand so the autonomous would "definitely know". The robot went left anyway.'], ['Vault duty', '{driver} has fed the practice Exchange 300 cubes this week and now calls the human player "the bank".']]
     },
@@ -175,7 +177,7 @@
         NONE_END,
         { id: 'hook', name: 'Hook and winch', desc: 'Hooks the rung seven feet up and winches the robot off the ground.', cost: 700, hours: 120, w: 12, cx: 3, areas: ['climb'],
           base: { endgame: 40 }, ceil: { endgame: 88 }, caps: { endLevel: 1 }, look: { climber: 'hook2' } },
-        { id: 'buddy', name: 'Climber with partner forks', desc: 'Climbs and carries a partner up with it: two climbs from one mechanism, and with Levitate the Face the Boss bonus.', cost: 1500, hours: 240, w: 20, cx: 5, areas: ['climb'],
+        { id: 'buddy', name: 'Buddy climber (partner forks)', desc: 'Climbs and carries a partner that parked on the platform up with it: two climbs from one mechanism, and with Levitate the Face the Boss bonus.', cost: 1500, hours: 240, w: 20, cx: 5, areas: ['climb'],
           base: { endgame: 32 }, ceil: { endgame: 92 }, caps: { endLevel: 1, buddy: true }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
@@ -193,20 +195,20 @@
   // =====================================================================
   G.Data.STAT.fuel = 'Fuel Shooting';
   S[2017] = {
-    year: 2017, name: 'FIRST STEAMWORKS', pieceName: 'Gears & Fuel', sym: 'mirror',
+    year: 2017, hpLoad: 1, name: 'FIRST STEAMWORKS', pieceName: 'Gears & Fuel', sym: 'mirror',
     tagline: 'Deliver gears to start the airship\'s rotors, fire fuel into the boiler, and climb the rope before take-off.',
     brief: [
       'Robots carry GEARS from the Loading Station at the far end of the field to the pegs of their AIRSHIP, where the human-player pilots haul them up. The four ROTORS need 1, 2, 4 and 6 gears (one spare gear is already on board). Each turning rotor is worth 40 points, or 60 if it turns in auto.',
-      'FUEL (small balls, hundreds of them) goes into the BOILER: three balls in the high goal make 1 kPa of pressure, nine in the low goal. In auto every high-goal ball is a whole kPa. Each kPa is 1 point.',
+      'FUEL (small balls, hundreds of them) goes into the BOILER: three balls in the high goal make 1 kPa of pressure, nine in the low goal. In auto every high-goal ball is a whole kPa. Each kPa is 1 point. The boiler counts five balls a second in each goal and stops at the buzzer, so fuel shot in the last seconds of auto pays teleop rates. Each of the five hoppers on the rails is tipped once and its hundred balls roll all over the carpet: a shooter catches what it can, and an alliance facing a shooter sends a gear robot to tip those hoppers first so nothing is caught. After that there is no store to go back to, and fuel has to be swept up off the floor a few balls at a time.',
       'In the last 30 seconds robots climb their ROPE: 50 points each. Bonus RPs: 40 kPa of pressure, and all four rotors turning. In playoffs these are worth 20 and 100 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
     relevance: { swerve: 2, shooter: 2, turret: 1, elevator: 0, arm: 1, intake: 3, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
     autoTiers: ['Cross the base line', 'Gear on a peg', 'Gear + preloaded fuel', 'Gear + hopper of fuel'], autoPieces: [0, 1, 1, 1],
-    coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'gears', name: 'Gears only' }, { id: 'fuel', name: 'Fuel when possible' }],
+    coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'gears', name: 'Gears only' }, { id: 'fuel', name: 'Fuel when possible' }, { id: 'deny', name: 'Tip their hoppers first' }],
     endNames: ['—', 'Climb'],
     news: {
-      prot: 'Nobody may touch a robot in its own Retrieval Zone or in the Key in front of its Boiler, and the ropes belong to the climbers in the last 30 seconds.',
+      prot: 'Nobody may touch a robot in its own Retrieval Zone (a tech foul) or in the Key in front of its Boiler, and the ropes belong to the climbers in the last 30 seconds.',
       updates: ['Team Update: a gear counts when the pilot has it on the airship. A gear on the floor of the airship is still on the airship.', 'Team Update: pilots may not lean out past the railing. This is a safety rule and also a physics rule.', 'Team Update: ropes are supplied by the teams. Yes, the knot matters. No, we will not tie it for you.', 'Team Update: fuel that bounces out of the high goal does not count, even if it was very close.'],
       chatter: [['Fuel everywhere', 'Fuel balls found this week: the gym (41), the band room (6), a tuba (1).'], ['Rope committee', 'The rope committee has tested nine ropes and four knots. {student} now ties a bowline faster than their shoelaces.'], ['Pilot school', '{driver} dropped a gear on the practice airship and the whole shop went quiet. The human player has asked for gloves with more grip.']]
     },
@@ -222,11 +224,11 @@
       ] },
       { id: 'fuel', name: 'Fuel System', optional: true, minor: true, concepts: [
         { id: 'none', name: 'No fuel system', desc: 'Gears and the rope only. Most robots did exactly this.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: { fuelHigh: false, fuelLow: false, storage: 0 }, look: {} },
-        { id: 'dump', name: 'Low-goal dumper (40 balls)', desc: 'Catches a hopper of fuel and tips it into the low goal. Nine balls make one kPa, so it is slow pressure, but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
+        { id: 'dump', name: 'Low-goal dumper (40 balls)', desc: 'Catches fuel as a hopper is tipped, sweeps up what lies on the carpet afterwards, and tips it into the low goal. Nine balls make one kPa, so it is slow pressure (a handful of points a match), but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
           base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 40 }, look: { shooter: 'dump', hopper: 20 } },
-        { id: 'shoot', name: 'High-goal shooter (30 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
+        { id: 'shoot', name: 'High-goal shooter (30 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 30 }, look: { shooter: 'fixed', hopper: 20 } },
-        { id: 'mega', name: 'High-volume shooter + big hopper (70 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
+        { id: 'mega', name: 'High-volume shooter + big hopper (70 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
           base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 70 }, look: { shooter: 'wide', hopper: 45 } }
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
@@ -239,10 +241,12 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Floor gears + shooter + fast climb', min: 78, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
-      { name: 'Floor gears + fast climb', min: 58, pick: { drive: ['mec', 'wcd', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'shoot'], endgame: 'fast' } },
+      // most teams ran gears and a rope and nothing else: a shooter only paid for itself on the strongest robots
+      { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
+      { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'mec', 'wcd'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
+      { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['mec', 'wcd', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },
       { name: 'Gear gripper + climb', min: 36, pick: { drive: ['wcd', 'mec', 'kit'], scorer: ['active', 'slot'], fuel: 'none', endgame: ['winch', 'fast'] } },
-      { name: 'Gear slot + low-goal dumper', min: 16, pick: { drive: 'kit', scorer: 'slot', fuel: ['dump', 'none'], endgame: ['winch', 'none'] } },
+      { name: 'Gear slot + rope', min: 16, pick: { drive: 'kit', scorer: 'slot', fuel: ['none', 'none', 'none', 'none', 'dump'], endgame: ['winch', 'none'] } },
       { name: 'Kitbot gear slot', min: 0, pick: { drive: 'kit', scorer: 'slot', fuel: 'none', endgame: 'none' } },
       { name: 'Defense bot', min: 20, defense: true, pick: { drive: 'wcd', scorer: 'slot', fuel: 'none', endgame: 'winch' } }
     ]
@@ -265,8 +269,8 @@
     year: 2016, name: 'FIRST STRONGHOLD', pieceName: 'Boulders', sym: 'rotate',
     tagline: 'Cross the enemy defenses, weaken their tower with boulders, and scale it before time runs out.',
     brief: [
-      'Between your robots and the enemy TOWER stand five DEFENSES: the low bar, and four chosen by the opponents from the portcullis, cheval de frise, moat, ramparts, drawbridge, sally port, rock wall and rough terrain. Crossing one scores 5 points (10 in auto), twice per defense, after which it is DAMAGED.',
-      'Robots carry one BOULDER at a time into the courtyard and score it in the tower: 2 points in a low goal, 5 in a high goal (5 and 10 in auto). Eight boulders WEAKEN the tower.',
+      'Between your robots and the enemy TOWER stand five DEFENSES: the low bar, one picked by the audience, and three chosen by the opponents, from the portcullis, cheval de frise, moat, ramparts, drawbridge, sally port, rock wall and rough terrain. Crossing one scores 5 points (10 in auto), twice per defense, after which it is DAMAGED.',
+      'Robots carry one BOULDER at a time into the courtyard and score it in the tower: 2 points in a low goal, 5 in a high goal (5 and 10 in auto). Eight boulders WEAKEN the tower (ten at a District Championship and the Championship). Only 18 boulders are in play: one you score rolls back out through the OTHER alliance\'s Secret Passage, and a miss stays in the courtyard.',
       'In the last 20 seconds robots drive onto the tower\'s base to CHALLENGE it (5) or climb it to SCALE (15). Bonus RPs: BREACH (four of the five defenses damaged) and CAPTURE (the tower weakened and all three robots on it). In playoffs these are worth 20 and 25 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 5, major: 5 },
@@ -275,7 +279,7 @@
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'breach', name: 'Breach first' }, { id: 'tower', name: 'Boulders first' }],
     endNames: ['Challenge', 'Scale'],
     news: {
-      prot: 'A robot may not be touched while it is crossing a defense or collecting in its own Secret Passage. In the courtyard everything goes, and one defender may wait there.',
+      prot: 'A robot may not be touched while it is crossing a defense or collecting in its own Secret Passage (a tech foul there also makes the tower one boulder stronger). In the courtyard everything goes, and one defender may wait there, until the last 20 seconds: then it may not touch the attackers.',
       updates: ['Team Update: a defense is crossed when the whole robot has gone from the neutral zone into the courtyard. Halfway and back is a nice try.', 'Team Update: a boulder that bounces out of the high goal does not weaken the tower, however loudly the crowd cheers.', 'Team Update: robots taller than 4 ft 6 in may not exist in the courtyard. Blockers, measure twice.', 'Team Update: the audience picks one defense per match. The audience likes the drawbridge. Sorry.'],
       chatter: [['Low bar', 'The robot is 14.9 inches tall and the low bar is 15. {driver} ducks every time it goes under.'], ['Defense carpentry', 'The parents built all nine practice defenses in one weekend. The moat is now a permanent feature of the shop, and of {student}\'s shins.'], ['Boulder dust', 'The foam boulders shed grey dust on everything. {mentor} has started calling it "castle weather".']]
     },
@@ -284,7 +288,7 @@
       { id: 'frame', name: 'Frame Height', minor: true, concepts: [
         { id: 'std', name: 'Tall frame', desc: 'Room for a big shooter. Cannot use the low bar, the one defense that is always there and always quick.', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
           base: {}, ceil: {}, caps: { lowProfile: false }, look: { frame: 'std' } },
-        { id: 'low', name: 'Low-bar frame', desc: 'Under 15 inches with everything folded: goes under the low bar every cycle, right next to where the boulders come out.', cost: 300, hours: 80, w: 2, cx: 3, areas: ['elec'],
+        { id: 'low', name: 'Low-bar frame', desc: 'Under 15 inches with everything folded: goes under the low bar every cycle, straight across the neutral zone from where your boulders come out.', cost: 300, hours: 80, w: 2, cx: 3, areas: ['elec'],
           base: {}, ceil: {}, caps: { lowProfile: true }, look: { frame: 'low' } }
       ] },
       { id: 'intake', name: 'Intake & Defense Tools', pneu: true, concepts: [

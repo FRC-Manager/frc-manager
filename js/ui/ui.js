@@ -862,7 +862,7 @@
       '<label class="f">Human player<select class="inp" data-chg="dt" data-k="hp">' + opts(S.driveTeam.hp) + '</select></label>' +
       '<label class="f">Coach<select class="inp" data-chg="dt" data-k="coach">' + opts(S.driveTeam.coach, true) + '</select></label>' +
       '<label class="f" title="Optional. In the pits before every match: Mechanism speeds up repairs, Composure catches mistakes such as wrong code, a loose bumper or a flat battery">Technician<select class="inp" data-chg="dt" data-k="tech">' + opts(S.driveTeam.tech, false, true) + '</select></label></div>' +
-      '<div class="row mt"><span class="xs muted sp">Driver: Driving, Awareness, Composure · Operator: Mechanism, Composure · HP: HP skill · Coach: Strategy · Technician: Mechanism (pit repairs up to +' + Math.round(100 * 85 / D.TECH_ROLE.repair) + '%), Composure (fewer pre-match mistakes) · ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1)</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
+      '<div class="row mt"><span class="xs muted sp">Driver: Driving, Awareness, Composure · Operator: Mechanism, Composure · HP: HP skill (' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? 'loads the robot all match in this game: it sets the cycle speed' : 'a small part in this game') + ') · Coach: Strategy · Technician: Mechanism (pit repairs up to +' + Math.round(100 * 85 / D.TECH_ROLE.repair) + '%), Composure (fewer pre-match mistakes) · ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1)</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
     // activities
     const lim = G.Career.actLimits(S), C = G.Career, ir = C.impactRating(S);
     o += UI.card(UI.it('trophy', 'Impact Award ') + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),
@@ -887,7 +887,7 @@
       th('Drive', 'Driving. Driver: how fast the robot moves and lines up to score.', 'num') + th('Aware', 'Awareness. Driver: reads the field, so defenders cost less time and fewer fouls happen. Also one half of an Impact Award presenter.', 'num') +
       th('Comp', 'Composure. Driver and Operator (their average): holding up against defense, fewer tips and fouls, following Coach Calls. Technician: fewer pre-match mistakes.', 'num') +
       th('Mech', 'Mechanism skill. Operator: faster intake and scoring actions. Technician: faster pit repairs between matches.', 'num') +
-      th('HP', 'Human Player skill: feeding and throwing game pieces, in the seasons where the human player handles them.', 'num') +
+      th('HP', 'Human Player skill: how fast the robot is loaded. It counts for a lot in the games where the human player feeds the robot all match (2017, 2019, 2020, 2023, 2024, 2025) and for little in the others.', 'num') +
       th('Strat', 'Strategy. Drive Coach: better Coach Calls and a better read of the season\'s strategies. Also the other half of an Impact Award presenter.', 'num') +
       th('Potential', 'How far this student can still grow. Skills grow by playing matches in a role and by driver practice.') + th('Matches', 'Official matches played on the drive team, in any role.', 'num') + th('Role', 'Current drive team role (set above).') + '</tr>' +
       S.students.slice().sort((a, b) => b.grade - a.grade).map(s => {

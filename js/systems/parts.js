@@ -384,10 +384,13 @@
   const DRIVE_CATS = { swerve: 1, gearbox: 1 };
   P.wearMatch = function (S, rr) {
     if (!S.inv) return;
-    const a = P.alloc(S), rng = R(), hit = 1 + Math.min(1.5, ((rr && rr.defTime) || 0) / 40);
+    const a = P.alloc(S), rng = R(), bumps = (rr && rr.bumps) || 0, hit = 1 + Math.min(1.5, ((rr && rr.defTime) || 0) / 40);
+    // bars and bumps (counted for swerve and mecanum drives only): swerve modules take the worst of it; a mecanum drive
+    // has no modules, so its gearboxes carry the damage
+    const rough = { swerve: 1 + Math.min(2, bumps * 0.035), gearbox: G.Robot.compDrive(S) === 'mec' ? 1 + Math.min(2, bumps * 0.035) : 1 };
     S.wearTick = (S.wearTick || 0) + 1;
     Object.keys(a.comp).forEach(cat => a.comp[cat].forEach(it => {
-      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit : 1) * (1 - G.Shop.fx(S, 'ebench', 'partWear')));
+      it.h = Math.max(D.PART_MIN_HEALTH, it.h - rng.range(D.PART_WEAR_MATCH[0], D.PART_WEAR_MATCH[1]) * (DRIVE_CATS[cat] ? hit * (rough[cat] || 1) : 1) * (1 - G.Shop.fx(S, 'ebench', 'partWear')));
     }));
   };
   P.wearPractice = function (S, hours, bi) {
