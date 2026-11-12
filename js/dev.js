@@ -237,6 +237,7 @@
         if (S.market.length && S.mentors.length < 6) C.hireMentor(S, S.market[0].id);
       }
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');
+      if (C.needReg && C.needReg(S)) { const r = S.regionals.find(x => !C.canRegister(S, x)); if (r) C.register(S, r.id); } // nothing registered by December: the season cannot start without an event
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
       // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player
       if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, wcd: 2, gearbox: 4 }, opts.vendor || 'B');
@@ -249,6 +250,7 @@
           if (e) log.push('build fail ' + sd.id + ': ' + e);
         });
       }
+      if (S.phase === 'build' && S.week === 1 && C.wfaPick && G.World.on(S) && !(S.season && S.season.wfa) && !S.projects.some(p => p.type === 'wfa')) G.Robot.startProject(S, { type: 'wfa' }); // the Woodie Flowers essay, for the strongest nomination
       if ((S.phase === 'build' || S.phase === 'comp') && S.robot) {
         const R = S.robot, subs = G.Seasons[R.year].subs.filter(sd => !sd.minor).map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
         subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });

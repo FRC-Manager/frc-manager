@@ -12,7 +12,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **2.9.5**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **2.9.6**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -31,10 +31,10 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 
 **The career**
 
-- **Ten seasons, 2016 to 2026**, one real game a year. Start in any year, in real or shuffled order, as a regional or a district team.
+- **Ten seasons, 2016 to 2026**, one real game a year. Start in any year, in real or shuffled order, as a regional or a district team. Shuffled games still play in the year's technology; FIRST STRONGHOLD, a tank-drive game, is only drawn in 2016 or 2017.
 - **The calendar matters.** Motors, swerve, vision, vendors, prices, Stop Build Day (2016 to 2019) and the playoff and Championship formats all change with the year. Big changes arrive as pop-ups; rumours of them reach the Inbox first.
 - **The lost season is the game's own timeline.** In the game the 2020 season is played to the end and 2021 is skipped. In reality the 2020 season was stopped part-way through, its Championships were never held, and 2021 was played from home.
-- **The world is simulated.** Between 740 and 930 teams play every event of the season, so standings, district points and Championship places are real results, not dice.
+- **The world is simulated.** Between 740 and 930 teams, numbered as in that year of FRC, play every event of the season, so standings, district points and Championship places are real results, not dice. The World page puts every team and event on a map and keeps a scouting table of every team's season (OPR with its auto, teleop and endgame split), updated every week.
 
 **The robot**
 
@@ -42,7 +42,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 - **Knowledge carries over.** A turret built for one game makes the next one cheaper, faster and more reliable. Unused know-how fades, and rule changes date it.
 - **Two robots.** A second robot, or just a cheap test chassis, gives testing hours, driver practice and spares at events.
 - **Parts are real.** Motors, electronics, drivetrain parts and kits come from the Inventory, wear out, and sell out in season. Stock up before Kickoff.
-- **Elite designs.** Four games offer one mechanism only the best teams build: a little better than the next best, and much harder.
+- **Elite designs.** Seven games offer mechanisms only the best teams build: a little better than the next best, and much harder.
 
 **Matches**
 
@@ -54,6 +54,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 
 - **Program Support** from the school keeps the team alive; **reputation** brings sponsors, recruits and harder goals.
 - **Outreach over several seasons** wins the Impact Award. Feeder programs shape who joins.
+- **One mentor a season** can be nominated by the students for the Woodie Flowers Award: a Finalist at a regional or District Championship, then one winner in the world on Einstein.
 - **Fatigue**: leave about a tenth of the week idle in season, or tired students make mistakes at events.
 - **Debt** is allowed from Kickoff to the Championship and settled by the school at the season review, at a price.
 
@@ -96,6 +97,7 @@ js/systems/robot.js   the two robots, development projects, knowledge, driver fa
 js/systems/career.js  calendar, finance, sponsors and donations, staff and drive team, fatigue, offseason and tech changes,
                       feeder programs, Impact Award, season reviews and the school board, qualification
 js/systems/world.js   the simulated world: every team and event, districts, district points, Championship places
+js/systems/scouting.js the world map (areas, districts, cities, where teams and events are) and season scouting numbers
 js/systems/shop.js    facilities and workshop space, batteries, shop incidents, opportunities
 js/systems/parts.js   parts inventory, vendor releases, stock, allocation, wear, game elements
 js/systems/news.js    news, team chatter and inbox replies
@@ -105,6 +107,7 @@ js/ui/ui.js           main screens (HQ, Garage, Design Office, Team, Workshop, F
 js/ui/screens-event.js   events: practice, matches, bracket, Championship pages, celebrations
 js/ui/screens-menu.js    main menu, new game, settings, version notes, season review
 js/ui/screens-parts.js   the Inventory tab
+js/ui/screens-world.js   the World page: the map and the season scouting table
 js/ui/tutorial.js     guided tours and the How to play guide
 js/ui/icons.js        icons, team colours, confetti
 js/local.js           extras for the downloaded copy (save a career to a file)
@@ -157,7 +160,7 @@ Systems added after the plan, which it does not describe:
 - Two robots per season and the test chassis, with driver familiarity, defense drills, path planning help and the electrical shakedown.
 - The parts inventory: two electronics vendors, stock that sells out in season, wear, mechanism kits, the Kit of Parts and game elements.
 - Testing hours, team fatigue and event incidents.
-- Feeder programs (including your own FTC teams) and the detailed Impact rating; the FIRST Impact Award at the Championship with Finalists, the Hall of Fame and watching Einstein from the stands.
+- Feeder programs (including your own FTC teams) and the detailed Impact rating; the FIRST Impact Award at the Championship with Finalists, the Hall of Fame and watching Einstein from the stands. The Woodie Flowers Finalist Award at regionals and District Championships and the Woodie Flowers Award on Einstein, with mentors who have professions, seasons with the team and years in FIRST.
 - Offseason rule changes and new designs that date tech knowledge.
 - Workshop space in three levels, the school board's renovations and upgrade grants, sponsor donations, and four more facilities (Electronics Workbench, Welding Station, Team Meeting Room, FTC Team Space).
 - A fifth drive-team role (Technician), a team size cap of 100 and slower reputation growth.

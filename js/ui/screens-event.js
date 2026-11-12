@@ -466,13 +466,16 @@
     const bn = G.Career.eventBanners(Object.assign({ kind: ev.kind }, r), ev.year);
     const S = G.S, ci = S.season && S.season.cmpImpact, settled = !!ci && (ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein));
     if (settled) { G.Career.settleImpact(S, 'all'); if (ci.result) bn.push({ award: ci.result === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: G.Career.calYear(S, ev.year), event: 'FIRST Championship', gold: ci.result === 'winner', world: true, key: 'impact' }); }
+    // a Woodie Flowers Finalist Award won here, and the Woodie Flowers Award on Einstein: blue banners too
+    (ev.wffa || []).filter(x => x.me).forEach(x => bn.push(G.Career.wfaBanner({ kind: 'wffa', cy: G.Career.calYear(S, ev.year), event: ev.name, name: x.name })));
+    { const wc = S.season && S.season.wfaCmp; if (ev.kind === 'einstein' && wc && wc.mine && wc.told) bn.push(G.Career.wfaBanner({ kind: 'wfa', cy: G.Career.calYear(S, ev.year), name: wc.winner.name })); }
     let o = bn.length ? '<div class="card hl mb"><div class="ct">' + (bn.length > 1 ? 'New blue banners!' : 'New blue banner!') + '<span class="sp"></span><span class="xs muted">Hung in your History banner wall</span></div>' + UI.bannerWall(bn, true) + '</div>' : '';
     if (ev.watch) {
       // in the stands: who won Einstein, the FIRST Impact Award and the whole bracket
       const F = ev.po.matches.find(x => x.id === 'F'), w = F.winner, wside = F.red === w ? 'red' : 'blue', gw = F.games.filter(g => !g.replay && g.winner === wside).length, gl = F.games.filter(g => !g.replay && g.winner && g.winner !== wside && g.winner !== 'tie').length;
       o += '<div class="grid g2"><div class="card hl"><div class="ct">Einstein finals</div><div class="xs muted b">WORLD CHAMPIONS</div><div class="xl b acc">' + h(alName(ev, w)) + '</div>' +
         '<div class="sm mt">' + ev.alliances[w].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>' +
-        '<div class="kv mt"><span class="k">Finals</span><span>' + gw + '–' + gl + ' against ' + h(alName(ev, F.loser)) + '</span><span class="k">Your team</span><span>In the stands' + (ci && ci.result ? ', and on the field for the FIRST Impact Award' : '') + '</span></div>' +
+        '<div class="kv mt"><span class="k">Finals</span><span>' + gw + '–' + gl + ' against ' + h(alName(ev, F.loser)) + '</span><span class="k">Your team</span><span>In the stands' + (ci && ci.result ? ', and on the field for the FIRST Impact Award' : '') + (S.season.wfaCmp && S.season.wfaCmp.mine ? (ci && ci.result ? ' and' : ', and') + ' for ' + h(S.season.wfaCmp.winner.name) + '\'s Woodie Flowers Award' : '') + '</span></div>' +
         '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>' + impactCard() + '</div>';
       return o + '<div class="mt">' + UI.bracket(ev) + '</div>';
     }
@@ -488,7 +491,8 @@
     if (ev.kind !== 'einstein') o += impactLine(ev);
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>';
     if (ev.kind === 'einstein' && ci) return o + impactCard() + '</div>' + (ev.po ? '<div class="mt">' + UI.bracket(ev) + '</div>' : '');
-    o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
+    const wf = (ev.wffa || []).map(x => '<div class="row sm mb ' + (x.me ? 'acc b' : '') + '" title="' + h(G.Career.profLine(x.prof)) + '"><span>Woodie Flowers Finalist Award</span><span class="sp"></span><span>' + h(x.name) + ', ' + x.team + (x.me ? '' : ' ' + h(tname(x.team))) + '</span></div>').join('');
+    o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length || wf ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') + wf : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
     if (ev.po) o += '<div class="mt">' + UI.bracket(ev) + '</div>';
     return o;
   }
@@ -510,12 +514,7 @@
         return '<tr class="' + (n === me() ? 'me' : '') + '"><td>' + (i + 1) + '</td><td>' + tlink(n) + '</td><td class="sm">' + h(tname(n)) + '</td><td class="num">' + (r.played ? (r.rp / r.played).toFixed(2) : '—') + '</td><td>' + r.w + '-' + r.l + '-' + r.t + '</td><td class="num">' + (r.played ? Math.round(r.pts / r.played) : '—') + '</td><td class="num">' + (opr[n] || 0) + '</td></tr>';
       }).join('') + '</table></div>';
     } else if (t === 'scout') {
-      o += credLine(ev) + '<div class="card"><div class="sm muted mb"><b>Observed</b> columns show what your scouts recorded in qualification matches. <b>Estimated</b> ratings (last four columns) sharpen with a Strategy mentor, Scouting Focus practice and more matches watched.</div><div style="overflow-x:auto"><table class="t tight"><tr><th>Team</th><th>Robot</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num" title="Estimated">Speed</th><th class="num" title="Estimated">Scoring</th><th class="num" title="Estimated">Acc</th><th class="num" title="Estimated reliability">Rel</th></tr>' +
-        ev.teams.slice().sort((a, b) => (opr[b] || 0) - (opr[a] || 0)).map(n => {
-          const sc = G.Ev.scout(ev, n), e = sc.est || sc.cap, c = sc.cap;
-          const nd = sc.noise ? '<span class="xs dim">±' + sc.noise + '</span>' : '';
-          return '<tr class="' + (n === me() ? 'me' : '') + '"><td>' + tlink(n) + '</td><td class="xs">' + h(sc.arch) + '</td><td class="num">' + (opr[n] || 0) + '</td>' + obsCells(ev, n) + '<td class="num">' + Math.round(e.speed) + '</td><td class="num">' + Math.round(e.scoreSpd) + nd + '</td><td class="num">' + Math.round(e.accuracy) + '</td><td class="num">' + Math.round(e.rel) + '</td></tr>';
-        }).join('') + '</table></div></div>';
+      o += credLine(ev) + UI.eventScout(ev, { tlink, obsCells });
     } else if (t === 'inc') {
       o += incidentsView(ev);
     } else {
@@ -880,10 +879,10 @@
     const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
     UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
       dl(0.05) + TROPHY + '</div>' +
-      dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
+      dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.city ? h(d.city.toUpperCase()) + ' · ' : '') + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
       dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
       dl(0.65, 'wc-you') + 'YOU ARE THE</div>' +
-      '<div class="wc-title">' + yearTxt + ' ' + label + '</div>' +
+      '<div class="wc-title">' + yearTxt + ' ' + label + (d.city && streak < 2 ? ' OF ' + h(d.city.toUpperCase()) : '') + '</div>' + // a two-Championship year has two champions
       (note ? dl(0.9, 'wc-note') + h(note) + '</div>' : '') +
       dl(1.0, 'wc-bn') + UI.banner({ gold: true, award: streak >= 2 ? 'World Champions ×' + streak : 'World Champions', year, event: 'Einstein · ' + (d.div || '') }, !replay) + '</div>' +
       dl(1.2, 'wc-msg') + story + '</div>' +
@@ -943,6 +942,45 @@
         '<p class="sm muted mt">' + (ci.out === 'finalist' ? 'Your team stays a Finalist, with a blue banner of its own.' : ci.eligible ? 'Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + '.' : 'Win a regional Impact Award to be judged here next time.') + '</p>';
     UI.modal(body + '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="wcClose">Back to the field</button></div>', { lock: true });
   }
+  // ---------------- The Woodie Flowers Award (presented on Einstein) ----------------
+  // the real winners before this year: a line each (D.REAL_WFA)
+  const pastWfa = (cy, n) => {
+    const ys = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = ys.slice(0, n);
+    if (ys.includes(1996) && !pick.includes(1996)) pick.push(1996);
+    return pick.length ? '<div class="wfa-past"><div class="wc-h">PAST WOODIE FLOWERS AWARD WINNERS</div>' + pick.map(y => { const x = D.REAL_WFA[y]; return '<div class="sm"><b>' + y + ' · ' + h(x.name) + '</b>' + (x.team ? ' <span class="muted">Team ' + x.team + ' ' + h(x.tname) + '</span>' : '') + (x.note ? '<div class="xs muted">' + h(x.note) + '</div>' : '') + '</div>'; }).join('') + '</div>' : '';
+  };
+  const profHtml = p => (p ? '<b class="acc">' + h(p.t) + '</b>' + (p.at ? ' at ' + h(p.at) : '') + ' <span class="xs muted">· ' + h(p.area) + '</span>' : '');
+  // when somebody else's mentor is called
+  function wfaAnnounce() {
+    const S = G.S, c = S.season.wfaCmp, W = c.winner, cy = G.Career.calYear(S);
+    UI.modal('<div class="xs b acc">AWARDS · ON EINSTEIN</div><h2>Woodie Flowers Award</h2><p class="muted">Right after the FIRST Impact Award, the award named after Woodie Flowers goes to one mentor, chosen from ' + c.of + ' Woodie Flowers Finalists: the mentor who best leads, inspires, teaches and empowers through communication.</p>' +
+      '<div class="card hl" style="text-align:center"><div class="xl b">' + h(W.name) + '</div><div class="sm">Team ' + W.team + ' ' + h(tname(W.team) || '') + '</div><div class="sm mt">' + profHtml(W.prof) + '</div><div class="xs muted">' + h(W.how) + '</div></div>' +
+      (c.nominee ? '<p class="sm muted mt">Your nominee, ' + h(c.nominee) + ', was one of the ' + c.of + '.</p>' : '') + pastWfa(cy, 3) +
+      '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="wcClose">Back to the field</button></div>', { lock: true });
+  }
+  // d: the snapshot made when the award was announced (Career.wfaCele)
+  UI.wfaCele = function (d, replay) {
+    if (!d) return;
+    const dl = (t, cls) => '<div class="wc-in ' + (cls || '') + '" style="animation-delay:' + t + 's">';
+    const sparks = Array.from({ length: 12 }, (_, i) => '<i class="ic-spark" style="left:' + (6 + (i * 29) % 88) + '%;animation-delay:' + (i * 0.37).toFixed(2) + 's;animation-duration:' + (4 + (i % 4)) + 's"></i>').join('');
+    const story = 'On Einstein, right after the FIRST Impact Award, the committee read from the essay your students wrote' + (d.writers.length ? ' (' + d.writers.map(x => '<b class="wc-name">' + h(x) + '</b>').join(' and ') + ')' : '') + ', and then a name: <b class="wc-name">' + h(d.name) + '</b>, your ' + h(d.role.toLowerCase()) + '. One mentor in the world each year, chosen from ' + d.of + ' Woodie Flowers Finalists' + (d.how ? ' (' + h(d.how.replace(/^Finalist/, 'a Finalist')) + ')' : '') + '. ' +
+      'The essay was about what ' + h(d.name) + ' brings from ' + h(d.prof.area) + ' into the shop: ' + d.ten + ' season' + (d.ten === 1 ? '' : 's') + ' with the team, ' + d.exp + ' years in FIRST, and ' + d.students + ' students who learned to explain what they build.';
+    UI.modal('<div class="wc ic wfa"><div class="ic-halo"></div>' + sparks +
+      dl(0.05) + LAUREL + '</div>' +
+      dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.65, 'wc-you') + h(d.name.toUpperCase()) + ' RECEIVES THE</div>' +
+      '<div class="wc-title ic-title">WOODIE FLOWERS AWARD</div>' +
+      dl(0.9, 'wc-note') + profHtml(d.prof) + '</div>' +
+      dl(1.0, 'wc-bn') + UI.banner(G.Career.wfaBanner({ kind: 'wfa', cy: d.year, name: d.name }), !replay) + '</div>' +
+      dl(1.2, 'wc-msg') + story + ' A mentor receives it once in a lifetime, and the blue banner hangs with your Championship honours.</div>' +
+      dl(1.4, 'wc-al') + '<span class="wc-chip me"><b>' + d.ten + '</b> seasons<small>with the team</small></span><span class="wc-chip"><b>' + d.exp + '</b> years<small>in FIRST</small></span><span class="wc-chip"><b>' + d.of + '</b> Finalists<small>considered</small></span></div>' +
+      dl(1.5) + pastWfa(d.year, 3) + (d.real ? '<div class="xs muted mt">In the real ' + d.year + ' season the award went to ' + h(d.real.name) + (d.real.team ? ' of Team ' + d.real.team + ' ' + h(d.real.tname) : '') + '.</div>' : '') + '</div>' +
+      dl(1.6, 'wc-qs') + '<div class="wc-h">WHAT PEOPLE ARE SAYING</div>' + (d.quotes || []).map(cq).join('') + '</div>' +
+      dl(1.8) + '<button class="btn primary lg wc-btn" data-act="wcClose">' + UI.icon('trophy', 18) + (replay ? ' Close' : ' Celebrate!') + '</button></div>' +
+      '</div>', { wide: true, lock: !replay, cls: 'wcm icm' });
+    UI.confetti(5000);
+  };
   // ---------------- The Festival of Champions (July 2017) ----------------
   // What the real event was, in four short paragraphs (FIRST's own announcements and the event's results).
   const FEST_REAL = [
@@ -1109,6 +1147,13 @@
       if (ci && !seen.win && (done || (F && F.games.length >= 1))) {
         seen.win = true; C.settleImpact(S, 'win'); G.Save.write('auto');
         if (ci.out === 'winner') UI.impactCele(ci.cele); else impactAnnounce('win');
+        return true;
+      }
+      // the Woodie Flowers Award is presented right after the FIRST Impact Award
+      const wc = S.season && S.season.wfaCmp;
+      if (wc && wc.winner && !seen.wfa && (!ci || seen.win) && (done || (F && F.games.length >= 1))) {
+        seen.wfa = true; C.settleWfa(S); G.Save.write('auto');
+        if (wc.mine) UI.wfaCele(wc.cele); else wfaAnnounce();
         return true;
       }
       if (done && ev.result && ev.result.won && !ev.wcShown && S.season.wc) { ev.wcShown = true; ev.party = true; UI.worldChampModal(S.season.wc); return true; }

@@ -157,6 +157,8 @@
   // Kit of parts: limited and basic, free at every Kickoff (rookies get a bigger kit in their first season)
   D.KOP = { motor: 4, enc: 2, kdrive: 2 }; // veterans: no control hub (like FRC, only rookies get the control system)
   D.KOP_ROOKIE = { motor: 8, enc: 4, kdrive: 4, ctrl: 1 };
+  // KOP mechanism vouchers handed out at Kickoff: each pays for one Kit of Parts subsystem kit until the next Kickoff
+  D.KOP_VOUCHERS = { rookie: 2, vet: 1 };
 
   // How likely an item is in stock in a given week during the season (the offseason is almost always fine)
   D.STOCK = { elec: 0.42, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, diff: { easy: 0.15, normal: 0, hard: -0.1 } };

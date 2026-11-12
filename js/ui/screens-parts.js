@@ -174,7 +174,7 @@
 
   // ---------- subsystem COTS ----------
   function cotsTab(S) {
-    let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Subsystem parts and kits come from many suppliers and always fit. Drive gearboxes, cameras and pneumatics are used like electronics. ' + (S.cal && !P().cotsOut(S, 'kFrame') ? 'For now only elevator, shooter and turret kits exist: everything else is cut and drilled in the shop. ' : '') + '<b>Mechanism kits are optional:</b> each concept can use a set (a turret shooter: a turret kit and a shooter kit; a traversal climber: up to 4 climber kits). A full set makes the build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster, uses ' + Math.round((1 - D.KIT_COST) * 100) + '% less material and removes first-build penalties; a partial set gives part of that. Kits stay in the subsystem they were built into (on either robot or in storage); take a stored subsystem apart in the Garage to free them. Kits wear with use, and worn kits help less (down to half). Without kits, the team fabricates its own. <b>Kit of Parts kits</b> (below) are the basic version: each helps only the simplest concept of a subsystem.' + (P().cotsOut(S, 'kFrame') ? ' <b>GridTube frame stock</b> works differently: every mechanical build can use 1 to 3 bundles (the drivetrain too), worth ' + Math.round(D.FRAME_HOURS * 100) + '% fewer hours and ' + Math.round(D.FRAME_COST * 100) + '% less material with all of them, on top of the kits.' : '') + '</div>';
+    let o = '<div class="hint mb">' + UI.icon('info', 14) + ' Gearboxes, cameras and pneumatics are used like electronics. <b>Mechanism kits are optional:</b> a full set makes a build ' + Math.round((1 - D.KIT_HOURS) * 100) + '% faster and ' + Math.round((1 - D.KIT_COST) * 100) + '% cheaper in materials. ' + (S.cal && !P().cotsOut(S, 'kFrame') ? 'For now only elevator, shooter and turret kits exist. ' : '') + UI.q('parts', 'Mechanism kits (optional)') + '</div>';
     const onSale = P().forSale(S);
     o += '<div class="grid g3">' + D.COTS_CATS.map(cat => {
       if (!onSale.some(x => x.prod.id === cat + 'C') && D.COTS_FROM[cat]) return ''; // the kits of 2021 are not on the shelf before they exist
@@ -186,13 +186,14 @@
     }).join('') + '</div>';
     // Kit of Parts: basic subsystem kits for the simplest concepts (the kit drivetrain is under Electronics, Drivetrain;
     // careers from before v3.0 have no Drivetrain section, so theirs stays here)
+    const vch = P().kopVch(S);
     const kopKit = x => {
       const p = x.prod, c = D.PART_CAT[p.cat], price = P().price(S, p), have = P().count(S, p.cat), free = P().kitsFree(S, p.cat), full = P().buyRoom(S, p.id) <= 0;
       return '<div class="pcard" style="--vc:' + D.VENDORS.K.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + UI.tag('always in stock', 'good') + '</div><div class="xs muted">' + h(c.desc) + ' Helps ' + h(c.helps) + ': ' + Math.round(D.KOP_KIT_HOURS * 100) + '% fewer hours, ' + Math.round(D.KOP_KIT_COST * 100) + '% less material.</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (full ? 'disabled' : '') + '>' + (full ? 'Full' : 'Buy') + '</button></div></div>';
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') + '</span><span class="sp"></span><button class="btn sm' + (vch && !full ? ' primary' : '') + '" data-act="buyProd" data-arg="' + p.id + '|1" ' + (full ? 'disabled' : '') + '>' + (full ? 'Full' : vch ? 'Get it free (voucher)' : 'Buy') + '</button></div></div>';
     };
     const kops = P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec);
-    o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + ' <span class="xs muted">basic subsystem kits: cheap, always in stock, and only for the simplest concept of a subsystem (a build that uses a COTS kit does not need one)</span></h2><div class="grid g3">' +
+    o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + (vch ? ' ' + UI.tag(vch + ' KOP voucher' + (vch > 1 ? 's' : '') + ' to use', 'good') : '') + ' <span class="xs muted">basic subsystem kits: cheap, always in stock, and only for the simplest concept of a subsystem (a build that uses a COTS kit does not need one)</span></h2><div class="grid g3">' +
       kops.filter(x => D.PART_CAT[x.prod.cat].kop).map(kopKit).join('') + (S.cal ? '' : kops.filter(x => x.prod.id === 'kdriveK').map(x => prodCard(S, x)).join('')) + '</div>';
     return o;
   }
@@ -200,17 +201,17 @@
   // ---------- game elements ----------
   function elemTab(S) {
     const y = P().elemYear(S), ny = P().nextYear(S), fs = P().fieldSize(S), season = P().inSeason(S);
-    let o = '<div class="hint mb">' + UI.icon('pfield', 14) + ' ' + (fs ? 'Your Practice Field (Level ' + G.Shop.lvl(S, 'pfield') + ') fits a ' + P().setName(fs).toLowerCase() + ' set of elements' : 'No Practice Field yet: the kit game pieces are all you need, so only buy sets as spares for later') + '. Bigger sets than the field add nothing; worn sets count for less. Driver practice wears them like parts. You can store up to ' + D.ELEM_MAX + ' fields\' worth, so stocking a spare set before the season protects you from in-season shortages.</div>';
+    let o = '<div class="hint mb">' + UI.icon('pfield', 14) + ' ' + (fs ? 'Your Practice Field (Level ' + G.Shop.lvl(S, 'pfield') + ') fits a ' + P().setName(fs).toLowerCase() + ' set of elements' : 'No Practice Field yet: the kit game pieces are all you need, so only buy sets as spares for later') + '. Bigger sets than the field add nothing, and they wear with driver practice. ' + UI.q('parts', 'Game elements') + '</div>';
     if (y != null) {
       const sets = P().elemSets(S, y), fill = P().elemFill(S, y), q = P().elemQ(S, y);
-      o += UI.card(UI.it('elements', (season ? 'This season' : 'Last season') + ': ' + y + ' ' + h(G.Seasons[y].name)),
+      o += UI.card(UI.it('elements', (season ? 'This season' : 'Last season') + ': ' + h(G.Career.seasonName(S, y))),
         '<div class="grid g2"><div>' + UI.stat('Field filled', fill * 100, null, UI.colorFor(fill * 100)) + UI.stat('Driver-practice quality', q * 100, null, UI.colorFor(q * 100)) +
         '<div class="row wrap gap4 mt">' + (S.elemKop && S.elemKop[y] ? '<span class="tag">Kit game pieces</span>' : '') + sets.map(e => '<span class="tag">' + P().setName(e.s) + ' set ' + pct(e.h) + '</span>').join('') + P().elemPending(S, y).map(e => '<span class="tag info">' + P().setName(e.s) + ' set · pending</span>').join('') + (sets.length ? '' : '<span class="xs muted">no sets</span>') + '</div></div>' +
         '<div class="col">' + D.ELEM_SETS.map(e => elemBtn(S, e, false, season)).join('') + '</div></div>');
     }
     if (ny != null) {
       const pend = P().elemPending(S, ny);
-      o += '<div class="mt">' + UI.card(UI.it('truck', 'Next season (' + ny + ')'), '<div class="row wrap gap4">' + (pend.length ? pend.map(e => '<span class="tag info">' + P().setName(e.s) + ' set · pending</span>').join('') + '<span class="xs muted">arrives with the Kit of Parts at Kickoff</span>' : '<span class="sm muted">Nothing on order yet.</span>') + '<span class="sp"></span><button class="btn sm" data-act="partsTab" data-arg="pre">Preorder</button></div>') + '</div>';
+      o += '<div class="mt">' + UI.card(UI.it('truck', 'Next season (' + G.Career.calYear(S, ny) + ')'), '<div class="row wrap gap4">' + (pend.length ? pend.map(e => '<span class="tag info">' + P().setName(e.s) + ' set · pending</span>').join('') + '<span class="xs muted">arrives with the Kit of Parts at Kickoff</span>' : '<span class="sm muted">Nothing on order yet.</span>') + '<span class="sp"></span><button class="btn sm" data-act="partsTab" data-arg="pre">Preorder</button></div>') + '</div>';
     }
     if (y == null && ny == null) o += '<p class="muted">No game to buy elements for right now.</p>';
     return o;
@@ -220,7 +221,7 @@
     const ny = P().nextYear(S);
     if (ny == null) return '<p class="muted">Preorders open after the season review.</p>';
     const pre = (S.elemPre && S.elemPre[ny]) || [];
-    return UI.card(UI.it('truck', 'Preorder next season\'s field elements'), '<div class="sm muted mb">The game is revealed at Kickoff. Preordered elements arrive with the Kit of Parts and never sell out, while in-season orders often do. Match the size to your practice field (' + (P().fieldSize(S) ? P().setName(P().fieldSize(S)).toLowerCase() + ' set now' : 'none yet: the kit pieces are enough') + '); a spare set guards against wear.</div>' +
+    return UI.card(UI.it('truck', 'Preorder next season\'s field elements'), '<div class="sm muted mb">Preordered elements arrive with the Kit of Parts and never sell out; in-season orders often do. Your field: ' + (P().fieldSize(S) ? P().setName(P().fieldSize(S)).toLowerCase() + ' set' : 'none yet, the kit pieces are enough') + '. ' + UI.q('parts', 'Game elements') + '</div>' +
       '<div class="grid g2"><div class="sm">' + (pre.length ? '<div class="mb">' + UI.icon('check', 14) + ' On order (pending until Kickoff):</div><div class="row wrap gap4">' + pre.map(e => '<span class="tag info">' + P().setName(e.s) + ' set · pending</span>').join('') + '</div>' : '<span class="muted">Nothing on order yet.</span>') + '</div><div class="col">' + D.ELEM_SETS.map(e => elemBtn(S, e, true)).join('') + '</div></div>');
   }
   function elemBtn(S, e, pre, season) {

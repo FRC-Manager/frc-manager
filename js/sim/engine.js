@@ -462,12 +462,15 @@
   }
   function triggerFault(m, r, id) {
     const rng = m.rng; let msg = '';
+    // an intake that folds or slides out of the way when it is hit (cap.robustIntake) shrugs off most jams and breakages
+    if (r.cap.robustIntake && id === 'intakeJam' && rng.chance(0.7)) return;
     switch (id) {
       case 'brown': r.fault = { stall: true, until: m.t + rng.range(2, 5), label: 'BROWNOUT' }; msg = 'Brownout'; break;
       case 'intakeJam': r.jam.intake = m.t + rng.range(5, 20); msg = 'Intake jammed'; break;
       case 'scorerJam': r.jam.scorer = m.t + rng.range(5, 18); msg = 'Scorer jammed'; break;
       case 'mech': {
         const k = rng.pick(['intake', 'scorer', 'endgame']);
+        if (k === 'intake' && r.cap.robustIntake && rng.chance(0.7)) return;
         r.perm[k] = true; msg = (k === 'endgame' ? 'Climber' : k === 'intake' ? 'Intake' : 'Scorer') + ' broke';
         break;
       }
@@ -492,7 +495,7 @@
   function climbTime(m, r, lvl) {
     const L = m.R.endgame.levels[lvl - 1];
     const base = typeof L.time === 'function' ? L.time(m, r) : L.time;
-    return base * (1.6 - (r.cap.endgame || 40) / 100) * (r.cap.lowCG ? 0.95 : 1); // a low centre of gravity hangs straight: a little quicker and surer
+    return base * (1.6 - (r.cap.endgame || 40) / 100) * (r.cap.lowCG ? 0.95 : 1) * (r.cap.climbK || 1); // a low centre of gravity hangs straight: a little quicker and surer
   }
   // How carefully a robot is driven, for the accidents a driver can prevent (a fall from a high climb, a partner dropped
   // from a buddy climb, 2020: beaching on a Power Cell): 1 for an average driver at a balanced pace, about 0.7 for an
@@ -527,7 +530,7 @@
           else {
             // a failed high climb can end in a fall from height: the robot is out and badly damaged
             const L = m.R.endgame.levels[lvl - 1];
-            if (L.drop && m.rng.chance(U.clamp(L.drop * (1.15 - (r.cap.endgame || 40) / 200) * careK(r), 0, 0.9))) {
+            if (L.drop && m.rng.chance(U.clamp(L.drop * (1.15 - (r.cap.endgame || 40) / 200) * careK(r) * (r.cap.dropK || 1), 0, 0.9))) {
               r.end = { lvl: 0, failed: true, drop: true }; r.dead = true; r.climbing = false;
               r.label = 'FELL FROM ' + nm.toUpperCase(); r.stats.faults.push('Fell from ' + nm);
               log(m, r.a, r.team + ' FELL from ' + nm + '!', 'fault');
@@ -544,7 +547,7 @@
   function climbChance(m, r, lvl) {
     if (m.R.endgame.levels[lvl - 1].sure) return 1;
     return U.clamp(0.62 + 0.36 * (r.cap.endgame || 40) / 100 - 0.05 * (lvl - 1) + 0.06 * (r.drv.comp - 50) / 50 + 0.1 * r.confK
-      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0) - (m.R.endgame.levels[lvl - 1].risk || 0) + (r.cap.lowCG ? 0.03 : 0), 0.2, 0.985);
+      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0) - (m.R.endgame.levels[lvl - 1].risk || 0) + (r.cap.lowCG ? 0.03 : 0) + (r.cap.climbAdd || 0), 0.2, 0.985);
   }
 
   // ---------- calls ----------
@@ -631,7 +634,7 @@
       // one needs, a beginner takes a fifth longer. Elsewhere they hardly touch the game pieces (5%).
       const hpW = m.S.hpLoad ? 0.45 : 0.05, hpF = 1 - hpW * (((m.hp && m.hp[r.a]) || 50) - 60) / 50;
       let t = kind === 'ground' ? base * (1.6 - 0.9 * i / 100) * (fed ? hpF : 1) : base * (1.4 - 0.55 * i / 100) * hpF;
-      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1) * (1 - 0.4 * r.confK) * jostle(m, r); // practiced crews handle game pieces faster
+      return t * P.cyc / (0.9 + 0.1 * r.opF) * (m.R.tempo ? m.R.tempo.c : 1) * (1 - 0.4 * r.confK) * (r.cap.robustIntake ? 1 + (jostle(m, r) - 1) * 0.5 : jostle(m, r)); // practiced crews handle game pieces faster
     },
     scoreTime(m, r, base, stat) {
       const s = stat == null ? r.cap.scoreSpd : stat;
@@ -692,6 +695,21 @@
         log(m, rider.a, lifter.team + ' dropped ' + rider.team + ' during the buddy climb', 'fault');
         if (!m.headless) m.fx.push({ k: 'pop', x: rider.x, y: rider.y, text: 'DROPPED!', t: m.t, a: rider.a });
       }
+      return false;
+    },
+    // A triple climber (2019) lifts both partners at once or neither: with one partner on board it would not balance.
+    // When the lift fails, each partner may be dropped, as in a buddy climb, and the lifter itself may come off the
+    // platform with them (a fall from HAB 3).
+    tripleLift(m, lifter, riders, p) {
+      if (m.rng.chance(p)) return true;
+      riders.forEach(rd => {
+        if (m.rng.chance(U.clamp(0.55 * careK(lifter), 0.1, 0.9))) { rd.stats.faults.push('Dropped by a partner'); log(m, rd.a, lifter.team + ' dropped ' + rd.team + ' during the triple climb', 'fault'); }
+      });
+      if (m.rng.chance(U.clamp(0.25 * careK(lifter), 0.05, 0.6))) {
+        lifter.end = { lvl: 0, failed: true, drop: true }; lifter.stats.faults.push('Fell from HAB 3');
+        log(m, lifter.a, lifter.team + ' FELL from HAB 3 with both partners on board!', 'fault');
+        if (!m.headless) m.fx.push({ k: 'pop', x: lifter.x, y: lifter.y, text: 'FALL!', t: m.t, a: lifter.a });
+      } else log(m, lifter.a, lifter.team + ' could not lift both partners', 'fault');
       return false;
     },
     nearest(r, pts) { let best = null, bd = 1e9; for (const p of pts) { const d = dist(r, p); if (d < bd) { bd = d; best = p; } } return best; },

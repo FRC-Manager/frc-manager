@@ -69,8 +69,12 @@
           base: { intake: 40 }, ceil: { intake: 65 }, caps: { ground: false, station: true, storage: 1 }, look: { intake: 'none' } },
         { id: 'over', name: 'Over-bumper + 2-ball indexer', desc: 'Deployable ground intake feeding a two-ball indexer.', cost: 700, hours: 140, w: 14, cx: 3, areas: ['intake', 'index'],
           base: { intake: 45 }, ceil: { intake: 86 }, caps: { ground: true, station: true, storage: 2 }, look: { intake: 'over' } },
-        { id: 'dual', name: 'Dual-side intake + 2-ball indexer', desc: 'Intakes on both ends: grab cargo without turning around.', cost: 1100, hours: 200, w: 18, cx: 4, areas: ['intake', 'index'],
-          base: { intake: 50 }, ceil: { intake: 95 }, caps: { ground: true, station: true, storage: 2 }, look: { intake: 'dual' } }
+        // goes for cargo that is still bouncing (rules: ground22, PIVOT22)
+        { id: 'pivot', name: 'Motorized pivot intake + 2-ball indexer', desc: 'A powered arm drops the intake onto the carpet and lifts it clear: it takes cargo while it is still bouncing, before it settles.', cost: 900, hours: 170, w: 16, cx: 4, areas: ['intake', 'index'],
+          base: { intake: 47 }, ceil: { intake: 92 }, caps: { ground: true, station: true, storage: 2, catchBounce: true }, look: { intake: 'over' } },
+        // no turning round for a ball (rules: DUAL22)
+        { id: 'dual', name: 'Dual-side intake + 2-ball indexer', elite: true, desc: 'Intakes on both ends: it takes cargo from either side without turning round. The hardest intake of the year, and only a little better than a motorized pivot intake.', cost: 1500, hours: 240, w: 19, cx: 5, areas: ['intake', 'index'],
+          base: { intake: 50 }, ceil: { intake: 95 }, caps: { ground: true, station: true, storage: 2, dualSide: true }, look: { intake: 'dual' } }
       ] },
       { id: 'scorer', name: 'Shooter', concepts: [
         { id: 'dump', name: 'Low-goal dumper', desc: 'Drops cargo into the lower hub from the fender. Simple and accurate.', cost: 200, hours: 60, w: 8, cx: 1, areas: ['shooter'],
@@ -88,13 +92,17 @@
           base: { endgame: 40 }, ceil: { endgame: 82 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
         { id: 'high', name: 'High-rung climber', desc: 'Two-stage climb to the High rung.', cost: 900, hours: 150, w: 14, cx: 3, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 88 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
-        { id: 'trav', name: 'Traversal climber', desc: 'Rung-to-rung swinging climb to Traversal. Huge points, hard to make reliable.', cost: 1500, hours: 240, w: 18, cx: 5, areas: ['climb'],
-          base: { endgame: 30 }, ceil: { endgame: 95 }, caps: { endLevel: 4 }, look: { climber: 'arms' } }
+        { id: 'trav', name: 'Traversal climber', desc: 'Rung-to-rung swinging climb to Traversal. Huge points, hard to make reliable.', cost: 1500, hours: 240, w: 18, cx: 4, areas: ['climb'],
+          base: { endgame: 30 }, ceil: { endgame: 95 }, caps: { endLevel: 4 }, look: { climber: 'arms' } },
+        // straight to Traversal: quicker (climbK), surer (climbAdd) and fewer falls (dropK), and nothing lower (rules: endLevel)
+        { id: 'direct', name: 'Direct traversal climber', elite: true, desc: 'Reaches straight for the Traversal rung instead of swinging rung to rung: quicker and surer than a traversal climber, and less likely to fall. It can only hang on Traversal: no Low, Mid or High.', cost: 1900, hours: 280, w: 19, cx: 5, areas: ['climb'],
+          base: { endgame: 32 }, ceil: { endgame: 95 }, caps: { endLevel: 4, directTrav: true, climbK: 0.6, climbAdd: 0.05, dropK: 0.6 }, look: { climber: 'arms' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret + Traversal', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['dual', 'over'], scorer: 'turret', endgame: 'trav' } },
+      { name: 'Turret + direct traversal', min: 90, pick: { drive: 'swerve', intake: ['dual', 'pivot'], scorer: 'turret', endgame: ['direct', 'trav'] } },
+      { name: 'Turret + Traversal', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['pivot', 'over'], scorer: 'turret', endgame: 'trav' } },
       { name: 'Hood shooter + High climb', min: 56, pick: { drive: ['swerve', 'wcd'], intake: 'over', scorer: 'hood', endgame: ['high', 'trav'] } },
       { name: 'Fender shooter + Mid climb', min: 36, pick: { drive: ['wcd', 'kit'], intake: 'over', scorer: 'fender', endgame: 'mid' } },
       { name: 'Low-goal + Mid climb', min: 16, pick: { drive: 'kit', intake: ['term', 'over'], scorer: 'dump', endgame: ['mid', 'none'] } },
@@ -319,7 +327,10 @@
         { id: 'ground', name: 'Ground intake', desc: 'Roller intake that sweeps fuel off the carpet.', cost: 700, hours: 130, w: 10, cx: 3, areas: ['intake'],
           base: { intake: 45 }, ceil: { intake: 88 }, caps: { ground: true, station: true, wide: 1 }, look: { intake: 'over' } },
         { id: 'wide', name: 'Wide full-width intake', desc: 'Full-frame-width intake: vacuums fuel 30% faster.', cost: 1000, hours: 180, w: 13, cx: 4, areas: ['intake', 'index'],
-          base: { intake: 48 }, ceil: { intake: 95 }, caps: { ground: true, station: true, wide: 1.3 }, look: { intake: 'wide' } }
+          base: { intake: 48 }, ceil: { intake: 95 }, caps: { ground: true, station: true, wide: 1.3 }, look: { intake: 'wide' } },
+        // packs the fuel down (rules: COMPACT26) and slides back when hit (robustIntake)
+        { id: 'slide', name: 'Linear slide intake', elite: true, desc: 'A full-width intake on a linear slide. It packs the fuel down in the hopper like a trash compactor, so the shooter is fed faster, and it slides back out of the way when something hits it. The hardest intake of the year.', cost: 1500, hours: 240, w: 15, cx: 5, areas: ['intake', 'index'],
+          base: { intake: 48 }, ceil: { intake: 96 }, caps: { ground: true, station: true, wide: 1.3, compact: true, robustIntake: true }, look: { intake: 'wide' } }
       ] },
       { id: 'hopper', name: 'Hopper', concepts: [
         { id: 'small', name: 'Small hopper (8)', desc: 'Holds 8 fuel. Light and simple.', cost: 200, hours: 40, w: 5, cx: 1, areas: ['index'],
@@ -334,8 +345,11 @@
           base: { scoreSpd: 42, accuracy: 50, range: 0 }, ceil: { scoreSpd: 80, accuracy: 90, range: 30 }, caps: { rmin: 1.2, rmax: 2.0 }, look: { shooter: 'fixed' } },
         { id: 'hood', name: 'Adjustable hood shooter', desc: 'Shoots from anywhere in your alliance zone.', cost: 1300, hours: 180, w: 16, cx: 3, areas: ['shooter', 'vision'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { rmin: 1.2, rmax: 4.0 }, look: { shooter: 'hood' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims independently of the drivetrain. With vision it shoots on the move and is very hard to defend.', cost: 2000, hours: 250, w: 21, cx: 5, areas: ['turret', 'shooter', 'vision'],
+        { id: 'turret', name: 'Turret shooter', desc: 'Aims independently of the drivetrain. With vision it shoots on the move and is very hard to defend.', cost: 2000, hours: 250, w: 21, cx: 4, areas: ['turret', 'shooter', 'vision'],
           base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true }, look: { shooter: 'turret' } },
+        // more fuel a second and steadier shots (rules: ROTOR26)
+        { id: 'rotor', name: 'Dye-rotor turret', elite: true, desc: 'A turret fed by a rotor: more fuel a second than a standard turret, and more consistent shots. The hardest shooter of the year.', cost: 2400, hours: 290, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true, rotor: true }, look: { shooter: 'rotor' } },
         { id: 'dumper', name: 'Wide dumper', desc: 'A full-width bank of fixed flywheels that empties the hopper in seconds. Huge throughput and simpler than a turret, but it must line up close to the hub and suffers more under defense.', cost: 1500, hours: 190, w: 19, cx: 3, areas: ['shooter', 'index'],
           base: { scoreSpd: 50, accuracy: 46, range: 0 }, ceil: { scoreSpd: 99, accuracy: 91, range: 25 }, caps: { rmin: 1.0, rmax: 2.4, dumper: true }, look: { shooter: 'wide' } }
       ] },
@@ -351,6 +365,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
+      { name: 'Rotor turret + slide intake', min: 90, pick: { drive: 'swerve', frame: ['low', 'std'], intake: ['slide', 'wide'], hopper: 'large', scorer: ['rotor', 'turret'], endgame: ['l1', 'l3', 'none'] } },
       { name: 'Turret + big hopper', min: 76, pick: { drive: 'swerve', frame: ['low', 'std'], intake: 'wide', hopper: 'large', scorer: 'turret', endgame: ['l1', 'l3', 'none'] } },
       { name: 'Big dumper', min: 66, pick: { drive: 'swerve', frame: 'std', intake: 'wide', hopper: 'large', scorer: 'dumper', endgame: ['none', 'l1'] } },
       { name: 'Hood shooter + L2', min: 56, pick: { drive: 'swerve', frame: 'std', intake: ['ground', 'wide'], hopper: ['large', 'med'], scorer: 'hood', endgame: 'l2' } },

@@ -97,6 +97,22 @@
     return { year: year || null, goals: [], events: [], awards: [], champsQualified: false, champsReason: '', champsPlayoffs: false, einstein: false, worldChamp: false, divWin: false,
       impactDone: false, dcmpQualified: false, impact: 0, outreach: 0, earned: 0, spent: 0, rpSum: 0, qualMatches: 0, matches: 0, faults: 0, legacy: 0, worldFinalist: false, wc: null, cmpImpact: null };
   }
+  // Random order: the games shuffled over the calendar. A game with drawIn only lands in those years (STRONGHOLD allows
+  // tank drives only: later it would contradict every swerve-era recap and find no drive sets on sale after 2022).
+  // Drawn anywhere else, it gives its place to a game the shuffle left out, or, in a ten-season career where nothing is
+  // left out, trades places with the game drawn for one of its years.
+  C.drawGames = function (rng, cal) {
+    const all = rng.shuffle(G.SEASON_YEARS.slice()), order = all.slice(0, cal.length), spare = all.slice(cal.length);
+    const fits = (gy, i) => { const d = G.Seasons[gy].drawIn; return !d || d.includes(cal[i]); };
+    order.forEach((gy, i) => {
+      if (fits(gy, i)) return;
+      const k = spare.findIndex(x => fits(x, i));
+      if (k >= 0) { order[i] = spare[k]; spare[k] = gy; return; }
+      const slots = order.map((x, j) => j).filter(j => j !== i && fits(gy, j) && fits(order[j], i));
+      if (slots.length) { const j = rng.pick(slots); order[i] = order[j]; order[j] = gy; }
+    });
+    return order;
+  };
   C.newGame = function (o) {
     const seed = o.seed || ((Date.now() ^ Math.floor(Math.random() * 1e9)) & 0x7fffffff); // o.seed: dev tests only
     G.R = new G.Rng(seed);
@@ -107,7 +123,7 @@
     if (o.cal) cal = o.cal.slice(); // dev tests: any calendar under today's games
     let order;
     if (o.mode === 'single') order = [o.year];
-    else if (o.order === 'random') order = rng.shuffle(G.SEASON_YEARS.slice()).slice(0, cal.length);
+    else if (o.order === 'random') order = C.drawGames(rng, cal);
     else order = cal.every(y => G.Seasons[y]) ? cal.slice() : G.SEASON_YEARS.slice(0, cal.length);
     if (o.games) order = o.games.slice(); // dev tests
     cal = cal.slice(0, order.length);
@@ -150,6 +166,7 @@
       S.mentors.push(m);
     });
     if (scen && scen.dropMentors) S.mentors.splice(0, scen.dropMentors);
+    S.mentors.forEach(m => C.mentorMeta(S, m));
     // world
     // world: a v3 career simulates every team and event (regionals and districts); a single season keeps the simple pool
     if (S.cal && o.mode === 'career' && G.World && !o.noWorld) {
@@ -158,8 +175,8 @@
       G.World.setup(S, rng);
     } else {
       S.team.home = null;
-      S.teams = G.AI.makePool(rng, 620, S.team.num, order[0]);
-      G.AI.addRookies(S.teams, rng, order[0], 12, S.team.num);
+      S.teams = G.AI.makePool(rng, 620, S.team.num, cal[0]); // team numbers follow the calendar year
+      G.AI.addRookies(S.teams, rng, order[0], 12, S.team.num, cal[0]);
     }
     C.refreshMarket(S);
     if (!G.World.on(S)) S.regionals = D.makeRegionals(order[0], rng);
@@ -168,6 +185,8 @@
       G.Parts.teaser(S);
       { const eb = C.eraBrief(S); if (eb) C.inbox(S, eb.title, 'What the sport looks like as your career begins:\n\n' + eb.lines.map(x => '• ' + x).join('\n') + '\n\nAll of this changes over the years. The big changes arrive as pop-ups, and a recap after every season tells the story of the year.', 'info'); }
       C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy facilities (Workshop) and parts (Inventory), start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.', 'info');
+      C.inbox(S, ...C.regNotice(S)); // the career starts in October: registration is already open
+      if (G.World.on(S)) C.wfaSeed(S);
     } else {
       // single season: auto-sign starter sponsors, then kickoff right away
       C.genOffers(S);
@@ -395,6 +414,7 @@
     { const e = C.afford(S, m.cost); if (e) return e; }
     if (m.cost) C.spend(S, m.cost, 'Mentor: ' + m.name);
     m.paid = true; m.contract = Math.max(1, m.contract);
+    C.mentorMeta(S, m); m.ten = 0;
     S.mentors.push(m); S.market = S.market.filter(x => x !== m);
     S.morale = Math.min(100, S.morale + 2);
     C.inbox(S, 'Mentor joined: ' + m.name, D.MENTOR_ROLES.find(r => r.id === m.role).name + ' (' + U.stars(m.stars) + ').', 'staff');
@@ -663,6 +683,7 @@
     const ev = S.event;
     if (!ev) return;
     if (ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein)) C.settleImpact(S, 'all');
+    if (ev.kind === 'einstein' || (ev.kind === 'champs' && !S.pendingEinstein)) C.settleWfa(S);
     S.eventsDone[ev.id] = true;
     S.event = null;
   };
@@ -809,8 +830,15 @@
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.districtOffer && S.districtOffer.stage === 'choose') b.push('Decide whether to join the ' + D.DISTRICT[S.districtOffer.id].name + ' (Headquarters).');
+    if (C.needReg(S)) b.push('Register for at least one ' + C.evWord(S) + ' before Kickoff (Calendar).');
     return b;
   };
+  // December, the last turn before Kickoff: a career team goes into the season registered for at least one event. Not
+  // enforced when nothing is open to it or it cannot pay the fee (in the offseason only cash can be spent).
+  C.needReg = S => S.mode === 'career' && S.phase === 'off' && S.month >= D.MONTHS.length - 1 && !S.registered.length &&
+    (S.regionals || []).some(r => !C.canRegister(S, r)) && !C.afford(S, C.regFee(S));
+  // ...and when it cannot register yet (no cash for the fee, nothing open), the same December turn only warns
+  C.regWarn = S => S.mode === 'career' && S.phase === 'off' && S.month >= D.MONTHS.length - 1 && !S.registered.length && !C.needReg(S);
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
@@ -966,9 +994,11 @@
       C.genOffers(S);
       if (G.World.on(S)) G.World.plan(S, rng); else S.regionals = D.makeRegionals(S.order[S.upcoming] || S.year, rng);
       S.registered = []; S.scrimmage = false;
-      C.inbox(S, 'Sponsor season & registration', 'New sponsor offers are in (Finance). ' + (S.team.home && G.World.on(S) ? 'District event registration' : 'Regional registration') + ' for next season is open (Calendar).', 'money');
+      C.inbox(S, 'Sponsor season', 'New sponsor offers are in (Finance).', 'money');
+      C.inbox(S, ...C.regNotice(S));
     }
     if (mo === 'Nov') C.inbox(S, 'Drive team tryouts', 'Pick next season\'s drive team on the Team screen.', 'staff');
+    if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event');
   }
   function autoDriveTeamIfMissing(S) {
     const ids = S.students.map(s => s.id);
@@ -995,7 +1025,7 @@
         (d ? ' Your district, the ' + d.name + ', has ' + G.World.sizeOf(d, su.cy) + ' teams; the top ' + d.dcmp + ' reach its District Championship and about ' + G.World.slots(S, d) + ' go on to the Championship.' : '') +
         ' The ' + (d ? 'District' : 'World') + ' page follows every event.', 'info');
     }
-    else if (!first) G.AI.addRookies(S.teams, rng, S.year, 10, S.team.num);
+    else if (!first) G.AI.addRookies(S.teams, rng, S.year, 10, S.team.num, S.cal ? C.cy(S) : null);
     Object.values(S.teams).forEach(t => t.rb = null);
     if (!S.season || S.season.year !== S.year) { const imp = S.season ? S.season.impact : 0, out = S.season ? S.season.outreach : 0, done = !!(S.season && S.season.impactDone), fundN = (S.season && S.season.fundN) || {}; S.season = newSeasonState(S.year); S.season.impact = imp; S.season.outreach = out; S.season.impactDone = done; S.season.fundN = fundN; }
     S.season.year = S.year;
@@ -1022,7 +1052,7 @@
     // goals
     S.season.goals = C.makeGoals(S);
     const Sz = G.Seasons[S.year];
-    C.inbox(S, 'KICKOFF — ' + S.year + ' ' + Sz.name, Sz.brief.join('\n\n') + '\n\nOpen the Design Office to choose your concepts. Your Tech Knowledge shows which past experience helps this game.', 'kickoff');
+    C.inbox(S, 'KICKOFF — ' + C.seasonName(S),Sz.brief.join('\n\n') + '\n\nOpen the Design Office to choose your concepts. Your Tech Knowledge shows which past experience helps this game.', 'kickoff');
     G.News.kickoff(S);
     C.inbox(S, 'Program goals for ' + S.year, 'The program director expects:\n' + S.season.goals.map(g => '• [' + g.tier + '] ' + C.goalText(S, D.PROGRAM_GOALS[g.id].text)).join('\n') + '\n\nAnd finish the season with money in the bank.', 'goal');
     G.Save.write('auto');
@@ -1128,7 +1158,7 @@
     const ev = C.eventThisTurn(S);
     if (!ev || !ev.def) return 'No event to skip';
     const d = ev.def;
-    if (d.kind === 'champs') S.champsDeclined = true;
+    if (d.kind === 'champs') { S.champsDeclined = true; if (S.season.wfaCmp && S.season.wfaCmp.mine) C.wfaSeat(S); }
     else if (d.kind === 'dcmp') S.dcmpDeclined = S.year;
     else if (d.kind === 'einstein') return d.festival ? 'The Festival of Champions cannot be skipped: both champion alliances are expected, and the trip is paid for' : 'You can\'t skip Einstein';
     else { S.eventsDone[d.id] = true; (S.season.skipped = S.season.skipped || []).push(d.name); }
@@ -1155,6 +1185,16 @@
     ev.batt = ev.batts[bi] * (fleet[bi] ? fleet[bi].h : 1);
     G.Ev.rollIncident(S, ev);
   };
+  // October: registration for next season opens (the inbox message; the pop-up in the UI says the same)
+  C.regNotice = function (S) {
+    const d = S.team.home && G.World.on(S) ? D.DISTRICT[S.team.home] : null;
+    return [(d ? 'District event' : 'Regional') + ' registration is open', 'Sign up for next season\'s ' + (d ? d.name + ' events' : 'regionals') + ' in the Calendar while every event still has spots. ' +
+      (d ? 'Two district events cost ' + U.money(D.FEES.firstRegional) + ', a third ' + U.money(D.FEES.extraDistrict) + ' (no points).' : 'The first regional costs ' + U.money(D.FEES.firstRegional) + ', each one after it ' + U.money(D.FEES.addRegional) + '.') +
+      ' After Kickoff some events fill up and late registration costs ' + U.money(D.FEES.late) + ' more; withdrawing at least a month ahead returns half the fee.\n\n' +
+      'Stronger fields (more ★) are harder to win but teach the team more: drive-team skills, know-how and strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★.', 'event'];
+  };
+  // what an event teaches, by the strength of its field (D.EVENT_EXP): takes a running event (star) or a registration entry (str)
+  C.expMult = ev => (ev && (ev.kind == null || ev.kind === 'regional' || ev.kind === 'dcmp') ? 1 + D.EVENT_EXP * ((ev.star != null ? ev.star : ev.str || 3) - 3) : 1);
   C.afterPlayerMatch = function (S, ev, match, res) {
     const me = S.team.num;
     const rr = res.robots.find(r => r.team === me);
@@ -1180,7 +1220,7 @@
       if (S.parts.batts[i]) S.parts.batts[i].h = Math.max(0.4, S.parts.batts[i].h - 0.012); // only the battery used wears
     }
     // XP
-    const dt = C.driveTeam(S), mult = (match.playoff ? 1.5 : 1) * (ev.kind === 'champs' || ev.kind === 'einstein' ? 1.5 : 1) * (ev.kind === 'offseason' ? 2 : 1);
+    const xm = C.expMult(ev), dt = C.driveTeam(S), mult = (match.playoff ? 1.5 : 1) * (ev.kind === 'champs' || ev.kind === 'einstein' ? 1.5 : 1) * (ev.kind === 'offseason' ? 2 : 1) * xm;
     if (dt.driver.attr && dt.driver.id) { studentXP(S, dt.driver, ['drive', 'aware', 'comp'], mult); dt.driver.matches++; }
     if (dt.operator.attr && dt.operator.id) { studentXP(S, dt.operator, ['mech', 'comp'], mult); dt.operator.matches++; }
     if (dt.hp.attr && dt.hp.id) { studentXP(S, dt.hp, ['hp'], mult); dt.hp.matches++; }
@@ -1190,7 +1230,7 @@
     if (S.robot && S.robot.year === ev.year) {
       Object.keys(S.robot.subs).forEach(k => {
         const s = S.robot.subs[k]; if (!s.ver || k === 'soft') return;
-        const c = G.Seasons.concept(S.robot.year, k, s.concept); if (c && c.areas[0]) G.Robot.addXP(S, c.areas[0], 2);
+        const c = G.Seasons.concept(S.robot.year, k, s.concept); if (c && c.areas[0]) G.Robot.addXP(S, c.areas[0], 2 * xm);
       });
     }
     // season stats
@@ -1295,7 +1335,7 @@
     // watching other alliances teaches the meta (more when it is common at the event, and with scouting focus)
     if (S.season && ev.year === S.year && ev.kind !== 'einstein') {
       const fs = ev.feedStats, share = fs && fs.n ? fs.f / fs.n : 0;
-      S.season.metaSeen = (S.season.metaSeen || 0) + 0.12 + 0.6 * share + 0.08 * (ev.scoutBonus || 0);
+      S.season.metaSeen = (S.season.metaSeen || 0) + (0.12 + 0.6 * share + 0.08 * (ev.scoutBonus || 0)) * C.expMult(ev);
     }
     S.lastTune = ev.tune; S.lastConf = ev.conf;
     if (ev.kind === 'offseason') {
@@ -1343,6 +1383,7 @@
     if (G.World.on(S) && (ev.kind === 'regional' || ev.kind === 'dcmp')) {
       // the whole event goes into the world's books; a district team's own district points with it
       G.World.record(S, ev);
+      ev.wffa = C.wffaJudge(S, ev, ev.teams, true); // Woodie Flowers Finalist Award(s) at a regional or District Championship
       if (ev.dist) { const mine = (S.wseason.rec[S.team.num] || []).find(x => x.e === ev.id); r.dist = ev.dist; r.dp = mine ? mine.dp : 0; r.dpx = mine ? G.World.points(mine, ev.fmt === 'se' ? 'se' : 'de') : null; r.counts = ev.kind === 'dcmp' || S.season.events.filter(e => e.dist && e.kind === 'regional').length < 2; }
     }
     S.season.events.push(r);
@@ -1350,14 +1391,14 @@
     if (ev.kind === 'champs') {
       S.season.champsPlayoffs = r.playoffs;
       S.season.cmpImpact = C.rollChampsImpact(S);
-      if (!r.won && S.season.cmpImpact.eligible && ev.po && ev.po.done) {
+      if (!r.won && (S.season.cmpImpact.eligible || (S.season.wfaCmp && S.season.wfaCmp.mine)) && ev.po && ev.po.done) {
         // Out of the tournament, but this season's regional Impact Award winners are judged for the FIRST Impact Award,
         // and that is presented on Einstein: the team goes there to watch the finals and hear the announcement.
         const F = ev.po.matches.find(x => x.id === 'F');
         if (F && F.winner != null) {
           S.pendingEinstein = true;
           S.lastDivision = { watch: true, alliance: ev.alliances[F.winner].slice(), teams: ev.teams.slice(), caps: ev.caps, opr: Object.assign({}, G.Ev.opr(ev)), tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred };
-          C.inbox(S, 'Einstein: a seat for the awards', 'Your matches are over, but as a regional Impact Award winner your team is in the running for the FIRST Impact Award. It is presented on Einstein: the six Finalists before Final 1 and the winner after it. Go to Einstein to watch the finals and hear the announcement.', 'event');
+          C.inbox(S, 'Einstein: a seat for the awards', S.season.cmpImpact.eligible ? 'Your matches are over, but as a regional Impact Award winner your team is in the running for the FIRST Impact Award. It is presented on Einstein: the six Finalists before Final 1 and the winner after it. Go to Einstein to watch the finals and hear the announcement.' : 'Your matches are over, but the Woodie Flowers Award committee has asked ' + S.season.wfaCmp.winner.name + ' and the team to be on Einstein for the Championship awards. Go to Einstein to watch the finals.', 'event');
         }
       }
       if (r.won) { S.season.divWin = true; S.pendingEinstein = true; S.lastDivision = { alliance: ev.alliances[G.Ev.playerAlliance(ev)], teams: ev.teams.slice(), caps: ev.caps, opr: Object.assign({}, G.Ev.opr(ev)), tune: ev.tune, conf: ev.conf, tuneAuto: ev.tuneAuto, fatigue: ev.fatigue, scoutCred: ev.scoutCred }; C.inbox(S, 'Division Champions!', 'You won the ' + S.champsDiv + ' Division and advance to Einstein!', 'event'); }
@@ -1530,7 +1571,8 @@
     const dt = C.driveTeam(S), driver = dt.driver.name, coach = C.coachName(S), partners = al.filter(t => t !== me);
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
     const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
-    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', team: { num: me, name: S.team.name },
+    const CHw = S.cal ? C.champs(S) : null; // two Championships (2017 to 2020): the city goes into the title
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name },
       alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
       driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
       lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
@@ -1625,6 +1667,154 @@
     return ci;
   };
 
+  // ======================= Woodie Flowers Award =======================
+  // D.WFA has the rules. The team writes one essay a season for one mentor: a mentor who has never been a Finalist is
+  // judged for the Woodie Flowers Finalist Award (WFFA) at the team's next regional, or at its District Championship;
+  // a past Finalist is re-nominated for the Woodie Flowers Award (WFA) itself. The WFA is decided when the Championship
+  // begins and presented on Einstein with the FIRST Impact Award; a team whose mentor wins it goes to Einstein to watch.
+  // None of this uses the game's random numbers (each draw has its own seed), so the season plays out as before.
+  const hashS = s => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
+  const wRng = key => G.makeRng(hashS(key) || 11);
+  C.makeProf = function (role, r) {
+    const p = r.pick(D.PROFESSIONS[role] || D.PROFESSIONS.design), k = p[2];
+    return { t: p[0], area: p[1], at: k === 'school' ? r.pick(D.SCHOOLS) + ' High School' : r.pick(D.SPONSOR_NAMES[k] || D.SPONSOR_NAMES.eng) };
+  };
+  C.profLine = p => (p ? p.t + (p.at ? ' at ' + p.at : '') : 'Mentor');
+  // a mentor's background: profession, years in FIRST and seasons with this team (filled in once from the mentor's own id)
+  C.mentorMeta = function (S, m) {
+    if (m.prof && m.exp != null && m.ten != null) return m;
+    const r = wRng('mentor:' + m.id + ':' + m.name);
+    if (!m.prof) m.prof = C.makeProf(m.role, r);
+    if (m.exp == null) m.exp = r.int(1, 4 + (m.stars || 2) * 3);
+    if (m.ten == null) m.ten = S.profile === 'rookie' && !S.history.length ? 0 : Math.min(m.exp, r.int(0, 5));
+    return m;
+  };
+  C.wfaWriters = S => S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2);
+  // what the students' essay can make of a mentor, 0 to 100 (q: the essay's quality, 0 to 1, from the hours put into it)
+  C.wfaRating = function (S, m, q) {
+    C.mentorMeta(S, m);
+    const w = C.wfaWriters(S), parts = { skill: m.skill, ten: Math.min(100, m.ten * 12), exp: Math.min(100, m.exp * 6), reach: Math.min(100, (S.studentsCount || S.students.length) * 1.6),
+      writing: w.length ? U.avg(w.map(s => (s.attr.strat + s.attr.aware) / 2)) : 25, essay: 100 * (q == null ? D.WFA.q0 : q) };
+    let score = 0; Object.keys(D.WFA.w).forEach(k => { score += parts[k] * D.WFA.w[k]; });
+    if (/teach|educat|professor/i.test(m.prof.t + ' ' + m.prof.area)) score += D.WFA.teacher;
+    return { score: U.clamp(score, 0, 100), parts, writers: w.map(s => s.name) };
+  };
+  C.wfaCandidates = S => S.mentors.map(m => C.mentorMeta(S, m)).filter(m => !m.wfa);
+  // the mentor the essay should be about: the strongest nomination on the team
+  C.wfaPick = S => C.wfaCandidates(S).sort((a, b) => C.wfaRating(S, b).score - C.wfaRating(S, a).score)[0] || null;
+  C.wffaSlots = (S, distId, cy) => ((cy || C.cy(S)) < 2022 ? 1 : (D.DISTRICT[distId] && D.DISTRICT[distId].teams >= 100 ? 3 : 2));
+  // the essay the team sent this season, if it waits to be judged at this event (a regional the team plays, or its
+  // District Championship, played or not)
+  C.wfaMineAt = function (S, e, attending) {
+    const w = S.season && S.season.wfa;
+    if (!w || w.kind !== 'nom' || w.res) return null;
+    const m = S.mentors.find(x => x.id === w.m); if (!m || m.wffa || m.wfa) return null;
+    const dist = !!(S.team.home && G.World.on(S));
+    if (dist ? !(e.kind === 'dcmp' && e.dist === S.team.home) : !(attending && e.kind === 'regional' && !e.dist)) return null;
+    return m;
+  };
+  // one event's Woodie Flowers Finalist Award(s): the best essays of those sent there. Every regional and every District
+  // Championship in the world has them; district events have none.
+  C.wffaAt = function (S, e, teams, mine) {
+    if (!(e.kind === 'dcmp' || (e.kind === 'regional' && !e.dist))) return [];
+    const cy = (S.wseason && S.wseason.cy) || C.cy(S), r = wRng('wffa:' + e.id + ':' + cy), me = S.team.num;
+    const slots = e.kind === 'dcmp' ? C.wffaSlots(S, e.dist, cy) : 1;
+    const pool = teams.filter(t => t !== me && S.teams[t]).map(t => ({ t, k: S.teams[t].impact + r.norm(0, 25) })).sort((a, b) => b.k - a.k);
+    const n = Math.max(slots + 2, Math.round(pool.length * D.WFA.nom));
+    const field = pool.slice(0, n).map(x => ({ team: x.t, v: U.clamp(r.norm(D.WFA.ai[0], D.WFA.ai[1]) + (S.teams[x.t].impact - 50) * 0.08, 10, 97) }));
+    if (mine) field.push({ team: me, me: true, mid: mine.id, v: C.wfaRating(S, mine, S.season.wfa.q).score + r.norm(0, D.WFA.noise) });
+    field.sort((a, b) => b.v - a.v);
+    const roles = Object.keys(D.PROFESSIONS);
+    return field.slice(0, slots).map(x => x.me ? { e: e.id, ename: e.name, team: me, me: true, mid: x.mid, name: mine.name, prof: mine.prof, v: x.v }
+      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r), prof: C.makeProf(r.pick(roles), r), v: x.v });
+  };
+  // judge an event: record its Finalists in the world's books, and tell the team about its own essay
+  C.wffaJudge = function (S, e, teams, attending) {
+    const mine = C.wfaMineAt(S, e, attending), won = C.wffaAt(S, e, teams, mine);
+    if (S.wseason) (S.wseason.wffa = S.wseason.wffa || []).push(...won);
+    if (mine) {
+      const w = S.season.wfa, ok = won.some(x => x.me), other = won.filter(x => !x.me)[0];
+      w.res = ok ? 'wffa' : 'judged'; w.at = e.name;
+      if (ok) {
+        mine.wffa = C.calYear(S); C.addRep(S, D.WFA.rep.wffa); S.morale = Math.min(100, S.morale + 6);
+        (S.wfaHonors = S.wfaHonors || []).push({ kind: 'wffa', cy: C.calYear(S), mid: mine.id, name: mine.name, prof: mine.prof, event: e.name });
+        C.inbox(S, 'Woodie Flowers Finalist Award: ' + mine.name, 'At the ' + e.name + ' the judges read your students\' essay aloud and called ' + mine.name + ', ' + C.profLine(mine.prof).replace(/^./, c => c.toLowerCase()) + ', to the field: a Woodie Flowers Finalist. The award honours a mentor who leads, inspires and teaches through communication, and the students\' words about ' + mine.prof.area + ' made the case. A blue banner with ' + mine.name + '\'s name on it goes on your wall (History).\n\n' + mine.name + ' is now one of the mentors the Woodie Flowers Award is chosen from at the Championship, this season and, re-nominated, in any season after.', 'event');
+      } else C.inbox(S, 'Woodie Flowers Finalist Award at the ' + e.name, 'Your students\' essay about ' + mine.name + ' was judged here. The award went to ' + (other ? other.name + ' of Team ' + other.team + ', ' + C.profLine(other.prof).replace(/^./, c => c.toLowerCase()) : 'another mentor') + '. ' + mine.name + ' can be nominated again next season.', 'event');
+    }
+    return won;
+  };
+  // the Championship's one Woodie Flowers Award: this season's Finalists and the re-nominated past Finalists, each with a new essay
+  C.rollWfa = function (S) {
+    const s = S.season; if (!s || s.wfaCmp) return s && s.wfaCmp;
+    if (!S.wfaPast) C.wfaSeed(S); // an older save
+    const cy = C.cy(S), r = wRng('wfa:' + cy + ':' + S.team.num), field = [];
+    ((S.wseason && S.wseason.cy === cy && S.wseason.wffa) || []).forEach(x => { if (!x.me) field.push({ name: x.name, team: x.team, prof: x.prof, v: x.v - 3 + r.norm(0, D.WFA.wfaNoise), how: 'Finalist at the ' + x.ename }); });
+    (S.wfaPast || []).forEach(x => { if (S.teams[x.team] && r.chance(D.WFA.renom)) field.push({ name: x.name, team: x.team, prof: x.prof, v: x.v - 3 + r.norm(0, D.WFA.wfaNoise), how: 'Finalist in ' + x.cy + ', re-nominated' }); });
+    const w = s.wfa, m = w && S.mentors.find(x => x.id === w.m);
+    let mine = null;
+    if (m && !m.wfa && (w.res === 'wffa' || w.kind === 'renom')) { mine = { name: m.name, team: S.team.num, prof: m.prof, me: true, mid: m.id, v: C.wfaRating(S, m, w.q).score + r.norm(0, D.WFA.noise), how: w.res === 'wffa' ? 'Finalist at the ' + w.at : 'Finalist in ' + m.wffa + ', re-nominated' }; field.push(mine); }
+    field.sort((a, b) => b.v - a.v);
+    const win = field[0] || null;
+    s.wfaCmp = { winner: win ? { name: win.name, team: win.team, prof: win.prof, how: win.how, me: !!win.me, mid: win.mid || null } : null, of: field.length, rank: mine ? field.indexOf(mine) + 1 : null, nominee: mine ? mine.name : null, mine: !!(win && win.me), told: false };
+    return s.wfaCmp;
+  };
+  // a team whose mentor wins goes to Einstein to watch, whether or not it played the Championship
+  C.wfaSeat = function (S) {
+    const CH = C.champs(S), side = CH.n > 1 ? G.Era.champsSide(S.team.region) : 0, rng = wRng('wfaseat:' + C.cy(S));
+    if (!S.season.cmpImpact) S.season.cmpImpact = C.rollChampsImpact(S);
+    S.pendingEinstein = true;
+    S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
+    const W = S.season.wfaCmp.winner;
+    C.inbox(S, 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee has asked ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals. Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', 'event');
+  };
+  C.wfaCele = function (S) {
+    const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
+    const w = S.season.wfa || {}, cy = C.calYear(S), writers = (w.writers || C.wfaWriters(S).map(s => s.name)).slice(0, 2);
+    const role = (D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor';
+    const past = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = past.slice(0, 4).concat(past.includes(1996) && !past.slice(0, 4).includes(1996) ? [1996] : []);
+    const d = { year: cy, team: { num: S.team.num, name: S.team.name }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
+      students: S.studentsCount || S.students.length, past: pick.map(y => Object.assign({ year: y }, D.REAL_WFA[y])), real: D.REAL_WFA[cy] ? Object.assign({ year: cy }, D.REAL_WFA[cy]) : null };
+    d.quotes = [
+      writers[0] ? ['We wrote it in the library after practice for three weeks. Every sentence was something ' + m.name + ' actually said to one of us.', writers[0] + ', who wrote the essay'] : null,
+      ['I did not build the robot. They did. I just kept asking them why.', m.name],
+      ['The essays we remember explain an idea the way the mentor explained it to them. This one did.', 'a member of the award committee'],
+      writers[1] ? ['When they read the first line we knew. We had read it to each other forty times.', writers[1] + ', who wrote the essay'] : null,
+      ['Our shop has a lot of trophies. This is the one everybody stops to read.', 'your school principal']
+    ].filter(Boolean).slice(0, 3);
+    return d;
+  };
+  // announce the Woodie Flowers Award (once): on Einstein, or when the Championship is over
+  C.settleWfa = function (S) {
+    const c = S.season && S.season.wfaCmp; if (!c || c.told || !c.winner) return c;
+    c.told = true;
+    const W = c.winner, cy = C.calYear(S);
+    if (c.mine) {
+      const m = S.mentors.find(x => x.id === W.mid); if (m) m.wfa = cy;
+      C.addRep(S, D.WFA.rep.wfa); S.morale = Math.min(100, S.morale + 12); S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 6); });
+      c.cele = C.wfaCele(S);
+      (S.wfaHonors = S.wfaHonors || []).push({ kind: 'wfa', cy, mid: W.mid, name: W.name, prof: W.prof, event: 'FIRST Championship', cele: c.cele });
+      C.inbox(S, 'WOODIE FLOWERS AWARD: ' + W.name, 'On Einstein, alongside the FIRST Impact Award, ' + W.name + ' received the ' + cy + ' Woodie Flowers Award: one mentor chosen from ' + c.of + ' candidates, every one of them a Woodie Flowers Finalist. ' + W.name + ' is ' + C.profLine(W.prof).replace(/^(\w)/, x => (/^[aeiou]/i.test(x) ? 'an ' : 'a ') + x.toLowerCase()) + ', and your students\' essay was about what that work in ' + W.prof.area + ' taught them. A mentor receives the award once in a lifetime. Its blue banner hangs with your Championship honours (History).', 'event');
+    } else C.inbox(S, 'Woodie Flowers Award: ' + W.name + ', Team ' + W.team, 'The ' + cy + ' Woodie Flowers Award went to ' + W.name + ' of Team ' + W.team + ' ' + ((S.teams[W.team] || {}).name || '') + ', ' + C.profLine(W.prof).replace(/^./, x => x.toLowerCase()) + ' (' + W.how + '). It was chosen from ' + c.of + ' Woodie Flowers Finalists.' +
+      (c.nominee ? ' Your nominee, ' + c.nominee + ', was one of them.' : ''), 'event');
+    return c;
+  };
+  // at the season review: this season's Finalists elsewhere join the past Finalists who can be re-nominated
+  function wfaPastUpdate(S) {
+    const ws = S.wseason, c = S.season && S.season.wfaCmp, add = ((ws && ws.wffa) || []).filter(x => !x.me);
+    let past = (S.wfaPast || []).concat(add.map(x => ({ name: x.name, team: x.team, prof: x.prof, v: x.v, cy: ws.cy })));
+    if (c && c.winner && !c.winner.me) past = past.filter(x => !(x.name === c.winner.name && x.team === c.winner.team));
+    past = past.filter(x => S.teams[x.team]);
+    if (past.length > D.WFA.pastMax) past = past.sort((a, b) => b.v - a.v).slice(0, D.WFA.pastMax);
+    S.wfaPast = past;
+  }
+  // a career starts with past Finalists already in the world
+  C.wfaSeed = function (S) {
+    if (S.wfaPast) return;
+    const r = wRng('wfapast:' + S.team.num + ':' + (S.cal ? S.cal[0] : S.year)), ts = Object.keys(S.teams || {}).map(Number), roles = Object.keys(D.PROFESSIONS);
+    S.wfaPast = [];
+    for (let i = 0; i < D.WFA.past && ts.length; i++) S.wfaPast.push({ name: D.personName(r), team: r.pick(ts), prof: C.makeProf(r.pick(roles), r), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) });
+  };
+
   // ======================= The state of the art moves on (offseason) =======================
   const techTeam = (S, rng) => { const ks = Object.keys(S.teams || {}); return ks.length ? rng.pick(ks) : String(rng.int(100, 9999)); };
   C.techHit = function (S, area, pct) {
@@ -1712,7 +1902,7 @@
     autoDriveTeamIfMissing(S);
     out.push('Students: the classes of 2020 and 2021 have both graduated. ' + S.students.length + ' of your ' + n0 + ' core students remain (' + S.studentsCount + ' on the team, down from ' + c0 + '), and they have lost ' + Math.round(sk * 100) + '% of their skills' + (has('skills') ? ' (the skills challenge halved it)' : '') + '.');
     // mentors
-    { const gone = S.mentors.filter(() => rng.chance(PD.mentor)); if (gone.length >= S.mentors.length) gone.pop();
+    { const gone = S.mentors.filter(m => rng.chance(PD.mentor) && !m.wffa && !m.wfa); if (gone.length >= S.mentors.length) gone.pop(); // Woodie Flowers honourees stay
       S.mentors = S.mentors.filter(m => !gone.includes(m));
       out.push(gone.length ? 'Mentors who moved on: ' + gone.map(m => m.name).join(', ') + '.' : 'Every mentor is still here.'); }
     // sponsors
@@ -1771,7 +1961,7 @@
     O.stage = 'done'; O.join = !!join;
     if (join) S.team.homeNext = d.id;
     C.inbox(S, join ? 'You join the ' + d.name : 'You stay a regional team', join
-      ? 'From the ' + O.cy + ' season your team plays in the ' + d.name + '. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship. From then on the District page shows the standings.'
+      ? 'From the ' + O.cy + ' season your team plays in the ' + d.name + '. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship. From then on the World page shows the district standings.'
       : 'The ' + d.name + ' forms without you. Your team keeps playing regionals, but the ' + d.region + ' will run fewer of them from ' + O.cy + ': look at the neighbouring areas when registration opens in October.', 'event');
     return null;
   };
@@ -1858,10 +2048,12 @@
     if (!S.season.champsQualified && S.mode === 'career' && (S.lastChampSi != null ? S.lastChampSi === S.si - 1 : S.lastChamp === S.year - 1 && S.orderMode === 'real')) { S.season.champsQualified = true; S.season.champsReason = 'Defending champions'; }
     if (!S.season.champsQualified && S.hallOfFame != null && S.hallOfFame < S.si) { S.season.champsQualified = true; S.season.champsReason = 'Hall of Fame team'; }
     if (!S.season.champsQualified && C.wildEra(S) && !(S.team.home && G.World.on(S)) && S.season.events.length) C.inbox(S, 'No Championship invitation', 'Regional teams reach the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or on a wildcard as a finalist. It did not happen this year.', 'event');
+    const wf = G.World.on(S) && S.mode === 'career' ? C.rollWfa(S) : null; // the Woodie Flowers Award is decided as the Championship begins
     S.phase = 'champs';
     if (S.season.champsQualified) {
       C.inbox(S, 'Championship', 'You are qualified (' + S.season.champsReason + '). Registration ' + U.money(D.FEES.champs) + ' + flights. Attend from the HQ screen, or Continue to skip.', 'event');
-    } else C.toReview(S);
+    } else if (wf && wf.mine) C.wfaSeat(S); // not qualified, but its mentor won the Woodie Flowers Award: to Einstein, to watch
+    else C.toReview(S);
   };
   C.registerChamps = function (S) {
     if (S.champsPaid) return null;
@@ -1877,6 +2069,7 @@
     s.events.forEach(e => { if (e.kind === 'regional' && e.won) p += 100; if (e.kind === 'dcmp' && e.won) p += 120; e.awards.forEach(a => p += a === 'impact' ? 120 : a === 'ei' ? 80 : 30); });
     if (s.champsQualified) p += 50;
     if (s.divWin) p += 150;
+    if (s.wfa && s.wfa.res === 'wffa') p += D.WFA.legacy.wffa; if (s.wfaCmp && s.wfaCmp.mine) p += D.WFA.legacy.wfa;
     if (s.cmpImpact && s.cmpImpact.result === 'winner') p += 350; else if (s.cmpImpact && s.cmpImpact.result === 'finalist') p += 120;
     if (s.worldChamp) p += 400;
     return p;
@@ -1892,6 +2085,8 @@
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
+  C.wfaBanner = x => (x.kind === 'wfa' ? { award: 'Woodie Flowers Award', year: x.cy, event: 'FIRST Championship', motto: x.name, world: true, key: 'wfa' } // blue, as the real one
+    : { award: 'Woodie Flowers Finalist Award', year: x.cy, event: x.event, motto: x.name });
   C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest', motto: S.festival.won ? 'The one champion' : null });
   C.banners = function (S) {
     const out = [];
@@ -1902,6 +2097,8 @@
       if (past && S.festival && S.festival.cele && S.festival.gy === gy) out.push(C.festBanner(S)); // played in the July after that season
       const ci = s.cmpImpact && s.cmpImpact.result;
       if (ci) out.push({ award: ci === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: C.calYear(S, gy), event: 'FIRST Championship', gold: ci === 'winner', world: true, key: 'impact' });
+      // the Woodie Flowers awards of that season (a blue banner for the team, as on The Blue Alliance; the mentor's name under it)
+      (S.wfaHonors || []).forEach(x => { if (x.cy === C.calYear(S, gy)) out.push(C.wfaBanner(x)); });
       for (let i = n0; i < out.length; i++) out[i].gy = gy;
     };
     S.history.forEach(h => add(h.year, h.events, h, true));
@@ -1961,6 +2158,12 @@
   C.toReview = function (S) {
     if (S.phase === 'review') return;
     C.settleImpact(S, 'all');
+    if (G.World.on(S) && S.mode === 'career') {
+      if (!S.season.wfaCmp) C.rollWfa(S);
+      C.settleWfa(S);
+      const w = S.season.wfa; if (w && w.kind === 'nom' && !w.res) C.inbox(S, 'Woodie Flowers essay not judged', 'Your students\' essay about ' + w.name + ' was never judged: ' + (S.team.home ? 'the District Championship had passed' : 'the team played no regional after it was sent') + '. Send it earlier next season.', 'event');
+      wfaPastUpdate(S);
+    }
     const s = S.season;
     C.checkSponsorGoals(S, true);
     let dSup = 0;
@@ -2002,7 +2205,9 @@
     if (left.length) C.inbox(S, 'Sponsors leaving', left.map(x => x.name).join(', ') + ' did not renew. Look for new offers in October.', 'money');
     // mentors
     const gone = [];
-    S.mentors.forEach(m => { m.contract--; if (m.contract <= 0 && G.R.chance(0.5 - S.morale / 300)) gone.push(m); else if (m.contract <= 0) m.contract = G.R.int(1, 2); });
+    S.mentors.forEach(m => { C.mentorMeta(S, m); m.ten++; m.exp++; });
+    // a Woodie Flowers Finalist (or Award winner) never leaves on their own: the draw is made anyway, so nothing else changes
+    S.mentors.forEach(m => { m.contract--; if (m.contract <= 0 && G.R.chance(0.5 - S.morale / 300) && !m.wffa && !m.wfa) gone.push(m); else if (m.contract <= 0) m.contract = G.R.int(1, 2); });
     S.mentors = S.mentors.filter(m => !gone.includes(m));
     if (gone.length) C.inbox(S, 'Mentors moving on', gone.map(m => m.name).join(', ') + ' decided not to return next season.', 'staff');
     // knowledge decay

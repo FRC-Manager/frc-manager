@@ -36,7 +36,10 @@
         { id: 'over', name: 'Over-bumper intake + 5-cell indexer', desc: 'Picks cells off the carpet and lines up five in a belt indexer.', cost: 800, hours: 150, w: 15, cx: 3, areas: ['intake', 'index'],
           base: { intake: 45 }, ceil: { intake: 87 }, caps: { ground: true, station: true, storage: 5 }, look: { intake: 'over' } },
         { id: 'wide', name: 'Full-width intake + fast indexer', desc: 'A frame-wide intake that never has to line up on a cell, feeding a five-cell indexer that does not jam.', cost: 1200, hours: 210, w: 18, cx: 4, areas: ['intake', 'index'],
-          base: { intake: 50 }, ceil: { intake: 95 }, caps: { ground: true, station: true, storage: 5, wide: 1.3 }, look: { intake: 'wide' } }
+          base: { intake: 50 }, ceil: { intake: 95 }, caps: { ground: true, station: true, storage: 5, wide: 1.3 }, look: { intake: 'wide' } },
+        // fires everything it holds in a blink (rules-classic: REV20) and folds out of the way when hit (robustIntake)
+        { id: 'revolver', name: 'Full-width four-bar intake + revolver indexer', elite: true, desc: 'A frame-wide intake on a four-bar that folds out of the way when it is hit, feeding a revolver that turns all five cells into the shooter in a blink. The hardest intake of the year, and only a little better than the full-width one.', cost: 1800, hours: 270, w: 20, cx: 5, areas: ['intake', 'index'],
+          base: { intake: 50 }, ceil: { intake: 96 }, caps: { ground: true, station: true, storage: 5, wide: 1.3, revolver: true, robustIntake: true }, look: { intake: 'wide', indexer: 'revolver' } }
       ] },
       { id: 'scorer', name: 'Shooter', concepts: [
         { id: 'dump', name: 'Bottom-port dumper', desc: 'Drives up to the wall and rolls cells into the Bottom Port. One point each, hard to miss.', cost: 200, hours: 60, w: 8, cx: 1, areas: ['shooter'],
@@ -67,6 +70,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
+      { name: 'Turret + revolver trench runner', min: 90, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: 'revolver', scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'buddy'] } },
       { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'level', 'hook', 'buddy'] } },
       { name: 'Hood shooter + hang', min: 56, pick: { drive: ['swerve', 'wcd'], frame: ['low', 'std'], intake: 'over', scorer: 'hood', panel: ['spin', 'none'], endgame: 'hook' } },
       { name: 'Wall shooter + hang', min: 36, pick: { drive: ['wcd', 'kit'], frame: 'std', intake: 'over', scorer: 'fixed', panel: 'none', endgame: ['hook', 'none'] } },
@@ -132,15 +136,20 @@
         Object.assign({}, NONE_END, { name: 'No climber (drive onto Level 1)', desc: 'Every robot can drive up the ramp to HAB Level 1 for 3 points. Saves weight, hours and money.' }),
         { id: 'l2', name: 'Level 2 lift', desc: 'Pistons or a folding ramp to step up onto HAB Level 2.', cost: 400, hours: 80, w: 8, cx: 2, areas: ['climb'],
           base: { endgame: 45 }, ceil: { endgame: 88 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
-        { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 4, areas: ['climb'],
+        { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 3, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 90 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
-        { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 5, areas: ['climb'],
-          base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } }
+        { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 4, areas: ['climb'],
+          base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } },
+        // both partners onto HAB Level 3 at once: 36 points from one mechanism, when it works. Both have to be there in
+        // time, or it climbs alone (with one partner it would not balance); when the lift fails it can drop them, and
+        // come off the platform itself (rules-classic: TRIPLE19, H.tripleLift)
+        { id: 'l3triple', name: 'Triple Level 3 climber (carries both partners)', elite: true, desc: 'Climbs to Level 3 with both partners on its ramps: 36 points from one mechanism. Both partners must be at the HAB in time, or it climbs alone. A failed lift can drop them, and the climber can come off the platform too. The hardest climber of the year.', cost: 2300, hours: 320, w: 24, cx: 5, areas: ['climb'],
+          base: { endgame: 28 }, ceil: { endgame: 94 }, caps: { endLevel: 3, buddy: true, triple: true, climbK: 1.25 }, look: { climber: 'triple' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: 'turretlift', effector: 'active', endgame: ['l3', 'l3buddy'] } },
+      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: ['turretlift', 'elevfast'], effector: 'active', endgame: ['l3triple', 'l3buddy', 'l3'] } },
       { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy'] } },
       { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', effector: ['combo', 'active'], endgame: ['l3', 'l2'] } },
       { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'none'], scorer: 'arm', effector: 'combo', endgame: ['l2', 'none'] } },
@@ -288,6 +297,7 @@
   Object.assign(G.Data.DRIVE_FAMILY = G.Data.DRIVE_FAMILY || {}, { wcd8: 'tank', tread: 'tank' });
   S[2016] = {
     year: 2016, name: 'FIRST STRONGHOLD', pieceName: 'Boulders', sym: 'rotate',
+    drawIn: [2016, 2017], // random order: tank drives only, so never drawn in the years of swerve (C.drawGames)
     tagline: 'Cross the enemy defenses, weaken their tower with boulders, and scale it before time runs out.',
     brief: [
       'Between your robots and the enemy TOWER stand five DEFENSES: the low bar, one picked by the audience, and three chosen by the opponents, from the portcullis, cheval de frise, moat, ramparts, drawbridge, sally port, rock wall and rough terrain. Crossing one scores 5 points (10 in auto), twice per defense, after which it is DAMAGED.',

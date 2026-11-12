@@ -91,11 +91,11 @@
   const AI = G.AI = {};
   AI.makePool = function (rng, n, playerNum, startYear) {
     const pool = {};
-    const used = new Set([playerNum]);
+    const used = new Set([playerNum]), top = D.numTop(startYear); // numbers follow the year (D.NUM_FROM)
     for (let i = 0; i < n; i++) {
-      let num; do { num = rng.int(1, 10999); } while (used.has(num));
+      let num; do { num = rng.int(1, top); } while (used.has(num));
       used.add(num);
-      const str = Math.round(U.clamp(rng.norm(48, 18) + (num < 2000 ? 6 : 0), 6, 96));
+      const str = Math.round(U.clamp(rng.norm(48, 18) + (num < top * D.OLD_NUM ? 6 : 0), 6, 96));
       pool[num] = {
         num, name: D.teamName(rng), region: rng.pick(D.REGIONS), str, traj: rng.pick([-1, 0, 0, 1]),
         impact: AI.impactRoll(rng, str), rookie: false, rb: null
@@ -105,9 +105,11 @@
   };
   // Impact strength of an established team: loosely tied to robot strength, plus a few outreach powerhouses.
   AI.impactRoll = (rng, str) => Math.round(U.clamp(rng.norm(str * 0.45 + 20, 14) + (rng.chance(0.1) ? 24 : 0), 5, 98));
-  AI.addRookies = function (pool, rng, year, count, playerNum) {
+  // cy: the calendar year, for the season's block of numbers (none: old careers keep 11000 to 11999)
+  AI.addRookies = function (pool, rng, year, count, playerNum, cy) {
     for (let i = 0; i < count; i++) {
-      let num; do { num = rng.int(11000, 11999); } while (pool[num] || num === playerNum);
+      const b = cy && D.NUM_FROM[cy] && D.NUM_FROM[cy + 1] ? D.numBlock(cy) : [11000, 11999];
+      let num; do { num = rng.int(b[0], b[1]); } while (pool[num] || num === playerNum);
       pool[num] = { num, name: D.teamName(rng), region: rng.pick(D.REGIONS), str: Math.round(U.clamp(rng.norm(26, 10), 5, 60)), traj: 1,
         impact: Math.round(U.clamp(rng.norm(30, 12), 5, 80)), rookie: year, rb: null };
     }

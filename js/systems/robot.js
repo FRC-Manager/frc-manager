@@ -565,6 +565,17 @@
         hours = up ? D.KB_UPKEEP_HOURS : 60; cost = 0; name = up ? 'Knowledge Base yearly update' : 'Knowledge Base (wiki + CAD library)'; break;
       }
       case 'impact': { if (S.season && S.season.impactDone) err = 'Already submitted this season'; hours = 40; cost = 100; name = 'Impact Award submission'; break; }
+      case 'wfa': { // the students' essay nominating one mentor for the Woodie Flowers Award (one a season)
+        const C = G.Career, m = spec.mentor ? S.mentors.find(x => x.id === spec.mentor) : C.wfaPick(S);
+        if (S.mode !== 'career' || !G.World.on(S)) err = 'Only in a career';
+        else if (S.season && S.season.wfa) err = 'One essay a season: it has been sent';
+        else if (S.phase === 'comp' && S.week >= 7) err = 'Too late this season: essays are judged at the events';
+        else if (!m) err = 'No mentor can be nominated: each mentor receives the Woodie Flowers Award once';
+        else if (m.wfa) err = m.name + ' has already received the Woodie Flowers Award';
+        hours = D.WFA.hours; cost = D.WFA.cost; name = 'Woodie Flowers essay: ' + (m ? m.name : '');
+        fields = { mentor: m ? m.id : null };
+        break;
+      }
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === spec.rid);
         hours = r.hours * (1 - 0.04 * Robot.know(S, r.area)); cost = r.cost; name = r.name;
@@ -573,7 +584,7 @@
     }
     // one design project per subsystem at a time (copies run alongside, one at a time)
     if (spec.sub && S.projects.some(p => p.sub === spec.sub && (spec.type === 'copy') === (p.type === 'copy'))) err = err || (spec.type === 'copy' ? 'A copy of this subsystem is already being built' : 'A project on this subsystem is already running');
-    if (['auto', 'vision', 'practiceBot', 'impact', 'testChassis', 'kb'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (['auto', 'vision', 'practiceBot', 'impact', 'wfa', 'testChassis', 'kb'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
     if (spec.type === 'testChassis' && S.projects.some(p => p.type === 'practiceBot')) err = err || 'A full copy is already being built for the second robot';
     if (spec.type === 'research' && S.projects.some(p => p.rid === spec.rid)) err = err || 'Already in progress';
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
@@ -632,7 +643,7 @@
     if (refund > 0) G.Career.earn(S, refund, 'Refund: ' + p.name);
   };
   // Development category of a project (used by shop incidents and boosts)
-  Robot.cat = p => (p.type === 'research' || p.type === 'kb' || p.type === 'impact') ? 'research' : (p.type === 'auto' || p.type === 'vision' || p.sub === 'soft') ? 'soft' : 'fab';
+  Robot.cat = p => (p.type === 'research' || p.type === 'kb' || p.type === 'impact' || p.type === 'wfa') ? 'research' : (p.type === 'auto' || p.type === 'vision' || p.sub === 'soft') ? 'soft' : 'fab';
   // A sub-team can only put so many hours into one project per week (×4 for an offseason month).
   Robot.capFor = (S, p) => D.PROJ_CAP * (S.phase === 'off' ? 4 : 1) * (p.prio === 'high' ? 1.25 : p.prio === 'low' ? 0.75 : 1);
   // Plan how this turn's hours are shared: by priority, limited by each project's weekly cap and remaining work.
@@ -674,7 +685,7 @@
   Robot.polishQFor = (p, extra) => 1 - Math.exp(-1.6 * extra / Math.max(1, p.need));
   // ---------------- Development testing ----------------
   // Projects that can use practice-field testing time (everything except the Impact submission)
-  Robot.testable = p => p.type !== 'impact' && p.type !== 'kb' && !Robot.isFab(p);
+  Robot.testable = p => p.type !== 'impact' && p.type !== 'wfa' && p.type !== 'kb' && !Robot.isFab(p);
   // what a bare test chassis can test without a Practice Field: robot code, autos, vision and the drivetrain itself
   Robot.chassisTestable = p => Robot.testable(p) && (p.sub === 'soft' || p.sub === 'drive' || p.type === 'auto' || p.type === 'vision');
   Robot.testCap = S => D.TEST_PER_PROJ * (S.phase === 'off' ? 4 : 1);
@@ -893,6 +904,15 @@
         break;
       }
       case 'impact': if (S.season) S.season.impactDone = true; G.Career.inbox(S, 'Impact submission ready', 'Your Impact story is submitted. You can now compete for the Impact Award at every regional this season (see the odds on HQ).', 'dev'); break;
+      case 'wfa': {
+        const C = G.Career, m = S.mentors.find(x => x.id === p.mentor);
+        if (!m || !S.season) { C.inbox(S, 'Woodie Flowers essay set aside', 'The mentor it was about is no longer on the team. Another essay can be written this season.', 'dev'); break; }
+        const q = Math.min(1, D.WFA.q0 + (1 - D.WFA.q0) * Robot.polishQ(p)), renom = !!m.wffa, home = S.team.home ? D.DISTRICT[S.team.home] : null;
+        S.season.wfa = { m: m.id, name: m.name, q, kind: renom ? 'renom' : 'nom', res: null, at: null, writers: C.wfaWriters(S).map(s => s.name) };
+        C.inbox(S, 'Woodie Flowers essay sent: ' + m.name, renom ? 'Your students re-nominated ' + m.name + ', a Woodie Flowers Finalist in ' + m.wffa + ', for the Woodie Flowers Award itself. It is decided at the Championship, among this season\'s Finalists and the past Finalists their teams re-nominate. You do not need to qualify to be considered.'
+          : 'Your students nominated ' + m.name + ' (' + C.profLine(m.prof) + ') for the Woodie Flowers Finalist Award. It is judged at ' + (home ? 'the ' + home.short + ' District Championship in week 7, whether or not the team plays there' : 'the next regional the team plays') + '.', 'dev');
+        break;
+      }
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === p.rid);
         const g = Robot.addXP(S, r.area, Math.round(r.xp * (1 + 0.2 * q) * (1 + 0.3 * px)));

@@ -77,6 +77,11 @@
   D.FATIGUE_OVERTIME = 10;  // an overtime week
   D.FATIGUE_EVENT = 9;      // a competition week
   D.INCIDENT_FREE = 35;     // at or below this fatigue, at most one incident per event
+  // Experience by field strength: an event's stars (★ to ★★★★★) say how strong its field is. Each star above three adds
+  // 15% to what the team learns there (drive-team skills, know-how from competing, strategy read), each star below takes
+  // 15% off: ×0.7 at ★, ×1.3 at ★★★★★. Regionals, district events and the District Championship (the Championship has
+  // its own bonus).
+  D.EVENT_EXP = 0.15;
 
   // ---------- Team trailer ----------
   D.TRAILER_LONG = 0.85;    // long drives instead of flying: 15% cheaper than flights and no air-freight damage
@@ -258,6 +263,55 @@
       contract: rng.int(1, 3), morale: 70
     };
   };
+
+  // ---------- Woodie Flowers Award ----------
+  // A mentor's profession: [title, area of profession, where they work: a sponsor type, 'school' or 'uni']
+  D.PROFESSIONS = {
+    design: [['Mechanical engineer', 'mechanical engineering', 'eng'], ['Aerospace engineer', 'aerospace engineering', 'eng'], ['Product designer', 'industrial design', 'mfg'], ['Engineering professor', 'engineering education', 'uni']],
+    fab: [['Machinist', 'precision machining', 'mfg'], ['Manufacturing engineer', 'manufacturing', 'mfg'], ['Welder and fabricator', 'metal fabrication', 'mfg'], ['Technology teacher', 'technical education', 'school']],
+    prog: [['Software engineer', 'software engineering', 'soft'], ['Controls engineer', 'control systems', 'tech'], ['Computer science teacher', 'computer science education', 'school'], ['Robotics engineer', 'robotics', 'tech']],
+    strat: [['Data scientist', 'data science', 'tech'], ['Mathematics teacher', 'mathematics education', 'school'], ['Systems engineer', 'systems engineering', 'eng'], ['Operations analyst', 'operations research', 'eng']],
+    coach: [['Physics teacher', 'physics education', 'school'], ['Electrical engineer', 'electrical engineering', 'eng'], ['Engineering teacher', 'engineering education', 'school'], ['Flight test engineer', 'flight testing', 'eng']],
+    biz: [['Marketing director', 'marketing', 'local'], ['Small-business owner', 'small business', 'local'], ['Nonprofit director', 'nonprofit leadership', 'found'], ['Science teacher', 'science education', 'school']]
+  };
+  // The real rules (2016 Admin Manual, section 6.8): every season the students may nominate one mentor in an essay. A
+  // regional team's nominee is judged at one regional it attends and a district team's at its District Championship
+  // (district events give none); each regional names one Woodie Flowers Finalist, each District Championship one (from
+  // 2022 two or three at the bigger districts). A mentor who has received the Finalist award cannot receive it again.
+  // At the Championship there are no Finalists: one Woodie Flowers Award goes to one mentor among the season's Finalists
+  // and past Finalists their teams re-nominate with a new essay, and nobody receives it twice. It is presented on Einstein.
+  // The game's essay: w weights what goes into it (skill, seasons with the team, years in FIRST, students reached, the
+  // two best student writers, the hours put into the essay) and teacher adds for a mentor who teaches for a living.
+  // nom: share of teams at an event that send an essay; ai: mean and spread of their essays; noise: the judges' day;
+  // renom: share of past Finalists re-nominated in a season; past: past Finalists in the world when a career begins.
+  D.WFA = { hours: 30, cost: 0, q0: 0.55, w: { skill: 0.30, ten: 0.15, exp: 0.10, reach: 0.10, writing: 0.20, essay: 0.15 }, teacher: 4,
+    nom: 0.45, ai: [52, 12], noise: 4, wfaNoise: 5, renom: 0.5, past: 150, pastMax: 400, rep: { wffa: 5, wfa: 15 }, legacy: { wffa: 40, wfa: 200 } };
+  // Real Woodie Flowers Award winners (FRC Events award pages; FIRST's own posts for 1996, 1997, 2020 and 2021)
+  D.REAL_WFA = {
+    1996: { name: 'Woodie Flowers', note: 'MIT professor of mechanical engineering who taught the design course 2.70 and brought the words Gracious Professionalism to FIRST. The award founded that year by Dr. William Murphy carries his name, and he was its first recipient.' },
+    1997: { name: 'Liz Calef', note: 'The first mentor to receive it after Woodie Flowers himself.' },
+    2016: { name: 'Eric Stokely', team: 360, tname: 'The Revolution' },
+    2017: { name: 'Glenn Lee', team: 359, tname: 'Hawaiian Kids', note: 'Of Waialua High & Intermediate School in Hawaii. Presented on Einstein in Houston: one award for both Championships.' },
+    2018: { name: 'Gail Drake', team: 1885, tname: 'ILITE Robotics', note: 'One award for both Championships, listed at Houston and at Detroit.' },
+    2019: { name: 'Allen Gregory IV', team: 3847, tname: 'Spectrum' },
+    2020: { name: 'Lucien Junkin', team: 118, tname: 'Robonauts', note: 'A NASA chief engineer and head coach of the Robonauts, whose students come from seven high schools in Texas. He was a Finalist in 2005; fifteen years later his students re-nominated him, and he was chosen from more than 200 Finalists in the season whose Championship was cancelled.' },
+    2021: { name: 'Matt Fagen', team: 4253, tname: 'Raid Zero', note: 'Of Taipei, in the season played from home.' },
+    2022: { name: 'Christine Sapio', team: 2486, tname: 'CocoNuts' },
+    2023: { name: 'Mark Buckner', team: 4265, tname: 'Secret City Wildbots', note: 'An Oak Ridge National Laboratory mentor in Oak Ridge, Tennessee.' },
+    2024: { name: 'Norman Morgan', team: 2468, tname: 'Team Appreciate', note: 'Of Austin, Texas.' },
+    2025: { name: 'Francisco Guerra', team: 4635, tname: 'PrepaTec - Botbusters' },
+    2026: { name: 'Debbie English', team: 4499, tname: 'The Highlanders' }
+  };
+
+  // ---------- Team numbers by year ----------
+  // The first number given to each season's rookies, from FRC Events (Team 5800 is a 2016 rookie, 6300 a 2017 one, and
+  // so on; rounded to 50). A career's teams at the start are numbered below the start year's first rookie, and every
+  // season's rookies take that season's block. The 2021 rookies, who never played a 2021 season, join the 2022 class.
+  D.NUM_FROM = { 2016: 5750, 2017: 6250, 2018: 6750, 2019: 7300, 2020: 8000, 2021: 8450, 2022: 8650, 2023: 8900, 2024: 9350, 2025: 9800, 2026: 10800, 2027: 11400 };
+  D.numTop = cy => (D.NUM_FROM[cy] ? D.NUM_FROM[cy] - 1 : 10999);                 // established teams: 1 to this
+  D.numBlock = cy => (D.NUM_FROM[cy] && D.NUM_FROM[cy + 1] ? [D.NUM_FROM[cy === 2022 ? 2021 : cy], D.NUM_FROM[cy + 1] - 1] : [1, 11999]);
+  // older programs are a little stronger: the oldest 18% of the numbers (below 2000 of 11,000 before numbers followed the year)
+  D.OLD_NUM = 2000 / 10999;
 
   // ---------- Students ----------
   D.makeStudent = function (rng, grade, talent) {

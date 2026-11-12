@@ -23,6 +23,9 @@
   // =====================================================================
   // 2022 RAPID REACT
   // =====================================================================
+  // a dual-side intake takes cargo from either end without turning round; a motorized pivot intake drops onto cargo
+  // that is still bouncing (ground22) and takes it a little quicker
+  const DUAL22 = 0.85, PIVOT22 = 0.93;
   function fender22(m, r) { const h = m.hub, d = E.dist(r, h) || 1; return { x: h.x + (r.x - h.x) / d * 1.8, y: h.y + (r.y - h.y) / d * 1.8 }; }
   // Cargo is tracked: it starts spread around the field, and every ball that is shot comes back out of the Hub
   // (scored cargo drops out of the four exits, misses bounce off) and rolls somewhere across the whole field.
@@ -36,7 +39,7 @@
   function ground22(m, r) {
     let best = null, bv = 1e9;
     for (const p of m.cargo) {
-      if (p.c !== r.a || p.t > m.t || (p.claim && p.claim !== r.team && p.claimT > m.t)) continue;
+      if (p.c !== r.a || p.t > m.t + (r.cap.catchBounce ? 1.5 : 0) || (p.claim && p.claim !== r.team && p.claimT > m.t)) continue;
       const v = E.dist(r, p) + (E.dist(p, m.hub) < 1.9 ? 3 : 0);
       if (v < bv) { bv = v; best = p; }
     }
@@ -47,7 +50,7 @@
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
       if (kind === 'ground' && pt.c && !m.cargo.includes(pt)) return; // someone else got there first
-      H.act(r, H.collectTime(m, r, kind, kind === 'ground' ? 1.15 : 2.0), () => {
+      H.act(r, H.collectTime(m, r, kind, kind === 'ground' ? 1.15 * (r.cap.dualSide ? DUAL22 : r.cap.catchBounce ? PIVOT22 : 1) : 2.0), () => {
         if (kind === 'ground' && pt.c) { const i = m.cargo.indexOf(pt); if (i < 0) return; m.cargo.splice(i, 1); }
         r.held++; if (m.phase === 'auto') r.mem.got = (r.mem.got || 1) + 1;
       }, kind === 'ground' ? 'Intaking cargo' : 'Loading at terminal');
@@ -88,6 +91,8 @@
   Rules[2022] = {
     leavePts: 2, tempo: { c: 3.3, s: 2.1 },
     endgame: { levels: [{ name: 'Low', pts: 4, time: 3 }, { name: 'Mid', pts: 6, time: 5, drop: 0.12 }, { name: 'High', pts: 10, time: 9, drop: 0.3 }, { name: 'Traversal', pts: 15, time: 13, drop: 0.45 }], park: 0 },
+    // a direct traversal climber hangs on Traversal or not at all
+    endLevel: (m, r) => (r.cap.directTrav ? (r.plan.endLevel == null || r.plan.endLevel >= 4 ? 4 : 0) : (r.cap.endLevel || 0)),
     init(m) {
       setHp(m);
       m.hub = { x: FW / 2, y: FH / 2 };
@@ -802,6 +807,9 @@
   // 2026 REBUILT
   // =====================================================================
   const XB = 4.63;
+  // a linear slide intake packs the fuel down so the shooter is fed faster; a dye-rotor turret shoots more fuel a second
+  // and more consistently (less of the range penalty and a little more accuracy)
+  const COMPACT26 = 1.1, ROTOR26 = { rate: 1.05, hit: 0.015, pen: 0.75 };
   const cap26 = r => Math.max(4, Math.round((r.cap.storage || 10) * (r.cap.lowProfile ? 0.6 : 1)));
   function active26(m, a) {
     if (m.phase === 'auto') return true;
@@ -820,7 +828,7 @@
   }
   function activeSoon(m, a, secs) { if (active26(m, a)) return true; const save = m.t; m.t += secs; const v = active26(m, a); m.t = save; return v; }
   const T26 = () => G.Rules[2026].tempo;
-  function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) * (r.cap.dumper ? 1.9 : 1) / E.PACE[r.plan.pace].cyc / T26().s; } // a dumper empties the hopper about twice as fast
+  function rate26(r) { return (0.5 + 7.5 * r.cap.scoreSpd / 100) * (0.75 + 0.25 * (r.cap.feed || 50) / 100) * (r.cap.dumper ? 1.9 : 1) * (r.cap.compact ? COMPACT26 : 1) * (r.cap.rotor ? ROTOR26.rate : 1) / E.PACE[r.plan.pace].cyc / T26().s; } // a dumper empties the hopper about twice as fast
   function irate26(r) { return (0.6 + 5.4 * r.cap.intake / 100) * (r.cap.wide || 1) / T26().c; }
   // Fuel on the field: m.neutral is the fuel lying in the neutral zone (about 360 at the start), ss.pool the fuel on the
   // floor of an alliance zone, ss.depot the alliance's depot. Scored fuel drops back into the neutral zone; missed shots
@@ -873,7 +881,7 @@
     const rate = rate26(r), k = Math.min(r.held, Math.max(1, Math.round(rate * 0.5)));
     H.act(r, k / rate, () => {
       const hub = m.hub[r.a], ss = m.ss[r.a];
-      const p = H.hit(m, r, 1.0, H.rangePen(m, r, hub));
+      const p = Math.min(0.99, H.hit(m, r, 1.0, H.rangePen(m, r, hub) * (r.cap.rotor ? ROTOR26.pen : 1)) + (r.cap.rotor ? ROTOR26.hit : 0));
       let hits = 0;
       for (let i = 0; i < k; i++) if (m.rng.next() < p) hits++;
       r.stats.shots += k; r.stats.hits += hits; r.held -= k;

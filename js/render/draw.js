@@ -369,11 +369,12 @@
     else if (mp === 'ampbar') { ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.8, -h * 0.85, h * 1.2, h * 0.12); }
     // shooter
     const sh = lk.shooter;
-    if (sh === 'turret') {
+    if (sh === 'turret' || sh === 'rotor') {
       ctx.save();
       const ang = o.aim != null ? o.aim - (r.hd || 0) : 0;
       ctx.beginPath(); ctx.arc(-h * 0.1, 0, sz * 0.24, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.stroke();
       ctx.translate(-h * 0.1, 0); ctx.rotate(ang); ctx.fillStyle = '#e8edf2'; ctx.fillRect(0, -sz * 0.05, sz * 0.36, sz * 0.1);
+      if (sh === 'rotor') { ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; for (let i = 0; i < 6; i++) { const g = i * Math.PI / 3; ctx.beginPath(); ctx.arc(Math.cos(g) * sz * 0.14, Math.sin(g) * sz * 0.14, sz * 0.03, 0, 7); ctx.stroke(); } } // the rotor that feeds it
       ctx.restore();
     } else if (sh === 'hood' || sh === 'pivot') {
       ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.6, -h * 0.4, h * 0.8, h * 0.8);
@@ -390,14 +391,17 @@
       ctx.fillStyle = lk.c2 || '#ffcf4a';
       for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(h * 0.41, -h * 0.68 + i * h * 0.34, sz * 0.055, 0, 7); ctx.fill(); }
     }
+    // 2020 revolver indexer: a drum of five cells beside the shooter
+    if (lk.indexer === 'revolver') { ctx.beginPath(); ctx.arc(h * 0.5, 0, sz * 0.13, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#ffd84a'; for (let i = 0; i < 5; i++) { const g = i * Math.PI * 0.4 + (o.t || 0) * 2; ctx.beginPath(); ctx.arc(h * 0.5 + Math.cos(g) * sz * 0.075, Math.sin(g) * sz * 0.075, sz * 0.032, 0, 7); ctx.fill(); } }
     // algae mech
     if (lk.algae === 'net') { ctx.beginPath(); ctx.arc(-h * 0.55, h * 0.45, sz * 0.12, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
     else if (lk.algae === 'proc') { ctx.fillStyle = COL.algae; ctx.fillRect(-h * 0.8, h * 0.35, h * 0.3, h * 0.3); }
     // climber (rear = -x)
     const cl = lk.climber;
     if (cl && cl !== 'none') {
-      ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = cl === 'arms' ? 3 : 2;
-      const len = cl === 'arms' ? 0.32 : cl === 'hook2' ? 0.22 : 0.16;
+      ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = cl === 'arms' || cl === 'triple' ? 3 : 2;
+      if (cl === 'triple') { ctx.lineWidth = 2; [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(-h * 0.6, sd * h * 0.95); ctx.lineTo(-h * 0.6, sd * (h * 0.95 + sz * 0.26)); ctx.stroke(); }); ctx.lineWidth = 3; } // ramps out to both sides for the two partners
+      const len = cl === 'arms' || cl === 'triple' ? 0.32 : cl === 'hook2' ? 0.22 : 0.16;
       [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(-h * 0.85, sd * h * 0.6); ctx.lineTo(-h * 0.85 - sz * len, sd * h * 0.6); ctx.stroke(); });
     }
     // held piece
@@ -517,7 +521,7 @@
     if (sh) {
       const sy = top - (low ? 0.12 : 0.28) * s, sx = cx - 0.15 * s;
       ctx.fillStyle = '#2f353c';
-      if (sh === 'turret') { ctx.fillRect(sx - 0.18 * s, sy + 0.04 * s, 0.36 * s, 0.06 * s); ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke(); }
+      if (sh === 'turret' || sh === 'rotor') { if (sh === 'rotor') { ctx.save(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy + 0.07 * s, 0.09 * s, 0, Math.PI); ctx.stroke(); ctx.restore(); } ctx.fillRect(sx - 0.18 * s, sy + 0.04 * s, 0.36 * s, 0.06 * s); ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke(); }
       else if (sh === 'hood' || sh === 'pivot') { ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, 0, 7); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.15 * s, Math.PI * 1.15, Math.PI * 1.75); ctx.stroke(); }
       else if (sh === 'fixed') { ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.9); ctx.fillRect(-0.05 * s, -0.05 * s, 0.32 * s, 0.1 * s); ctx.restore(); }
       else if (sh === 'dump') { ctx.beginPath(); ctx.moveTo(sx - 0.2 * s, sy); ctx.lineTo(sx + 0.15 * s, sy); ctx.lineTo(sx + 0.22 * s, sy - 0.16 * s); ctx.lineTo(sx - 0.27 * s, sy - 0.16 * s); ctx.closePath(); ctx.fill(); }
@@ -537,10 +541,11 @@
     // climber
     const cl = lk.climber;
     if (cl && cl !== 'none') {
-      const ch = { hook: 0.55, hook2: 0.75, arms: 0.95 }[cl] * s * (low ? 0.75 : 1), clx = x0 + 0.06 * s;
+      const ch = { hook: 0.55, hook2: 0.75, arms: 0.95, triple: 0.95 }[cl] * s * (low ? 0.75 : 1), clx = x0 + 0.06 * s;
       ctx.fillStyle = '#ffcf4a'; ctx.fillRect(clx, top - ch, 0.035 * s, ch);
       ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(clx + 0.06 * s, top - ch, 0.05 * s, Math.PI, Math.PI * 2.1); ctx.stroke();
-      if (cl === 'arms') { ctx.fillRect(clx + 0.12 * s, top - ch * 0.8, 0.03 * s, ch * 0.8); }
+      if (cl === 'arms' || cl === 'triple') { ctx.fillRect(clx + 0.12 * s, top - ch * 0.8, 0.03 * s, ch * 0.8); }
+      if (cl === 'triple') { ctx.fillRect(x0 - 0.3 * s, gy - 0.03 * s, 0.3 * s, 0.03 * s); ctx.fillRect(x0 + fw, gy - 0.03 * s, 0.3 * s, 0.03 * s); } // the partners' ramps, folded down
     }
     // algae
     if (lk.algae === 'net' || lk.algae === 'proc') { ctx.beginPath(); ctx.arc(x0 + fw * 0.75, top - 0.15 * s, 0.07 * s, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }

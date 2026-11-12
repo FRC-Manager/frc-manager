@@ -189,12 +189,15 @@
     { const room = P.buyRoom(S, prodId);
       if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
-    const cost = n * P.price(S, prod);
+    // KOP mechanism vouchers (from Kickoff) each pay for one Kit of Parts subsystem kit
+    const kv = D.KOP_KITS.includes(prod.cat) ? Math.min(n, P.kopVch(S)) : 0;
+    const cost = (n - kv) * P.price(S, prod);
     // a loyalty voucher from this vendor pays first
     const vch = P.loyalOn(S) && S.voucher && S.voucher[prod.v] && S.voucher[prod.v].amt > 0 ? S.voucher[prod.v] : null, use = vch ? Math.min(vch.amt, cost) : 0;
     { const e = G.Career.afford(S, cost - use); if (e) return e; }
-    if (cost - use > 0) G.Career.spend(S, cost - use, n + '× ' + prod.name + (use ? ' (voucher paid ' + U.money(use) + ')' : ''));
-    else S.ledger.unshift({ d: G.Career.dateLabel(S), desc: n + '× ' + prod.name + ' (paid with your ' + D.VENDORS[P.brand(prod)].short + ' voucher)', amt: 0, px: G.Career.px(S) });
+    if (cost - use > 0) G.Career.spend(S, cost - use, n + '× ' + prod.name + (use ? ' (voucher paid ' + U.money(use) + ')' : '') + (kv ? ' (' + kv + ' paid with a KOP voucher)' : ''));
+    else S.ledger.unshift({ d: G.Career.dateLabel(S), desc: n + '× ' + prod.name + (kv ? ' (KOP mechanism voucher)' : ' (paid with your ' + D.VENDORS[P.brand(prod)].short + ' voucher)'), amt: 0, px: G.Career.px(S) });
+    if (kv) S.kopVch.n -= kv;
     if (use) { vch.amt -= use; if (vch.amt <= 0) delete S.voucher[prod.v]; }
     if (P.loyalOn(S) && (prod.v === 'A' || prod.v === 'B')) { const vb = S.vendBought = S.vendBought || { A: 0, B: 0 }; vb[prod.v] += cost; } // this year's orders count for loyalty
     const had = P.items(S, prod.cat).slice();
@@ -205,7 +208,7 @@
       had.filter(it => !keep.has(it)).forEach(it => { const v = it.h > D.SELL_MIN ? P.resale(S, it) : 0; if (v > 0) { sold++; got += v; } });
       if (got) G.Career.earn(S, got, 'Sold ' + sold + ' replaced ' + cat.short.toLowerCase());
     }
-    return { bought: n, replaced: dropped, sold, got, voucher: use };
+    return { bought: n, replaced: dropped, sold, got, voucher: use, kopVoucher: kv };
   };
 
   // The product to buy for a category from a vendor (electronics) or the COTS suppliers
@@ -307,6 +310,18 @@
       out[cat] = (out[cat] || 0) + Math.min(4, n);
     });
     return out;
+  };
+  // Mechanism kits this game's concepts could use that are not sold yet (calendar careers, before the summer of 2021),
+  // for the Kickoff pop-up. GridTube is left out: every build can use it, so it says nothing about the game.
+  P.kitsMissing = function (S, year) {
+    const Sz = G.Seasons[year], out = [];
+    if (!S || !S.cal || !Sz) return out;
+    Sz.subs.forEach(sd => sd.concepts.forEach(c => {
+      if (!c || c.id === 'none' || ['soft', 'drive', 'frame'].includes(sd.id) || (!c.cost && !c.hours)) return;
+      const cats = sd.id === 'effector' ? ['kGrip'] : (c.areas || []).filter(a => !NOKIT[a]).map(a => D.KIT_FOR_AREA[a]).filter(Boolean);
+      cats.forEach(cat => { if (D.COTS_FROM[cat] && !P.cotsOut(S, cat) && !out.includes(cat)) out.push(cat); });
+    }));
+    return D.PART_CATS.filter(c => out.includes(c.id)).map(c => c.id);
   };
   P.kitFor = c => (c && c.areas && c.areas.length ? D.KIT_FOR_AREA[c.areas[0]] || null : null);
   // The Kit of Parts subsystem kit a concept can use, or null: only the simplest concept of a subsystem takes one.
@@ -530,11 +545,11 @@
     { const e = G.Career.afford(S, cost); if (e) return e; }
     if (pre) {
       if (P.elemRoom(S, y) < set.size - 1e-6) return 'You can store at most ' + D.ELEM_MAX + ' fields\' worth of elements';
-      G.Career.spend(S, cost, 'Preorder: ' + set.name + ' (' + y + ')');
+      G.Career.spend(S, cost, 'Preorder: ' + set.name + ' (' + G.Career.calYear(S, y) + ')'); // the calendar year: in random order the game's own year would give it away
       S.elemPre = S.elemPre || {}; (S.elemPre[y] = S.elemPre[y] || []).push({ s: set.size });
       return null;
     }
-    G.Career.spend(S, cost, set.name + ' (' + y + ')');
+    G.Career.spend(S, cost, set.name + ' (' + G.Career.calYear(S, y) + ')');
     S.elem = S.elem || {};
     const list = S.elem[y] = S.elem[y] || [];
     list.push({ id: U.uid('e'), s: set.size, h: 1 });
@@ -555,6 +570,7 @@
     });
   };
 
+  P.kopVch = S => (S.kopVch && S.kopVch.n) || 0;
   P.kopText = kit => [kit.motor ? kit.motor + ' brushed motors' : '', kit.enc ? kit.enc + ' low-profile encoders' : '', kit.kdrive || kit.gearbox ? (kit.kdrive || kit.gearbox) + ' kit drivetrain sets' : '', kit.ctrl ? (kit.ctrl > 1 ? kit.ctrl + ' control hubs' : 'a basic control hub') : ''].filter(Boolean).join(', ');
   // ======================= season hooks =======================
   P.kickoff = function (S, first) {
@@ -565,13 +581,14 @@
       if (drop) full.push(drop + ' ' + D.PART_CAT[cat].short.toLowerCase());
     });
     S.lastKop = { kit, rookie, full, year: S.year };
+    S.kopVch = { n: rookie ? D.KOP_VOUCHERS.rookie : D.KOP_VOUCHERS.vet, year: S.year }; // last season's unused ones lapse
     P.loyalDeliver(S);
     S.elemKop = S.elemKop || {}; S.elemKop[S.year] = true;
     const pre = S.elemPre && S.elemPre[S.year];
     if (pre && pre.length) { S.elem = S.elem || {}; S.elem[S.year] = (S.elem[S.year] || []).concat(pre.map(e => ({ id: U.uid('e'), s: e.s, h: 1 }))); delete S.elemPre[S.year]; }
     G.Career.inbox(S, rookie ? 'Rookie Kit of Parts' : 'Kit of Parts', 'This season\'s ' + (rookie ? 'rookie kit (bigger than the yearly kit every team gets)' : 'kit') + ' is in: ' + P.kopText(kit) + ' and a few ' + G.Seasons[S.year].pieceName.toLowerCase() + '.' +
       (full.length ? ' Some shelves were already full, so the weakest parts were recycled (' + full.join(', ') + ').' : '') +
-      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
+      (pre && pre.length ? ' Your preordered field elements arrived too.' : '') + ' With it come ' + (S.kopVch.n === 1 ? 'a KOP mechanism voucher' : S.kopVch.n + ' KOP mechanism vouchers') + ': each one pays for a Kit of Parts subsystem kit (gripper, intake, shooter or lift) in the Inventory, until next Kickoff.' + ' Anything else comes from the Inventory tab, and in season it often sells out.', 'dev');
   };
   // ======================= vendor loyalty =======================
   // Loyalty is kept per catalogue: 'A' the premium one (Sterling Motion, then Apex Motion, which honours Sterling's

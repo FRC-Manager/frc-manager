@@ -43,6 +43,9 @@
   }
   const inGen20 = (p, pad) => { const g = gen20(p); return Math.abs(g.a) < G20.genA + (pad || 0) && Math.abs(g.b) < G20.genB + (pad || 0); };
   const CAP20 = [9, 20, 20];
+  const REV20 = 0.6; // a revolver indexer fires the cells it holds in this share of the usual time
+  // the 2019 triple climber: chance of lifting both partners = p0 + p1 × climber quality, at most max
+  const TRIPLE19 = { p0: 0.4, p1: 0.55, max: 0.92 };
   // beaching on a Power Cell (average driver, balanced pace): the chance for each loose cell a robot runs over, how much
   // worse that is on the generator's bars, and the chance on each drive onto the bars
   const BEACH20 = { cell: 0.009, barK: 2, bar: 0.003 };
@@ -118,7 +121,7 @@
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
       const n = r.held;
-      H.act(r, H.aimTime(m, r) + n * H.scoreTime(m, r, upper ? 0.5 : 0.6), () => {
+      H.act(r, H.aimTime(m, r) + n * H.scoreTime(m, r, upper ? 0.5 : 0.6) * (c.revolver ? REV20 : 1), () => {
         let pts = 0;
         const pen = upper ? H.rangePen(m, r, goal) : 0, off = offAxis20(m, r.a, r);
         const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) : 0;
@@ -395,7 +398,7 @@
   // (a turret does not help a robot drive the length of the field past a defender: turretK)
   Rules[2020].defense = { eff: 2.0, foul: 1.3, range: 1.8, zone: 0.45, pin: 5, reset: 3, turretK: 0.85, act: 1.0, major: { 'Target Zone': true, 'Loading Zone': true, 'Trench Run': true }, credit: { 'Rendezvous Point': 1 } };
   Rules[2020].faults = { brown: 1.3, tip: 0.8, tipAll: 0.1, comms: 1.0 };
-  Rules.BEACH20 = BEACH20;
+  Rules.BEACH20 = BEACH20; Rules.REV20 = REV20; Rules.TRIPLE19 = TRIPLE19;
   S[2020].meta = { defense: true, note: 'Power Cells are the scarce thing in INFINITE RECHARGE: 48 are in play, and every one you score comes back out through the OTHER alliance\'s Loading Bay. A third shooter soon has nothing to shoot, so top alliances run two shooters and a defender who keeps the opponents off their cycle. The Target Zone, the Loading Zone and each alliance\'s own Trench Run are protected: a trench-height robot can cross the field without being touched, while a tall one has to bump through the Shield Generator.',
     faults: 'Common failures: brownouts from flywheels and indexers running together, cells jamming in the indexer, and robots beached on a Power Cell for a few seconds (most of all on the generator bars).' };
   S[2020].tiebreak = 'Shield Generator';
@@ -569,10 +572,19 @@
       ['red', 'blue'].forEach(a => {
         // only a robot that left the HAB Zone at some point in the match earns a climb bonus
         const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && r.end.lvl > 0 && !r.dead && (r.left || r.end.credited));
-        // a Level 3 lift with partner ramps carries one partner up with it
-        const lifter = bots.find(r => r.end.lvl >= 3 && r.cap.buddy), rider = lifter && H.riders(bots.filter(r => r !== lifter && r.end.lvl < 3)).sort((p, q) => p.end.lvl - q.end.lvl)[0];
-        if (rider && H.buddyLift(m, lifter, rider, U.clamp(0.45 + 0.45 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lvl = 3; rider.end.lifted = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' to HAB Level 3', 'end'); }
-        bots.forEach(r => { const p = this.endgame.levels[r.end.lvl - 1].pts; ss.hab += p; m.score[a].end += p; r.stats.pts += p; });
+        // a Level 3 lift with partner ramps carries one partner up with it; a triple climber carries both or neither
+        const lifter = bots.find(r => r.end.lvl >= 3 && r.cap.buddy);
+        if (lifter && lifter.cap.triple) {
+          const riders = H.riders(bots.filter(r => r !== lifter && r.end.lvl < 3));
+          if (riders.length >= 2) {
+            const two = riders.slice(0, 2);
+            if (H.tripleLift(m, lifter, two, U.clamp(TRIPLE19.p0 + TRIPLE19.p1 * (lifter.cap.endgame || 40) / 100, 0.2, TRIPLE19.max))) { two.forEach(rd => { rd.end.lvl = 3; rd.end.lifted = true; }); H.log(m, a, lifter.team + ' lifted ' + two.map(x => x.team).join(' and ') + ' to HAB Level 3: a triple climb', 'end'); }
+          } else if (riders.length === 1) H.log(m, a, lifter.team + ' climbs alone: with only one partner there in time a triple climber cannot balance', 'end');
+        } else {
+          const rider = lifter && H.riders(bots.filter(r => r !== lifter && r.end.lvl < 3)).sort((p, q) => p.end.lvl - q.end.lvl)[0];
+          if (rider && H.buddyLift(m, lifter, rider, U.clamp(0.45 + 0.45 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lvl = 3; rider.end.lifted = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' to HAB Level 3', 'end'); }
+        }
+        bots.filter(r => r.end.lvl > 0).forEach(r => { const p = this.endgame.levels[r.end.lvl - 1].pts; ss.hab += p; m.score[a].end += p; r.stats.pts += p; });
       });
     },
     bonus(m, a) {

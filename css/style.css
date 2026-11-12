@@ -535,3 +535,38 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 /* a line under a banner's award (the Festival winners: THE ONE CHAMPION) */
 .banner .mo { font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #ffe08a; border-top: 1px solid rgba(255,224,138,.6); border-bottom: 1px solid rgba(255,224,138,.6); padding: 2px 0; line-height: 1.2; }
 .banners.many .banner .mo { font-size: 7.5px; letter-spacing: .08em; } .banners.lots .banner .mo { font-size: 6.5px; letter-spacing: .05em; padding: 1px 0; }
+
+/* ---- World map and season scouting (v2.9.6) ---- */
+.fsel { width: auto; padding: 4px 8px; font-size: 12px; }
+.wm-f { gap: 8px; align-items: center; }
+.segs { display: inline-flex; } .segs .btn { border-radius: 0; margin-left: -1px; } .segs .btn:first-child { border-radius: 7px 0 0 7px; margin-left: 0; } .segs .btn:last-child { border-radius: 0 7px 7px 0; }
+.wmap { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0b141c; }
+.wm-svg { display: block; width: 100%; height: auto; max-height: 72vh; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.wm-svg:active { cursor: grabbing; }
+.wm-hit { cursor: pointer; } .wm-hit:hover circle, .wm-hit:hover path { filter: brightness(1.18); }
+.wm-lbl { pointer-events: none; font-family: inherit; }
+.wm-halo { paint-order: stroke; stroke: #0b141c; stroke-linejoin: round; }
+.wm-leg { position: absolute; left: 10px; bottom: 10px; background: rgba(15,18,22,.9); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; width: 220px; }
+.wm-grad { height: 8px; border-radius: 4px; margin: 4px 0 2px; }
+.wm-keys { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+.wm-keys i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: 0; font-style: normal; }
+.wm-keys .k-ev { background: #9085e9; transform: rotate(45deg); }
+.wm-keys .k-myev { background: #9085e9; transform: rotate(45deg); box-shadow: 0 0 0 2px #0b141c, 0 0 0 3.5px #f5b800; }
+.wm-keys .k-me { color: #f5b800; width: auto; height: auto; font-size: 13px; line-height: 1; }
+.wm-keys .k-cmp { border: 2px solid #f5c542; border-radius: 50%; background: #2a2410; }
+.wm-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+.wm-zoom .btn { width: 34px; padding: 4px 0; font-size: 16px; font-weight: 700; justify-content: center; }
+.wm-tip { position: absolute; display: none; pointer-events: none; z-index: 5; max-width: 320px; background: rgba(15,18,22,.97); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 9px; font-size: 12px; line-height: 1.45; color: var(--text); box-shadow: var(--shadow); }
+.wm-sw { display: inline-block; width: 10px; height: 10px; border: 2px solid; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.wm-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(255,255,255,.4); }
+.sc-me { background: rgba(245,184,0,.08); border: 1px solid rgba(245,184,0,.4); border-radius: 9px; padding: 8px 12px; font-size: 13px; }
+table.t th.srt { cursor: pointer; user-select: none; white-space: nowrap; }
+table.t th.srt:hover { color: var(--text); } table.t th.srt.on { color: var(--accent2); }
+table.t tr.hi td { animation: scHi 2.4s ease-out; }
+@keyframes scHi { 0%, 40% { background: rgba(245,184,0,.35); } 100% { background: transparent; } }
+@media (max-width: 760px) { .wm-leg { position: static; width: auto; border: 0; border-top: 1px solid var(--line); border-radius: 0; } .wm-zoom { bottom: auto; top: 10px; } }
+.fl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* ---- Woodie Flowers Award (v2.9.6) ---- */
+.wfa-past { text-align: left; margin: 10px auto 0; max-width: 560px; border-top: 1px solid var(--line); padding-top: 8px; }
+.wfa-past > div + div { margin-top: 5px; }
+.wc.wfa .wc-note b.acc { color: #ffe9a0; }

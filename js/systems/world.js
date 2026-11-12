@@ -70,9 +70,15 @@
 
   // ---------- setup ----------
   const usedNum = (S, n) => !!S.teams[n] || n === S.team.num;
+  // a free team number: established teams below the start year's first rookie, rookies in their season's block (D.NUM_FROM)
+  function freeNum(S, rng, rookieCy) {
+    const top = D.numTop(S.cal[0]), b = rookieCy != null ? D.numBlock(rookieCy) : [1, top];
+    let num, tries = 0; do { num = rng.int(b[0], b[1] + 200 * Math.floor(tries++ / 300)); } while (usedNum(S, num)); // a full block spills over
+    return num;
+  }
   function addTeam(S, rng, o) {
-    let num; do { num = o.rookie ? rng.int(1, 11999) : rng.int(1, 10999); } while (usedNum(S, num));
-    const str = o.rookie ? Math.round(U.clamp(rng.norm(26, 10), 5, 60)) : Math.round(U.clamp(rng.norm(48, 18) + (num < 2000 ? 6 : 0) + (o.bias || 0), 6, 96));
+    const num = freeNum(S, rng, o.rookie ? o.cy : null);
+    const str = o.rookie ? Math.round(U.clamp(rng.norm(26, 10), 5, 60)) : Math.round(U.clamp(rng.norm(48, 18) + (num < D.numTop(S.cal[0]) * D.OLD_NUM ? 6 : 0) + (o.bias || 0), 6, 96));
     S.teams[num] = { num, name: D.teamName(rng), region: o.region, home: o.home || null, str, traj: o.rookie ? 1 : rng.pick([-1, 0, 0, 1]),
       impact: o.rookie ? Math.round(U.clamp(rng.norm(30, 12), 5, 80)) : G.AI.impactRoll(rng, str), rookie: o.rookie ? S.year : false, ry: o.rookie ? o.cy : null, rb: null };
     return S.teams[num];
@@ -91,8 +97,12 @@
     W.districtsAt(cy).forEach(d => { const n = W.sizeOf(d, cy) - (S.team.home === d.id ? 1 : 0); for (let i = 0; i < n; i++) addTeam(S, rng, { region: d.region, home: d.id, bias: (d.str - 3) * 3 + 2 }); });
     const rt = regionalTargets(cy);
     D.REGIONS.forEach(r => { const n = rt[r] - (!S.team.home && S.team.region === r ? 1 : 0); for (let i = 0; i < n; i++) addTeam(S, rng, { region: r }); });
-    // a first class of rookies, so the Rookie All-Star award has candidates
-    Object.values(S.teams).forEach(t => { if (rng.chance(0.06)) { t.rookie = S.order[0]; t.ry = cy; t.str = Math.round(U.clamp(rng.norm(26, 10), 5, 60)); t.traj = 1; } });
+    // a first class of rookies, so the Rookie All-Star award has candidates (numbered in the start year's block)
+    Object.values(S.teams).forEach(t => {
+      if (!rng.chance(0.06)) return;
+      t.rookie = S.order[0]; t.ry = cy; t.str = Math.round(U.clamp(rng.norm(26, 10), 5, 60)); t.traj = 1;
+      const n = freeNum(S, rng, cy); delete S.teams[t.num]; t.num = n; S.teams[n] = t;
+    });
     W.plan(S, rng);
   };
   const count = (S, f) => Object.values(S.teams).filter(f).length;
@@ -241,7 +251,7 @@
     order.forEach((num, i) => {
       const a = ev.alliances ? ev.alliances.findIndex(al => al.includes(num)) : -1, p = a >= 0 ? Math.min(2, ev.alliances[a].indexOf(num)) : 0;
       const f = a >= 0 && ev.po && ev.po.finish ? ev.po.finish[a] : '', aw = (ev.awards || []).filter(x => x.team === num).map(x => (['impact', 'ei', 'ras'].includes(x.id) ? x.id : 'other'));
-      put(S, e, num, { r: i + 1, n, a: a >= 0 ? a + 1 : 0, p, f, aw });
+      put(S, e, num, Object.assign({ r: i + 1, n, a: a >= 0 ? a + 1 : 0, p, f, aw }, G.Scout ? G.Scout.evStats(ev, num) : {}));
       if (f === 'Winner') res.winners.push(num); if (f === 'Finalist') res.finalists.push({ n: num, p });
     });
     res.finalists = byPick(res.finalists);
@@ -278,8 +288,8 @@
   W.simEvent = function (S, e, rng) {
     const teams = e.teams.filter(n => S.teams[n]), n = teams.length, fmt = fmtOf(S), res = { winners: [], finalists: [] };
     if (n < 6) { close(S, e, res); return; }
-    const st = {}, rp = {}, pl = {};
-    teams.forEach(t => { st[t] = S.teams[t].str + rng.norm(0, 6); rp[t] = 0; pl[t] = 0; });
+    const st = {}, rp = {}, pl = {}, wl = {};
+    teams.forEach(t => { st[t] = S.teams[t].str + rng.norm(0, 6); rp[t] = 0; pl[t] = 0; wl[t] = [0, 0, 0]; });
     const per = e.dist || e.kind === 'dcmp' ? 12 : n <= 44 ? 11 : n <= 54 ? 10 : 9;
     for (let r = 0; r < per; r++) {
       const o = rng.shuffle(teams.slice());
@@ -288,7 +298,7 @@
         const sa = st[six[0]] + st[six[1]] + st[six[2]], sb = st[six[3]] + st[six[4]] + st[six[5]], da = sa + rng.norm(0, 24), db = sb + rng.norm(0, 24);
         const bonus = s => (rng.chance(U.clamp((s - 105) / 150, 0.03, 0.9)) ? 1 : 0) + (rng.chance(U.clamp((s - 150) / 170, 0.01, 0.75)) ? 1 : 0);
         const ba = bonus(sa), bb = bonus(sb);
-        six.forEach((t, k) => { if (k >= real) return; const red = k < 3; rp[t] += ((red ? da > db : db > da) ? 2 : 0) + (red ? ba : bb); pl[t]++; });
+        six.forEach((t, k) => { if (k >= real) return; const red = k < 3, m = red ? da - db : db - da; rp[t] += (m > 0 ? 2 : 0) + (red ? ba : bb); pl[t]++; wl[t][m > 0 ? 0 : m < 0 ? 1 : 2]++; });
       }
     }
     const order = teams.slice().sort((p, q) => rp[q] / Math.max(1, pl[q]) - rp[p] / Math.max(1, pl[p]) || st[q] - st[p]);
@@ -306,13 +316,16 @@
     const rk = teams.filter(t => S.teams[t].ry === S.wseason.cy).map(t => ({ t, v: S.teams[t].impact + S.teams[t].str * 0.5 + rng.norm(0, 8) })).sort((p, q) => q.v - p.v)[0];
     if (rk) { res.ras = rk.t; give(rk.t, 'ras'); }
     rng.shuffle(order.slice(0, Math.ceil(n * 0.6))).slice(0, 5).forEach(t => { if (!aw[t]) give(t, 'other'); });
+    const sx = G.Scout ? G.Scout.simStats(S, e, teams, st) : {}; // scouting numbers (OPR and its split), from their own random numbers
     order.forEach((t, i) => {
       const a = al.findIndex(x => x.includes(t)), f = a >= 0 ? fin[a] : '';
-      put(S, e, t, { r: i + 1, n, a: a >= 0 ? a + 1 : 0, p: a >= 0 ? Math.min(2, al[a].indexOf(t)) : 0, f, aw: aw[t] || [] });
+      put(S, e, t, { r: i + 1, n, a: a >= 0 ? a + 1 : 0, p: a >= 0 ? Math.min(2, al[a].indexOf(t)) : 0, f, aw: aw[t] || [], s: sx[t], wl: wl[t], rs: pl[t] ? Math.round(rp[t] / pl[t] * 100) / 100 : 0 });
       if (f === 'Winner') res.winners.push(t); if (f === 'Finalist') res.finalists.push({ n: t, p: Math.min(2, al[a].indexOf(t)) });
     });
     res.finalists = byPick(res.finalists);
     close(S, e, res);
+    // the Woodie Flowers Finalist Award(s) of a regional or a District Championship (judged with their own random numbers)
+    if (G.Career.wffaJudge) G.Career.wffaJudge(S, e, teams, false);
   };
 
   // ---------- standings and advancement ----------

@@ -126,8 +126,12 @@
   }
   D.STORIES = [
     // ---- 2016 ----
+    // the eight big tyres belong to STRONGHOLD's defenses: a random-order career that played another game in 2016 hears
+    // about six-wheel drives only (the story's vary)
     { id: 'recap2016', cy: 2016, at: 'recap', tag: 'SEASON RECAP · 2016', color: 'var(--accent)', title: 'Six wheels, brushed motors and one big room',
-      body: ['This is what the sport looked like in 2016. Almost every robot rolled on six or eight wheels and turned by skidding. Every motor had brushes. Vision was a webcam, a single-board computer in a printed case and one programmer who had not slept since February.',
+      vary: S => (S.year === 2016 ? null : { body: ['This is what the sport looked like in 2016. Almost every robot drove on six wheels, the middle pair a little lower, and turned by skidding. Every motor had brushes. Vision was a webcam, a single-board computer in a printed case and one programmer who had not slept since February.',
+        'About 3,100 teams played, and 600 of them met under one roof for a single Championship. It was the last time everyone fit in one building.'] }),
+      body: ['This is what the sport looked like in 2016. Almost every robot rolled on six or eight big pneumatic tyres, made to climb over the defenses, and turned by skidding. Every motor had brushes. Vision was a webcam, a single-board computer in a printed case and one programmer who had not slept since February.',
         'About 3,100 teams played, and 600 of them met under one roof for a single Championship. It was the last time everyone fit in one building.'],
       means: ['From next season there are two Championships. Twice as many teams are invited, so qualifying gets easier.', 'The robots do not change yet: brushed motors, no vision camera for sale, swerve only if you machine it yourself.'],
       talk: [['Six wheels, a drop centre and a driver who trusts it. What else is there?', 'a drive coach'], ['One Championship felt like the whole world in one hall. I will miss it.', 'a mentor on Team {t}'], ['Our vision system is a student holding a flashlight.', 'a programmer on Team {t}']] },

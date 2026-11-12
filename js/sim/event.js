@@ -410,6 +410,23 @@
   Ev.rankOf = (ev, team) => Ev.rankings(ev).indexOf(team) + 1;
   Ev.opr = function (ev) {
     if (ev._oprAt === ev.matchCount && ev._opr) return ev._opr;
+    ev._opr = oprSolve(ev, r => r.score - r.foul, ev.oprBase || null); ev._oprAt = ev.matchCount;
+    return ev._opr;
+  };
+  // the same estimate for one part of the score: 'auto', 'tele' or 'end' (they add up to the OPR)
+  Ev.oprPart = function (ev, key) {
+    const c = ev._oprP = ev._oprP && ev._oprP.at === ev.matchCount ? ev._oprP : { at: ev.matchCount };
+    if (!c[key]) {
+      const tot = Ev.opr(ev), base = ev.oprBase ? {} : null;
+      if (base) { // Einstein: split the division OPRs by this event's shares so far
+        const sh = oprSolve(ev, r => r[key], null), all = oprSolve(ev, r => r.score - r.foul, null);
+        ev.teams.forEach(t => { base[t] = all[t] > 0 ? Math.max(0, tot[t] * sh[t] / all[t]) : 0; });
+      }
+      c[key] = oprSolve(ev, r => r[key] || 0, base);
+    }
+    return c[key];
+  };
+  function oprSolve(ev, val, base) {
     const teams = ev.teams, n = teams.length, idx = {};
     teams.forEach((t, i) => idx[t] = i);
     const A = []; for (let i = 0; i < n; i++) A.push(new Float64Array(n));
@@ -418,11 +435,11 @@
     const ms = ev.quals.filter(m => m.res).concat(ev.po ? ev.po.matches.filter(m => m.res && m.redT) : []);
     ms.forEach(mt => ['red', 'blue'].forEach(a => {
       const ts = mt.redT ? (a === 'red' ? mt.redT : mt.blueT) : mt[a];
-      const sc = mt.res[a].score - mt.res[a].foul;
+      const sc = val(mt.res[a]);
       tot += sc; cnt += 3;
       ts.forEach(i => { b[idx[i]] += sc; ts.forEach(j => { A[idx[i]][idx[j]] += 1; }); });
     }));
-    const base = ev.oprBase || null, mean = cnt ? tot / cnt : 0, lam = base ? 2.5 : 0.8;
+    const mean = cnt ? tot / cnt : 0, lam = base ? 2.5 : 0.8;
     for (let i = 0; i < n; i++) { A[i][i] += lam; b[i] += lam * (base && base[teams[i]] != null ? base[teams[i]] : mean); }
     // Gaussian elimination
     for (let c = 0; c < n; c++) {
@@ -438,9 +455,8 @@
     const x = new Float64Array(n);
     for (let r = n - 1; r >= 0; r--) { let s = b[r]; for (let k = r + 1; k < n; k++) s -= A[r][k] * x[k]; x[r] = s / (A[r][r] || 1e-9); }
     const out = {}; teams.forEach((t, i) => out[t] = Math.round(x[i] * 10) / 10);
-    ev._opr = out; ev._oprAt = ev.matchCount;
     return out;
-  };
+  }
   // Scouting view of a team (noisy for others)
   Ev.scout = function (ev, team) {
     const S = G.S;
