@@ -532,3 +532,6 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .qm { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; margin-left: 2px; border-radius: 50%; border: 1px solid var(--line2); background: transparent; color: var(--muted); font: 700 11px/1 system-ui, sans-serif; cursor: pointer; vertical-align: 1px; }
 .qm:hover { color: var(--accent2); border-color: var(--accent2); }
 .help-sec.at { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+/* a line under a banner's award (the Festival winners: THE ONE CHAMPION) */
+.banner .mo { font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #ffe08a; border-top: 1px solid rgba(255,224,138,.6); border-bottom: 1px solid rgba(255,224,138,.6); padding: 2px 0; line-height: 1.2; }
+.banners.many .banner .mo { font-size: 7.5px; letter-spacing: .08em; } .banners.lots .banner .mo { font-size: 6.5px; letter-spacing: .05em; padding: 1px 0; }

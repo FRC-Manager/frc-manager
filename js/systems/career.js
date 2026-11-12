@@ -315,7 +315,25 @@
     });
     return signed;
   };
-  C.dropSponsor = function (S, id) { const s = S.sponsors.find(x => x.id === id); if (!s) return; S.sponsors = S.sponsors.filter(x => x !== s); S.rep = Math.max(0, S.rep - 3); };
+  // Ending a contract early. Only in the autumn, while the new offers are on the table (October to Kickoff): the sponsor
+  // leaves, its slot is free for another offer, and word gets round. Reputation: title 6, partner 3, grant 2, plus 1 for
+  // each further season the contract still had to run. (A deal signed this turn is simply undone instead.)
+  C.endSponsorCost = sp => (sp.slot === 'title' ? 6 : sp.slot === 'grant' ? 2 : 3) + Math.max(0, (sp.seasonsLeft || 1) - 1);
+  C.endSponsorOpen = S => S.phase === 'off' && ['Oct', 'Nov', 'Dec'].includes(D.MONTHS[S.month]);
+  C.canEndSponsor = (S, sp) => !!sp && C.endSponsorOpen(S) && !C.canUnsign(S, sp);
+  C.endSponsor = function (S, id) {
+    const sp = S.sponsors.find(x => x.id === id);
+    if (!sp) return 'Sponsor not found';
+    if (C.canUnsign(S, sp)) return 'Signed this turn: use Undo signing instead';
+    if (!C.canEndSponsor(S, sp)) return 'A contract can only be ended in the autumn, while the new offers are open (October to Kickoff)';
+    const cost = C.endSponsorCost(sp), left = sp.seasonsLeft || 1;
+    S.sponsors = S.sponsors.filter(x => x !== sp);
+    S.activities = S.activities.filter(a => !(a.sponsorId === sp.id && a.status === 'pending'));
+    C.addRep(S, -cost);
+    C.inbox(S, 'Sponsorship ended: ' + sp.name, 'You ended the contract with ' + sp.name + ' (' + U.money(sp.base) + ' a season, ' + left + ' season' + (left === 1 ? '' : 's') + ' still to run). Its ' + (sp.slot === 'title' ? 'title' : sp.slot === 'grant' ? 'grant' : 'partner') + ' slot is free for another offer. Sponsors talk to each other: reputation −' + cost + '.', 'money');
+    return null;
+  };
+  C.dropSponsor = (S, id) => C.endSponsor(S, id);
   C.scheduleActivities = function (S, sp) {
     const rng = G.R;
     sp.obligations.forEach(text => {
@@ -745,6 +763,36 @@
     const mods = mergeMods(mergeMods(S.devMods ? S.devMods.mods : null, G.Shop.boostMods(S)), C.bagMods(S));
     return Object.assign(G.Robot.alloc(S, free, mods), { free, mods });
   };
+  // Auto-fill: turn this turn's idle hours into extra hours on the projects that are already running, down to the idle
+  // time worth keeping: a tenth of the hours in season (it holds fatigue steady), none in the offseason (no fatigue).
+  // It starts no project and takes nothing back, so a week that is already 90% full is left alone. Returns the hours added.
+  C.autoExtraTarget = S => (['kickoff', 'build', 'comp'].includes(S.phase) ? 0.1 : S.phase === 'off' ? 0 : null);
+  C.autoExtra = function (S) {
+    const k = C.autoExtraTarget(S), W = { high: 3, normal: 2, low: 1 }, Rb = G.Robot;
+    if (k == null) return 0;
+    let added = 0;
+    for (let pass = 0; pass < 8; pass++) {
+      const plan = C.hoursPlan(S), spare = plan.idle - k * plan.free;
+      if (spare < 1) break;
+      const room = p => 2 * Rb.capFor(S, p) - (plan.give[p.id] || 0) - (plan.pol[p.id] || 0); // what it can still absorb this turn
+      const cand = S.projects.filter(p => !Rb.isFab(p) && plan.mult(p) > 0 && (p.extra || 0) < p.need - 0.5 && room(p) > 0.5);
+      if (!cand.length) break;
+      const tw = cand.reduce((t, p) => t + W[p.prio], 0);
+      let did = 0;
+      cand.forEach(p => {
+        const m = Math.max(plan.mult(p), 0.01), raw = Math.min(spare * W[p.prio] / tw, room(p), (p.need - (p.extra || 0)) / m);
+        const add = Math.floor(raw * m + 1e-6); // extra hours are counted in work done, after this turn's speed changes
+        if (add >= 1) { p.extra = Math.min(p.need, (p.extra || 0) + add); did += add; }
+      });
+      if (!did) { // shares under an hour each: the first project that has room takes what is left
+        const p = cand[0], m = Math.max(plan.mult(p), 0.01), add = Math.floor(Math.min(spare, room(p), (p.need - (p.extra || 0)) / m) * m + 1e-6);
+        if (add < 1) break;
+        p.extra = Math.min(p.need, (p.extra || 0) + add); did = add;
+      }
+      added += did;
+    }
+    return Math.round(added);
+  };
   function mergeMods(a, b) {
     if (!a && !b) return null;
     const m = Object.assign({}, a || {});
@@ -765,6 +813,7 @@
   };
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
+    if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
     S.launchQueue = []; // launch pop-ups belong to the turn they happened in
     const hours = Math.max(0, C.turnHours(S, thisWeekEvent) - S.actHours);
@@ -1843,7 +1892,7 @@
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
-  C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest' });
+  C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest', motto: S.festival.won ? 'The one champion' : null });
   C.banners = function (S) {
     const out = [];
     const add = (gy, events, s, past) => {

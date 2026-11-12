@@ -601,8 +601,26 @@
     if (!Robot.isFab(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     { const e = G.Career.afford(S, q.cost); if (e) return e; }
     G.Career.spend(S, q.cost, q.name);
-    S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S), extra: 0 }, q.fields, spec));
+    S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S), startTurn: G.Career.turnKey(S), extra: 0 }, q.fields, spec));
     S.wearTick = (S.wearTick || 0) + 1;
+    return null;
+  };
+  // A project started this turn can be taken back until time moves on: everything it cost comes back and the parts and
+  // kits it had set aside are free again. Any project: builds, upgrades, research, copies, a test chassis, a full copy.
+  Robot.canUndoProject = (S, p) => !!p && !!p.startTurn && p.startTurn === G.Career.turnKey(S) && !(p.done > 0.01) && !(p.polish > 0.01);
+  Robot.undoProject = function (S, id) {
+    const p = S.projects.find(x => x.id === id);
+    if (!p) return 'Project not found';
+    if (!Robot.canUndoProject(S, p)) return 'This project was started before this turn: it can only be cancelled';
+    S.projects = S.projects.filter(x => x !== p);
+    S.wearTick = (S.wearTick || 0) + 1;
+    const cost = Math.round(p.cost || 0);
+    if (cost) {
+      // take the purchase off the books (as if it had not been made) rather than adding a refund line
+      const li = S.ledger.findIndex(l => l.desc === p.name && l.amt === -cost);
+      if (li >= 0) { S.ledger.splice(li, 1); S.money += cost; if (S.season) S.season.spent -= cost; }
+      else G.Career.spend(S, -cost, 'Undone: ' + p.name);
+    }
     return null;
   };
   Robot.cancelProject = function (S, id) {

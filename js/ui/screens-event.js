@@ -995,7 +995,7 @@
       '<div class="wc-title fc-title">' + (win ? 'THE ONE CHAMPION OF ' + h(String(d.year)) : h(String(d.year)) + ' WORLD CHAMPIONS OF ' + h(d.city.toUpperCase())) + '</div>' +
       dl(0.9, 'wc-note') + note + '</div>' +
       dl(1.0) + festStrip(d) + '</div>' +
-      dl(1.1, 'wc-bn') + UI.banner({ gold: win, award: win ? 'Festival of Champions' : 'Festival of Champions Finalist', year: d.year, event: 'Manchester, New Hampshire' }, !replay) + '</div>' +
+      dl(1.1, 'wc-bn') + UI.banner({ gold: win, award: win ? 'Festival of Champions' : 'Festival of Champions Finalist', motto: win ? 'The one champion' : null, year: d.year, event: 'Manchester, New Hampshire' }, !replay) + '</div>' +
       dl(1.25, 'wc-msg') + story + '</div>' +
       dl(1.4, 'wc-al') + chips(d.alliance, d.city) + '</div>' +
       dl(1.5, 'wc-al fc-opp') + '<span class="fc-vs">against</span>' + chips(d.opp, d.otherCity) + '</div>' +

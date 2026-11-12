@@ -165,7 +165,33 @@
       G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
     }
     f.lvl++; f.cond = 100; f.warned = 0;
+    if (opts && (opts.grant || opts.gift)) (f.gift = f.gift || {})[f.lvl] = 1; // a level the team did not pay for: nothing back if it is given up
     S.morale = Math.min(100, S.morale + 3);
+    return null;
+  };
+  // Giving a level back, to make room or for the money. The facility drops one level and part of what that level cost
+  // comes back by its condition: half the price at 100%, nothing for a level that was donated or paid by a grant.
+  Shop.SELL_RATE = 0.5;
+  Shop.downInfo = function (S, id) {
+    const it = Shop.item(id), f = Shop.get(S, id), l = f.lvl || 0;
+    if (!it || !l) return null;
+    const gift = !!(f.gift && f.gift[l]);
+    const refund = gift ? 0 : Math.round(it.levels[l - 1].cost * Shop.SELL_RATE * U.clamp(f.cond, 0, 100) / 100 / 50) * 50;
+    let block = null, note = '';
+    if (id === 'ftc') { const max = Math.round(Shop.fx(S, 'ftc', 'ftc', l - 1, 1)), own = G.Career.ownTeams(S); if (own > max) block = 'It runs ' + own + ' of your own FTC teams and would have room for ' + max + ': close ' + (own - max) + ' on the Team page first'; }
+    if (id === 'charger') { const lim = D.BATT_LIMIT[Math.min(2, l - 1)], n = S.parts.batts.length; if (n > lim) note = 'It will hold ' + lim + ' batteries: your ' + (n - lim) + ' most worn ones are recycled.'; }
+    if (it.fx.slot && Shop.slotOf(S, id) > Shop.fx(S, id, 'slot', l - 1, 1)) note = 'You lose its project slot.';
+    return { lvl: l - 1, name: it.levels[l - 1].name, refund, gift, cond: Math.round(f.cond), sqft: Shop.sizeOf(id, l) - Shop.sizeOf(id, l - 1), block, note };
+  };
+  Shop.downgrade = function (S, id) {
+    const d = Shop.downInfo(S, id), f = S.shop[id];
+    if (!d || !f) return 'You don\'t own this';
+    if (d.block) return d.block;
+    if (f.gift) delete f.gift[f.lvl];
+    f.lvl--;
+    if (!f.lvl) { f.cond = 100; f.warned = 0; }
+    if (d.refund) G.Career.earn(S, d.refund, (f.lvl ? 'Downgraded: ' : 'Sold: ') + d.name);
+    if (id === 'charger') { const lim = Shop.battLimit(S); if (S.parts.batts.length > lim) { S.parts.batts.sort((a, b) => b.h - a.h); S.parts.batts.length = lim; } }
     return null;
   };
   Shop.renovate = function (S, id) {

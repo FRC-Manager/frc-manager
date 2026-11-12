@@ -539,6 +539,9 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .qm { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; margin-left: 2px; border-radius: 50%; border: 1px solid var(--line2); background: transparent; color: var(--muted); font: 700 11px/1 system-ui, sans-serif; cursor: pointer; vertical-align: 1px; }
 .qm:hover { color: var(--accent2); border-color: var(--accent2); }
 .help-sec.at { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
+/* a line under a banner's award (the Festival winners: THE ONE CHAMPION) */
+.banner .mo { font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #ffe08a; border-top: 1px solid rgba(255,224,138,.6); border-bottom: 1px solid rgba(255,224,138,.6); padding: 2px 0; line-height: 1.2; }
+.banners.many .banner .mo { font-size: 7.5px; letter-spacing: .08em; } .banners.lots .banner .mo { font-size: 6.5px; letter-spacing: .05em; padding: 1px 0; }
 
 </style>
 </head>
@@ -613,7 +616,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.9.4';
+  G.VERSION = '2.9.5';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -7166,8 +7169,26 @@ window.G = window.G || {};
     if (!Robot.isFab(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     { const e = G.Career.afford(S, q.cost); if (e) return e; }
     G.Career.spend(S, q.cost, q.name);
-    S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S), extra: 0 }, q.fields, spec));
+    S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S), startTurn: G.Career.turnKey(S), extra: 0 }, q.fields, spec));
     S.wearTick = (S.wearTick || 0) + 1;
+    return null;
+  };
+  // A project started this turn can be taken back until time moves on: everything it cost comes back and the parts and
+  // kits it had set aside are free again. Any project: builds, upgrades, research, copies, a test chassis, a full copy.
+  Robot.canUndoProject = (S, p) => !!p && !!p.startTurn && p.startTurn === G.Career.turnKey(S) && !(p.done > 0.01) && !(p.polish > 0.01);
+  Robot.undoProject = function (S, id) {
+    const p = S.projects.find(x => x.id === id);
+    if (!p) return 'Project not found';
+    if (!Robot.canUndoProject(S, p)) return 'This project was started before this turn: it can only be cancelled';
+    S.projects = S.projects.filter(x => x !== p);
+    S.wearTick = (S.wearTick || 0) + 1;
+    const cost = Math.round(p.cost || 0);
+    if (cost) {
+      // take the purchase off the books (as if it had not been made) rather than adding a refund line
+      const li = S.ledger.findIndex(l => l.desc === p.name && l.amt === -cost);
+      if (li >= 0) { S.ledger.splice(li, 1); S.money += cost; if (S.season) S.season.spent -= cost; }
+      else G.Career.spend(S, -cost, 'Undone: ' + p.name);
+    }
     return null;
   };
   Robot.cancelProject = function (S, id) {
@@ -7953,7 +7974,25 @@ window.G = window.G || {};
     });
     return signed;
   };
-  C.dropSponsor = function (S, id) { const s = S.sponsors.find(x => x.id === id); if (!s) return; S.sponsors = S.sponsors.filter(x => x !== s); S.rep = Math.max(0, S.rep - 3); };
+  // Ending a contract early. Only in the autumn, while the new offers are on the table (October to Kickoff): the sponsor
+  // leaves, its slot is free for another offer, and word gets round. Reputation: title 6, partner 3, grant 2, plus 1 for
+  // each further season the contract still had to run. (A deal signed this turn is simply undone instead.)
+  C.endSponsorCost = sp => (sp.slot === 'title' ? 6 : sp.slot === 'grant' ? 2 : 3) + Math.max(0, (sp.seasonsLeft || 1) - 1);
+  C.endSponsorOpen = S => S.phase === 'off' && ['Oct', 'Nov', 'Dec'].includes(D.MONTHS[S.month]);
+  C.canEndSponsor = (S, sp) => !!sp && C.endSponsorOpen(S) && !C.canUnsign(S, sp);
+  C.endSponsor = function (S, id) {
+    const sp = S.sponsors.find(x => x.id === id);
+    if (!sp) return 'Sponsor not found';
+    if (C.canUnsign(S, sp)) return 'Signed this turn: use Undo signing instead';
+    if (!C.canEndSponsor(S, sp)) return 'A contract can only be ended in the autumn, while the new offers are open (October to Kickoff)';
+    const cost = C.endSponsorCost(sp), left = sp.seasonsLeft || 1;
+    S.sponsors = S.sponsors.filter(x => x !== sp);
+    S.activities = S.activities.filter(a => !(a.sponsorId === sp.id && a.status === 'pending'));
+    C.addRep(S, -cost);
+    C.inbox(S, 'Sponsorship ended: ' + sp.name, 'You ended the contract with ' + sp.name + ' (' + U.money(sp.base) + ' a season, ' + left + ' season' + (left === 1 ? '' : 's') + ' still to run). Its ' + (sp.slot === 'title' ? 'title' : sp.slot === 'grant' ? 'grant' : 'partner') + ' slot is free for another offer. Sponsors talk to each other: reputation −' + cost + '.', 'money');
+    return null;
+  };
+  C.dropSponsor = (S, id) => C.endSponsor(S, id);
   C.scheduleActivities = function (S, sp) {
     const rng = G.R;
     sp.obligations.forEach(text => {
@@ -8383,6 +8422,36 @@ window.G = window.G || {};
     const mods = mergeMods(mergeMods(S.devMods ? S.devMods.mods : null, G.Shop.boostMods(S)), C.bagMods(S));
     return Object.assign(G.Robot.alloc(S, free, mods), { free, mods });
   };
+  // Auto-fill: turn this turn's idle hours into extra hours on the projects that are already running, down to the idle
+  // time worth keeping: a tenth of the hours in season (it holds fatigue steady), none in the offseason (no fatigue).
+  // It starts no project and takes nothing back, so a week that is already 90% full is left alone. Returns the hours added.
+  C.autoExtraTarget = S => (['kickoff', 'build', 'comp'].includes(S.phase) ? 0.1 : S.phase === 'off' ? 0 : null);
+  C.autoExtra = function (S) {
+    const k = C.autoExtraTarget(S), W = { high: 3, normal: 2, low: 1 }, Rb = G.Robot;
+    if (k == null) return 0;
+    let added = 0;
+    for (let pass = 0; pass < 8; pass++) {
+      const plan = C.hoursPlan(S), spare = plan.idle - k * plan.free;
+      if (spare < 1) break;
+      const room = p => 2 * Rb.capFor(S, p) - (plan.give[p.id] || 0) - (plan.pol[p.id] || 0); // what it can still absorb this turn
+      const cand = S.projects.filter(p => !Rb.isFab(p) && plan.mult(p) > 0 && (p.extra || 0) < p.need - 0.5 && room(p) > 0.5);
+      if (!cand.length) break;
+      const tw = cand.reduce((t, p) => t + W[p.prio], 0);
+      let did = 0;
+      cand.forEach(p => {
+        const m = Math.max(plan.mult(p), 0.01), raw = Math.min(spare * W[p.prio] / tw, room(p), (p.need - (p.extra || 0)) / m);
+        const add = Math.floor(raw * m + 1e-6); // extra hours are counted in work done, after this turn's speed changes
+        if (add >= 1) { p.extra = Math.min(p.need, (p.extra || 0) + add); did += add; }
+      });
+      if (!did) { // shares under an hour each: the first project that has room takes what is left
+        const p = cand[0], m = Math.max(plan.mult(p), 0.01), add = Math.floor(Math.min(spare, room(p), (p.need - (p.extra || 0)) / m) * m + 1e-6);
+        if (add < 1) break;
+        p.extra = Math.min(p.need, (p.extra || 0) + add); did = add;
+      }
+      added += did;
+    }
+    return Math.round(added);
+  };
   function mergeMods(a, b) {
     if (!a && !b) return null;
     const m = Object.assign({}, a || {});
@@ -8403,6 +8472,7 @@ window.G = window.G || {};
   };
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
+    if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
     S.launchQueue = []; // launch pop-ups belong to the turn they happened in
     const hours = Math.max(0, C.turnHours(S, thisWeekEvent) - S.actHours);
@@ -9481,7 +9551,7 @@ window.G = window.G || {};
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
-  C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest' });
+  C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest', motto: S.festival.won ? 'The one champion' : null });
   C.banners = function (S) {
     const out = [];
     const add = (gy, events, s, past) => {
@@ -9996,7 +10066,33 @@ window.G = window.G || {};
       G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
     }
     f.lvl++; f.cond = 100; f.warned = 0;
+    if (opts && (opts.grant || opts.gift)) (f.gift = f.gift || {})[f.lvl] = 1; // a level the team did not pay for: nothing back if it is given up
     S.morale = Math.min(100, S.morale + 3);
+    return null;
+  };
+  // Giving a level back, to make room or for the money. The facility drops one level and part of what that level cost
+  // comes back by its condition: half the price at 100%, nothing for a level that was donated or paid by a grant.
+  Shop.SELL_RATE = 0.5;
+  Shop.downInfo = function (S, id) {
+    const it = Shop.item(id), f = Shop.get(S, id), l = f.lvl || 0;
+    if (!it || !l) return null;
+    const gift = !!(f.gift && f.gift[l]);
+    const refund = gift ? 0 : Math.round(it.levels[l - 1].cost * Shop.SELL_RATE * U.clamp(f.cond, 0, 100) / 100 / 50) * 50;
+    let block = null, note = '';
+    if (id === 'ftc') { const max = Math.round(Shop.fx(S, 'ftc', 'ftc', l - 1, 1)), own = G.Career.ownTeams(S); if (own > max) block = 'It runs ' + own + ' of your own FTC teams and would have room for ' + max + ': close ' + (own - max) + ' on the Team page first'; }
+    if (id === 'charger') { const lim = D.BATT_LIMIT[Math.min(2, l - 1)], n = S.parts.batts.length; if (n > lim) note = 'It will hold ' + lim + ' batteries: your ' + (n - lim) + ' most worn ones are recycled.'; }
+    if (it.fx.slot && Shop.slotOf(S, id) > Shop.fx(S, id, 'slot', l - 1, 1)) note = 'You lose its project slot.';
+    return { lvl: l - 1, name: it.levels[l - 1].name, refund, gift, cond: Math.round(f.cond), sqft: Shop.sizeOf(id, l) - Shop.sizeOf(id, l - 1), block, note };
+  };
+  Shop.downgrade = function (S, id) {
+    const d = Shop.downInfo(S, id), f = S.shop[id];
+    if (!d || !f) return 'You don\'t own this';
+    if (d.block) return d.block;
+    if (f.gift) delete f.gift[f.lvl];
+    f.lvl--;
+    if (!f.lvl) { f.cond = 100; f.warned = 0; }
+    if (d.refund) G.Career.earn(S, d.refund, (f.lvl ? 'Downgraded: ' : 'Sold: ') + d.name);
+    if (id === 'charger') { const lim = Shop.battLimit(S); if (S.parts.batts.length > lim) { S.parts.batts.sort((a, b) => b.h - a.h); S.parts.batts.length = lim; } }
     return null;
   };
   Shop.renovate = function (S, id) {
@@ -13073,7 +13169,7 @@ window.G = window.G || {};
   UI.card = (title, body, extra, cls) => '<div class="card ' + (cls || '') + '"><div class="ct">' + title + '<span class="sp"></span>' + (extra || '') + '</div>' + body + '</div>';
   UI.tag = (t, k) => '<span class="tag ' + (k || '') + '">' + h(t) + '</span>';
   // Blue banner (simplified FRC style): emblem, award, year, event
-  UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (/Impact/.test(b.award) ? '✦' : /Festival/.test(b.award) ? '◎' : b.gold ? '★' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div><div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
+  UI.banner = (b, isNew) => '<div class="banner ' + (b.gold ? 'gold ' : '') + (isNew ? 'new' : '') + '"><div class="emb">' + (/Impact/.test(b.award) ? '✦' : /Festival/.test(b.award) ? '◎' : b.gold ? '★' : '⚙') + '</div><div class="aw">' + h(b.award) + '</div>' + (b.motto ? '<div class="mo">' + h(b.motto) + '</div>' : '') + '<div class="yr">' + h(b.year) + '</div><div class="ev">' + h(b.event) + '</div></div>';
   // rows of banners; a long career's wall uses smaller banners (15 or more, and again from 31)
   UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
@@ -13567,7 +13663,7 @@ window.G = window.G || {};
     // the second robot: build every missing subsystem in one batch (the old practice robot project)
     if (bi !== ci && R.year === S.year && S.phase !== 'off') {
       const tc = S.projects.find(p => p.type === 'testChassis');
-      if (tc) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Test chassis being built: ' + Math.round(tc.done) + '/' + tc.need + ' h</span></div>';
+      if (tc) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Test chassis being built: ' + Math.round(tc.done) + '/' + tc.need + ' h</span>' + (G.Robot.canUndoProject(S, tc) ? '<span class="sp"></span><button class="btn sm" data-act="undoProj" data-arg="' + tc.id + '" title="Started this turn: take it back for everything it cost">Undo</button>' : '') + '</div>';
       else if (!(b.subs.drive && b.subs.drive.ver) && !S.projects.some(p => p.type === 'practiceBot')) {
         o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A simple drivetrain from parts on the shelf, a few days and no project slot: ' +
           (G.Shop.lvl(S, 'pfield') ? 'half a second robot on your Practice Field. ' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field. ') + UI.q('garage', 'Test chassis') + '</div><div class="row wrap gap4 mt">' +
@@ -13576,7 +13672,7 @@ window.G = window.G || {};
           (G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err ? '<div class="xs warn mt">' + h(G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err) + '</div>' : '') + '</div></div>';
       }
       const run2 = S.projects.find(p => p.type === 'practiceBot');
-      if (run2) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Full copy being built: ' + Math.round(run2.done) + '/' + run2.need + ' h</span></div>';
+      if (run2) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Full copy being built: ' + Math.round(run2.done) + '/' + run2.need + ' h</span>' + (G.Robot.canUndoProject(S, run2) ? '<span class="sp"></span><button class="btn sm" data-act="undoProj" data-arg="' + run2.id + '" title="Started this turn: take it back for everything it cost">Undo</button>' : '') + '</div>';
       else if (G.Robot.fullCopySubs(R).length) {
         const q = G.Robot.quote(S, { type: 'practiceBot' });
         o += '<div class="copyrow mt"><div class="sp"><b class="sm">Build a full copy</b><div class="xs muted">Every finished subsystem this robot lacks, in one batch. Needs a second set of electronics. The more of the competition robot it copies, the more testing hours, practice value and spares it gives. ' + UI.q('garage', 'Two robots') + '</div></div><span class="xs muted">' + q.hours + ' h · ' + U.money(q.cost) + '</span><button class="btn sm" data-act="startSimple" data-arg="practiceBot" ' + (q.err ? 'disabled' : '') + '>Start</button></div>' + (q.err ? '<div class="xs bad">' + h(q.err) + '</div>' : '');
@@ -13636,7 +13732,7 @@ window.G = window.G || {};
     // active projects
     const plan = C.hoursPlan(S);
     const slotUsed = G.Robot.slotUsed(S), slotMax = G.Robot.slots(S);
-    o += '<div class="mt">' + UI.card('Active projects ' + UI.tag(slotUsed + '/' + slotMax + ' slots', slotUsed >= slotMax ? 'warn' : ''), S.projects.length ? '<table class="t"><tr><th>Project</th><th style="width:24%">Progress</th><th>This ' + (S.phase === 'off' ? 'month' : 'week') + '</th><th title="Extra hours beyond the plan raise the result\'s quality, with diminishing returns">Extra hours</th><th>Priority</th><th></th></tr>' + S.projects.slice().sort((a, b) => G.Robot.isFab(a) - G.Robot.isFab(b)).map((p, i, arr) => (G.Robot.isFab(p) && (i === 0 || !G.Robot.isFab(arr[i - 1])) ? '<tr><td colspan="6" class="xs muted b">' + UI.icon('garage', 12) + ' FABRICATION · copies of finished designs: team hours, but no project slot</td></tr>' : '') + '<tr><td>' + h(p.name) + (p.kits ? ' ' + UI.tag('COTS kits', 'info') : '') + (G.Robot.testable(p) && p.test ? ' <span class="xs info" title="Validated on the practice field: better upgrade quality">tested ' + Math.round(G.Robot.testQ(p) * 100) + '%</span>' : '') + (p.effort && p.effort !== 'std' ? ' ' + UI.tag(G.Robot.EFFORT[p.effort].name) : '') + '</td><td>' + UI.bar(p.done + (p.polish || 0), p.need + (p.extra || 0), null, p.extra ? p.need : null) + '<span class="xs muted">' + Math.round(p.done) + '/' + p.need + ' h' + (p.extra ? ' + ' + Math.round(p.polish || 0) + '/' + p.extra + ' extra' : '') + '</span></td><td class="sm">' + UI.projEta(S, p, plan) + '</td><td>' + (G.Robot.isFab(p) ? '<span class="xs dim" title="Copies follow the design: extra hours would change nothing">—</span>' : '<input class="inp num" type="number" min="0" step="1" max="' + p.need + '" value="' + (p.extra || 0) + '" data-chg="projExtra" data-id="' + p.id + '" style="width:64px"><div class="xs muted">' + (p.extra ? 'quality +' + Math.round(G.Robot.polishQFor(p, p.extra) * 100) + '%' : 'none') + '</div>') + '</td><td><select class="inp" data-chg="prio" data-id="' + p.id + '">' + ['high', 'normal', 'low'].map(x => '<option ' + (p.prio === x ? 'selected' : '') + '>' + x + '</option>').join('') + '</select></td><td><button class="btn sm bad" data-act="cancelProj" data-arg="' + p.id + '">Cancel</button></td></tr>').join('') + '</table>' : '<p class="muted">Nothing running — all team hours this turn would be wasted.</p>', '<span class="xs muted">' + h(G.Robot.slotText(S)) + '</span>') + '</div>';
+    o += '<div class="mt">' + UI.card('Active projects ' + UI.tag(slotUsed + '/' + slotMax + ' slots', slotUsed >= slotMax ? 'warn' : ''), S.projects.length ? '<table class="t"><tr><th>Project</th><th style="width:24%">Progress</th><th>This ' + (S.phase === 'off' ? 'month' : 'week') + '</th><th title="Extra hours beyond the plan raise the result\'s quality, with diminishing returns">Extra hours</th><th>Priority</th><th></th></tr>' + S.projects.slice().sort((a, b) => G.Robot.isFab(a) - G.Robot.isFab(b)).map((p, i, arr) => (G.Robot.isFab(p) && (i === 0 || !G.Robot.isFab(arr[i - 1])) ? '<tr><td colspan="6" class="xs muted b">' + UI.icon('garage', 12) + ' FABRICATION · copies of finished designs: team hours, but no project slot</td></tr>' : '') + '<tr><td>' + h(p.name) + (p.kits ? ' ' + UI.tag('COTS kits', 'info') : '') + (G.Robot.testable(p) && p.test ? ' <span class="xs info" title="Validated on the practice field: better upgrade quality">tested ' + Math.round(G.Robot.testQ(p) * 100) + '%</span>' : '') + (p.effort && p.effort !== 'std' ? ' ' + UI.tag(G.Robot.EFFORT[p.effort].name) : '') + '</td><td>' + UI.bar(p.done + (p.polish || 0), p.need + (p.extra || 0), null, p.extra ? p.need : null) + '<span class="xs muted">' + Math.round(p.done) + '/' + p.need + ' h' + (p.extra ? ' + ' + Math.round(p.polish || 0) + '/' + p.extra + ' extra' : '') + '</span></td><td class="sm">' + UI.projEta(S, p, plan) + '</td><td>' + (G.Robot.isFab(p) ? '<span class="xs dim" title="Copies follow the design: extra hours would change nothing">—</span>' : '<input class="inp num" type="number" min="0" step="1" max="' + p.need + '" value="' + (p.extra || 0) + '" data-chg="projExtra" data-id="' + p.id + '" style="width:64px"><div class="xs muted">' + (p.extra ? 'quality +' + Math.round(G.Robot.polishQFor(p, p.extra) * 100) + '%' : 'none') + '</div>') + '</td><td><select class="inp" data-chg="prio" data-id="' + p.id + '">' + ['high', 'normal', 'low'].map(x => '<option ' + (p.prio === x ? 'selected' : '') + '>' + x + '</option>').join('') + '</select></td><td>' + (G.Robot.canUndoProject(S, p) ? '<button class="btn sm" data-act="undoProj" data-arg="' + p.id + '" title="Started this ' + (S.phase === 'off' ? 'month' : 'week') + ': take it back for everything it cost. Once you press Continue it can only be cancelled.">Undo</button>' : '<button class="btn sm bad" data-act="cancelProj" data-arg="' + p.id + '">Cancel</button>') + '</td></tr>').join('') + '</table>' : '<p class="muted">Nothing running — all team hours this turn would be wasted.</p>', '<span class="xs muted">' + h(G.Robot.slotText(S)) + '</span>') + '</div>';
     if (inSeason) {
       const year = R.year;
       o += '<h2 class="mt">' + h(G.Career.seasonName(S, year)) + ' robot</h2><div class="grid g3">';
@@ -13773,6 +13869,7 @@ window.G = window.G || {};
     o += '<div class="hlegend mt">' + segs.map(s => '<span><i style="background:' + s.c + '"></i>' + h(s.p.name) + ': +' + Math.round(s.h) + ' h</span>').join('') + (act ? '<span><i style="background:#6c7884"></i>Sponsor duties: ' + act + ' h</span>' : '') + (idle > 0.5 ? '<span><i style="background:#2a323b"></i>Idle: ' + Math.round(idle) + ' h</span>' : '') + '</div>';
     o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
       '. One project can absorb up to ' + Math.round(G.Robot.capFor(S, { prio: 'normal' })) + ' h per ' + unit + ' (high priority +25%, low −25%). Hours are spent when you press Continue.</div>';
+    { const k = C.autoExtraTarget(S); if (k != null && S.projects.some(p => !G.Robot.isFab(p))) o += '<div class="row wrap gap4 mt"><button class="btn sm" data-act="autoExtra" title="Puts this ' + unit + '\'s idle hours into extra hours on the projects already running. It starts no project.">Auto-fill extra hours</button><label class="row xs muted" title="Do the same every turn when you press Continue"><input type="checkbox" data-chg="autoExtraOn" ' + (S.settings && S.settings.autoExtra ? 'checked' : '') + '> every turn</label><span class="xs muted">' + (k ? 'Fills the week to 90%, leaving the idle time that holds fatigue steady.' : 'Fills the whole month: there is no fatigue in the offseason.') + ' ' + UI.q('design', 'Extra hours') + '</span></div>'; }
     if (idle > 10) {
       const free = G.Robot.slots(S) - G.Robot.slotUsed(S);
       const inSeason = ['kickoff', 'build', 'comp'].includes(S.phase), share = total ? idle / total : 0;
@@ -13786,8 +13883,11 @@ window.G = window.G || {};
     const d = fp.next - fp.now, col = fp.next > 60 ? 'bad' : fp.next > 40 ? 'warn' : 'good';
     return '<div class="row sm mt">' + UI.icon('fatigue', 15) + '<span>Fatigue</span>' + UI.fatigueBar(fp.now, true) + '<span><b>' + fp.now + '</b> → <b class="' + col + '">' + fp.next + '</b> (' + G.Career.fatigueLabel(fp.next) + ')' + (S.overtime ? ' <span class="warn">overtime: no recovery</span>' : '') + '</span><span class="sp"></span><span class="xs muted">' + fp.idlePct + '% idle' + (d > 0 ? ' · keep about 10% idle to hold steady' : '') + '</span></div>';
   };
+  UI.A.autoExtra = () => { const S = G.S, n = G.Career.autoExtra(S), k = G.Career.autoExtraTarget(S); UI.toast(n ? '+' + n + ' extra hours on running projects' : G.Career.hoursPlan(S).idle - (k || 0) * G.Career.hoursPlan(S).free < 1 ? (k ? 'Already at 90% or more: nothing to add' : 'No idle hours left to use') : 'No running project can take more extra hours this turn', n ? 'good' : ''); UI.render(); };
+  UI.A.autoExtraOn = v => { const S = G.S; S.settings = S.settings || {}; S.settings.autoExtra = !!v; G.Save.write('auto'); UI.render(); };
   UI.A.projExtra = (v, el) => { const p = G.S.projects.find(x => x.id === el.dataset.id); if (p && !G.Robot.isFab(p)) { p.extra = U.clamp(Math.round(Number(v) || 0), 0, p.need); UI.render(); } };
   UI.A.prio = (v, el) => { const p = G.S.projects.find(x => x.id === el.dataset.id); if (p) p.prio = v; };
+  UI.A.undoProj = id => { const p = G.S.projects.find(x => x.id === id); if (!p) return; if (!UI.err(G.Robot.undoProject(G.S, id))) { UI.toast('Undone: ' + p.name + (p.cost ? ' (' + U.money(p.cost) + ' back)' : ''), 'good'); UI.render(); } };
   UI.A.cancelProj = id => UI.confirm('Cancel project?', 'Progress is lost; you get a partial refund of materials.', 'Cancel project', () => { G.Robot.cancelProject(G.S, id); UI.render(); });
   UI.A.startChassis = cid => { if (!UI.err(G.Robot.startProject(G.S, { type: 'testChassis', concept: cid }))) { UI.toast('Test chassis started (Fabrication)', 'good'); UI.render(); } };
   UI.A.startSimple = type => { if (!UI.err(G.Robot.startProject(G.S, { type }))) { UI.toast('Project started', 'good'); UI.render(); } };
@@ -13985,6 +14085,9 @@ window.G = window.G || {};
     o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Motors, electronics, mechanism kits, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Inventory</button></div>';
     return o;
   } };
+  UI.A.downEq = id => { const S = G.S, Sh = G.Shop, d = Sh.downInfo(S, id), e = Sh.item(id); if (!d) return; if (d.block) return UI.err(d.block);
+    UI.confirm((d.lvl ? 'Downgrade the ' + e.name + ' to level ' + d.lvl + '?' : 'Remove the ' + e.name + '?'), 'You give up ' + d.name + (d.sqft ? ' and free ' + d.sqft.toLocaleString('en-US') + ' sq ft' : '') + '. ' + (d.gift ? 'It was donated or paid by a grant, so no money comes back. ' : 'You get ' + U.money(d.refund) + ' back (half its price, at ' + d.cond + '% condition). ') + (d.note ? d.note + ' ' : '') + 'Buying it again costs the full price.',
+      d.lvl ? 'Downgrade' : 'Remove', () => { if (!UI.err(Sh.downgrade(S, id))) { UI.toast((d.lvl ? 'Downgraded' : 'Removed') + (d.refund ? ': +' + U.money(d.refund) : ''), 'good'); UI.render(); } }); };
   function facilityBox(S, e) {
     const Sh = G.Shop, l = Sh.lvl(S, e.id), max = e.levels.length;
     const up = Sh.upgradeCost(S, e.id), reno = Sh.renoCost(S, e.id);
@@ -14003,6 +14106,7 @@ window.G = window.G || {};
       (blk ? '<div class="xs bad">Not enough room: needs ' + need + ' sq ft, ' + Math.max(0, Sh.spaceFree(S)) + ' sq ft free.</div>' : '');
     o += '<div class="row wrap gap4 mt">';
     if (l) o += '<button class="btn sm" data-act="renoEq" data-arg="' + e.id + '" ' + (reno ? '' : 'disabled') + '>' + (reno ? 'Renovate · ' + U.money(reno) : 'Like new') + '</button>';
+    if (l) { const dn = Sh.downInfo(S, e.id); o += '<button class="btn sm ghost" data-act="downEq" data-arg="' + e.id + '" title="Give this level back to make room. Half its price comes back at full condition, less as it wears; nothing for a donated level.">' + (l > 1 ? 'Downgrade to Lv ' + (l - 1) : 'Remove') + ' · +' + U.money(dn.refund) + '</button>'; }
     if (up != null) o += '<button class="btn sm ' + (l ? '' : 'primary') + '" data-act="buyEq" data-arg="' + e.id + '"' + (blk ? ' disabled title="' + h(blk) + '"' : '') + '>' + (l ? 'Upgrade to Lv ' + (l + 1) : 'Buy') + ' · ' + U.money(up) + '</button>' +
       (Sh.grantOk(S, e.id) ? '<button class="btn sm" style="border-color:var(--good);color:var(--good)" data-act="grantEq" data-arg="' + e.id + '" title="Paid by the school board\'s equipment grant">Use school grant</button>' : '');
     else o += UI.tag('top level', 'good');
@@ -14090,7 +14194,9 @@ window.G = window.G || {};
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
       '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div>' +
-      (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' : '') + '</div>').join('') : '<p class="muted">No sponsors. Offers arrive in October.</p>');
+      (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' :
+        C.canEndSponsor(S, sp) ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="endSp" data-arg="' + sp.id + '" title="Ends the contract and frees its slot for another offer. Only in the autumn, while new offers are open.">End sponsorship · reputation −' + C.endSponsorCost(sp) + '</button></div>' : '') + '</div>').join('') +
+      (S.sponsors.length && C.endSponsorOpen(S) ? '<div class="xs muted">Until Kickoff you can end a contract to free its slot, at a cost in reputation. ' + UI.q('money', 'Sponsors') + '</div>' : '') : '<p class="muted">No sponsors. Offers arrive in October.</p>');
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
@@ -14107,6 +14213,8 @@ window.G = window.G || {};
     return o;
   } };
   UI.A.stemFund = () => { const f = G.Career.stemFundInfo(G.S); UI.confirm('Apply for the STEM support fund?', 'You receive ' + U.money(f.amt) + '. Reputation −' + f.rep + '.', 'Apply', () => { if (!UI.err(G.Career.applyStemFund(G.S))) { UI.toast('STEM support fund: +' + U.money(f.amt), 'good'); UI.render(); } }); };
+  UI.A.endSp = id => { const S = G.S, sp = S.sponsors.find(x => x.id === id); if (!sp) return; const n = G.Career.endSponsorCost(sp), left = sp.seasonsLeft || 1;
+    UI.confirm('End the sponsorship with ' + sp.name + '?', 'You give up ' + U.money(sp.base) + ' a season for ' + left + ' more season' + (left === 1 ? '' : 's') + ', and its slot is free for another offer. Reputation −' + n + '. This cannot be undone.', 'End it', () => { if (!UI.err(G.Career.endSponsor(S, id))) { UI.toast('Sponsorship ended: reputation −' + n, 'warn'); UI.render(); } }); };
   UI.A.unsignSp = id => { if (!UI.err(G.Career.unsignSponsor(G.S, id))) { UI.toast('Signing undone: the offer is back on the list', 'good'); UI.render(); } };
   UI.A.autoSp = () => { const r = G.Career.autoSponsors(G.S); UI.toast(r.length ? 'Signed: ' + r.join(', ') : 'No open slots to fill', r.length ? 'good' : ''); UI.render(); };
   UI.A.signSp = id => { if (!UI.err(G.Career.signSponsor(G.S, id))) { UI.toast('Sponsor signed', 'good'); UI.render(); } };
@@ -15427,7 +15535,7 @@ window.G = window.G || {};
       '<div class="wc-title fc-title">' + (win ? 'THE ONE CHAMPION OF ' + h(String(d.year)) : h(String(d.year)) + ' WORLD CHAMPIONS OF ' + h(d.city.toUpperCase())) + '</div>' +
       dl(0.9, 'wc-note') + note + '</div>' +
       dl(1.0) + festStrip(d) + '</div>' +
-      dl(1.1, 'wc-bn') + UI.banner({ gold: win, award: win ? 'Festival of Champions' : 'Festival of Champions Finalist', year: d.year, event: 'Manchester, New Hampshire' }, !replay) + '</div>' +
+      dl(1.1, 'wc-bn') + UI.banner({ gold: win, award: win ? 'Festival of Champions' : 'Festival of Champions Finalist', motto: win ? 'The one champion' : null, year: d.year, event: 'Manchester, New Hampshire' }, !replay) + '</div>' +
       dl(1.25, 'wc-msg') + story + '</div>' +
       dl(1.4, 'wc-al') + chips(d.alliance, d.city) + '</div>' +
       dl(1.5, 'wc-al fc-opp') + '<span class="fc-vs">against</span>' + chips(d.opp, d.otherCity) + '</div>' +
@@ -15679,6 +15787,13 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.5', title: 'Preview of 3.0: five small things', notes: [
+      'Auto-fill extra hours (Design Office). One button puts the turn\'s idle hours into extra hours on the projects already running. In season it fills the week to 90%, leaving the idle time that holds fatigue steady, and does nothing if the week is already that full; in the offseason it fills the whole month. It never starts a project. Tick "every turn" to have it done when you press Continue.',
+      'End a sponsorship. From October to Kickoff, while the new offers are open, a contract can be ended to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season it had to run.',
+      'Downgrade a facility. Every owned facility has a Downgrade (or Remove) button that gives one level back to make room. Half that level\'s price comes back at full condition, less as it wears, and nothing for a level that was donated or paid by a grant.',
+      'Undo a project. Any project started this turn can be taken back for everything it cost until you press Continue: builds, upgrades, research, copies, a test chassis or a full robot copy. After that it can only be cancelled, as before.',
+      'The Festival of Champions winners\' banner now says THE ONE CHAMPION.'
+    ] },
     { v: '2.9.4', title: 'Preview of 3.0: the Festival of Champions, a livestream, and brackets you can follow', notes: [
       'The Festival of Champions (July 2017). A team that wins Einstein in 2017 now gets the whole event. A pop-up on arrival tells what the real Festival was and why it was held only once. Both champion alliances are expected, so the event cannot be skipped, and the trip is paid for. The series ends with a celebration of its own (the winners are the one champion of 2017; the finalists remain World Champions of their city), a banner under Championship honours whose celebration can be replayed from the History page, and its own result page. On leaving you still get the story every team gets, "One champion after all", told about your series.',
       'A livestream for everyone else. Teams that are not in the Festival get an announcement in July (a pop-up, the inbox, the Calendar and a button on Headquarters). Watching is optional and free, takes none of the team\'s hours, and nothing is at stake. The series is played on the field in the match viewer: you watch as a spectator, with no coach calls, and can watch each match, skip to its result, skip to the end or close the stream. The pop-up about the real event is shown to anyone who opens the stream. If you do not watch, the result arrives the next month.',
@@ -16334,7 +16449,7 @@ window.G = window.G || {};
         'The District page in the sidebar shows the standings; regional teams see the World page with every event\'s results. The world grows as the real one did: more teams, more districts and fewer regionals every few years.'] }
     ] },
     { id: 'design', icon: 'design', name: 'Design & hours', desc: 'Concepts, projects, extra hours, fatigue', secs: [
-      { icon: 'design', t: 'Concepts and projects', li: ['Pick a <b>concept</b> for each subsystem at Kickoff, then run <b>upgrades</b> with a focus stat and an effort level.', '<b>Effort</b> trades hours for the result. <b>Rush</b>: 60% of the hours, a weaker result, a risk of hidden faults, and 15% more materials (scrapped parts, overnight shipping). <b>Thorough</b>: 140% of the hours, a better and more reliable result, and 10% less material. Extra hours (below) add to any of the three.', 'The first one of a new concept or version is a <b>prototype</b> (+10% materials) and goes on the competition robot.', 'Each project absorbs up to 80 h a week (±25% by priority); project slots come from mentors and facilities.', 'Keep the robot under <b>125 lb</b>.'] },
+      { icon: 'design', t: 'Concepts and projects', li: ['Pick a <b>concept</b> for each subsystem at Kickoff, then run <b>upgrades</b> with a focus stat and an effort level.', '<b>Effort</b> trades hours for the result. <b>Rush</b>: 60% of the hours, a weaker result, a risk of hidden faults, and 15% more materials (scrapped parts, overnight shipping). <b>Thorough</b>: 140% of the hours, a better and more reliable result, and 10% less material. Extra hours (below) add to any of the three.', 'The first one of a new concept or version is a <b>prototype</b> (+10% materials) and goes on the competition robot.', 'Each project absorbs up to 80 h a week (±25% by priority); project slots come from mentors and facilities.', 'A project started this turn can be <b>undone</b> for everything it cost until you press Continue: builds, upgrades, research, copies, a test chassis. After that it can only be cancelled, for part of its materials.', 'Keep the robot under <b>125 lb</b>.'] },
       { icon: 'arm', t: 'End effector, lift and intake', li: ['In 2018, 2019, 2023 and 2025 the robot has an <b>End Effector</b>: the claw or gripper at the end of the lift. Its <b>Grip</b> decides how surely it takes, holds and lets go of a game piece: a poor one costs placements and a little time on every score, a developed one gives both back.', 'In those games the ground intake is <b>optional</b>. Without one the end effector collects the pieces itself, from the human player (and in 2018 off the floor): slower than a good intake, but it saves the weight, the hours and the money.', 'A robot needs both a lift and an end effector to score. From 2021 a gripper kit speeds the build, and pneumatics help it too.'] },
       { icon: 'atom', t: 'Knowledge each concept needs', li: ['Each concept has <b>core areas</b> (★). A turret shooter is a flywheel shooter on a turret, so it needs both Turret and Flywheel Shooter knowledge.', 'Any core area at Level 0 on a complex concept means a first-time penalty. Build hours and ceilings use the average of the core areas.'] },
       { icon: 'trophy', t: 'Elite designs', li: ['Four games have one mechanism marked <b>elite design</b>: the hardest of its season, built by the best teams in the world. It costs the most hours and money, has the most to go wrong, and beats the next best by only a few percent. The team is never advised to build one: it is your call.',
@@ -16343,7 +16458,7 @@ window.G = window.G || {};
         '<b>2023 and 2025 Pivoting telescope</b>: a telescoping arm on a low pivot. It scores like the best lift of its year, <b>never tips</b>, balances a little better on the Charge Station (2023) and climbs the cage a little quicker and surer (2025).',
         'Only the strongest teams in the world field them, so you meet them at the Championship more than anywhere else.'] },
       { icon: 'garage', t: 'Copies and fabrication', d: flow([['design', 'Design + prototype'], ['bolt', 'Build copy'], ['garage', 'Robot 2 or a spare']]), li: ['<b>Build copy</b> makes another unit of a finished design: about a quarter of the first build\'s hours and 60% of its materials, plus its own electronics and kits.', 'Copies go to the robot that lacks the latest version (the second robot first), otherwise to storage as a spare.', 'Copies and full robot copies are <b>fabrication</b>: they use team hours but no project slot.'] },
-      { icon: 'clock', t: 'Extra hours', d: flow([['clock', 'Planned hours'], ['bolt', '+ extra hours'], ['check', 'Better result']]), li: ['Set <b>extra hours</b> (in steps of 1 h) on any project: they use hours that would sit idle.', 'Quality rises with diminishing returns: doubling a project gets about 80% of the maximum bonus.', 'Builds start with better stats, upgrades gain more and add less weight, hardening goes further. You can\'t lighten anything below 40% of its design weight.'] },
+      { icon: 'clock', t: 'Extra hours', d: flow([['clock', 'Planned hours'], ['bolt', '+ extra hours'], ['check', 'Better result']]), li: ['Set <b>extra hours</b> (in steps of 1 h) on any project: they use hours that would sit idle.', '<b>Auto-fill extra hours</b> does it for you: it puts the turn\'s idle hours into extra hours on the projects already running, and starts no project. In season it fills the week to 90% and leaves the idle tenth that holds fatigue steady (a week already at 90% or more is left alone); in the offseason it fills the whole month. Tick <b>every turn</b> to have it done when you press Continue.', 'Quality rises with diminishing returns: doubling a project gets about 80% of the maximum bonus.', 'Builds start with better stats, upgrades gain more and add less weight, hardening goes further. You can\'t lighten anything below 40% of its design weight.'] },
       { icon: 'fatigue', t: 'Fatigue (in season)', li: ['Fatigue settles around <b>30</b>. Leaving about <b>10% of the week\'s hours idle</b> holds it there.', 'Busier weeks, <b>overtime</b> (+10) and <b>competition weeks</b> (+9) raise it; idle time and team nights lower it. The offseason resets it.', 'It only matters at events: tired teams have more <b>incidents</b> and less reliable <b>scouting</b>.'] },
       { icon: 'pfield', t: 'Testing hours', li: ['Testing hours come from a <b>test chassis or second robot</b> (Garage) and from a <b>Practice Field</b> (Workshop). A test chassis alone gives ' + D.CHASSIS_TEST_HOURS + ' h a week in the shop or parking lot. A Practice Field gives ' + D.EQUIP.find(e => e.id === 'pfield').fx.test.join(', ') + ' h by level, and a second robot adds up to ' + D.TEST_BOT_HOURS + ' more (a bare test chassis half of that).',
         'Split them between <b>development testing</b> (projects finish faster and come out better) and <b>driver practice</b> (skills, confidence and familiarity with the robot they practice on).',
@@ -16380,7 +16495,7 @@ window.G = window.G || {};
     { id: 'workshop', icon: 'workshop', name: 'Workshop', desc: 'Facilities, the trailer, incidents', secs: [
       { icon: 'workshop', t: 'Workshop space', li: ['Every facility level takes floor space in square feet; the trailer parks outside. The bar at the top of the Workshop shows what is used, what is free and what the school has not given you yet.', 'Three levels: the robotics classroom (2,550 sq ft), the technology wing (3,850) and a robotics center (5,100, which fits everything). A rookie starts in the classroom, established and powerhouse teams in the technology wing. At a season review the school moves you up when Program Support has reached 80 (wing) or 90 (center). Room is never taken back.', 'When support rises by 6 or more in a season, the board renovates your worn facilities for free; at +12 (and support 60+) it adds a grant for one upgrade of your choice up to $12,000.', 'A satisfied sponsor may donate a facility level that fits its business, if you have the room: the higher its satisfaction above 60, the likelier. With every sponsor slot filled and no sponsor activity skipped, expect about one donation a year.'] },
       { icon: 'ebench', t: 'Electronics, welding, meeting room and FTC space', li: ['<b>Electronics Workbench</b>: fewer brownouts and comms dropouts in matches; motors and electronics wear more slowly.', '<b>Welding Station</b>: hardening and lightweighting take fewer hours and do more; new builds are more reliable.', '<b>Team Meeting Room</b>: outreach counts for more and adds to your Impact presentation score.', '<b>FTC Team Space</b>: run one to three FTC teams of your own (Team page, Feeder programs). Each takes a program slot, costs $300 a year and counts 1.8× for recruit quality.'] },
-      { icon: 'cnc', t: 'Facilities', li: ['3D printing, CNC, machine shop and programming station cut hours and can add project slots. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.', 'They wear down, mostly in the build and competition weeks (a whole offseason month costs about half of what one build week does), and a worn facility works at 40–100% of its effect. Below 35% condition it also loses its project slot until renovated. Upkeep is charged per level at Kickoff.', 'Some unlock new outreach and fundraising activities.'] },
+      { icon: 'cnc', t: 'Facilities', li: ['3D printing, CNC, machine shop and programming station cut hours and can add project slots. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.', 'They wear down, mostly in the build and competition weeks (a whole offseason month costs about half of what one build week does), and a worn facility works at 40–100% of its effect. Below 35% condition it also loses its project slot until renovated. Upkeep is charged per level at Kickoff.', 'Some unlock new outreach and fundraising activities.', '<b>Downgrade</b> (or Remove, at level 1) gives a level back to make room. Half that level\'s price comes back at full condition, less as it wears, and nothing for a level that was donated or paid by a grant. Buying it again costs the full price.'] },
       { icon: 'trailer', t: 'Team trailer', li: ['Far events become a long drive instead of a flight: 15% cheaper and no air-freight damage.', 'Robot demos for sponsors wear the robot less; robot outreach counts 20% more; unlocks the Trailer roadshow.'] },
       { icon: 'incident', t: 'Shop incidents', li: ['Now and then something breaks or goes wrong in the shop: pick how to handle it.'] }
     ] },
@@ -16393,7 +16508,7 @@ window.G = window.G || {};
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
-      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review.', 'Offers arrive in October. A title sponsor pays about three times a partner.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A satisfied sponsor sometimes <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier: about one donation a year with every slot filled and no sponsor activity skipped.'] },
+      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review.', 'Offers arrive in October. A title sponsor pays about three times a partner.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A satisfied sponsor sometimes <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier: about one donation a year with every slot filled and no sponsor activity skipped.'] },
       { icon: 'money', t: 'Debt', li: ['From Kickoff to the Championship you can spend into debt (down to −' + U.money(D.DEBT_LIMIT) + ').', 'The school clears it at the season review, at a cost in Program Support and reputation: the bigger the debt, the bigger the cost, and half as much again for each season in a row that ends in debt. A strong season can be worth it.', 'In the offseason you can only spend cash you have.'] },
       { icon: 'fund', t: 'STEM support fund', li: ['When the balance is under ' + U.money(D.STEM_FUND.below) + ', apply for up to ' + U.money(D.STEM_FUND.max) + ' (twice a program year). Each application costs ' + D.STEM_FUND.rep + ' reputation.'] }
     ] },
