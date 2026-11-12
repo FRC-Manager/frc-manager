@@ -25,7 +25,7 @@
       id: def.id || U.uid('ev'), name: def.name, kind: def.kind, year, week: def.week || 0, region: def.region || S.team.region,
       star: def.str || 3, seed: rng.int(1, 2e9), stage: 'practice', teams: [], caps: {}, rank: {}, quals: [], qi: 0,
       dist: def.dist || null, // a district event (two days, twelve qualification matches each) or the District Championship
-      practice: { blocks: def.dist ? 2 : K.blocks, used: [] }, tune: 0.3, conf: 0.3, tuneAuto: 0, shake: 0, plan: { pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false },
+      practice: { blocks: def.dist ? 2 : K.blocks, used: [] }, tune: 0.3, conf: 0.3, tuneAuto: 0, shake: 0, plan: { pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, noCarry: false },
       suggest: {}, sel: null, alliances: null, po: null, awards: [], log: [], lastPlayerMatch: -1, timeouts: {}, matchCount: 0, playerResults: [],
       incidents: [], fatigue: S.fatigue == null ? D.FATIGUE_BASE : S.fatigue,
       fmt: def.fmt || G.Era.playoffs(G.Era.cy(S)) // playoff format of the calendar year: 'se' single elimination (to 2022), 'de' double elimination

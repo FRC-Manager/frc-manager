@@ -43,6 +43,9 @@
   }
   const inGen20 = (p, pad) => { const g = gen20(p); return Math.abs(g.a) < G20.genA + (pad || 0) && Math.abs(g.b) < G20.genB + (pad || 0); };
   const CAP20 = [9, 20, 20];
+  // beaching on a Power Cell (average driver, balanced pace): the chance for each loose cell a robot runs over, how much
+  // worse that is on the generator's bars, and the chance on each drive onto the bars
+  const BEACH20 = { cell: 0.009, barK: 2, bar: 0.003 };
   const port20 = (m, a) => E.P(m, a, G20.port.x, G20.port.y);
   // loose cells are neutral: any robot may take them. Misses bounce back in front of the port.
   function spawnCell20(m, a) {
@@ -175,7 +178,8 @@
   Rules[2020] = {
     leavePts: 5, tempo: { c: 3.9, s: 2.7 },
     // a trench-height robot has further to reach for the rung
-    endgame: { levels: [{ name: 'Hang', pts: 25, time: (m, r) => 6.5 * (r.cap.lowProfile ? 1.2 : 1), drop: 0.06 }], park: 5 },
+    // drop: the share of failed hangs that end in a fall from the bar (×  the climber's quality and how the robot is driven)
+    endgame: { levels: [{ name: 'Hang', pts: 25, time: (m, r) => 6.5 * (r.cap.lowProfile ? 1.2 : 1), drop: 0.25 }], park: 5 },
     init(m) {
       setHp(m);
       m.cells = []; m.obs = [];
@@ -283,6 +287,25 @@
         while (ss.bayQ.length && ss.bayQ[0] <= m.t) { ss.bayQ.shift(); ss.bay++; }
         while (ss.bay > 15) { ss.bay--; const q = E.P(m, a, G20.bay.x + m.rng.range(0.9, 2.6), G20.bay.y + m.rng.range(-1.2, 1.2)); m.cells.push({ x: q.x, y: U.clamp(q.y, 0.45, FH - 0.45), t: m.t + 0.6 }); }
       });
+      // Beaching. A Power Cell is a soft seven-inch ball: a robot that drives over one it is not collecting can ride up
+      // on it and sit there with its wheels off the carpet for a few seconds. It is rolled once for each loose cell a
+      // moving robot runs over (not the one it is going for): careful, skilled drivers steer round them, a robot that is
+      // pushing does not. "Reset robot!" (rocking it) frees it sooner.
+      // The steel bars of the Shield Generator are the worst place for it: cells roll up against them and stay, and a
+      // robot bumping over a bar has little weight on its wheels. A cell met on the bars beaches a robot two and a half
+      // times as often, and every drive onto the bars is a roll of its own for the cells nobody is keeping track of.
+      for (const r of m.robots) {
+        if (r.dead || r.st !== 'move' || (r.fault && r.fault.stall)) { r.mem.cellNear = null; r.mem.barB = onBar20(r); continue; }
+        const bar = onBar20(r);
+        let near = null;
+        for (const p of m.cells) { if (p.t <= m.t && !(p.claim === r.team && p.claimT > m.t) && Math.abs(p.x - r.x) < 0.42 && Math.abs(p.y - r.y) < 0.42) { near = p; break; } }
+        const p = (near && near !== r.mem.cellNear ? BEACH20.cell * (bar ? BEACH20.barK : 1) : 0) + (bar && !r.mem.barB ? BEACH20.bar : 0);
+        if (p > 0 && m.rng.chance(U.clamp(p * E.careK(r), 0, 0.5))) {
+          r.fault = { stall: true, until: m.t + m.rng.range(2, 5), label: 'BEACHED ON A POWER CELL', beached: true };
+          r.stats.faults.push('Beached on a Power Cell' + (bar ? ' (generator bars)' : '')); H.log(m, r.a, r.team + ': beached on a Power Cell' + (bar ? ' on the generator bars' : ''), 'fault');
+        }
+        r.mem.cellNear = near; r.mem.barB = bar;
+      }
     },
     autoDecide(m, r) {
       const max = m.S.autoPieces[r.cap.autoTier || 0];
@@ -339,8 +362,8 @@
         const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && !r.dead);
         // A buddy climber takes a partner that parked beneath the switch up with it: a robot may be carried by a partner
         // inside the Rendezvous Point, and one hanging from a hanging robot hangs too.
-        const lifter = bots.find(r => r.end.lvl > 0 && r.cap.buddy), rider = lifter && bots.filter(r => !(r.end.lvl > 0) && r.end.park)[0];
-        if (rider && m.rng.chance(U.clamp(0.4 + 0.5 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end = { lvl: 1, lifted: true }; ss.buddy = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' off the floor', 'end'); }
+        const lifter = bots.find(r => r.end.lvl > 0 && r.cap.buddy), rider = lifter && H.riders(bots.filter(r => !(r.end.lvl > 0) && r.end.park))[0];
+        if (rider && H.buddyLift(m, lifter, rider, U.clamp(0.4 + 0.5 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end = { lvl: 1, lifted: true }; ss.buddy = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' off the floor', 'end'); }
         const hang = bots.filter(r => r.end.lvl > 0);
         let pts = 0;
         hang.forEach(r => { pts += 25; r.stats.pts += 25; });
@@ -372,8 +395,9 @@
   // (a turret does not help a robot drive the length of the field past a defender: turretK)
   Rules[2020].defense = { eff: 2.0, foul: 1.3, range: 1.8, zone: 0.45, pin: 5, reset: 3, turretK: 0.85, act: 1.0, major: { 'Target Zone': true, 'Loading Zone': true, 'Trench Run': true }, credit: { 'Rendezvous Point': 1 } };
   Rules[2020].faults = { brown: 1.3, tip: 0.8, tipAll: 0.1, comms: 1.0 };
+  Rules.BEACH20 = BEACH20;
   S[2020].meta = { defense: true, note: 'Power Cells are the scarce thing in INFINITE RECHARGE: 48 are in play, and every one you score comes back out through the OTHER alliance\'s Loading Bay. A third shooter soon has nothing to shoot, so top alliances run two shooters and a defender who keeps the opponents off their cycle. The Target Zone, the Loading Zone and each alliance\'s own Trench Run are protected: a trench-height robot can cross the field without being touched, while a tall one has to bump through the Shield Generator.',
-    faults: 'Common failures: brownouts from flywheels and indexers running together, and cells jamming in the indexer.' };
+    faults: 'Common failures: brownouts from flywheels and indexers running together, cells jamming in the indexer, and robots beached on a Power Cell for a few seconds (most of all on the generator bars).' };
   S[2020].tiebreak = 'Shield Generator';
 
   // =====================================================================
@@ -420,6 +444,7 @@
     // hatches go on the angled sides of a rocket, cargo in through the port on its front face
     const type = r.heldType === 'hatch' ? 'hatch' : 'cargo', spot = b.k === 'rocket' && type === 'cargo' ? E.P(m, r.a, G19.rocketX + (r.slot - 1) * 0.2, b.rk ? FH - 1.3 : 1.3) : E.P(m, r.a, b.x, b.y);
     b.claim = r.team; b.claimT = m.t + 9;
+    r.mem.aim = b.k === 'rocket' ? E.P(m, r.a, G19.rocketX, b.rk ? FH : 0) : b.front ? E.P(m, r.a, G19.nose + 0.4, b.y) : E.P(m, r.a, b.x, FH / 2); // what a turreted lift points at
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
       H.act(r, H.scoreTime(m, r, PL19[type][b.lvl - 1]), () => {
@@ -447,6 +472,7 @@
     const di = type === 'cargo' && r.cap.ground ? [0, 1].filter(i => ss.depot[i] > 0).sort((i, j) => E.dist(r, E.P(m, r.a, G19.depots[i][0], G19.depots[i][1])) - E.dist(r, E.P(m, r.a, G19.depots[j][0], G19.depots[j][1])))[0] : null;
     const st = G19.stations.map(p => E.P(m, r.a, p[0], p[1])).sort((p, q) => E.dist(r, p) - E.dist(r, q))[0];
     const pt = di != null ? E.P(m, r.a, G19.depots[di][0], G19.depots[di][1]) : st;
+    r.mem.aim = { x: E.P(m, r.a, 0, 0).x, y: pt.y }; // the alliance wall: the Loading Station, or the depot against it
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
       H.act(r, di != null ? H.collectTime(m, r, 'ground', 1.2) : H.collectTime(m, r, 'station', type === 'hatch' ? (r.cap.hatchFloor ? 1.25 : 1.6) : 1.5), () => {
@@ -469,8 +495,10 @@
   }
   Rules[2019] = {
     leavePts: 0, tempo: { c: 3.8, s: 3.3 },
-    endgame: { levels: [{ name: 'HAB 1', pts: 3, time: 1.4, sure: true }, { name: 'HAB 2', pts: 6, time: 3.6 }, { name: 'HAB 3', pts: 12, time: 7.2, drop: 0.07 }], park: 0 },
+    endgame: { levels: [{ name: 'HAB 1', pts: 3, time: 1.4, sure: true }, { name: 'HAB 2', pts: 6, time: 3.6 }, { name: 'HAB 3', pts: 12, time: 7.2, drop: 0.3 }], park: 0 }, // a robot that misses Level 3 often goes off the edge of it
     leftCheck: (m, r) => loc(m, r).x > G19.habX + 0.35,
+    // a turreted elevator points at the bay or the Loading Station it is working on, whatever way the chassis faces
+    aimAt: (m, r) => (r.cap.turretLift && r.mem.aim ? r.mem.aim : null),
     endLevel: (m, r) => habLevel19(m, r),
     init(m) {
       setHp(m);
@@ -542,8 +570,8 @@
         // only a robot that left the HAB Zone at some point in the match earns a climb bonus
         const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && r.end.lvl > 0 && !r.dead && (r.left || r.end.credited));
         // a Level 3 lift with partner ramps carries one partner up with it
-        const lifter = bots.find(r => r.end.lvl >= 3 && r.cap.buddy), rider = lifter && bots.filter(r => r !== lifter && r.end.lvl < 3).sort((p, q) => p.end.lvl - q.end.lvl)[0];
-        if (rider && m.rng.chance(U.clamp(0.45 + 0.45 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lvl = 3; rider.end.lifted = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' to HAB Level 3', 'end'); }
+        const lifter = bots.find(r => r.end.lvl >= 3 && r.cap.buddy), rider = lifter && H.riders(bots.filter(r => r !== lifter && r.end.lvl < 3)).sort((p, q) => p.end.lvl - q.end.lvl)[0];
+        if (rider && H.buddyLift(m, lifter, rider, U.clamp(0.45 + 0.45 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lvl = 3; rider.end.lifted = true; H.log(m, a, lifter.team + ' lifted ' + rider.team + ' to HAB Level 3', 'end'); }
         bots.forEach(r => { const p = this.endgame.levels[r.end.lvl - 1].pts; ss.hab += p; m.score[a].end += p; r.stats.pts += p; });
       });
     },
@@ -559,9 +587,9 @@
   };
   // a robot touched inside its HAB Zone in the last 30 seconds is credited with HAB Level 3
   Rules[2019].defense = { eff: 2.3, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3, credit: { 'HAB Zone': 3 } };
-  Rules[2019].faults = { brown: 0.9, tip: 1.7, tipAll: 0.3, comms: 1.0 };
+  Rules[2019].faults = { brown: 0.9, tip: 2.2, tipAll: 0.3, comms: 1.0, tipDrv: true };
   S[2019].meta = { defense: true, note: 'Defense wins in DEEP SPACE: only the HAB Zone at each end is safe (it runs from rail to rail, Loading Stations included), so one robot parked in front of the other alliance\'s rocket, or in the lane out of its HAB Zone, can halve its cycles. Strong drivetrains matter more than in any other game.',
-    faults: 'Common failures: tip-overs from tall elevators under defense, and falls from HAB Level 2 and 3.' };
+    faults: 'Common failures: tip-overs from tall elevators under defense, falls from HAB Level 3, and partners dropped off the ramps of a buddy climber.' };
   S[2019].tiebreak = 'HAB climb';
 
   // =====================================================================
@@ -672,7 +700,7 @@
   }
   Rules[2018] = {
     leavePts: 5, tempo: { c: 3.1, s: 2.6 },
-    endgame: { levels: [{ name: 'Climb', pts: 30, time: 6.5, drop: 0.05 }], park: 5 },
+    endgame: { levels: [{ name: 'Climb', pts: 30, time: 6.5, drop: 0.25 }], park: 5 },
     leftCheck: (m, r) => loc(m, r).x > G18.autoLine + 0.35,
     // the rung has room for two: the alliance's two best climbers go up, the rest park on the platform
     endLevel(m, r) {
@@ -765,8 +793,8 @@
         const ss = m.ss[a], bots = m.robots.filter(r => r.a === a && r.end && !r.dead), up = bots.filter(r => r.end.lvl > 0);
         let climbs = up.length;
         // partner forks carry a robot that is parked underneath
-        const lifter = up.find(r => r.cap.buddy), rider = lifter && bots.filter(r => !(r.end.lvl > 0) && r.end.park)[0];
-        if (rider && m.rng.chance(U.clamp(0.4 + 0.5 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lifted = true; climbs++; H.log(m, a, lifter.team + ' carried ' + rider.team + ' up', 'end'); }
+        const lifter = up.find(r => r.cap.buddy), rider = lifter && H.riders(bots.filter(r => !(r.end.lvl > 0) && r.end.park))[0];
+        if (rider && H.buddyLift(m, lifter, rider, U.clamp(0.4 + 0.5 * (lifter.cap.endgame || 40) / 100, 0.3, 0.95))) { rider.end.lifted = true; climbs++; H.log(m, a, lifter.team + ' carried ' + rider.team + ' up', 'end'); }
         if (ss.used.lev && climbs < 3) { climbs++; ss.lev = true; }
         const parked = bots.filter(r => !(r.end.lvl > 0) && r.end.park && !r.end.lifted).length - (ss.lev && bots.some(r => !(r.end.lvl > 0) && !r.end.lifted) ? 1 : 0);
         const pts = 30 * climbs + 5 * Math.max(0, parked);
@@ -792,9 +820,9 @@
   // contact with a robot in its Null Territory is a tech foul; a robot touched in its Platform Zone in the endgame is
   // credited with the climb
   Rules[2018].defense = { eff: 1.4, foul: 1.2, range: 1.7, zone: 0.4, pin: 5, reset: 3, major: { 'Null Territory': true }, credit: { 'Platform Zone': 1 } };
-  Rules[2018].faults = { brown: 1.0, tip: 1.8, tipAll: 0.3, comms: 1.0 };
+  Rules[2018].faults = { brown: 1.0, tip: 2.4, tipAll: 0.3, comms: 1.0, tipDrv: true }; // tall lifts driven hard: the driver decides most of it
   S[2018].meta = { defense: false, note: 'Ownership wins in FIRST POWER UP: the alliance that holds the Scale for most of the match almost always wins, so the best elevators go there and the third robot feeds the Vault and keeps the Switch. A robot at its own end of the Scale cannot be touched, which leaves little room for defense.',
-    faults: 'Common failures: tip-overs with the elevator up at the Scale, and cubes jammed sideways in the intake.' };
+    faults: 'Common failures: tip-overs with the elevator up at the Scale, cubes jammed sideways in the intake, and falls from the rung.' };
   S[2018].tiebreak = 'climb';
 
   // =====================================================================
@@ -964,7 +992,7 @@
   }
   Rules[2017] = {
     leavePts: 5, tempo: { c: 3.6, s: 3.1 },
-    endgame: { levels: [{ name: 'Climb', pts: 50, time: 6.5, drop: 0.03 }], park: 0 },
+    endgame: { levels: [{ name: 'Climb', pts: 50, time: 6.5, drop: 0.2 }], park: 0 }, // a rope that slips out of the drum lets go all at once
     leftCheck: (m, r) => loc(m, r).x > G17.base + 0.3,
     init(m) {
       setHp(m);
@@ -1060,7 +1088,7 @@
   Rules[2017].defense = { eff: 1.7, foul: 1.2, range: 1.7, zone: 0.45, pin: 5, reset: 3, major: { 'Retrieval Zone': true }, credit: { Rope: 1 } };
   Rules[2017].faults = { brown: 0.9, tip: 0.6, tipAll: 0.1, comms: 1.0 };
   S[2017].meta = { defense: true, note: 'Gears and ropes win in FIRST STEAMWORKS: four rotors and three climbs beat almost anything, and fuel only decides matches between the very best. A defender in the lane between the Loading Station and the airship costs the other alliance a rotor. The human players matter here: the pilots haul every gear up by hand.',
-    faults: 'Common failures: dropped gears on the peg, missed rope catches, and fuel jammed in the shooter.' };
+    faults: 'Common failures: dropped gears on the peg, missed rope catches, ropes that let go half way up, and fuel jammed in the shooter.' };
   S[2017].tiebreak = 'climb';
 
   // =====================================================================
@@ -1172,7 +1200,7 @@
   }
   Rules[2016] = {
     leavePts: 0, tempo: { c: 2.6, s: 2.2 },
-    endgame: { levels: [{ name: 'Scale', pts: 15, time: 6, drop: 0.05 }], park: 5 },
+    endgame: { levels: [{ name: 'Scale', pts: 15, time: 6, drop: 0.25 }], park: 5 },
     leftCheck: (m, r) => !!r.mem.crossed,
     init(m) {
       setHp(m);
@@ -1280,6 +1308,6 @@
   Rules[2016].defense = { eff: 2.2, foul: 1.1, range: 1.8, zone: 0.45, pin: 5, reset: 3, major: { 'Secret Passage': true }, credit: { Tower: 1 } };
   Rules[2016].faults = { brown: 0.9, tip: 1.6, tipAll: 0.5, comms: 1.25 };
   S[2016].meta = { defense: true, note: 'A blocker wins matches in FIRST STRONGHOLD: one robot waiting in its own courtyard can smother every shot taken from the tower\'s base. The answer is a shooter with range, and a low frame: the low bar stands straight across the neutral zone from your own Secret Passage, the shortest cycle on the field. Boulders are scarce (18 in play) and every one you score rolls back out to the other alliance, so misses hurt. Breaching is routine; capturing the tower decides the rankings.',
-    faults: 'Common failures: robots hung up on the moat and the rock wall, radios shaken loose by the defenses, and tip-overs on the ramparts.' };
+    faults: 'Common failures: robots hung up on the moat and the rock wall, radios shaken loose by the defenses, tip-overs on the ramparts, and falls from the tower.' };
   S[2016].tiebreak = 'tower';
 })();

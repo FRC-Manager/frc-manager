@@ -119,7 +119,7 @@
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
     { id: 'pfield', name: 'Practice Field', upkeep: 300, wear: { season: 2, off: 0.6, event: 0 },
       levels: [{ name: 'Basic practice area', cost: 2500 }, { name: 'Half field', cost: 6500 }, { name: 'Full field', cost: 12000 }],
-      fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Weekly testing hours on a real field, for development testing of any project and for driver practice (a test chassis or second robot gives testing hours too, and adds to these). Driver practice needs this season\'s game elements for full value.' },
+      fx: { tune: [0.08, 0.14, 0.2], test: [8, 12, 16] }, desc: 'Weekly testing hours on a real field, for development testing and driver practice. Driver practice needs this season\'s game elements for full value.' },
     { id: 'ebench', name: 'Electronics Workbench', upkeep: 150, wear: { season: 1.5, off: 0.6, event: 0 },
       levels: [{ name: 'Soldering bench', cost: 900 }, { name: 'Electronics lab', cost: 3500 }, { name: 'PCB fabrication', cost: 9000 }],
       fx: { elec: [0.06, 0.12, 0.18], partWear: [0.1, 0.2, 0.3] }, desc: 'Clean wiring, proper crimps and, at the top level, your own circuit boards: fewer brownouts and comms dropouts in matches, and motors and electronics wear more slowly.' },

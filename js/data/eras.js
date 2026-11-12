@@ -82,7 +82,8 @@
     body: ['Two weeks after the Championship a new virus is spreading faster than anyone can follow. The schools close "for a fortnight". The fortnight does not end.',
       'The workshop is locked with the robot still on its cart. The summer events are cancelled one by one, then Kickoff, then the whole 2021 season. For the first time since the program began, a year will pass without a competition.',
       'What the team does with a year at home is up to you.'],
-    means: ['There is no 2021 season. The calendar moves on to June 2021.', 'Students still graduate on time: two senior classes leave before the team meets again.', 'Know-how fades, skills rust, and mentors and sponsors drift away. Choose two programs to hold on to what matters most to you.'],
+    means: ['There is no 2021 season. The calendar moves on to June 2021.', 'Students still graduate on time: two senior classes leave before the team meets again.', 'Know-how fades, skills rust, and mentors and sponsors drift away. Choose two programs to hold on to what matters most to you.',
+      'This is the game\'s own timeline. In reality the 2020 season was stopped in March 2020, part-way through its competition weeks, and its Championships were never held; 2021 was played from home, as remote challenges.'],
     talk: [['We left the robot charging. I keep thinking about that.', 'a student on Team {t}'], ['See everyone in two weeks.', 'every lead mentor, in March'], ['I have a garage, a 3D printer and nowhere to be.', 'a mentor on Team {t}'], ['Our seniors never got their last match.', 'a drive coach']] };
   D.STORY_RETURN = { id: 'return2021', at: 'pandemic', tag: 'JUNE 2021', color: 'var(--good)', title: 'Back in the shop',
     body: ['Fifteen months after the doors were locked, they open again. The robot is where you left it. The batteries are flat, the whiteboard still says "Championship packing list", and half the faces in the room are new.',
@@ -101,6 +102,28 @@
   // 'recap' = the start of the offseason AFTER that season. hit: tech knowledge that the change dates.
   // {t} in a quote is replaced by a team number.
   const VC = { T: '#c8b273', A: '#ff9f43', B: '#35c9d6' };
+  // The Festival story for a team that played in it: the same pop-up, ending the way this career's series ended
+  function festivalStory(S) {
+    const d = S.festival && S.festival.cele, r = S.festStream && S.festStream.result;
+    if (!d && r) { // a team that was not in it: the series as the stream showed it (or as it was played without them)
+      const n = r.games.length, how = n >= 5 ? 'It went the distance: five matches, and the last one settled it.' : n === 3 ? 'It was over in three matches.' : 'It took four matches.';
+      return {
+        body: ['Two Championships made two winning alliances, and nobody could leave it there. In July the two alliances met for a best-of-five on a single field: the Festival of Champions.',
+          how + ' The ' + r.winner + ' champions beat the ' + r.loser + ' champions ' + r.w + '–' + r.l + ', in front of a crowd that had driven across the country to see the question settled.' + (S.festStream.stage === 'watched' ? ' Your team watched it on the stream.' : '')],
+        // the result as a block of its own, with the six teams as the world simulation has them (a line of text for a save without it)
+        series: r.series || null, mine: r.series ? null : r.games.map((g, i) => 'Match ' + (i + 1) + ' ' + (g.won ? r.winner : r.loser) + ' ' + Math.max(g.a, g.b) + '–' + Math.min(g.a, g.b)).join(' · ') + '. Champions: ' + r.teams.map(t => t.num + ' ' + t.name).join(', ') + '.', mineTag: 'THE SERIES'
+      };
+    }
+    if (!d) return null;
+    const won = d.kind === 'winner', n = d.games.length, hi = Math.max(d.w, d.l), lo = Math.min(d.w, d.l);
+    const how = n >= 5 ? 'It went the distance: five matches, and the last one settled it.' : n === 3 ? 'It was over in three matches.' : 'It took four matches.';
+    return {
+      body: ['Two Championships made two winning alliances, and nobody could leave it there. In July the two alliances met for a best-of-five on a single field: the Festival of Champions.',
+        how + ' ' + (won ? 'The ' + d.city + ' champions, your alliance, beat the ' + d.otherCity + ' champions ' : 'The ' + d.otherCity + ' champions beat your alliance, the ' + d.city + ' champions, ') + hi + '–' + lo + ', in front of a crowd that had driven across the country to see the question settled.'],
+      means: [won ? '2017 has one champion alliance after all, and it is yours.' : '2017 has one champion alliance after all. Yours is still the World Champions of ' + d.city + '.', 'The Festival is not held again: from next season the two Championships each crown their own winners.'],
+      series: d.series || null, mine: d.series ? null : d.games.map((g, i) => 'Match ' + (i + 1) + ' ' + (g.won ? 'won ' : 'lost ') + g.mine + '–' + g.theirs).join(' · '), mineTag: 'YOUR FESTIVAL'
+    };
+  }
   D.STORIES = [
     // ---- 2016 ----
     { id: 'recap2016', cy: 2016, at: 'recap', tag: 'SEASON RECAP · 2016', color: 'var(--accent)', title: 'Six wheels, brushed motors and one big room',
@@ -114,7 +137,8 @@
         'The forums argued about it from April to July. The number of teams grew by seven percent anyway.'],
       means: ['Two Championships stay for the coming seasons.', 'A camera that does vision out of the box is rumoured for the autumn.'],
       talk: [['Two champions is one too many. Or one too few, depending on who you ask.', 'a forum regular'], ['Half our district had never seen a Championship. This year they went.', 'a district volunteer'], ['Somebody should make them play each other.', 'everyone, all summer']] },
-    { id: 'festival', cy: 2018, at: 'off:2', skipIf: 'festival', tag: 'FESTIVAL OF CHAMPIONS · 2017', color: '#f5c542', title: 'One champion after all',
+    // a team that plays in the Festival gets this pop-up when its series is over (hold), with the series in it (vary)
+    { id: 'festival', cy: 2018, at: 'off:2', hold: S => !!((S.festival && S.festival.pending) || (S.festStream && S.festStream.stage === 'open')), vary: S => festivalStory(S), tag: 'FESTIVAL OF CHAMPIONS · 2017', color: '#f5c542', title: 'One champion after all',
       body: ['Two Championships made two winning alliances, and nobody could leave it there. In July the eight teams met for a best-of-five on a single field: the Festival of Champions.',
         'It went the distance. Five matches, the last one decided in the final seconds, in front of a crowd that had driven across the country to see the question settled.'],
       means: ['2017 has one champion alliance after all.', 'The Festival is not held again: from next season the two Championships each crown their own winners.'],

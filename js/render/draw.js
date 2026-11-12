@@ -347,6 +347,25 @@
     } else if (mp === 'arm') { ctx.beginPath(); ctx.moveTo(-h * 0.3, 0); ctx.lineTo(h * 0.95, 0); ctx.lineWidth = 4; ctx.stroke(); ctx.fillStyle = '#e8edf2'; ctx.fillRect(h * 0.8, -h * 0.2, h * 0.3, h * 0.4); }
     else if (mp === 'dja') { ctx.beginPath(); ctx.moveTo(-h * 0.5, 0); ctx.lineTo(h * 0.25, -h * 0.3); ctx.lineTo(h * 1.0, 0); ctx.lineWidth = 3.5; ctx.stroke(); }
     else if (mp === 'low') { ctx.fillStyle = '#e8edf2'; ctx.fillRect(h * 0.55, -h * 0.5, h * 0.25, h); }
+    else if (mp === 'turretlift') {
+      // 2019: the elevator on a turret. A ring on the frame; the mast, carriage and wrist turn to face the bay or the
+      // Loading Station while the chassis keeps its heading, and the carriage reaches out when it places (r.vx)
+      const ang = o.aim != null ? o.aim - (r.hd || 0) : 0, ex = r.vx || 0;
+      ctx.beginPath(); ctx.arc(0, 0, sz * 0.27, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.save(); ctx.rotate(ang);
+      ctx.fillStyle = '#c3cad1'; ctx.fillRect(-sz * 0.07, -sz * 0.18, sz * 0.08, sz * 0.36);
+      ctx.fillStyle = '#e8edf2'; ctx.fillRect(0, -sz * 0.09, sz * (0.24 + 0.2 * ex), sz * 0.18);
+      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(sz * (0.2 + 0.2 * ex), -sz * 0.13, sz * 0.1, sz * 0.26);
+      ctx.restore();
+    } else if (mp === 'tele') {
+      // 2023 / 2025: a telescoping arm on a low pivot at the back. It lies flat inside the frame while the robot drives
+      // and shoots out over the front bumper when it places (r.vx: 0 folded … 1 fully out)
+      const ex = r.vx || 0, x0 = -h * 0.62, L0 = h * 1.15, L1 = h * (1.15 + 0.95 * ex);
+      ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.8, -h * 0.42, h * 0.3, h * 0.84);
+      ctx.fillStyle = '#c3cad1'; ctx.fillRect(x0, -h * 0.17, L0, h * 0.34);
+      ctx.fillStyle = '#e8edf2'; ctx.fillRect(x0 + L0 * 0.3, -h * 0.1, L1 - L0 * 0.3, h * 0.2);
+      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(x0 + L1 - h * 0.06, -h * 0.27, h * 0.26, h * 0.54);
+    }
     else if (mp === 'ampbar') { ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.8, -h * 0.85, h * 1.2, h * 0.12); }
     // shooter
     const sh = lk.shooter;
@@ -471,6 +490,28 @@
       ctx.stroke();
       ctx.fillStyle = '#d6dce2'; ctx.fillRect(cx - 0.25 * s, top - 0.35 * s, 0.06 * s, 0.35 * s);
     } else if (mp === 'low') { ctx.fillStyle = '#d6dce2'; ctx.fillRect(x0 + fw - 0.05 * s, top - 0.2 * s, 0.12 * s, 0.05 * s); }
+    else if (mp === 'turretlift') {
+      // 2019: the whole cascade elevator stands on a turret ring, with a wrist at the carriage
+      const eh = (low ? 0.5 : 1.05) * s, ty = top - 0.05 * s;
+      ctx.fillStyle = '#2f353c'; ctx.fillRect(cx - 0.21 * s, ty, 0.42 * s, 0.05 * s);
+      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 0.21 * s, ty); ctx.lineTo(cx + 0.21 * s, ty); ctx.stroke();
+      ctx.fillStyle = '#c3cad1'; ctx.fillRect(cx - 0.04 * s, ty - eh, 0.04 * s, eh); ctx.fillRect(cx + 0.03 * s, ty - eh * 0.92, 0.035 * s, eh * 0.92);
+      ctx.fillStyle = frame; ctx.fillRect(cx - 0.04 * s, ty - eh * 0.6, 0.2 * s, 0.08 * s);
+      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.save(); ctx.translate(cx + 0.16 * s, ty - eh * 0.56); ctx.rotate(-0.35); ctx.fillRect(0, -0.03 * s, 0.24 * s, 0.07 * s); ctx.restore();
+    } else if (mp === 'tele') {
+      // 2023 / 2025: a three-stage telescoping arm on a low pivot at the back of the frame, drawn raised to a scoring
+      // angle; everything heavy sits down by the axles
+      const px = cx - 0.28 * s, py = top - 0.1 * s;
+      ctx.fillStyle = '#2f353c'; ctx.beginPath(); ctx.moveTo(px - 0.1 * s, top); ctx.lineTo(px + 0.1 * s, top); ctx.lineTo(px + 0.035 * s, py - 0.05 * s); ctx.lineTo(px - 0.035 * s, py - 0.05 * s); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.translate(px, py); ctx.rotate(-0.62);
+      ctx.fillStyle = '#c3cad1'; ctx.fillRect(-0.07 * s, -0.045 * s, 0.6 * s, 0.09 * s);
+      ctx.fillStyle = '#dfe5ea'; ctx.fillRect(0.5 * s, -0.032 * s, 0.38 * s, 0.064 * s);
+      ctx.fillStyle = '#f4f7fa'; ctx.fillRect(0.85 * s, -0.02 * s, 0.2 * s, 0.04 * s);
+      ctx.translate(1.05 * s, 0); ctx.rotate(0.95);
+      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(-0.02 * s, -0.035 * s, 0.2 * s, 0.07 * s);
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(px, py, 0.035 * s, 0, 7); ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fill();
+    }
     // shooter
     const sh = lk.shooter;
     if (sh) {
@@ -491,7 +532,7 @@
       const ix = it === 'dual' ? [x0 - 0.08 * s, x0 + fw + 0.08 * s] : [x0 + fw + 0.08 * s];
       ix.forEach(xx => { ctx.beginPath(); ctx.arc(xx, fy + (it === 'under' ? 0.06 : -0.04) * s, (it === 'wide' ? 0.06 : 0.05) * s, 0, 7); ctx.fillStyle = '#d9dee3'; ctx.fill(); });
       if (it === 'funnel') { ctx.strokeStyle = '#d9dee3'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x0 + 0.1 * s, top - 0.55 * s); ctx.lineTo(x0 + 0.25 * s, top - 0.2 * s); ctx.lineTo(x0 + 0.4 * s, top - 0.55 * s); ctx.stroke(); }
-      if (it === 'claw') { ctx.fillStyle = '#d9dee3'; ctx.fillRect(x0 + fw - 0.02 * s, top - 0.45 * s, 0.14 * s, 0.05 * s); }
+      if (it === 'claw' && mp !== 'tele' && mp !== 'turretlift') { ctx.fillStyle = '#d9dee3'; ctx.fillRect(x0 + fw - 0.02 * s, top - 0.45 * s, 0.14 * s, 0.05 * s); } // (the telescope and the turreted elevator draw their own gripper at the wrist)
     }
     // climber
     const cl = lk.climber;

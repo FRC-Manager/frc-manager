@@ -142,6 +142,8 @@
   const UI = G.UI, h = G.U.esc;
   // "?" button on each screen that opens the matching tutorial topic
   UI.helpBtn = topic => '<button class="btn ghost sm helpq" data-act="helpTopic" data-arg="' + topic + '" title="How this works">' + UI.icon('help', 18) + '</button>';
+  // a small "?" beside a text that is explained at length in the guide: opens How to play at that section
+  UI.q = (topic, sec) => '<button class="qm" data-act="helpTopic" data-arg="' + topic + (sec ? '#' + h(sec) : '') + '" title="How this works: opens the guide' + (sec ? ' at “' + h(sec) + '”' : '') + '">?</button>';
   // Screen header: icon, title, help button, one-line subtitle
   UI.head = (title, icon, sub, topic) => '<div class="row head">' + (icon ? '<span class="hico">' + UI.icon(icon, 22) + '</span>' : '') + '<h1>' + h(title) + '</h1><span class="sp"></span>' + (topic ? UI.helpBtn(topic) : '') + '</div>' + (sub ? '<div class="sub">' + sub + '</div>' : '');
   // Title with a leading icon for cards

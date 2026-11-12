@@ -4,7 +4,10 @@
 (function () {
   const U = G.U, D = G.Data;
   const Robot = G.Robot = {};
-  const EFFORT = { rush: { name: 'Rush', h: 0.6, gain: 0.75, cost: 0.9, rel: -3 }, std: { name: 'Standard', h: 1, gain: 1, cost: 1, rel: 0 }, thorough: { name: 'Thorough', h: 1.4, gain: 1.2, cost: 1.15, rel: 2 } };
+  // Effort trades hours for the result. Materials go the other way: a rushed job scraps parts and pays for overnight
+  // shipping (+15%), a careful one wastes less (−10%). (Until v2.9.4 Thorough cost 15% more money, which made it a
+  // worse buy than Standard with free extra hours on top; the hours, gains and reliability are unchanged.)
+  const EFFORT = { rush: { name: 'Rush', h: 0.6, gain: 0.75, cost: 1.15, rel: -3 }, std: { name: 'Standard', h: 1, gain: 1, cost: 1, rel: 0 }, thorough: { name: 'Thorough', h: 1.4, gain: 1.2, cost: 0.9, rel: 2 } };
   Robot.EFFORT = EFFORT;
   Robot.WEIGHT_LIMIT = 125;
 
@@ -709,7 +712,7 @@
     for (const sd of subs) {
       const d = R.design[sd.id];
       if (d.ver || d.concept === 'none' || busy(sd.id) || sd.optional) continue; // optional mechanisms are the team's call
-      const opts = sd.concepts.filter(c => c.id !== 'none' && !Robot.reqOk(S, c));
+      const opts = sd.concepts.filter(c => c.id !== 'none' && !c.elite && !Robot.reqOk(S, c)); // the hardest mechanism of a season (c.elite) is never suggested: that is the team's own call
       const score = c => Object.keys(c.ceil).reduce((t, k) => t + Robot.ceil(S, year, sd.id, c, k) * (STAT_W[k] || 0.7), 0) / Math.max(1, Object.keys(c.ceil).length) - (Robot.firstTime(S, c) ? 12 : 0) - c.cx * 2;
       // the best concept the shelves allow (a West Coast drive needs two drive sets, a swerve drive four modules)
       for (const best of opts.sort((p, q) => score(q) - score(p))) { const r = mk({ type: 'build', sub: sd.id, concept: best.id }, 'Build the ' + sd.name + ': ' + best.name, 'Nothing is built for the ' + sd.name + ' yet, and the robot can\'t use it in matches until it is.'); if (r) return r; }
@@ -996,6 +999,15 @@
         const bent = Math.min(S.parts.spares, G.R.int(1, 3));
         S.parts.spares -= bent;
         rr.scrapped = (rr.scrapped || 0) + bent;
+        return;
+      }
+      if (/^Dropped by a partner/.test(f)) {
+        // a buddy climb that let go: a shorter fall than from a rung, onto the wheels. The drivetrain takes most of it.
+        Object.keys(R.subs).forEach(k => {
+          const s = R.subs[k]; if (!s || !s.ver || k === 'soft') return;
+          s.cond = Math.max(0, s.cond - (k === 'drive' ? G.R.range(15, 28) : G.R.range(6, 16)));
+        });
+        if (G.R.chance(0.25)) { const ks = Object.keys(R.subs).filter(k => R.subs[k] && R.subs[k].ver && k !== 'soft'); if (ks.length) R.subs[G.R.pick(ks)].hidden++; }
         return;
       }
       const map = { 'Intake broke': 'intake', 'Scorer broke': 'scorer', 'Climber broke': 'endgame', 'TIPPED OVER': 'scorer' };

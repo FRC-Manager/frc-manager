@@ -86,7 +86,7 @@
       'In the last 30 seconds robots climb back onto the HAB: Level 1 (3), Level 2 (6) or Level 3 (12). Bonus RPs: one complete Rocket (6 hatches and 6 cargo) and HAB Docking (15 climb points).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 3, major: 10 },
-    relevance: { swerve: 3, shooter: 0, turret: 0, elevator: 3, arm: 2, intake: 3, index: 0, climb: 3, vision: 2, autoPath: 1, elec: 2 },
+    relevance: { swerve: 3, shooter: 0, turret: 1, elevator: 3, arm: 2, intake: 3, index: 0, climb: 3, vision: 2, autoPath: 1, elec: 2 },
     autoTiers: ['Drive off the HAB', '1 hatch', '2 hatches', '2 hatches + cargo'], autoPieces: [0, 1, 2, 3],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'rocket', name: 'Finish a rocket' }, { id: 'ship', name: 'Cargo ship first' }],
     endNames: ['—', 'HAB 1', 'HAB 2', 'HAB 3'],
@@ -107,12 +107,18 @@
       { id: 'scorer', name: 'Lift', pneu: true, concepts: [
         { id: 'low', name: 'Fixed mount (no lift)', desc: 'The end effector is bolted on at bumper height: the cargo ship and the lowest rocket level.', cost: 150, hours: 35, w: 5, cx: 1, areas: ['arm'],
           base: { scoreSpd: 50, accuracy: 62 }, ceil: { scoreSpd: 84, accuracy: 95 }, caps: { reach: 1 }, look: { manip: 'low' } },
-        { id: 'arm', name: 'Two-level arm', desc: 'A pivoting arm that reaches the second rocket level.', cost: 750, hours: 125, w: 12, cx: 3, areas: ['arm'],
+        { id: 'arm', name: 'Two-level arm', desc: 'A pivoting arm that reaches the second rocket level.', cost: 750, hours: 125, w: 12, cx: 2, areas: ['arm'],
           base: { scoreSpd: 42, accuracy: 48 }, ceil: { scoreSpd: 82, accuracy: 92 }, caps: { reach: 2, tall: 0.2 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Three-level elevator', desc: 'An elevator to all three rocket levels: the only way to complete a rocket.', cost: 1300, hours: 190, w: 17, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'elev', name: 'Three-level elevator', desc: 'An elevator to all three rocket levels: the only way to complete a rocket.', cost: 1300, hours: 190, w: 17, cx: 3, areas: ['elevator', 'arm'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 86, accuracy: 93 }, caps: { reach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevfast', name: 'Fast cascade elevator + wrist', desc: 'A quick cascade elevator with a wrist that points the end effector at the port or the hatch: the fastest way to every level.', cost: 1750, hours: 235, w: 20, cx: 5, areas: ['elevator', 'arm'],
-          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } }
+        { id: 'elevfast', name: 'Fast cascade elevator + wrist', desc: 'A quick cascade elevator with a wrist that points the end effector at the port or the hatch: the fastest way to every level.', cost: 1750, hours: 235, w: 20, cx: 4, areas: ['elevator', 'arm'],
+          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } },
+        // the whole elevator on a turret: it loads on one side and places on another without turning the chassis. What it
+        // saves is the lining up, so a tank drive (which cannot slide sideways) gains much more than a holonomic one
+        // (engine: cap.turretLift cuts the agility part of the settle time). The other lifts moved down one step of
+        // complexity to make room above them.
+        { id: 'turretlift', name: 'Turreted elevator + wrist', elite: true, desc: 'The whole elevator stands on a turret: it loads on one side and places on another without turning the chassis. A tank drive gains the most, a swerve or mecanum drive little. The hardest lift of the year.', cost: 2300, hours: 290, w: 24, cx: 5, areas: ['elevator', 'turret', 'arm'],
+          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 96, accuracy: 97 }, caps: { reach: 3, tall: 0.6, turretLift: true }, look: { manip: 'turretlift' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
         { id: 'plate', name: 'Hook-and-loop hatch plate', desc: 'A plate covered in hook tape: push it against a hatch panel and the panel sticks, push the panel onto the ship and it stays there. Hatches only, so cargo has to come from a partner.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['arm'],
@@ -134,6 +140,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
+      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: 'turretlift', effector: 'active', endgame: ['l3', 'l3buddy'] } },
       { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy'] } },
       { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', effector: ['combo', 'active'], endgame: ['l3', 'l2'] } },
       { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'none'], scorer: 'arm', effector: 'combo', endgame: ['l2', 'none'] } },
@@ -288,7 +295,7 @@
       'In the last 20 seconds robots drive onto the tower\'s base to CHALLENGE it (5) or climb it to SCALE (15). Bonus RPs: BREACH (four of the five defenses damaged) and CAPTURE (the tower weakened and all three robots on it). In playoffs these are worth 20 and 25 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 5, major: 5 },
-    relevance: { swerve: 0, shooter: 3, turret: 0, elevator: 0, arm: 2, intake: 2, index: 0, climb: 2, vision: 3, autoPath: 2, elec: 2 },
+    relevance: { swerve: 0, shooter: 3, turret: 1, elevator: 0, arm: 2, intake: 2, index: 0, climb: 2, vision: 3, autoPath: 2, elec: 2 },
     autoTiers: ['Reach a defense', 'Cross a defense', 'Cross + low goal', 'Cross + high goal'], autoPieces: [0, 0, 1, 1],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'breach', name: 'Breach first' }, { id: 'tower', name: 'Boulders first' }],
     endNames: ['Challenge', 'Scale'],
@@ -319,7 +326,11 @@
         { id: 'batter', name: 'Fixed high-goal shooter', desc: 'A fixed-angle shooter for the high goal from the tower\'s base, where a defender can lean on it.', cost: 800, hours: 130, w: 13, cx: 2, areas: ['shooter'],
           base: { scoreSpd: 40, accuracy: 44, range: 0 }, ceil: { scoreSpd: 80, accuracy: 90, range: 30 }, caps: { lower: true, upper: true, rmin: 1.0, rmax: 2.4 }, look: { shooter: 'fixed' } },
         { id: 'hood', name: 'Adjustable shooter', desc: 'Shoots the high goal from just inside the defenses, out of a blocker\'s reach. With vision alignment it rarely misses.', cost: 1400, hours: 200, w: 17, cx: 4, areas: ['shooter', 'vision'],
-          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 90, accuracy: 94, range: 90 }, caps: { lower: true, upper: true, rmin: 1.0, rmax: 5.4 }, look: { shooter: 'hood' } }
+          base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 90, accuracy: 94, range: 90 }, caps: { lower: true, upper: true, rmin: 1.0, rmax: 5.4 }, look: { shooter: 'hood' } },
+        // the turreted, hooded shooter of the year's best low-bar robots: it aims while the chassis is still driving and a
+        // blocker cannot push its aim off. The hardest scorer to build, and only a little better than a good adjustable one.
+        { id: 'turret', name: 'Turret + hood shooter', elite: true, desc: 'The adjustable shooter on a turret, low enough for the low bar. It aims while the robot drives, and a blocker cannot push its aim off. A little better than a good adjustable shooter, and much harder to build.', cost: 1900, hours: 260, w: 19, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 40, accuracy: 40, range: 30 }, ceil: { scoreSpd: 92, accuracy: 95, range: 92 }, caps: { lower: true, upper: true, rmin: 1.0, rmax: 5.4, turret: true }, look: { shooter: 'turret' } }
       ] },
       { id: 'endgame', name: 'Scaling Mechanism', concepts: [
         Object.assign({}, NONE_END, { name: 'No scaling mechanism (challenge only)', desc: 'Every robot can drive onto the tower\'s base for 5 points. Saves weight, hours and money.' }),
@@ -329,6 +340,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
+      { name: 'Turret low-bar shooter + scale', min: 90, pick: { drive: ['wcd8', 'wcd'], frame: 'low', intake: ['hook', 'pivot'], scorer: 'turret', endgame: 'scale' } },
       { name: 'Low-bar shooter + scale', min: 76, pick: { drive: ['wcd8', 'wcd'], frame: 'low', intake: ['hook', 'pivot'], scorer: 'hood', endgame: 'scale' } },
       { name: 'Outer-works shooter', min: 56, pick: { drive: ['wcd8', 'wcd', 'tread'], frame: ['low', 'std'], intake: 'pivot', scorer: ['hood', 'batter'], endgame: ['scale', 'none'] } },
       { name: 'Batter shooter + breacher', min: 36, pick: { drive: ['wcd', 'tread', 'kit'], frame: ['std', 'low'], intake: 'pivot', scorer: 'batter', endgame: 'none' } },

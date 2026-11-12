@@ -472,3 +472,63 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 @media (max-width: 900px) { .rr { grid-template-columns: 1fr; } }
 .seasoncard { cursor: pointer; transition: border-color .12s, transform .12s; }
 .seasoncard:hover { border-color: var(--accent); transform: translateY(-2px); }
+/* a best-of-three series box: each game's winner in bold, the state of the series beside the round's name */
+.bm .al .gw { font-weight: 800; color: var(--text); } .bm .al .gl { font-weight: 400; color: var(--dim); }
+.bm .al .gs { font-style: normal; font-weight: 400; color: var(--dim); }
+.bm .ser { color: var(--text); } .bm .ser.done { font-weight: 700; }
+/* your alliance's trace through a bracket: its row in every box, the lines it travelled, and its path in words */
+.bm .al.mine { background: rgba(245,184,0,.16); box-shadow: inset 3px 0 0 var(--data); border-radius: 3px; margin: 0 -5px; padding: 0 5px 0 8px; }
+.bm.me { box-shadow: 0 0 0 1px rgba(245,184,0,.3); }
+.bk-lines path.mine { stroke: var(--data); stroke-width: 3; } .bk-lines path.mine.drop { stroke-width: 2; stroke-dasharray: 6 4; }
+.bk-trace { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; margin: 0 8px 10px; }
+.bk-trace .tr-you { font-weight: 800; color: var(--data2); margin-right: 4px; } .bk-trace .tr-you i { display: inline-block; width: 18px; height: 3px; background: var(--data); border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.bk-trace .tr-step { padding: 2px 9px; border-radius: 20px; border: 1px solid var(--line2); background: var(--bg2); color: var(--muted); white-space: nowrap; }
+.bk-trace .tr-step.won { border-color: rgba(245,184,0,.55); color: var(--text); } .bk-trace .tr-step.lost { color: var(--dim); } .bk-trace .tr-step.next { border-color: var(--data); color: var(--data2); font-weight: 700; }
+.bk-trace .tr-arrow { color: var(--dim); }
+.rr-m.me { border-color: var(--data); } .rr-m .mine { background: rgba(245,184,0,.16); border-radius: 3px; padding: 0 5px; }
+/* The Festival of Champions: its own celebration. Two rings (the two Championships) slide together and a star lands where they meet */
+.modal.wcm.fcm { border-color: #c9a227; background: linear-gradient(115deg, color-mix(in srgb, var(--fa, #f5b800) 30%, #0b1220) 0%, #0d1420 40%, #0d1420 60%, color-mix(in srgb, var(--fb, #6aa9ff) 30%, #0b1220) 100%); box-shadow: 0 0 0 1px rgba(245,197,66,.3), 0 0 70px rgba(245,197,66,.22); }
+.modal.wcm.fcm.fin { border-color: #51606f; box-shadow: 0 0 0 1px rgba(120,140,160,.25), 0 0 50px rgba(106,169,255,.14); }
+.wc.fc { --fa: #f5b800; --fb: #6aa9ff; }
+.fc-beams { position: absolute !important; z-index: 0 !important; inset: -30px -26px auto -26px; height: 260px; pointer-events: none; opacity: .5;
+  background: linear-gradient(100deg, transparent 0 18%, color-mix(in srgb, var(--fa) 55%, transparent) 30%, transparent 44%), linear-gradient(-100deg, transparent 0 18%, color-mix(in srgb, var(--fb) 55%, transparent) 30%, transparent 44%); animation: fcbeam 5s ease-in-out infinite alternate; }
+.wc.fc.fin .fc-beams { opacity: .22; animation: none; }
+.fc-rings { width: 190px; height: 130px; filter: drop-shadow(0 8px 20px rgba(245,197,66,.35)); }
+.fc-r1 { animation: fcleft 1s cubic-bezier(.2,1.2,.4,1) both; } .fc-r2 { animation: fcright 1s cubic-bezier(.2,1.2,.4,1) both; }
+.fc-star { transform-origin: 80px 55px; animation: fcstar .7s cubic-bezier(.2,1.6,.4,1) .9s both, fcspin 9s linear 1.6s infinite; }
+.wc.fc.fin .fc-star { opacity: .0; animation: none; } .wc.fc.fin .fc-rings { filter: none; }
+.fc-title { background: linear-gradient(90deg, var(--fa), #fff3c4 45%, #fff3c4 55%, var(--fb)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.wc.fc.fin .fc-title { background: none; color: #dfe7ef; -webkit-text-fill-color: #dfe7ef; filter: none; font-size: clamp(22px, 4vw, 34px); }
+/* the Festival's result in the public message: headline score, one box a match, the six teams */
+.fs-box { border: 1px solid var(--line2); border-left: 3px solid var(--fsc, #f5c542); border-radius: 10px; padding: 12px 14px; margin: 0 0 12px; background: rgba(10,16,24,.55); font-weight: 400; color: var(--text); }
+.fs-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 6px 0 2px; }
+.fs-w { font-size: 20px; font-weight: 900; color: var(--data2); text-transform: uppercase; letter-spacing: .03em; }
+.fs-sc { font-size: 28px; font-weight: 900; color: #fff; line-height: 1; } .fs-l { font-size: 15px; font-weight: 700; color: var(--muted); }
+.fs-strip { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 10px; }
+.fs-g { display: flex; flex-direction: column; align-items: center; min-width: 96px; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--line2); background: rgba(10,16,24,.7); }
+.fs-g small { font-size: 9px; letter-spacing: .1em; color: var(--muted); } .fs-g b { font-size: 17px; line-height: 1.2; } .fs-g i { font-style: normal; font-size: 11px; font-weight: 700; }
+.fs-g.a { border-color: var(--data); box-shadow: inset 0 -3px 0 var(--data); } .fs-g.a b, .fs-g.a i { color: var(--data2); }
+.fs-g.b { box-shadow: inset 0 -3px 0 #6aa9ff; } .fs-g.b i { color: #9cc4ff; }
+.fs-g.no { opacity: .45; border-style: dashed; } .fs-g.no i { font-size: 10px; font-weight: 400; color: var(--muted); }
+.fs-als { gap: 10px; align-items: start; }
+.fs-al { border: 1px solid var(--line2); border-radius: 9px; padding: 8px 10px 4px; } .fs-al.win { border-color: var(--data); }
+.fs-alh { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 4px; }
+.fs-t { padding: 6px 0; border-top: 1px solid var(--line); } .fs-t.me { background: rgba(245,197,66,.08); margin: 0 -6px; padding: 6px; border-radius: 6px; }
+.fs-tn { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; } .fs-tn b { font-size: 15px; }
+.fs-ev { line-height: 1.5; margin: 2px 0; } .fs-aw, .fs-st b { color: var(--data2); } .fs-note { margin-top: 8px; }
+.fc-strip { display: flex; justify-content: center; gap: 8px; margin: 12px auto 4px; flex-wrap: wrap; } .fc-strip.left { justify-content: flex-start; margin: 10px 0 2px; }
+.fc-g { display: flex; flex-direction: column; align-items: center; min-width: 74px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--line2); background: rgba(10,16,24,.7); }
+.fc-g small { font-size: 9px; letter-spacing: .1em; color: var(--muted); } .fc-g b { font-size: 19px; line-height: 1.1; } .fc-g i { font-style: normal; font-size: 12px; color: var(--dim); }
+.fc-g.w { border-color: var(--data); box-shadow: inset 0 -3px 0 var(--data); } .fc-g.w b { color: var(--data2); }
+.fc-g.l b { color: var(--muted); } .fc-g.l i { color: var(--text); font-weight: 700; } .fc-g.no { opacity: .45; border-style: dashed; } .fc-g.no i { font-size: 10px; }
+.fc-opp { opacity: .85; } .fc-vs { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-right: 4px; align-self: center; }
+@keyframes fcleft { from { transform: translateX(-70px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fcright { from { transform: translateX(70px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fcstar { from { transform: scale(0) rotate(-90deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+@keyframes fcspin { to { transform: rotate(360deg); } }
+@keyframes fcbeam { from { opacity: .3; } to { opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .fc-r1, .fc-r2, .fc-star, .fc-beams { animation: none !important; } }
+/* the small "?" beside a text that the guide explains at length, and the section it opens */
+.qm { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0; margin-left: 2px; border-radius: 50%; border: 1px solid var(--line2); background: transparent; color: var(--muted); font: 700 11px/1 system-ui, sans-serif; cursor: pointer; vertical-align: 1px; }
+.qm:hover { color: var(--accent2); border-color: var(--accent2); }
+.help-sec.at { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }

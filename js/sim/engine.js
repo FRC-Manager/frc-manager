@@ -52,7 +52,7 @@
     const conf = en.conf == null ? 0.5 : en.conf, tune = en.tune == null ? 0.5 : en.tune;
     return {
       team: en.team, a, slot: i, cap: en.cap, look: en.look || {}, drv, isPlayer: !!en.isPlayer,
-      plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, defTarget: null }, en.plan || {}),
+      plan: Object.assign({ pace: 'bal', role: 'score', target: 'auto', endTiming: 'std', endLevel: 9, rpHunt: false, avoid: false, noCarry: false, defTarget: null }, en.plan || {}),
       tune, conf, tuneAuto: en.tuneAuto || 0, autoFail: !!en.autoFail,
       // pit and drive-team slips (your robot only): a loose bumper, a blocked mechanism, a joystick left unplugged
       disableAt: en.disableAt || 0, teleDelay: en.teleDelay || 0, toolIn: en.toolIn || null,
@@ -82,6 +82,7 @@
     if (m.inEnd && !m.endAnnounced) { m.endAnnounced = true; log(m, null, 'ENDGAME — ' + m.T.end + ' seconds left', 'phase'); }
     defensePass(m);
     for (const r of m.robots) updateRobot(m, r);
+    beachHit(m);
     separate(m);
     if (m.R.tick) m.R.tick(m, H);
     m.t = Math.round((m.t + DT) * 1000) / 1000;
@@ -183,7 +184,10 @@
     r.path = m.R.route ? (m.R.route(m, r, { x: r.x, y: r.y }, pt) || avoid(m, r, pt)) : avoid(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
     // alignment / acceleration overhead at the end of each leg
-    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) + 1.1 * (1 - r.drv.drive / 100)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
+    // lining up on arrival: the chassis has to be squared up (agility) and the driver has to find the spot. A lift on a
+    // turret (cap.turretLift) points itself, so the chassis part goes, and some of the fixed part with it (it need not stop square
+    // either): a tank drive saves about half a second a leg, a holonomic drive, which lines up quickly anyway, a tenth.
+    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) * (r.cap.turretLift ? -0.3 : 1) + 1.1 * (1 - r.drv.drive / 100) * (r.cap.turretLift ? 0.9 : 1)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
   }
   // Plans around field elements: the first element on the way gets a waypoint beside it, then both legs are checked
   // again (a couple of levels deep). Solid elements (o.h = physical radius) are inflated by half a robot.
@@ -275,6 +279,19 @@
   // disabled or parked — makes the other one give way completely) and cannot drive through solid field elements
   // (hubs, reef, stage legs, barge leg, towers and cages; a robot heading for its climb may touch its own tower/cage).
   const RR = E.RR = 0.43;
+  // A beached robot (2020: on a Power Cell, 2026: on fuel) that another robot runs into: seven times in ten the knock
+  // frees it at once, three times in ten it goes over. Once per beaching; a low centre of gravity is always freed.
+  function beachHit(m) {
+    for (const r of m.robots) {
+      const f = r.fault;
+      if (!f || !f.beached || f.hit || r.dead) continue;
+      const o = m.robots.find(x => x !== r && !x.dead && x.st === 'move' && dist(x, r) < 2 * RR + 0.04);
+      if (!o) continue;
+      f.hit = true;
+      if (r.cap.lowCG || m.rng.chance(0.7)) { f.until = m.t; r.stats.freed = (r.stats.freed || 0) + 1; log(m, r.a, o.team + ' ran into ' + r.team + ' and knocked it free', 'fault'); }
+      else { log(m, r.a, o.team + ' ran into ' + r.team + ' while it was beached', 'fault'); triggerFault(m, r, 'tip'); r.stats.beachTip = 1; }
+    }
+  }
   const fixed = r => r.climbing || r.dead || r.st === 'done';
   function separate(m) {
     const rs = m.robots, D2 = 2 * RR;
@@ -398,8 +415,8 @@
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
         if (m.rng.next() < pf * DT) foul(m, d, m.rng.chance(0.2));
         if (m.rng.next() < 0.002 * DT) foul(m, t, false);
-        const tall = t.cap.tall || 0;
-        if (tall > 0 && m.rng.next() < 0.0015 * tall * ((m.R.faults && m.R.faults.tip) || 1) * PACE[t.plan.pace].wear * (1 - t.drv.comp / 300) * DT) triggerFault(m, t, 'tip');
+        const tall = t.cap.lowCG ? 0 : t.cap.tall || 0; // a low centre of gravity (pivoting telescope) cannot be pushed over
+        if (tall > 0 && m.rng.next() < 0.0015 * tall * ((m.R.faults && m.R.faults.tip) || 1) * PACE[t.plan.pace].wear * tipDrv(m, t) * DT) triggerFault(m, t, 'tip');
       }
     }
   }
@@ -415,6 +432,9 @@
   const DEF_DRILL = (G.Data && G.Data.DEF_DRILL_EFFECT) || 0.35;
   // Driver awareness: reads the field, so defenders cost less time and fewer fouls happen (50 is neutral, 85 about 14% better)
   const awareK = r => 1 - ((r.drv && r.drv.aware != null ? r.drv.aware : 50) - 50) / 250;
+  // what the driver does to the risk of tipping: composure, a little (the default), or in the seasons that say so
+  // (faults.tipDrv: 2018 and 2019, tall lifts driven hard) driving skill, a lot: an expert tips 40% less than a novice
+  const tipDrv = (m, r) => (m.R.faults && m.R.faults.tipDrv ? 1.35 - 0.7 * ((r.drv.drive == null ? 50 : r.drv.drive) / 100) : 1 - r.drv.comp / 300);
   const FAULTS = [{ id: 'brown', w: 30 }, { id: 'intakeJam', w: 18 }, { id: 'scorerJam', w: 18 }, { id: 'mech', w: 9 }];
   // 0 = clean, well-built electronics … about 1.5 = poor wiring, worn robot, hidden defects, tired battery
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
@@ -436,8 +456,8 @@
       if (m.rng.next() < hc * DT) { triggerFault(m, r, 'comms'); return; }
     }
     // tall robots tip on their own now and then (high reach, fast turns), more in tip-heavy seasons
-    const tall = (c.tall || 0) + (FP.tipAll || 0); // tipAll: risk every robot shares this season (e.g. 2023 Charge Station)
-    if (tall > 0 && m.rng.next() < 0.00006 * tall * (FP.tip || 1) * P.wear * (1 - r.drv.comp / 300) * DT) { triggerFault(m, r, 'tip'); return; }
+    const tall = c.lowCG ? 0 : (c.tall || 0) + (FP.tipAll || 0); // tipAll: risk every robot shares this season (e.g. 2023 Charge Station); a low centre of gravity never tips
+    if (tall > 0 && m.rng.next() < 0.00006 * tall * (FP.tip || 1) * P.wear * tipDrv(m, r) * DT) { triggerFault(m, r, 'tip'); return; }
     if (m.rng.next() < 0.0006 * P.foul * (r.plan.avoid ? 0.5 : 1) * (1 - 0.6 * r.confK) * awareK(r) * DT) foul(m, r, false);
   }
   function triggerFault(m, r, id) {
@@ -472,8 +492,12 @@
   function climbTime(m, r, lvl) {
     const L = m.R.endgame.levels[lvl - 1];
     const base = typeof L.time === 'function' ? L.time(m, r) : L.time;
-    return base * (1.6 - (r.cap.endgame || 40) / 100);
+    return base * (1.6 - (r.cap.endgame || 40) / 100) * (r.cap.lowCG ? 0.95 : 1); // a low centre of gravity hangs straight: a little quicker and surer
   }
+  // How carefully a robot is driven, for the accidents a driver can prevent (a fall from a high climb, a partner dropped
+  // from a buddy climb, 2020: beaching on a Power Cell): 1 for an average driver at a balanced pace, about 0.7 for an
+  // expert, 1.2 for a novice; ×1.6 when pushing, ×0.6 when conserving.
+  const careK = E.careK = r => PACE[r.plan.pace].wear * (1.35 - 0.7 * ((r.drv && r.drv.drive != null ? r.drv.drive : 50) / 100));
   function endgameDue(m, r) {
     if (m.phase === 'auto' || r.end || r.endBusy) return false;
     const lvl = endLevelOf(m, r);
@@ -503,7 +527,7 @@
           else {
             // a failed high climb can end in a fall from height: the robot is out and badly damaged
             const L = m.R.endgame.levels[lvl - 1];
-            if (L.drop && m.rng.chance(L.drop * (1.15 - (r.cap.endgame || 40) / 200))) {
+            if (L.drop && m.rng.chance(U.clamp(L.drop * (1.15 - (r.cap.endgame || 40) / 200) * careK(r), 0, 0.9))) {
               r.end = { lvl: 0, failed: true, drop: true }; r.dead = true; r.climbing = false;
               r.label = 'FELL FROM ' + nm.toUpperCase(); r.stats.faults.push('Fell from ' + nm);
               log(m, r.a, r.team + ' FELL from ' + nm + '!', 'fault');
@@ -520,7 +544,7 @@
   function climbChance(m, r, lvl) {
     if (m.R.endgame.levels[lvl - 1].sure) return 1;
     return U.clamp(0.62 + 0.36 * (r.cap.endgame || 40) / 100 - 0.05 * (lvl - 1) + 0.06 * (r.drv.comp - 50) / 50 + 0.1 * r.confK
-      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0) - (m.R.endgame.levels[lvl - 1].risk || 0), 0.2, 0.985);
+      - (m.playoff ? 0.03 : 0) - (100 - r.cond) / 400 - (r.hidden ? 0.05 : 0) - (m.R.endgame.levels[lvl - 1].risk || 0) + (r.cap.lowCG ? 0.03 : 0), 0.2, 0.985);
   }
 
   // ---------- calls ----------
@@ -575,7 +599,7 @@
     res.robots = m.robots.map(r => ({
       team: r.team, a: r.a, pts: r.stats.pts, cycles: r.stats.cycles, shots: r.stats.shots, hits: r.stats.hits,
       fouls: r.stats.fouls, faults: r.stats.faults.slice(), defTime: Math.round(r.defTime), contacts: Math.round(r.contacts),
-      end: r.end, dead: r.dead, pace: r.plan.pace, role: r.plan.role, autoOK: r.autoOK,
+      end: r.end, dead: r.dead, pace: r.plan.pace, role: r.plan.role, autoOK: r.autoOK, freed: r.stats.freed || 0, beachTip: r.stats.beachTip || 0,
       bumps: r.stats.bumps || 0 // rough ground driven over (2020: the generator's steel bars): extra drivetrain wear
     }));
     m.result = res;
@@ -655,7 +679,21 @@
       const c = r.cap, d = dist(r, goal), span = Math.max(0.5, (c.rangeM || 1.5) - (c.rmin || 1));
       return 0.12 * U.clamp((d - (c.rmin || 1)) / span, 0, 1) * (1 - 0.25 * (c.visionLvl || 0));
     },
-    climbTime: (m, r, lvl) => climbTime(m, r, lvl), climbChance: (m, r, lvl) => climbChance(m, r, lvl),
+    climbTime: (m, r, lvl) => climbTime(m, r, lvl), climbChance: (m, r, lvl) => climbChance(m, r, lvl), careK,
+    // A buddy climber lifts a partner (2018 forks, 2019 ramps, 2020 a hook under the bar). A robot that will not be
+    // carried (plan.noCarry) is never the partner. When the lift fails, the partner may come down hard from part way up:
+    // how often is up to the lifter's drive team (careful and skilled: rarely; pushing: often). The partner is not out
+    // of the match (it is over), but the fall is on its record and the pit crew pays for it.
+    riders: list => list.filter(r => !r.plan.noCarry),
+    buddyLift(m, lifter, rider, p) {
+      if (m.rng.chance(p)) return true;
+      if (m.rng.chance(U.clamp(0.55 * careK(lifter), 0.1, 0.9))) {
+        rider.stats.faults.push('Dropped by a partner');
+        log(m, rider.a, lifter.team + ' dropped ' + rider.team + ' during the buddy climb', 'fault');
+        if (!m.headless) m.fx.push({ k: 'pop', x: rider.x, y: rider.y, text: 'DROPPED!', t: m.t, a: rider.a });
+      }
+      return false;
+    },
     nearest(r, pts) { let best = null, bd = 1e9; for (const p of pts) { const d = dist(r, p); if (d < bd) { bd = d; best = p; } } return best; },
     travelEst(m, r, pt) { return dist(r, pt) / speedOf(m, r); },
     alliance: (m, a) => m.robots.filter(x => x.a === a)

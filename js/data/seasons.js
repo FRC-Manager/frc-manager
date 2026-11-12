@@ -135,8 +135,13 @@
           base: { scoreSpd: 35, accuracy: 48 }, ceil: { scoreSpd: 80, accuracy: 93 }, caps: { reach: 3, coneReach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
         { id: 'elevw', name: 'Elevator + wrist', desc: 'Elevator with a wrist: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 40, accuracy: 48 }, ceil: { scoreSpd: 90, accuracy: 95 }, caps: { reach: 3, coneReach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } },
-        { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1600, hours: 235, w: 22, cx: 5, areas: ['arm'],
-          base: { scoreSpd: 45, accuracy: 40 }, ceil: { scoreSpd: 95, accuracy: 90 }, caps: { reach: 3, coneReach: 3, tall: 1.0 }, look: { manip: 'dja' } }
+        { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1600, hours: 235, w: 22, cx: 4, areas: ['arm'],
+          base: { scoreSpd: 45, accuracy: 40 }, ceil: { scoreSpd: 95, accuracy: 90 }, caps: { reach: 3, coneReach: 3, tall: 1.0 }, look: { manip: 'dja' } },
+        // a telescoping arm on a low pivot: as quick as the double-jointed arm and nearly as sure as the elevator, with nearly all
+        // its weight at the axles. It never tips (cap.lowCG, not even on the Charge Station) and balances a little better.
+        // The hardest manipulator of the year: the double-jointed arm moved down a step of complexity to make room.
+        { id: 'tele', name: 'Pivoting telescope', elite: true, desc: 'A telescoping arm on a low pivot: quick, sure, and so low that it never tips and sits steadier on the Charge Station. The hardest manipulator of the year to build.', cost: 2100, hours: 285, w: 21, cx: 5, areas: ['arm', 'elevator'],
+          base: { scoreSpd: 42, accuracy: 42 }, ceil: { scoreSpd: 95, accuracy: 92 }, caps: { reach: 3, coneReach: 3, tall: 0, lowCG: true }, look: { manip: 'tele' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
         { id: 'claw', name: 'Pneumatic claw', desc: 'A cylinder closes two jaws on a cone or a cube. Cheap and light, but it has to be lined up, and a hard hit can shake the piece loose.', cost: 250, hours: 55, w: 5, cx: 1, areas: ['arm'],
@@ -149,6 +154,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT({ base: { balance: 22 }, ceil: { balance: 95 } })] }
     ],
     archetypes: [
+      { name: 'Pivoting telescope, ground intake', min: 90, pick: { drive: 'swerve', intake: 'gall', scorer: 'tele', effector: 'wrist' } },
       { name: 'Elevator + wrist, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
       { name: 'Elevator scorer', min: 56, pick: { drive: ['swerve', 'wcd'], intake: ['gcube', 'none'], scorer: ['elev', 'elevw'], effector: 'roller' } },
       { name: 'Arm scorer', min: 36, pick: { drive: ['wcd', 'swerve', 'kit'], intake: 'none', scorer: 'sja', effector: ['claw', 'roller'] } },
@@ -239,12 +245,16 @@
       { id: 'scorer', name: 'Coral Lift', concepts: [
         { id: 'trough', name: 'Fixed mount (L1 trough)', desc: 'The end effector sits at trough height: Level 1 only.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['arm'],
           base: { scoreSpd: 55, accuracy: 75 }, ceil: { scoreSpd: 88, accuracy: 98 }, caps: { reach: 1 }, look: { manip: 'low' } },
-        { id: 'arm', name: 'Pivot arm (L1–L3)', desc: 'Arm reaching L1 to L3.', cost: 750, hours: 125, w: 13, cx: 3, areas: ['arm'],
+        { id: 'arm', name: 'Pivot arm (L1–L3)', desc: 'Arm reaching L1 to L3.', cost: 750, hours: 125, w: 13, cx: 2, areas: ['arm'],
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 82, accuracy: 90 }, caps: { reach: 3, tall: 0.4 }, look: { manip: 'arm' } },
-        { id: 'elev', name: 'Elevator (L1–L4)', desc: 'Tall elevator reaching the top branches.', cost: 1250, hours: 190, w: 22, cx: 4, areas: ['elevator'],
+        { id: 'elev', name: 'Elevator (L1–L4)', desc: 'Tall elevator reaching the top branches.', cost: 1250, hours: 190, w: 22, cx: 3, areas: ['elevator'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 88, accuracy: 94 }, caps: { reach: 4, tall: 0.8 }, look: { manip: 'elevator' } },
-        { id: 'elevw', name: 'Elevator + wrist (L1–L4)', desc: 'Fast elevator with a wrist; can knock algae off the reef.', cost: 1700, hours: 245, w: 26, cx: 5, areas: ['elevator', 'arm'],
-          base: { scoreSpd: 42, accuracy: 46 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 4, tall: 0.9, algaeRemove: true }, look: { manip: 'elevwrist' } }
+        { id: 'elevw', name: 'Elevator + wrist (L1–L4)', desc: 'Fast elevator with a wrist; can knock algae off the reef.', cost: 1700, hours: 245, w: 26, cx: 4, areas: ['elevator', 'arm'],
+          base: { scoreSpd: 42, accuracy: 46 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 4, tall: 0.9, algaeRemove: true }, look: { manip: 'elevwrist' } },
+        // the same top performance as the elevator with a wrist, on a low pivot: it never tips (cap.lowCG) and hangs a
+        // little straighter from the cage. The other lifts moved down one step of complexity to make room above them.
+        { id: 'tele', name: 'Pivoting telescope (L1–L4)', elite: true, desc: 'A telescoping arm on a low pivot: every branch, algae off the reef, never tips, and it hangs straighter from the cage. No faster than a good elevator with a wrist, and the hardest lift to build.', cost: 2200, hours: 300, w: 23, cx: 5, areas: ['arm', 'elevator'],
+          base: { scoreSpd: 42, accuracy: 46 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 4, tall: 0, lowCG: true, algaeRemove: true }, look: { manip: 'tele' } }
       ] },
       { id: 'effector', name: 'End Effector', concepts: [
         { id: 'chute', name: 'Gravity chute', desc: 'An open channel: coral slides in at the station and slides out onto the branch when the robot stops. Nothing to break, but the robot has to be square and still.', cost: 150, hours: 40, w: 3, cx: 1, areas: ['arm'],
@@ -271,6 +281,7 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
+      { name: 'Pivoting telescope + net + deep', min: 90, pick: { drive: 'swerve', intake: ['ground', 'none'], scorer: 'tele', effector: 'pivot', algae: ['net', 'proc'], endgame: 'deep' } },
       { name: 'L4 elevator + net + deep', min: 76, pick: { drive: 'swerve', intake: ['ground', 'none'], scorer: 'elevw', effector: ['pivot', 'roller'], algae: ['net', 'proc'], endgame: 'deep' } },
       { name: 'L4 elevator + deep', min: 56, pick: { drive: 'swerve', intake: 'none', scorer: ['elev', 'elevw'], effector: 'roller', algae: ['proc', 'none'], endgame: ['deep', 'shallow'] } },
       { name: 'Arm scorer', min: 34, pick: { drive: ['swerve', 'wcd'], intake: 'none', scorer: 'arm', effector: ['roller', 'chute'], algae: ['none', 'proc'], endgame: ['shallow', 'none'] } },

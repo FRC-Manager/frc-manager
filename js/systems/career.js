@@ -447,7 +447,8 @@
     if (S.scrimmage) add('b7', 'event', 'Week 0 scrimmage', 'acc');
     const sq = S.season && S.season.champsQualified;
     add('champs', 'event', sq ? C.champs(S).label + ' — qualified!' : C.champs(S).label + (S.team.home && G.World.on(S) ? ' (through your district\'s points list)' : C.wildEra(S) ? ' (win a regional, Impact/EI/Rookie All-Star, or a finalist\'s wildcard)' : ' (win a regional, Impact/EI or Regional Pool)'), sq ? 'good' : 'dim');
-    if (S.festival && S.festival.pending) add('off2', 'event', 'Festival of Champions: best of five against the ' + S.festival.otherCity + ' champions', 'acc');
+    if (S.festStream && S.festStream.stage === 'open') add('off2', 'event', 'Festival of Champions livestream (optional): the two champion alliances, best of five', 'acc');
+    if (S.festival && S.festival.pending) add('off2', 'event', 'Festival of Champions: best of five against the ' + S.festival.otherCity + ' champions (travel paid, cannot be skipped)', 'acc');
     D.OFFSEASON_EVENTS.forEach(e => {
       const i = D.MONTHS.indexOf(e.month), reg = S.offReg.includes(e.id), done = S.eventsDone[e.id + S.year];
       if (!reg && i < cur) return; // missed: nothing to show
@@ -610,7 +611,8 @@
     const strong = Object.values(S.teams).filter(t => !mine.includes(t.num)).sort((a, b) => b.str - a.str).slice(0, 12);
     rng.shuffle(strong);
     while (mine.length < 3 && strong.length) mine.push(strong.pop().num);
-    const other = strong.slice(0, 3).map(t => t.num);
+    // the other Championship's winners come from its real field in the world simulation
+    const other = champAlliance(S, Math.max(0, G.Era.champs(F.cy).cities.indexOf(F.otherCity)), F.cy, [], mine, rng);
     ev.alliances = rng.chance(0.5) ? [mine, other] : [other, mine];
     ev.teams = [].concat(...ev.alliances);
     ev.teams.forEach(n => { if (n !== S.team.num) ev.caps[n] = G.AI.entry(S.teams[n], ev.year, 1.14, { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1, rng); ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: 0 }; });
@@ -752,8 +754,8 @@
   C.blockers = function (S) {
     const b = [];
     const ev = C.eventThisTurn(S);
-    if (ev && ev.active) b.push('Finish the current event first.');
-    else if (ev && ev.def) b.push('You have an event this turn: ' + ev.def.name + '.');
+    if (ev && ev.active) b.push(S.event && S.event.stream ? 'The Festival livestream is still open: close it first (Event).' : 'Finish the current event first.');
+    else if (ev && ev.def) b.push('You have an event this turn: ' + ev.def.name + '.' + (ev.def.festival ? ' Both champion alliances are expected: it cannot be skipped, and the trip costs you nothing.' : ''));
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
@@ -1079,7 +1081,7 @@
     const d = ev.def;
     if (d.kind === 'champs') S.champsDeclined = true;
     else if (d.kind === 'dcmp') S.dcmpDeclined = S.year;
-    else if (d.kind === 'einstein') return 'You can\'t skip Einstein';
+    else if (d.kind === 'einstein') return d.festival ? 'The Festival of Champions cannot be skipped: both champion alliances are expected, and the trip is paid for' : 'You can\'t skip Einstein';
     else { S.eventsDone[d.id] = true; (S.season.skipped = S.season.skipped || []).push(d.name); }
     C.inbox(S, 'Skipped: ' + d.name, 'The team stayed home from ' + d.name + '. Fees for events this close are not refunded.', 'event');
     return null;
@@ -1117,6 +1119,11 @@
       const msg = 'Your robot fell from the ' + rr.faults.find(f => /^Fell from/.test(f)).replace('Fell from ', '') + ' — heavy damage everywhere' + (rr.scrapped ? ', ' + rr.scrapped + ' spare part' + (rr.scrapped > 1 ? 's' : '') + ' scrapped' : '') + '. The pit crew will need spares to rebuild it.';
       ev.log.push(msg);
       G.Career.inbox(S, 'Hard fall at ' + ev.name, msg, 'event');
+    }
+    if (rr.faults.some(f => /^Dropped by a partner/.test(f))) {
+      const msg = 'A partner\'s buddy climber let go of your robot on the way up: the drivetrain took most of it, and everything else took some. The pit crew will need spares. To stay on the ground next time, tick "Don\'t let a partner carry us" in the match plan.';
+      ev.log.push(msg);
+      G.Career.inbox(S, 'Dropped in a buddy climb at ' + ev.name, msg, 'event');
     }
     if (ev.batts) {
       const i = ev.battIdx || 0;
@@ -1254,11 +1261,15 @@
       C.inbox(S, 'Week 0 scrimmage complete', 'Your drivers and robot got real reps. Starting tuning/confidence at your first regional is higher.', 'event');
       return;
     }
+    if (ev.kind === 'einstein' && ev.stream) { C.festStreamClose(S, false, ev); return; } // the livestream: nothing at stake for your team
     if (ev.kind === 'einstein' && ev.festival) {
       const F = S.festival; F.pending = false; F.won = !!r.won; F.result = r.finish;
-      if (r.won) { C.addRep(S, 10); S.morale = 100; S.legacy += 40; C.inbox(S, 'Festival of Champions: winners!', 'Your alliance beat the ' + F.otherCity + ' champions over five matches. 2017 has one champion, and it is you.', 'event'); }
-      else C.inbox(S, 'Festival of Champions', 'The ' + F.otherCity + ' champions took the best-of-five. You are still World Champions of ' + F.city + ', and you were part of the best series of the year.', 'event');
-      (S.storySeen = S.storySeen || {}).festival = 1;
+      const d = F.cele = C.festData(S, ev); // the series as it went: for the celebration, the result page, the story and the History wall
+      if (r.won) { C.addRep(S, 10); S.morale = 100; S.legacy += 40; C.inbox(S, 'Festival of Champions: winners!', 'Your alliance beat the ' + F.otherCity + ' champions ' + d.w + '–' + d.l + ' in the best-of-five. 2017 has one champion alliance, and it is yours.', 'event'); }
+      else C.inbox(S, 'Festival of Champions', 'The ' + F.otherCity + ' champions took the best-of-five ' + d.l + '–' + d.w + '. You are still World Champions of ' + F.city + ', and you were part of the best series of the year.', 'event');
+      // The pop-up everybody else got at the start of July was held back for this team (story.hold): it is told now, with
+      // this series in it, and shown on the way out of the event.
+      { const st = D.STORIES.find(x => x.id === 'festival'); if (st && !(S.storySeen || {}).festival) C.tellStory(S, st).afterEvent = true; }
       return;
     }
     if (ev.kind === 'einstein' && ev.watch) {
@@ -1274,7 +1285,7 @@
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
-          C.inbox(S, 'Invitation: the Festival of Champions', 'There were two Championships this year, so there are two champion alliances. In July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it. Keep the robot ready: it is on your calendar.', 'event'); } }
+          C.inbox(S, 'Invitation: the Festival of Champions', 'There were two Championships this year, so there are two champion alliances. In July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it. The organisers pay the trip for both alliances, and a champion alliance does not stay home: the event is on your calendar and cannot be skipped. Keep the robot ready.', 'event'); } }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
       if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
@@ -1330,6 +1341,133 @@
     if (dt.coach) return dt.coach.name;
     const m = C.allMentors(S).filter(x => x.role === 'coach').sort((a, b) => b.skill - a.skill)[0];
     return m ? m.name : null;
+  };
+  // ======================= The Festival of Champions (July 2017) =======================
+  // The series as it went, with the people in it and what was said afterwards
+  C.festData = function (S, ev) {
+    const F = S.festival, me = S.team.num, pa = G.Ev.playerAlliance(ev), m = ev.po.matches.find(x => x.id === 'F');
+    const side = m.red === pa ? 'red' : 'blue', o = side === 'red' ? 'blue' : 'red', nm = t => (t === me ? S.team.name : (S.teams[t] || {}).name || '');
+    const games = m.games.filter(g => !g.replay && (g.winner === 'red' || g.winner === 'blue')).map(g => ({ mine: g[side], theirs: g[o], won: g.winner === side }));
+    const w = games.filter(g => g.won).length, l = games.length - w, won = m.winner === pa;
+    const dt = C.driveTeam(S), driver = dt.driver && dt.driver.name ? dt.driver.name : 'Your driver', coach = C.coachName(S);
+    const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
+    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1 },
+      alliance: ev.alliances[pa].map(t => ({ num: t, name: nm(t) })), opp: ev.alliances[1 - pa].map(t => ({ num: t, name: nm(t) })), games, w, l, driver, coach, sponsor,
+      comeback: won && games.length > 3 && !games[0].won && !games[1].won, letSlip: !won && games.length > 3 && games[0].won && games[1].won, sweep: games.length === 3 };
+    const pool = won ? [
+      ['Two champions was one too many. Now there is one.', 'the Festival emcee'],
+      ['We drove a thousand miles in July to watch ' + (games.length === 5 ? 'five' : games.length === 4 ? 'four' : 'three') + ' matches. I would do it again tomorrow.', 'a parent in the stands'],
+      [driver.split(' ')[0] + ' has now won the last match of the season twice in one year.', 'your lead mentor'],
+      ['They beat everybody in ' + F.city + ', and then the alliance that beat everybody in ' + F.otherCity + '.', 'a forum regular'],
+      ['Twenty years with a whistle. That was the best series I ever stood beside.', 'the head referee'],
+      ['I told the students that July was the offseason.', coach ? coach + ', drive coach' : 'your drive coach'],
+      sponsor ? ['We ordered a second banner for the lobby. It is the same banner. We just wanted two.', sponsor] : null,
+      d.comeback ? ['Two matches down, they asked for a fresh battery and changed nothing else.', 'the ' + F.otherCity + ' drive coach'] : null,
+      d.sweep ? ['Three matches. We had tickets for both days.', 'a parent from ' + F.otherCity] : null
+    ] : [
+      ['Losing in July to the only other champions on earth. I can live with that.', coach ? coach + ', drive coach' : 'your drive coach'],
+      ['Both alliances signed both banners. Ours hangs in the shop.', 'a student on your team'],
+      ['Nobody in that arena lost anything today.', 'the Festival emcee'],
+      ['We are still World Champions of ' + F.city + '. It says so on the wall.', 'your lead mentor'],
+      d.letSlip ? ['Two matches up and one hand on the trophy. I will be telling this story for years, and it will sting every time.', driver + ', driver'] : null,
+      sponsor ? ['They were invited to a final only two alliances in the world could play. That is the photo in our lobby.', sponsor] : null
+    ];
+    d.quotes = pickN(pool.filter(Boolean), 3);
+    d.series = C.festSeries(S, ev, F.cy);
+    return d;
+  };
+  // ---- The six teams of the series, as the world simulation has them ----
+  // Three teams for a champion alliance nobody watched win. Only the player's own division and Einstein are played
+  // match by match, so the winners of the other Championship are drawn from its real field: teams from that half of
+  // the world that qualified for the Championship this season (World: wseason.q), the strongest of them.
+  // have: teams the books already name for this alliance; taken: teams that are on the other one.
+  function champAlliance(S, si, cy, have, taken, rng) {
+    const ws = S.wseason && S.wseason.cy === cy ? S.wseason : null, me = S.team.num;
+    const free = t => t.num !== me && !taken.includes(t.num) && !have.includes(t.num);
+    const all = Object.values(S.teams).filter(t => free(t) && G.Era.champsSide(t.region) === si).sort((a, b) => b.str - a.str);
+    let pool = all.filter(t => ws && ws.q[t.num]);
+    if (pool.length < 6) pool = pool.concat(all.filter(t => !pool.includes(t)).slice(0, 6 - pool.length));
+    if (pool.length < 3) pool = pool.concat(Object.values(S.teams).filter(t => free(t) && !pool.includes(t)).sort((a, b) => b.str - a.str).slice(0, 3)); // a very small world
+    const top = rng.shuffle(pool.slice(0, 8)), out = have.slice();
+    while (out.length < 3 && top.length) out.push(top.pop().num);
+    if (!have.length) out.sort((a, b) => S.teams[b].str - S.teams[a].str); // the strongest of the three is the captain
+    return out;
+  }
+  // What the world simulation knows about one team in the season `cy`: where it plays, every event it played (rank,
+  // alliance, finish, judged awards) and how it earned its Championship place
+  C.teamBrief = function (S, n, cy) {
+    const me = n === S.team.num, T = me ? S.team : S.teams[n] || {}, ws = S.wseason && S.wseason.cy === cy ? S.wseason : null;
+    const AW = { impact: 'Impact Award', ei: 'Engineering Inspiration', ras: 'Rookie All-Star' };
+    const evn = id => { const e = ws.events.find(x => x.id === id); return e ? e.name : 'an event'; };
+    const events = ws ? (ws.rec[n] || []).slice().sort((a, b) => a.w - b.w).map(r => ({ name: evn(r.e), rank: r.r, of: r.n, finish: r.f || '', al: r.a || 0, pick: r.p || 0, awards: (r.aw || []).filter(a => AW[a]).map(a => AW[a]) })) : [];
+    const hs = me ? S.history.find(x => x.cy === cy) : null;
+    return { num: n, name: T.name || '', home: T.home && D.DISTRICT[T.home] ? D.DISTRICT[T.home].name : T.region || '', rookie: !me && T.ry === cy, events,
+      qual: me ? (hs && hs.champsReason) || '' : (ws && ws.q[n]) || '' };
+  };
+  // The series for the public message: the result, every match, and both alliances (the winners first) with each
+  // team's season in the world simulation and what its robot did in the series (the per-robot results of the matches)
+  C.festSeries = function (S, ev, cy) {
+    const F = ev.po.matches.find(x => x.id === 'F'), sd = i => (F.red === i ? 'red' : 'blue'), me = S.team.num;
+    const games = F.games.filter(g => !g.replay && (g.winner === 'red' || g.winner === 'blue'));
+    const wi = F.winner, li = F.red === wi ? F.blue : F.red;
+    const stat = n => { let g = 0, pts = 0, end = 0, dead = 0; games.forEach(x => { const r = x.res && x.res.robots && x.res.robots.find(q => q.team === n); if (!r) return; g++; pts += r.pts || 0; if (r.end && r.end.lvl > 0) end++; if (r.dead) dead++; }); return { g, ppm: g ? Math.round(pts / g) : 0, end, dead }; };
+    const side = i => ({ city: ev.divNames[i], wins: games.filter(g => g.winner === sd(i)).length, you: ev.alliances[i].includes(me),
+      teams: ev.alliances[i].map((n, k) => Object.assign(C.teamBrief(S, n, cy), { me: n === me, captain: k === 0 }, stat(n))) });
+    return { cy, game: (G.Seasons[ev.year] || {}).name || '', a: side(wi), b: side(li), games: games.map(g => ({ a: g[sd(wi)], b: g[sd(li)], won: g.winner === sd(wi) })) };
+  };
+  // ---- The livestream: a team that is not in the Festival can watch it (optional, costs nothing, nothing at stake) ----
+  // July after a season with two Championships and a Festival: the stream opens for every team that is not playing in it
+  C.festStreamOpen = function (S) {
+    const prev = S.history[S.history.length - 1];
+    if (!S.cal || S.mode !== 'career' || S.festival || S.festStream || !prev || !prev.cy || !G.Era.champs(prev.cy).final) return;
+    const CH = G.Era.champs(prev.cy);
+    S.festStream = { cy: prev.cy, gy: prev.year, stage: 'open', cities: CH.cities.slice() };
+    C.inbox(S, 'Live this month: the Festival of Champions', 'The ' + CH.cities[0] + ' and ' + CH.cities[1] + ' champions meet in Manchester, New Hampshire, for a best-of-five, and the whole series is streamed. Your team is not in it, but anyone can watch (Headquarters or Calendar). It is optional and costs nothing; the result arrives either way.', 'event');
+    (S.launchQueue = S.launchQueue || []).push({ kind: 'festLive' });
+  };
+  // the two champion alliances: the winners of the Einstein your team was at, when the books have them, and for the
+  // rest the best of each Championship's field in the world simulation (champAlliance)
+  function buildFestStream(S) {
+    const FS = S.festStream, rng = G.R, gy = FS.gy, me = S.team.num, prev = S.history.find(h => h.cy === FS.cy);
+    const ev = G.Ev.start({ id: 'festlive' + FS.cy, kind: 'einstein', name: 'Festival of Champions', size: 1, year: gy, week: 0, str: 5, fmt: 'f5' });
+    ev.festival = true; ev.stream = true; ev.watch = true; ev.batts = S.parts.batts.map(() => 1);
+    const ein = prev && (prev.events || []).find(e => e.kind === 'einstein' && e.winners && e.winners.length >= 3);
+    const known = ein ? ein.winners.filter(n => n !== me && S.teams[n]).slice(0, 3) : [];
+    const side = G.Era.champsSide(S.team.region), mine = champAlliance(S, side, FS.cy, known, [], rng), other = champAlliance(S, 1 - side, FS.cy, [], mine, rng);
+    ev.alliances = side === 0 ? [mine, other] : [other, mine]; // in city order: the first Championship's champions first
+    ev.divNames = FS.cities.slice();
+    ev.teams = [].concat(...ev.alliances);
+    ev.teams.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], gy, 1.14, 1, rng); ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: 0 }; });
+    ev.practice.blocks = 0;
+    G.Ev.initPlayoffs(ev);
+    return ev;
+  }
+  C.startFestStream = function (S) {
+    const FS = S.festStream;
+    if (!FS || FS.stage !== 'open') return 'The stream is not on';
+    if (S.event) return 'Finish the current event first';
+    S.event = buildFestStream(S); // no travel, no fees, no hours: the team watches from the shop
+    return null;
+  };
+  // The series is over: watched to the end, closed early (the rest is played out) or never opened (missed: all of it is).
+  // The result is kept and the story everybody gets is told with it.
+  C.festStreamClose = function (S, missed, ev) {
+    const FS = S.festStream;
+    if (!FS || FS.stage !== 'open') return;
+    // never opened: the series is played in the background. Ev.start makes its event the current one, so put back
+    // whatever was current (nothing, normally) or the month would stay blocked by an event nobody is at.
+    const own = !ev, was = S.event;
+    if (own) ev = buildFestStream(S);
+    let m; while ((m = G.Ev.nextPlayoff(ev))) G.Ev.applyPlayoff(ev, m, G.Ev.runHeadless(ev, G.Ev.poMatchObj(ev, m)));
+    if (own) S.event = was || null;
+    const F = ev.po.matches.find(x => x.id === 'F'), wside = F.red === F.winner ? 'red' : 'blue', lside = wside === 'red' ? 'blue' : 'red';
+    const games = F.games.filter(g => !g.replay && (g.winner === 'red' || g.winner === 'blue')).map(g => ({ a: g[wside], b: g[lside], won: g.winner === wside }));
+    FS.stage = missed ? 'missed' : 'watched';
+    FS.result = { winner: ev.divNames[F.winner], loser: ev.divNames[F.loser], w: games.filter(g => g.won).length, l: games.filter(g => !g.won).length, games,
+      teams: ev.alliances[F.winner].map(n => ({ num: n, name: (S.teams[n] || {}).name || '' })), opp: ev.alliances[F.loser].map(n => ({ num: n, name: (S.teams[n] || {}).name || '' })) };
+    FS.result.series = C.festSeries(S, ev, FS.cy);
+    const st = D.STORIES.find(x => x.id === 'festival');
+    if (st && !(S.storySeen || {}).festival) { const L = C.tellStory(S, st); if (!missed) L.afterEvent = true; }
   };
   C.wcData = function (S, ev) {
     const me = S.team.num, gy = ev.year, Sz = G.Seasons[gy] || {}, pa = G.Ev.playerAlliance(ev), al = pa >= 0 ? ev.alliances[pa] : [me];
@@ -1596,7 +1734,10 @@
     const cy = when === 'recap' ? C.cy(S) : C.cyNext(S);
     if (!cy) return;
     S.storySeen = S.storySeen || {};
-    D.STORIES.filter(s => s.cy === cy && s.at === when && !S.storySeen[s.id] && !(s.skipIf && S[s.skipIf])).forEach(s => C.tellStory(S, s));
+    // the Festival livestream opens in July for teams that are not in it; a month later it has been played without them
+    if (when === 'off:2') C.festStreamOpen(S);
+    else if (/^off:/.test(when) && S.festStream && S.festStream.stage === 'open') C.festStreamClose(S, true);
+    D.STORIES.filter(s => s.cy === cy && s.at === when && !S.storySeen[s.id] && !(s.skipIf && S[s.skipIf]) && !(s.hold && s.hold(S))).forEach(s => C.tellStory(S, s));
   };
   // one line on the season just finished, for the recap pop-up
   C.seasonLine = function (S) {
@@ -1610,14 +1751,17 @@
   };
   C.tellStory = function (S, s) {
     const rng = G.R; (S.storySeen = S.storySeen || {})[s.id] = 1;
-    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: s.body.slice(), means: (s.means || []).slice(), btn: s.btn || null, month: /^off:/.test(s.at || '') ? D.MONTHS[S.month] : '',
+    const v = (s.vary && s.vary(S)) || {}; // a story may read differently for a team that was part of it
+    const L = { kind: 'story', id: s.id, tag: s.tag, color: s.color, title: s.title, body: (v.body || s.body).slice(), means: (v.means || s.means || []).slice(), btn: s.btn || null, month: /^off:/.test(s.at || '') ? D.MONTHS[S.month] : '',
       talk: rng.shuffle((s.talk || []).slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', techTeam(S, rng))]) };
     if (s.hit) L.hit = C.techHit(S, s.hit.area, s.hit.pct);
     if (s.at === 'recap') L.mine = C.seasonLine(S);
-    const text = s.body.join('\n\n') + (L.mine ? '\n\nYour season: ' + L.mine : '') + (L.means.length ? '\n\nWhat it means for you:\n' + L.means.map(x => '• ' + x).join('\n') : '') +
+    if (v.mine) { L.mine = v.mine; L.mineTag = v.mineTag || null; }
+    if (v.series) { L.series = v.series; L.mineTag = v.mineTag || null; } // a result shown as a block of its own (the Festival), in the pop-up and in the Inbox
+    const text = L.body.join('\n\n') + (L.mine ? '\n\n' + (L.mineTag ? L.mineTag.charAt(0) + L.mineTag.slice(1).toLowerCase() : 'Your season') + ': ' + L.mine : '') + (L.means.length ? '\n\nWhat it means for you:\n' + L.means.map(x => '• ' + x).join('\n') : '') +
       (L.hit ? '\n→ ' + L.hit.name + ': −' + L.hit.pct + '% know-how (' + L.hit.xp0 + ' → ' + L.hit.xp1 + ' XP' + (L.hit.l1 < L.hit.l0 ? ', Level ' + L.hit.l0 + ' → ' + L.hit.l1 : '') + (L.hit.deep ? '; Level ' + L.hit.l0 + ' know-how was tuned to the old way, so it lost more and dropped a level' : '') + ')' : '') +
       (L.talk.length ? '\n\nWhat people are saying:\n' + L.talk.map(q => '“' + q[0] + '” — ' + q[1]).join('\n') : '');
-    C.inbox(S, s.title, text, s.hit ? 'know' : 'info');
+    C.inbox(S, s.title, text, s.hit ? 'know' : 'info', v.series ? { series: v.series, seriesTag: v.mineTag || null } : null);
     (S.launchQueue = S.launchQueue || []).push(L);
     return L;
   };
@@ -1699,17 +1843,19 @@
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
+  C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest' });
   C.banners = function (S) {
     const out = [];
-    const add = (gy, events, s) => {
+    const add = (gy, events, s, past) => {
       const n0 = out.length;
       events.forEach(e => out.push(...C.eventBanners(e, gy)));
       if (s.worldChamp) out.push(...C.eventBanners({ kind: 'einstein', won: true }, gy));
+      if (past && S.festival && S.festival.cele && S.festival.gy === gy) out.push(C.festBanner(S)); // played in the July after that season
       const ci = s.cmpImpact && s.cmpImpact.result;
       if (ci) out.push({ award: ci === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: C.calYear(S, gy), event: 'FIRST Championship', gold: ci === 'winner', world: true, key: 'impact' });
       for (let i = n0; i < out.length; i++) out[i].gy = gy;
     };
-    S.history.forEach(h => add(h.year, h.events, h));
+    S.history.forEach(h => add(h.year, h.events, h, true));
     if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season);
     return out;
   };
@@ -1817,7 +1963,7 @@
     s.loyal = G.Parts.loyalSeason(S);
     S.history.push({
       loyal: s.loyal || null,
-      year: S.year, cy: C.cy(S), px: C.px(S), robot: C.robotRecord(S), events: s.events, awards: s.awards, champs: s.champsQualified, divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
+      year: S.year, cy: C.cy(S), px: C.px(S), robot: C.robotRecord(S), events: s.events, awards: s.awards, champs: s.champsQualified, champsReason: s.champsReason || '', divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       home: S.team.home && G.World.on(S) ? S.team.home : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
       earned: s.earned, spent: s.spent, avgRP: s.qualMatches ? s.rpSum / s.qualMatches : 0, impactRaw: s.impact, board: s.board || null

@@ -161,7 +161,7 @@
   // 2023 CHARGED UP
   // =====================================================================
   const PT23 = { auto: [3, 4, 6], tele: [2, 3, 5] };
-  const balOf = r => 0.6 * (r.cap.balance || 20) + 0.4 * (r.cap.agility || 30);
+  const balOf = r => 0.6 * (r.cap.balance || 20) + 0.4 * (r.cap.agility || 30) + (r.cap.lowCG ? 6 : 0); // a low centre of gravity (pivoting telescope) sits steadier on the Charge Station
   const nodeType = (row, col) => row === 0 ? 'any' : ([1, 4, 7].includes(col) ? 'cube' : 'cone');
   const placeTime = (row, type) => [0.9, 1.4, 1.9][row] + (type === 'cone' ? 0.5 : 0);
   function rowLinks(g, row) { let n = 0, c = 0; while (c <= 6) { if (g[row * 9 + c] && g[row * 9 + c + 1] && g[row * 9 + c + 2]) { n++; c += 3; } else c++; } return n; }
@@ -826,6 +826,10 @@
   // floor of an alliance zone, ss.depot the alliance's depot. Scored fuel drops back into the neutral zone; missed shots
   // mostly bounce into the shooter's own zone. A thinner neutral zone is slower to sweep.
   const dens26 = m => U.clamp(0.45 + m.neutral / 320, 0.45, 1.15);
+  // beaching on fuel, per second of driving (average driver, balanced pace): on the open carpet with the neutral zone
+  // full, and on a bump. The bumps are the bands of each barrier line that are not trench (see slow()).
+  const BEACH26 = { floor: 0.002, bump: 0.012 };
+  const bump26 = r => { for (const X of [XB, FW - XB]) { if (Math.abs(r.x - X) < 0.6) { const yb = X < FW / 2 ? r.y : FH - r.y; return (yb > 1.6 && yb < 3.5) || (yb > 4.6 && yb < 6.6); } } return false; };
   // Hoarding (the REBUILT meta): an alliance can't score while its hub is inactive, so strong alliances keep working.
   // They sweep the neutral zone and lob the fuel back into their own zone; when the hub lights up, all three robots
   // refill a few steps from it. How cleanly the lobs land depends on the alliance's grasp of the strategy (feedIQ).
@@ -1041,6 +1045,20 @@
       ['red', 'blue'].forEach(a => { if (m.ss[a].hoard) H.log(m, a, a.toUpperCase() + ' alliance hoards fuel in its zone while its hub is inactive', 'call'); });
     },
     tick(m) {
+      // Beaching. Fuel is everywhere, and a robot that drives onto a ball instead of over or around it sits on it for a
+      // few seconds. On the open carpet it is rare (rarer than in 2020: these robots are built to plough through fuel)
+      // and follows how much fuel lies there. On a BUMP it is much likelier: fuel gathers at the foot of the ramps, and
+      // a robot climbing one has its weight off the front wheels. A trench-height robot that takes the trench never
+      // meets a bump. Careful, skilled drivers get stuck less; a robot that is pushing gets stuck more.
+      for (const r of m.robots) {
+        if (r.dead || r.st !== 'move' || (r.fault && r.fault.stall)) continue;
+        const onBump = bump26(r), mid = r.x > XB && r.x < FW - XB;
+        const rate = onBump ? BEACH26.bump : BEACH26.floor * (mid ? m.neutral / 360 : Math.min(1.5, ((m.ss[r.x < FW / 2 ? 'blue' : 'red'] || {}).pool || 0) / 120));
+        if (rate > 0 && m.rng.next() < rate * E.careK(r) * E.DT) {
+          r.fault = { stall: true, until: m.t + m.rng.range(2, 4.5), label: 'BEACHED ON FUEL', beached: true };
+          r.stats.faults.push('Beached on fuel' + (onBump ? ' (bump)' : '')); H.log(m, r.a, r.team + ': beached on fuel' + (onBump ? ' on a bump' : ''), 'fault');
+        }
+      }
       if (m.phase !== 'tele') return;
       const s = shiftInfo(m).name;
       if (s !== m.lastShift) {
@@ -1114,5 +1132,5 @@
   S[2023].meta.faults = 'Common failures: tip-overs. Tall arms and elevators reaching the high nodes, plus the Charge Station, put a lot of robots on their side.';
   S[2024].meta.faults = 'Common failures: comms drops from heavy defense contact and brownouts from shooters and intakes running together.';
   S[2025].meta.faults = 'Common failures: tip-overs from tall elevators reaching L4, especially when hit with the elevator up.';
-  S[2026].meta.faults = 'Common failures: brownouts. Multi-motor shooters and hoppers spinning at once pull huge current, so battery health matters more than ever.';
+  S[2026].meta.faults = 'Common failures: brownouts (multi-motor shooters and hoppers pull huge current, so battery health matters), and robots beached on fuel for a few seconds, most of all on the bumps.';
 })();

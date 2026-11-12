@@ -67,7 +67,7 @@
   // ---------- selling parts ----------
   // Each part is a chip: its condition and resale value. Parts above 60% the robots don't need can be sold.
   function sellTab(S) {
-    let o = '<div class="hint mb">' + UI.icon('money', 14) + ' Sell parts you no longer need for part of their price: about ' + Math.round(D.RESALE * 100) + '% of today\'s list price at full condition, less as they wear. <b>The second-hand market follows the news:</b> a part that has been overtaken (an older version, a brushed motor once brushless ones are sold, anything from a vendor that closed) fetches less from the day its replacement goes on sale. Only parts above ' + Math.round(D.SELL_MIN * 100) + '% condition can be sold, Kit of Parts items can\'t, and you can\'t sell below what your robots need.</div>';
+    let o = '<div class="hint mb">' + UI.icon('money', 14) + ' Sell parts you no longer need: about ' + Math.round(D.RESALE * 100) + '% of today\'s list price at full condition, less as they wear and once something newer is on sale. Above ' + Math.round(D.SELL_MIN * 100) + '% condition only. ' + UI.q('parts', 'Selling parts') + '</div>';
     let any = false;
     D.PART_CATS.forEach(c => {
       const list = P().items(S, c.id).filter(it => P().prod(it.p) && P().prod(it.p).price && P().prod(it.p).v !== 'K');
@@ -132,7 +132,7 @@
     // the premium column: Sterling Motion until it closes in 2019 (then a short gap), Apex Motion from the autumn after
     const prem = P().premium(S), closed = S.cal && !prem, slotV = v => (v === 'A' ? (prem || 'T') : v);
     let o = '<div class="grid g3 vcols vhead mb">' + ['A', 'B', 'K'].map(v => { const V = D.VENDORS[slotV(v)], gone = v === 'A' && closed; return '<div class="card flat vendor" style="--vc:' + V.color + (gone ? ';opacity:.6' : '') + '"><div class="row">' + UI.icon('bolt', 20) + '<b class="lg">' + h(V.name) + '</b>' + UI.tag(gone ? 'Closed' : V.tag, gone ? 'bad' : '') + (v === 'A' && P().clearance(S) ? UI.tag('closing sale', 'warn') : '') + '</div><div class="sm muted">' + h(gone ? 'Sterling Motion closed in 2019. The parts you own keep working. There is no premium vendor at the moment.' : V.desc) + '</div>' + (v !== 'K' && !gone && P().loyalOn(S) ? loyalBox(S, v) : '') + '</div>'; }).join('') + '</div>';
-    o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing the premium vendor\'s and Lumen\'s electronics on the competition robot costs 10% more hours on hardware and software projects and a little performance. <b>Kit of Parts</b> electronics (brushed motors, low-profile encoders, a basic hub) are very cheap and never sell out, which helps rookies and teams caught short in season, but they are much slower, and using them next to vendor parts costs 5% more hours and a little performance. ' + (S.cal ? 'Every autumn at least one vendor, usually both, holds a launch event (September to December, before Kickoff) with one to three new products; the previous version stays on sale through the next season. Sterling Motion and Apex Motion parts fit together (same bolt pattern and connectors), so they never count as mixed. Drivetrain parts (West Coast drive sets, swerve modules) are not part of the control system: they never count as mixed either.' : 'Each vendor holds a launch event every fall (September to December, before Kickoff) with at least one new product; the previous version stays on sale through the next season. No product line goes past version III.') + '</div>';
+    o += '<div class="hint mb">' + UI.icon('info', 14) + ' Pick one control system if you can: mixing vendors costs project hours and a little performance. <b>Kit of Parts</b> electronics are cheap and never sell out, but much slower. ' + UI.q('parts', 'Two electronics vendors') + '</div>';
     // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
     D.ELEC_CATS.filter(cat => !(S.cal && D.PART_CAT[cat].group === 'drive')).forEach(cat => {
       const c = D.PART_CAT[cat];
@@ -151,7 +151,7 @@
       o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
         const list = sale.filter(x => (D.PART_CAT[x.prod.cat].group === 'drive' || (v === 'K' && x.prod.id === 'kdriveK')) && x.prod.v === v).sort((a, b) => (a.prod.cat === 'swerve' ? 1 : 0) - (b.prod.cat === 'swerve' ? 1 : 0) || (a.ending ? 1 : 0) - (b.ending ? 1 : 0));
         const notes = [];
-        if (v === 'K') notes.push('The kit drivetrain only fits the kit chassis, and it is the slowest way to drive. COTS Drive gearboxes (Subsystem COTS) are the middle step: 2 make a kit chassis faster, 4 drive a mecanum, and 2 carry a West Coast drive when you have no vendor drive sets, at lower performance than the sets.');
+        if (v === 'K') notes.push('Kit chassis only, and the slowest way to drive. COTS Drive gearboxes are the step up.');
         else {
           if (!swOut && v === 'A') notes.push('Nobody sells swerve modules yet. A swerve drive means machining your own: a CNC Router or a Lathe, extra hours, and less reliability.');
           if (v === 'A' && closed) notes.push('Sterling Motion has closed.');
@@ -160,7 +160,7 @@
           if (v === 'B' && P().lineEnd(S, 'wcd', 'B') === 1) notes.push('Lumen has stopped making West Coast drive sets now that it sells a swerve module. What is in stock is sold through the ' + P().buyCy(S) + ' season. After that a new West Coast drive runs on COTS Drive gearboxes, at lower performance.');
           if (v === 'B' && P().lineEnd(S, 'wcd', 'B') === 2) notes.push('Lumen no longer sells West Coast drive sets: its drivetrain is the swerve module now. A West Coast drive runs on sets you already own, or on COTS Drive gearboxes at lower performance.');
         }
-        return '<div class="col">' + list.map(x => prodCard(S, x)).join('') + notes.map(t => '<div class="pcard empty xs muted">' + h(t) + '</div>').join('') + '</div>';
+        return '<div class="col">' + list.map(x => prodCard(S, x)).join('') + notes.map(t => '<div class="pcard empty xs muted">' + h(t) + (/^Kit chassis only/.test(t) ? ' ' + UI.q('parts', 'What a drive runs on') : '') + '</div>').join('') + '</div>';
       }).join('') + '</div>';
     }
     return o;
@@ -234,7 +234,7 @@
     const C = G.Career, up = C.spareUnitPrice(S, false), next = (function () { const regs = S.regionals.filter(r => S.registered.includes(r.id) && !S.eventsDone[r.id]).sort((a, b) => a.week - b.week); return regs[0] ? Object.assign({ kind: 'regional' }, regs[0]) : null; })();
     const est = next && S.robot ? C.spareEstimate(S, 'regional') : null;
     let o = UI.card(UI.it('spare', 'Spare parts ' + UI.tag(S.parts.spares + ' on hand', S.parts.spares ? '' : 'warn')),
-      '<div class="sm muted mb">Spare parts are specific to this season\'s robot: repairs at home and in the pits use them, and they are cleared out at each Kickoff (none before your first season). One spare restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. ' + U.money(up) + ' each here, ' + U.money(C.spareUnitPrice(S, true)) + ' at events.</div>' +
+      '<div class="sm muted mb">For repairs at home and in the pits; cleared out at each Kickoff. One spare restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. ' + U.money(up) + ' each here, ' + U.money(C.spareUnitPrice(S, true)) + ' at events. ' + UI.q('parts', 'Spare parts and batteries') + '</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySpares" data-arg="' + n + '">+' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
       '<label class="row sm mt"><input type="checkbox" data-chg="autoSpares" ' + (S.autoSpares ? 'checked' : '') + '> Auto-restock</label><div class="xs muted">Every ' + (S.phase === 'off' ? 'month' : 'week') + ' it keeps enough spares for driver practice and home repairs on both robots (cash only), and before each event it buys what the event needs' + (est != null ? ' (next event: about ' + est + ', you have ' + S.parts.spares + ')' : '') + '.' + (S.lastRestock && S.lastRestock.bought ? ' Last turn: bought ' + S.lastRestock.bought + '.' : '') + (S.lastRestock && S.lastRestock.short ? ' <span class="warn">Not enough cash for all ' + S.lastRestock.want + ' last turn.</span>' : '') + '</div>');
     o += '<div class="mt">' + UI.card(UI.it('battery', 'Batteries'), UI.batteryRow(S)) + '</div>';
