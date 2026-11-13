@@ -68,8 +68,8 @@
       rect(ctx, s, x, 0.03, 0.1, FH - 0.06, alc(a));
       for (let i = 0; i < 3; i++) rect(ctx, s, x + (a === 'blue' ? 0.1 : -0.06), 1.4 + i * 2.05, 0.06, 1.2, 'rgba(255,255,255,0.18)');
     });
-    line(ctx, s, FW / 2, 0.05, FW / 2, FH - 0.05, 'rgba(255,255,255,0.22)', 2);
     const fn = FIELD[year];
+    if (!(fn && fn.noMid)) line(ctx, s, FW / 2, 0.05, FW / 2, FH - 0.05, 'rgba(255,255,255,0.22)', 2);
     if (fn) fn(ctx, s, sym, m);
   };
 
@@ -79,45 +79,60 @@
   // Game pieces of the classic games: how a held piece and a shot look. { shape: 'ball' | 'box' | 'disc' | 'gear', col, r }
   Rd.PIECES = {}; Rd.SHOTS = {};
   FIELD[2022] = function (ctx, s, sym, m) {
-    const cx = FW / 2, cy = FH / 2;
+    const cx = FW / 2, cy = FH / 2, F = G.Rules.F22, rd = d => d * Math.PI / 180;
+    // a point at u along direction n (degrees, y down) and v across it, from the Hub's centre
+    const hp = (n, u, v) => { const g = rd(n); return { x: cx + Math.cos(g) * u - Math.sin(g) * (v || 0), y: cy + Math.sin(g) * u + Math.cos(g) * (v || 0) }; };
+    // centre line: about 66° to the guardrail, through the Hub
+    { const g = rd(F.arm), k = (FH / 2 - 0.05) * Math.cos(g) / Math.sin(g); line(ctx, s, cx - k, 0.05, cx + k, FH - 0.05, 'rgba(235,240,245,0.6)', 2.5); }
     ['blue', 'red'].forEach(a => {
-      // two tarmac sections per alliance around the hub
-      [[112, 174], [186, 248]].forEach(([d0, d1]) => {
-        const pts = [];
-        for (let d = d0; d <= d1; d += 6) { const g = d * Math.PI / 180; pts.push([cx + Math.cos(g) * 3.1, cy + Math.sin(g) * 3.1]); }
-        for (let d = d1; d >= d0; d -= 6) { const g = d * Math.PI / 180; pts.push([cx + Math.cos(g) * 1.55, cy + Math.sin(g) * 1.55]); }
-        apoly(ctx, s, sym, a, pts, als(a), alc(a), 2);
+      // two Tarmacs per alliance, in front of the fenders on its side of the centre line
+      const vi = F.fend + F.tw - F.tu;
+      F.own.forEach(n => apoly(ctx, s, sym, a, [[F.fend, -vi], [F.tu, -F.tw], [F.apex, 0], [F.tu, F.tw], [F.fend, vi]].map(([u, v]) => { const p = hp(n, u, v); return [p.x, p.y]; }), als(a), alc(a), 2));
+      // Hangar Zone, the truss (two arches on four legs, Launch Pads on the Hub-side legs) and the rungs:
+      // Traversal nearest the alliance wall, then High, Mid and Low
+      arect(ctx, s, sym, a, 0.05, 0.05, 3.22, 2.9, 'rgba(0,0,0,0.28)', alc(a), 2);
+      arect(ctx, s, sym, a, 0.2, 0.1, 3.07, 0.3, '#3a424b', METAL, 1);
+      arect(ctx, s, sym, a, 0.2, 2.55, 3.07, 0.3, '#3a424b', METAL, 1);
+      [[0.35, 0.25], [3.12, 0.25], [0.35, 2.7], [3.12, 2.7]].forEach(p => { const q = P(sym, a, p[0], p[1]); rect(ctx, s, q.x - 0.15, q.y - 0.15, 0.3, 0.3, '#5d6670', METAL, 1); });
+      [0.25, 2.7].forEach(y => arect(ctx, s, sym, a, 3.27, y - 0.13, 0.07, 0.26, alc(a)));
+      [['TRAV', 0.99], ['HIGH', 1.6], ['MID', 2.21], ['LOW', 3.15]].forEach(([nm, x], i) => {
+        if (nm === 'MID') aline(ctx, s, sym, a, x, 0.4, x, 2.55, 'rgba(0,0,0,0.55)', 7); // the Shadow Line on the floor below it
+        aline(ctx, s, sym, a, x, 0.4, x, 2.55, i <= 1 ? '#d7dde3' : METAL, 5 - i);
+        atext(ctx, s, sym, a, nm, x, 3.1, alc(a), 8);
       });
-      // hangar: low / mid / high / traversal rungs between four posts
-      arect(ctx, s, sym, a, 0.12, 0.12, 3.05, 2.65, 'rgba(0,0,0,0.28)', alc(a), 2);
-      [[0.22, 0.22], [3.07, 0.22], [0.22, 2.67], [3.07, 2.67]].forEach(p => { const q = P(sym, a, p[0], p[1]); rect(ctx, s, q.x - 0.09, q.y - 0.09, 0.18, 0.18, '#5d6670', METAL, 1); });
-      ['LOW', 'MID', 'HIGH', 'TRAV'].forEach((nm, i) => {
-        const x = 0.62 + i * 0.75;
-        aline(ctx, s, sym, a, x, 0.3, x, 2.6, i >= 2 ? '#d7dde3' : METAL, 2 + i);
-        atext(ctx, s, sym, a, nm, x, 2.9, alc(a), 8);
-      });
-      // terminal with the human player chute
-      apoly(ctx, s, sym, a, [[0.08, 6.5], [1.7, 8.13], [0.08, 8.13]], als(a), alc(a), 2);
-      aline(ctx, s, sym, a, 0.3, 7.45, 0.9, 8.05, '#e8edf2', 3);
-      atext(ctx, s, sym, a, 'TERMINAL', 0.75, 7.75, alc(a), 7);
+      // Terminal across the corner, with the human player chute
+      apoly(ctx, s, sym, a, [[0.05, 6.2], [2.01, FH - 0.05], [0.05, FH - 0.05]], als(a), alc(a), 2);
+      aline(ctx, s, sym, a, 0.3, 6.75, 1.45, 7.9, '#e8edf2', 3);
+      atext(ctx, s, sym, a, 'TERMINAL', 0.62, 7.62, alc(a), 7);
     });
-    // hub: fender octagon, upper-hub net ring and the four lower exits
-    const oct = []; for (let i = 0; i < 8; i++) { const g = (i * 45 + 22.5) * Math.PI / 180; oct.push({ x: cx + Math.cos(g) * 1.42, y: cy + Math.sin(g) * 1.42 }); }
-    [45, 135, 225, 315].forEach(d => { const g = d * Math.PI / 180, ex = cx + Math.cos(g) * 1.62, ey = cy + Math.sin(g) * 1.62; circ(ctx, s, ex, ey, 0.22, '#3d454e', METAL, 1.5); });
-    poly(ctx, s, oct, '#353c44', '#c8d0d8', 2.5);
-    circ(ctx, s, cx, cy, 0.95, '#2b3138', '#8d97a1', 1.5);
-    ctx.save(); ctx.setLineDash([3, 3]); circ(ctx, s, cx, cy, 0.68, '#3f4750', '#e8edf2', 2); ctx.restore();
-    circ(ctx, s, cx, cy, 0.25, '#1d2227', METAL, 1);
-    text(ctx, s, 'HUB', cx, cy + 0.42, '#e8edf2', 9);
-    // cargo: live positions during a match, a typical spread otherwise
+    // Hub: fenders between four lower exits, the upper hub with its four upper exits along the arms
+    const R1 = Math.hypot(F.fend, 0.585), da = 45 - Math.atan2(0.585, F.fend) * 180 / Math.PI, foot = [];
+    for (let k = 0; k < 4; k++) {
+      const A = F.arm + k * 90, hw = R1 * Math.sin(rd(da));
+      foot.push(hp(A - da, R1), hp(A, 1.36, -hw), hp(A, 1.36, hw), hp(A + da, R1));
+    }
+    poly(ctx, s, foot, '#353c44', '#c8d0d8', 2);
+    F.fen.forEach(n => { const p = hp(n, F.fend, -0.585), q = hp(n, F.fend, 0.585); line(ctx, s, p.x, p.y, q.x, q.y, '#e8edf2', 4); });
+    circ(ctx, s, cx, cy, 0.77, '#2b3138', '#8d97a1', 1.5);
+    for (let k = 0; k < 4; k++) {
+      const A = F.arm + k * 90, p = hp(A, 0.55), q = hp(A, 1.62);
+      line(ctx, s, p.x, p.y, q.x, q.y, '#c8d0d8', Math.max(3, s * 0.16));
+      poly(ctx, s, [hp(A, 1.55, -0.2), hp(A, 1.86, -0.17), hp(A, 1.86, 0.17), hp(A, 1.55, 0.2)], '#e8edf2', METAL, 1);
+    }
+    ctx.save(); ctx.setLineDash([3, 3]); circ(ctx, s, cx, cy, 0.61, '#3f4750', '#e8edf2', 2); ctx.restore();
+    circ(ctx, s, cx, cy, 0.14, '#1d2227', METAL, 1);
+    text(ctx, s, 'HUB', cx, cy + 0.36, '#e8edf2', 8);
+    // cargo: live positions during a match, the staged layout otherwise
     if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, 0.12, c.c === 'red' ? COL.cargoR : COL.cargoB); });
-    else { const r = seeded(2022); for (let i = 0; i < 18; i++) { const x = 1.2 + r() * (FW - 2.4), y = 0.6 + r() * (FH - 1.2); if (Math.hypot(x - cx, y - cy) < 2.1) continue; ball(ctx, s, x, y, 0.12, i % 2 ? COL.cargoR : COL.cargoB); } }
+    else ['blue', 'red'].forEach(a => F.cargo.map(d => hp(d, F.ring)).concat([{ x: 1.14, y: 7.07 }]).forEach(p => { const q = P(sym, a, p.x, p.y); ball(ctx, s, q.x, q.y, 0.12, a === 'red' ? COL.cargoR : COL.cargoB); }));
   };
+  FIELD[2022].noMid = true;
   FIELD[2023] = function (ctx, s, sym, m) {
     ['blue', 'red'].forEach(a => {
-      // community and loading zone tape
-      apoly(ctx, s, sym, a, [[0.05, 0.05], [4.9, 0.05], [4.9, 5.5], [3.4, 5.5], [3.4, 5.55], [0.05, 5.55]], als(a), alc(a), 1.5);
-      arect(ctx, s, sym, a, 13.2, 5.5, 3.3, 2.66, als(a), alc(a), 1.5);
+      // community and loading zone tape (both L-shaped), and the Barrier between the community and the other loading zone
+      apoly(ctx, s, sym, a, [[0.05, 0.05], [4.91, 0.05], [4.91, 4.05], [3.36, 4.05], [3.36, 5.49], [0.05, 5.49]], als(a), alc(a), 1.5);
+      apoly(ctx, s, sym, a, [[FW - 0.05, 5.49], [FW - 3.36, 5.49], [FW - 3.36, 6.77], [FW - 6.71, 6.77], [FW - 6.71, FH - 0.05], [FW - 0.05, FH - 0.05]], als(a), alc(a), 1.5);
+      aline(ctx, s, sym, a, 1.43, 5.49, 3.67, 5.49, '#e8edf2', 3);
       // grid: 3 rows x 9 columns; co-op grid in the middle
       arect(ctx, s, sym, a, 0.05, 0.12, 1.42, 5.28, '#23282e', alc(a), 2);
       arect(ctx, s, sym, a, 0.08, 1.87, 1.36, 1.76, null, 'rgba(255,255,255,0.35)', 1);
@@ -167,16 +182,19 @@
       apoly(ctx, s, sym, a, [[14.75, 0.05], [16.48, 0.05], [16.48, 1.75]], als(a), alc(a), 2);
       [0.35, 0.8, 1.25].forEach(t => aline(ctx, s, sym, a, 16.48 - t * 0.7, 0.05 + t * 0.7, 16.2 - t * 0.7, 0.33 + t * 0.7, '#e8edf2', 2));
       atext(ctx, s, sym, a, 'SOURCE', 15.6, 1.25, alc(a), 8);
-      // stage: three legs, chains between them, trap slots and the centre podium
-      const legs = [0, 120, 240].map(d => { const g = d * Math.PI / 180; return P(sym, a, 4.9 + Math.cos(g) * 1.3, 4.1 + Math.sin(g) * 1.3); });
+      // stage: a triangle of three legs pointing at the alliance wall (the leg nearest the wall stands on the Podium),
+      // a truss from the middle to each leg, chains along the sides with a trap slot in each
+      const ST = G.Rules.ST24, legs = ST.legs.map(d => { const g = d * Math.PI / 180; return P(sym, a, ST.x + Math.cos(g) * ST.r, ST.y + Math.sin(g) * ST.r); }), c = P(sym, a, ST.x, ST.y);
       poly(ctx, s, legs, 'rgba(0,0,0,0.28)', 'rgba(255,255,255,0.12)', 1);
+      legs.forEach(p => line(ctx, s, c.x, c.y, p.x, p.y, 'rgba(195,202,209,0.55)', 4));
+      circ(ctx, s, c.x, c.y, 0.18, '#30373e', 'rgba(195,202,209,0.7)', 1.5);
       for (let i = 0; i < 3; i++) {
         const p = legs[i], q = legs[(i + 1) % 3];
         line(ctx, s, p.x, p.y, q.x, q.y, '#c3cad1', 2.5, [3, 2]);
         const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2; rect(ctx, s, mx - 0.12, my - 0.12, 0.24, 0.24, '#30373e', alc(a), 1.5);
       }
-      legs.forEach(p => circ(ctx, s, p.x, p.y, 0.14, '#5d6670', METAL, 2));
-      const c = P(sym, a, 4.9, 4.1); circ(ctx, s, c.x, c.y, 0.3, '#30373e', alc(a), 1.5);
+      rect(ctx, s, legs[0].x - 0.27, legs[0].y - 0.27, 0.54, 0.54, '#30373e', alc(a), 1.5); // the Podium
+      legs.forEach(p => rect(ctx, s, p.x - 0.13, p.y - 0.13, 0.26, 0.26, '#5d6670', METAL, 2));
       // notes: staged wing notes and the fed pile near the speaker
       if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
       if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35));
@@ -185,7 +203,7 @@
     else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, 0.16, COL.note));
   };
   FIELD[2025] = function (ctx, s, sym, m) {
-    const CY = [0.95, 2.05, 3.15];
+    const CY = G.Rules.CAGE25;
     ['blue', 'red'].forEach(a => {
       // starting line and the barge zone tape around the alliance's half of the Barge
       aline(ctx, s, sym, a, 6.85, 0.05, 6.85, FH - 0.05, 'rgba(0,0,0,0.55)', 2);
@@ -219,7 +237,7 @@
       atext(ctx, s, sym, a, 'PROCESSOR', 6.0, FH - 0.55, alc(a), 7);
       // net above the alliance's half of the Barge, and its three cages hanging from the truss
       arect(ctx, s, sym, a, FW / 2 - 0.12, 0.25, 0.24, 3.45, 'rgba(255,255,255,0.08)', alc(a), 1.5);
-      CY.forEach(y => { const p = P(sym, a, FW / 2, y); line(ctx, s, p.x - 0.0, p.y - 0.35, p.x, p.y - 0.2, METAL, 1.5); rect(ctx, s, p.x - 0.2, p.y - 0.2, 0.4, 0.4, 'rgba(0,0,0,0.35)', alc(a), 2.5); circ(ctx, s, p.x, p.y, 0.06, METAL); });
+      CY.forEach(y => { const p = P(sym, a, FW / 2, y); line(ctx, s, p.x, p.y - 0.3, p.x, p.y - 0.12, METAL, 1.5); rect(ctx, s, p.x - 0.12, p.y - 0.12, 0.24, 0.24, 'rgba(0,0,0,0.35)', alc(a), 2.5); circ(ctx, s, p.x, p.y, 0.06, METAL); });
     });
     // the Barge truss spans the whole midline (with a centre support)
     ctx.save(); ctx.globalAlpha = 0.85;
@@ -251,11 +269,13 @@
       poly(ctx, s, hx(0.66), on ? alc(a) : '#3a4048', on ? '#fff' : '#7d8791', 2.5);
       poly(ctx, s, hx(0.4), '#1d2227', '#9aa4ae', 1.5);
       text(ctx, s, 'HUB', h.x, h.y, '#fff', 8);
-      // tower: base, two uprights and three rungs (L1-L3)
-      const t = P(sym, a, 1.1, 4.03);
-      rect(ctx, s, t.x - 0.42, t.y - 1.15, 0.84, 2.3, 'rgba(0,0,0,0.35)', alc(a), 2);
-      line(ctx, s, t.x - 0.32, t.y - 1.05, t.x - 0.32, t.y + 1.05, METAL, 3); line(ctx, s, t.x + 0.32, t.y - 1.05, t.x + 0.32, t.y + 1.05, METAL, 3);
-      ['L1', 'L2', 'L3'].forEach((nm, i) => { const yy = t.y - 0.7 + i * 0.7; line(ctx, s, t.x - 0.36, yy, t.x + 0.36, yy, i === 2 ? '#e8edf2' : METAL, 2 + i); text(ctx, s, nm, t.x + 0.58, yy, alc(a), 7); });
+      // tower: built into the wall a little toward the outpost side. Its base plate (1.15 m deep, 1 m wide), the two
+      // uprights at the front and the three rungs between them, reaching past the uprights on both sides (L1-L3 stacked)
+      const TW = G.Rules.TW26;
+      arect(ctx, s, sym, a, 0.05, TW.y - 0.5, 1.15, 1.0, 'rgba(0,0,0,0.35)', alc(a), 2);
+      [-0.41, 0.41].forEach(dy => { const u = P(sym, a, 1.08, TW.y + dy); rect(ctx, s, u.x - 0.06, u.y - 0.06, 0.12, 0.12, '#5d6670', METAL, 1.5); });
+      ['L1', 'L2', 'L3'].forEach((nm, i) => { const x = 1.08 - i * 0.07; aline(ctx, s, sym, a, x, TW.y - 0.56, x, TW.y + 0.56, i === 2 ? '#e8edf2' : METAL, 2 + i); });
+      atext(ctx, s, sym, a, 'TOWER', 0.6, TW.y, alc(a), 7);
       // depot (fuel bin) and outpost (human player chute)
       arect(ctx, s, sym, a, 0.12, 5.8, 0.9, 1.3, 'rgba(255,216,74,0.12)', COL.fuel, 1.5);
       const dr = seeded(a === 'red' ? 61 : 62), dep = m && m.ss[a] ? Math.min(14, Math.ceil(m.ss[a].depot / 2)) : 12;

@@ -132,8 +132,8 @@
       tries.push(() => { const k = pick(subs.concat(['soft'])), d = Rb.des(R, k); if (d && d.ver) { const c = G.Seasons.concept(year, k, d.concept); Rb.startProject(S, { type: 'upgrade', sub: k, focus: pick(Object.keys(c.ceil)), effort: 'std', forConcept: d.concept }); } });
       tries.push(() => { Rb.startProject(S, { type: 'copy', sub: pick(subs) }); });
       tries.push(() => { Rb.startProject(S, { type: pick(['harden', 'light']), sub: pick(subs) }); });
-      tries.push(() => { Rb.startProject(S, { type: pick(['practiceBot', 'auto', 'vision']) }); });
-      tries.push(() => { Rb.startProject(S, { type: 'testChassis', concept: pick(D2.CHASSIS_CONCEPTS) }); });
+      tries.push(() => { if (rnd() < 0.34) Rb.startFullCopy(S); else Rb.startProject(S, { type: pick(['auto', 'vision']) }); });
+      tries.push(() => { if (S.robot) Rb.startProject(S, { type: 'copy', sub: 'drive', concept: pick(D2.CHASSIS_CONCEPTS), bot: Rb.other(S.robot) }); });
       tries.push(() => { const p = pick(S.projects); if (p && rnd() < 0.3) Rb.cancelProject(S, p.id); });
       tries.push(() => { const p = pick(S.projects); if (p && !Rb.isFab(p)) p.extra = Math.round(rnd() * p.need); });
       // garage
@@ -255,10 +255,10 @@
         const R = S.robot, subs = G.Seasons[R.year].subs.filter(sd => !sd.minor).map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
         subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
         // chassis: build a test chassis ('kit', 'mec' or 'wcd') on the second robot in build week 1-2 (log.chassis records when)
-        if (opts.chassis && S.phase === 'build' && S.week <= 3 && !S.projects.some(p => p.type === 'testChassis')) {
+        if (opts.chassis && S.phase === 'build' && S.week <= 3 && !S.projects.some(p => p.type === 'copy' && p.sub === 'drive')) {
           const o = G.Robot.other(R), d2 = R.bots[o].subs.drive;
           if (!(d2 && d2.ver) && !(log.chassisY || {})[S.year]) {
-            const e = G.Robot.startProject(S, { type: 'testChassis', concept: opts.chassis });
+            const e = G.Robot.startProject(S, { type: 'copy', sub: 'drive', concept: opts.chassis, bot: o });
             if (!e) { (log.chassisY = log.chassisY || {})[S.year] = S.week; } else if (S.week === 3) log.push('  chassis fail ' + S.year + ': ' + e);
           }
         }
@@ -266,9 +266,9 @@
         if (opts.robot2 && S.phase === 'build' && S.week >= (typeof opts.robot2 === 'number' ? opts.robot2 : 3)) {
           const nc = G.Parts.need(S).comp, dbl = {};
           Object.keys(nc).forEach(k => { if (k !== 'camera') dbl[k] = nc[k] * 2 + (k === 'ctrl' ? 0 : 1); });
-          if (!G.Robot.twoBots(S) && !S.projects.some(p => p.type === 'practiceBot') && G.Robot.fullCopySubs(R).length && R.design.drive.ver) {
+          if (!G.Robot.twoBots(S) && !S.projects.some(p => p.type === 'copy' && p.bot === G.Robot.other(R)) && G.Robot.fullCopySubs(R).length && R.design.drive.ver) {
             log.r2spend = (log.r2spend || 0) + G.Parts.stockUp(S, dbl, opts.vendor || 'B');
-            const e = G.Robot.startProject(S, { type: 'practiceBot' }); if (e) log.push('  robot2 fail: ' + e); else log.push('  robot2 started ' + S.year + ' wk ' + S.week);
+            const e = G.Robot.startFullCopy(S); if (e) log.push('  robot2 fail: ' + e); else log.push('  robot2 started ' + S.year + ' wk ' + S.week);
           }
           if (opts.copies && G.Robot.twoBots(S)) Object.keys(R.design).forEach(k => { if (!G.Robot.isLatest(R, k, R.bots[G.Robot.other(R)].subs[k]) && R.design[k].ver) G.Robot.startProject(S, { type: 'copy', sub: k }); });
           if (opts.drive2 && G.Robot.twoBots(S)) R.drive = G.Robot.other(R);
@@ -297,7 +297,7 @@
       if (opts.split != null) {
         if (G.Shop.lvl(S, 'pfield') < (opts.field || 1)) { S.shop.pfield.lvl = opts.field || 1; S.shop.pfield.cond = 100; }
         if (S.phase !== 'off' && !G.Parts.elemCov(S, S.year)) S.elem[S.year] = [{ id: 'dev', s: 1, h: 1 }];
-        if (opts.practiceBot && S.robot && S.robot.year === S.year && !G.Robot.twoBots(S) && S.robot.design.drive.ver) G.Robot.complete(S, { type: 'practiceBot', bot: G.Robot.other(S.robot), subs: G.Robot.fullCopySubs(S.robot), need: 1 });
+        if (opts.practiceBot && S.robot && S.robot.year === S.year && !G.Robot.twoBots(S) && S.robot.design.drive.ver) G.Robot.fullCopySubs(S.robot).forEach(k => G.Robot.complete(S, { type: 'copy', sub: k, bot: G.Robot.other(S.robot), concept: S.robot.design[k].concept, need: 1 }));
         S.shop.pfield.cond = 100;
         S.testSplit = opts.split;
         if (S.parts.spares < 4 && S.money > 2000) C.buySpares(S, 4);

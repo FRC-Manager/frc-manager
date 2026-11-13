@@ -128,6 +128,24 @@
       if (p.kit) { p.kits = { [p.kit]: 1 }; p.kitCov = 1; delete p.kit; }
       if (p.type === 'practiceBot' && !p.subs) { p.bot = Robot.other(R); p.subs = Object.keys(R.design).filter(k => R.design[k].ver); }
     });
+    // v2.9.8: the test chassis and the full copy are copies like any other, one project per subsystem. A running one
+    // from an earlier save is split up with its progress, hours and cost shared out.
+    if ((S.projects || []).some(p => p.type === 'testChassis' || p.type === 'practiceBot')) {
+      const out = [];
+      S.projects.forEach(p => {
+        if (p.type === 'testChassis') { out.push(Object.assign(p, { type: 'copy', sub: 'drive', basic: true, bot: p.bot != null ? p.bot : Robot.other(R) })); return; }
+        if (p.type !== 'practiceBot') { out.push(p); return; }
+        const bi = p.bot != null ? p.bot : Robot.other(R);
+        const subs = (p.subs || []).filter(k => R.design[k] && R.design[k].ver && R.design[k].concept !== 'none' && !S.projects.some(q => q.type === 'copy' && q.sub === k)), n = subs.length || 1;
+        subs.forEach(k => {
+          const d = R.design[k], c = G.Seasons.concept(R.year, k, d.concept);
+          out.push({ id: U.uid('p'), type: 'copy', sub: k, bot: bi, concept: d.concept, snap: { ver: d.ver, stats: Object.assign({}, d.stats), rel: d.rel, w: d.w },
+            kits: (p.kitsBySub && p.kitsBySub[k]) || null, name: 'Build ' + (c ? c.name : k) + ' for ' + R.bots[bi].name, need: Math.max(10, Math.round((p.need || 10) / n)),
+            done: (p.done || 0) / n, prio: p.prio || 'normal', cost: Math.round((p.cost || 0) / n), started: p.started, startTurn: p.startTurn, extra: 0 });
+        });
+      });
+      S.projects = out;
+    }
   };
 
   // ---------------- Robot helpers ----------------
@@ -153,6 +171,9 @@
   Robot.isLatest = (R, k, u) => !!(u && u.ver && R.design[k] && u.concept === R.design[k].concept && u.ver >= R.design[k].ver);
   Robot.runnable = (R, bi) => !!(R && R.bots && R.bots[bi] && R.bots[bi].subs.drive && R.bots[bi].subs.drive.ver);
   Robot.twoBots = S => !!(S.robot && S.robot.bots && Robot.runnable(S.robot, 0) && Robot.runnable(S.robot, 1));
+  // Defense drills need two robots driving at home: once the competition robot is in the bag (Stop Build Day) only one
+  // does, so drills stop there. What the drivers learned before stays.
+  Robot.drillPair = S => Robot.twoBots(S) && !G.Career.bagged(S);
   // a real second robot: it runs and carries at least one mechanism (a test chassis is only a drivetrain)
   Robot.realSecond = S => { const R = S.robot; if (!R || !R.bots || R.year !== S.year) return false; const o = Robot.other(R), s = R.bots[o].subs; return Robot.runnable(R, o) && Object.keys(s).some(k => k !== 'soft' && k !== 'drive' && s[k] && s[k].ver); };
   // The robot that is not the competition robot runs this season (a test chassis counts), even before the competition robot drives
@@ -341,16 +362,17 @@
     R.held.splice(i, 1); R.store.push(h.u); S.wearTick = (S.wearTick || 0) + 1;
     return null;
   };
-  function missingTotal(S) {
-    const n = G.Parts.need(S), tot = {};
-    [n.comp, n.prac].forEach(b => Object.keys(b).forEach(c => { tot[c] = (tot[c] || 0) + b[c]; }));
-    return Object.keys(tot).reduce((t, c) => t + Math.max(0, tot[c] - G.Parts.count(S, c)), 0);
-  }
-  // Install u on robot bi unless that leaves the robots short of parts; then it goes to storage. Returns where it went.
+  // Parts the two robots are short of, in all. Optional parts (planetary gearboxes, a network switch, an ML accelerator)
+  // never count: a robot runs without them. (Until v2.9.8 they did, so a second robot was refused for want of a
+  // network switch nobody sold yet, however full the shelves were.)
+  function missingTotal(S) { return G.Parts.shortage(S).reduce((t, m) => t + m.n, 0); }
+  // Install u on robot bi unless that leaves the robots short of parts; then it goes to storage (Robot.lastShort says
+  // exactly what was missing). Returns where it went.
   function tryInstall(S, bi, k, u) {
     const R = S.robot, before = missingTotal(S), old = R.bots[bi].subs[k], store = R.store.slice();
     install(R, bi, k, u); S.wearTick = (S.wearTick || 0) + 1;
     if (missingTotal(S) <= before) return bi;
+    Robot.lastShort = G.Parts.shortText(G.Parts.shortage(S));
     R.bots[bi].subs[k] = old; R.store = store; R.store.push(u); S.wearTick++;
     return -1;
   }
@@ -372,7 +394,7 @@
     if (missingTotal(S) > before) {
       const txt = G.Parts.shortText(G.Parts.shortage(S));
       R.store = snap.store; R.bots[0].subs[k] = snap.a; R.bots[1].subs[k] = snap.b; S.wearTick++;
-      return 'Not enough control system parts for both robots. ' + txt;
+      return 'Not enough parts for both robots. ' + txt;
     }
     return null;
   };
@@ -403,8 +425,29 @@
     const cu = R.subs[k], keep = u => (cu && cu.ver && u.concept === cu.concept && u.ver === cu.ver ? 1 : 0);
     return R.store.filter(u => u.sub === k).sort((a, b) => keep(a) - keep(b) || (a.concept === (R.design[k] || {}).concept) - (b.concept === (R.design[k] || {}).concept) || a.ver - b.ver || a.cond - b.cond)[0] || null;
   };
+  // Old versions in storage: units that are neither the latest design nor a spare for the competition robot (identical
+  // to the unit it runs, which matters while it runs an older version, in the bag for instance)
+  Robot.oldStored = function (S) {
+    const R = S.robot; if (!R || !R.store || !R.bots) return [];
+    return R.store.filter(u => {
+      const d = R.design[u.sub], cu = R.subs[u.sub];
+      const latest = !!(d && d.ver && u.concept === d.concept && u.ver >= d.ver), spare = !!(cu && cu.ver && u.concept === cu.concept && u.ver === cu.ver);
+      return !latest && !spare;
+    });
+  };
+  // The Garage setting "take apart old versions automatically" (S.settings.autoScrap): each one gives its spare parts and
+  // its mechanism kits back. Runs when a project finishes, at the end of each turn and when the setting is switched on.
+  Robot.scrapOld = function (S, quiet) {
+    const list = Robot.oldStored(S); if (!list.length) return null;
+    let spares = 0, kits = false; const names = [];
+    list.forEach(u => { const ver = u.ver, r = Robot.harvest(S, u.uid); if (typeof r === 'string') return; spares += r.spares; kits = kits || !!r.kits; names.push(r.name + ' v' + ver); });
+    if (!quiet && names.length) G.Career.inbox(S, 'Old versions taken apart', names.join(', ') + (names.length > 1 ? ' were' : ' was') + ' taken apart (Garage setting)' + (spares ? ': +' + spares + ' spare part' + (spares > 1 ? 's' : '') : '') + (kits ? (spares ? ', and' : ':') + ' mechanism kits are back on the shelf' : '') + '.', 'dev');
+    return { n: names.length, spares, kits, names };
+  };
+  Robot.autoScrapOn = S => !!(S.settings && S.settings.autoScrap);
   function trimStore(S) {
     const R = S.robot; if (!R || !R.store) return;
+    if (Robot.autoScrapOn(S) && !Robot.garageLock(S)) Robot.scrapOld(S);
     Object.keys(R.design).forEach(k => {
       while (Robot.storeCount(R, k) > D.STORE_MAX) {
         const u = Robot.storeWorst(R, k), r = Robot.harvest(S, u.uid);
@@ -436,6 +479,58 @@
   };
   // Subsystems a full copy of the robot would build for the second robot
   Robot.fullCopySubs = R => Object.keys(R.design).filter(k => R.design[k].ver && R.design[k].concept !== 'none' && !Robot.isLatest(R, k, R.bots[Robot.other(R)].subs[k]));
+  // A test chassis is a copy of the drivetrain for the second robot. Before the drivetrain is designed (or to drive a
+  // different way) it can be a basic one of a simple concept: a kit chassis at its base stats.
+  Robot.basicCopy = (R, spec) => !!(R && spec && spec.type === 'copy' && spec.sub === 'drive' && spec.concept && (!R.design.drive || !R.design.drive.ver || spec.concept !== R.design.drive.concept));
+  // ---- spares ----
+  // Event spares: units identical to the competition robot's (same concept and version), in storage or on the other robot.
+  // Storage keeps D.STORE_MAX of each kind, so a subsystem has at most D.STORE_MAX + 1 of them.
+  Robot.SPARE_MAX = () => D.STORE_MAX + 1;
+  Robot.spareCount = function (S, k) {
+    const R = S.robot, u = R && R.subs[k];
+    if (!u || !u.ver || k === 'soft') return 0;
+    const o = R.bots[Robot.other(R)].subs[k], same = x => x && x.ver && x.sub === k && x.concept === u.concept && x.ver === u.ver;
+    return (R.store || []).filter(same).length + (same(o) ? 1 : 0);
+  };
+  // Copies of the latest design built so far: on the robots, in storage and packed for the next event
+  Robot.latestCopies = function (R, k) {
+    const d = R.design[k], same = x => x && x.ver && x.concept === d.concept && x.ver === d.ver;
+    return { bots: R.bots.filter(b => same(b.subs[k])).length, store: (R.store || []).filter(x => x.sub === k && same(x)).length, held: (R.held || []).filter(h => h.u && h.k === k && same(h.u)).length };
+  };
+  // A copy that could only go to storage, where the most identical spares storage keeps are already waiting: refused
+  Robot.sparesFull = function (S, k) {
+    const R = S.robot, d = R.design[k], n = Robot.latestCopies(R, k).store;
+    return n >= D.STORE_MAX ? 'Spares full: both robots have the v' + d.ver + ' ' + G.Seasons.sub(R.year, k).name.toLowerCase() + ' and storage already holds ' + n + ' v' + d.ver + ' spares (it keeps ' + D.STORE_MAX + ' of each kind)' : null;
+  };
+  // ---- the full copy: a shortcut ----
+  // A copy of every finished subsystem the second robot lacks, each its own copy project: the same as pressing "Build
+  // copy" on each of them in the Design Office. Checked as a whole first (parts, money), so it starts all or none.
+  Robot.fullCopyPlan = function (S) {
+    const R = S.robot;
+    if (!R || !R.bots || R.year !== S.year) return { err: 'No robot this season yet', subs: [], running: [], hours: 0, cost: 0 };
+    const year = R.year, o = Robot.other(R), held = {}, extra = {}, disc = G.Career.hasPerk(S, 'partsDiscount') ? 0.92 : 1;
+    const running = k => S.projects.some(p => p.type === 'copy' && p.sub === k);
+    const all = Robot.fullCopySubs(R), subs = all.filter(k => !running(k));
+    let hours = 0, cost = 0, err = null;
+    subs.forEach(k => {
+      const c = G.Seasons.concept(year, k, R.design[k].concept), kq = Robot.kitQuote(S, year, k, c, held);
+      Object.keys(kq.use || {}).forEach(cat => { held[cat] = (held[cat] || 0) + kq.use[cat]; });
+      hours += Math.max(10, Math.round(copyHours(S, k, c, kq))); cost += Math.round(copyCost(c, kq) * disc);
+      const x = extraFor(S, o, k, c); Object.keys(x).forEach(p => { extra[p] = (extra[p] || 0) + x[p]; });
+    });
+    if (!R.design.drive || !R.design.drive.ver) err = 'Design and build a drivetrain first';
+    else if (!all.length) err = R.bots[o].name + ' already has every subsystem';
+    else if (!subs.length) err = 'Copies of everything it lacks are already being built';
+    else { const miss = G.Parts.shortage(S, extra, 'prac'); if (miss.length) err = 'Not enough parts for the second robot. ' + G.Parts.shortText(miss); }
+    if (!err) err = G.Career.afford(S, cost) || null;
+    return { subs, bot: o, hours, cost, err, running: all.filter(running) };
+  };
+  Robot.startFullCopy = function (S) {
+    const q = Robot.fullCopyPlan(S); if (q.err) return q.err;
+    let n = 0;
+    for (const k of q.subs) { const e = Robot.startProject(S, { type: 'copy', sub: k, bot: q.bot }); if (e) return (n ? 'Started ' + n + ' of ' + q.subs.length + ' copies. ' : '') + e; n++; }
+    return null;
+  };
   // The unit an upgrade, hardening or lightweighting reworks: the competition robot's (same concept), else the newest one
   function targetUnit(R, k) {
     const d = R.design[k], ci = R.comp || 0, c = R.bots[ci].subs[k];
@@ -481,7 +576,8 @@
     const des = spec.sub && R ? Robot.des(R, spec.sub) : null;
     const sd = spec.sub ? G.Seasons.sub(year, spec.sub) : null;
     if (['harden', 'light', 'copy'].includes(spec.type) && spec.sub === 'soft') return { hours: 0, cost: 0, name: '', err: 'Not for robot code', fields };
-    if (['upgrade', 'harden', 'light', 'copy'].includes(spec.type) && (!des || !des.ver)) return { hours: 0, cost: 0, name: '', err: 'Build this subsystem first', fields };
+    const basic = Robot.basicCopy(R, spec); // a test chassis of a simple drive concept: no design needed
+    if (['upgrade', 'harden', 'light', 'copy'].includes(spec.type) && (!des || !des.ver) && !basic) return { hours: 0, cost: 0, name: '', err: 'Build this subsystem first', fields };
     if (spec.type !== 'research' && spec.type !== 'kb' && !R) return { hours: 0, cost: 0, name: '', err: 'No robot this season yet', fields };
     switch (spec.type) {
       case 'build': {
@@ -499,13 +595,25 @@
         break;
       }
       case 'copy': {
-        // another copy of the current design (for the second robot, or a spare); no design work, no knowledge gain
-        const c = G.Seasons.concept(year, spec.sub, des.concept), bi = Robot.copyTarget(R, spec.sub);
-        if (bi >= 0) err = Robot.buildShort(S, spec.sub, c, bi);
+        // Another copy of a subsystem (no design work, no knowledge gain): of the current design, for the robot that
+        // lacks it (the second robot first) or as a spare. The Garage's test chassis and full copy are shortcuts to this:
+        // a test chassis is a copy of the drivetrain for the second robot, a basic one of a simple concept when the
+        // drivetrain is not designed yet (spec.concept); a full copy is one of these for every subsystem it lacks.
+        const cid = basic ? spec.concept : des.concept, c = G.Seasons.concept(year, spec.sub, cid);
+        if (!c) { err = 'Unknown concept'; break; }
+        let bi;
+        if (basic) {
+          bi = spec.bot != null && spec.bot >= 0 ? spec.bot : Robot.other(R);
+          const cur = R.bots[bi].subs.drive;
+          if (!D.CHASSIS_CONCEPTS.includes(c.id)) err = 'A basic chassis is a Kitbot Tank, Mecanum or West Coast Drive';
+          else if (cur && cur.ver) err = R.bots[bi].name + ' already has a drivetrain';
+        } else bi = spec.bot != null && spec.bot >= 0 && !Robot.isLatest(R, spec.sub, R.bots[spec.bot].subs[spec.sub]) ? spec.bot : Robot.copyTarget(R, spec.sub);
+        if (!err) err = bi >= 0 ? Robot.buildShort(S, spec.sub, c, bi) : Robot.sparesFull(S, spec.sub);
         const kq = Robot.kitQuote(S, year, spec.sub, c);
         hours = copyHours(S, spec.sub, c, kq); cost = copyCost(c, kq);
-        fields = { kits: kq.use, kitCov: kq.cov, bot: bi, concept: des.concept, snap: { ver: des.ver, stats: Object.assign({}, des.stats), rel: des.rel, w: des.w } };
-        name = 'Build ' + c.name + ' for ' + (bi >= 0 ? R.bots[bi].name : 'storage (spare)');
+        fields = { kits: kq.use, kitCov: kq.cov, bot: bi, concept: cid };
+        if (basic) fields.basic = true; else fields.snap = { ver: des.ver, stats: Object.assign({}, des.stats), rel: des.rel, w: des.w };
+        name = basic ? 'Test chassis (' + c.name + ') for ' + R.bots[bi].name : 'Build ' + c.name + ' for ' + (bi >= 0 ? R.bots[bi].name : 'storage (spare)');
         break;
       }
       case 'upgrade': {
@@ -534,36 +642,6 @@
         name = 'Vision Level ' + (l + 1) + (l === 0 ? (ve.cam ? ' (auto-aim)' : ' (home-made auto-aim)') : ' (shoot on the move)');
         break;
       }
-      case 'practiceBot': {
-        // a full copy: every finished subsystem the second robot doesn't have yet, built in one batch
-        const o = Robot.other(R), subs = Robot.fullCopySubs(R), held = {}, bySub = {}, extra = {};
-        if (!R.design.drive || !R.design.drive.ver) err = 'Build a drivetrain first';
-        else if (!subs.length) err = R.bots[o].name + ' already has every subsystem';
-        subs.forEach(k => {
-          const c = G.Seasons.concept(year, k, R.design[k].concept), kq = Robot.kitQuote(S, year, k, c, held);
-          Object.keys(kq.use || {}).forEach(cat => { held[cat] = (held[cat] || 0) + kq.use[cat]; });
-          if (kq.use) bySub[k] = kq.use;
-          hours += copyHours(S, k, c, kq); cost += copyCost(c, kq);
-          const x = extraFor(S, o, k, c); Object.keys(x).forEach(p => { extra[p] = (extra[p] || 0) + x[p]; });
-        });
-        hours *= 0.9; cost *= 0.9; // one batch: shared setup
-        if (!err) { const miss = G.Parts.shortage(S, extra, 'prac'); if (miss.length) err = 'A second control system: ' + G.Parts.shortText(miss); }
-        fields = { bot: o, subs, kits: Object.keys(held).length ? held : null, kitsBySub: bySub };
-        name = 'Build ' + R.bots[o].name + ' (copy of every subsystem)';
-        break;
-      }
-      case 'testChassis': {
-        // a simple drivetrain for the second robot, from parts on the shelf: no design work, no project slot
-        const o = Robot.other(R), c = G.Seasons.concept(year, 'drive', spec.concept), cur = R.bots[o].subs.drive;
-        if (!c || !D.CHASSIS_CONCEPTS.includes(c.id)) { err = 'Pick a simple drivetrain (Kitbot Tank, Mecanum or West Coast Drive)'; break; }
-        if (cur && cur.ver) err = R.bots[o].name + ' already has a drivetrain';
-        else err = Robot.buildShort(S, 'drive', c, o);
-        hours = c.hours * D.CHASSIS_HOURS_MULT * (1 - 0.06 * Robot.lvl(S, c)) * hwMult(S, 'drive');
-        cost = (0.55 * c.cost + 150 * c.cx) * D.COPY_COST;
-        fields = { bot: o, concept: c.id };
-        name = 'Test chassis (' + c.name + ') for ' + R.bots[o].name;
-        break;
-      }
       case 'kb': { // built once, then brought up to date every year
         const up = !!S.equip.kb;
         if (up && G.Career.kbCurrent(S)) err = 'Up to date for this season';
@@ -589,13 +667,12 @@
     }
     // one design project per subsystem at a time (copies run alongside, one at a time)
     if (spec.sub && S.projects.some(p => p.sub === spec.sub && (spec.type === 'copy') === (p.type === 'copy'))) err = err || (spec.type === 'copy' ? 'A copy of this subsystem is already being built' : 'A project on this subsystem is already running');
-    if (['auto', 'vision', 'practiceBot', 'impact', 'wfa', 'testChassis', 'kb'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
-    if (spec.type === 'testChassis' && S.projects.some(p => p.type === 'practiceBot')) err = err || 'A full copy is already being built for the second robot';
+    if (['auto', 'vision', 'impact', 'wfa', 'kb'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (spec.type === 'practiceBot' || spec.type === 'testChassis') err = 'Use the Garage shortcuts (a copy of each subsystem)'; // project types until v2.9.7
     if (spec.type === 'research' && S.projects.some(p => p.rid === spec.rid)) err = err || 'Already in progress';
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
     // storage limit: a unit this build pushes off a robot (or a spare) goes to storage; if that is full, the oldest is taken apart
     let note = null;
-    if (R && R.bots && spec.type === 'practiceBot' && (fields.subs || []).some(k => R.bots[fields.bot].subs[k] && R.bots[fields.bot].subs[k].ver && Robot.storeRoom(R, k) < 1)) note = 'Storage is full for some subsystems: the oldest stored ones will be taken apart for spare parts when this finishes.';
     if (R && R.bots && spec.sub && spec.sub !== 'soft' && ['build', 'copy'].includes(spec.type)) {
       const bi = spec.type === 'build' ? R.comp || 0 : fields.bot, slot = bi >= 0 ? R.bots[bi].subs[spec.sub] : null;
       if ((bi < 0 || (slot && slot.ver)) && Robot.storeRoom(R, spec.sub) < 1) note = 'Storage is full: the oldest stored ' + sd.name.toLowerCase() + ' will be taken apart for spare parts when this finishes.';
@@ -792,6 +869,9 @@
       'Upgrade ' + G.Seasons.sub(year, best.k).name + ' — ' + (D.STAT[best.st] || best.st), 'It has the biggest useful gap on the robot: ' + s.stats[best.st] + ' now, ceiling ' + (s.stats[best.st] + best.gap) + '.'); }
     return null;
   };
+  // what a running second robot gives, said when its drivetrain goes on
+  Robot.secondText = S => (G.Shop.lvl(S, 'pfield') ? 'On your Practice Field it adds up to ' + D.TEST_BOT_HOURS + ' testing hours a week (half of that while it is only a chassis)' : 'Without a Practice Field it still gives ' + D.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot') +
+    '. Programmers and drivers can start before the competition robot drives, the electrical team gets a control system to shake down, the drivers get defense drills, and the closer it copies the competition robot the more its practice and event tuning count (its identical subsystems are spares at events).';
   Robot.complete = function (S, p) {
     const rng = G.R, year = S.robot ? S.robot.year : S.year;
     const ef = EFFORT[p.effort || 'std'];
@@ -831,37 +911,27 @@
       case 'copy': {
         if (!R || R.year !== year) return;
         const d = R.design[p.sub], c = G.Seasons.concept(year, p.sub, p.concept);
-        const src = d && d.ver && d.concept === p.concept ? d : Object.assign({ concept: p.concept }, p.snap);
-        const u = makeUnit(p.sub, src, { kits: p.kits || null, hidden: rng.chance(0.06) ? 1 : 0 });
-        let bi = p.bot;
-        if (bi == null || bi < 0 || Robot.isLatest(R, p.sub, R.bots[bi].subs[p.sub])) bi = Robot.copyTarget(R, p.sub);
+        let u, bi = p.bot;
+        if (p.basic) {
+          // a basic chassis of a simple concept: the kit version, at its base stats; it only goes on an empty drivetrain slot
+          const stats = {}; Object.keys(c.base).forEach(k => { stats[k] = c.base[k]; });
+          u = makeUnit('drive', { concept: c.id, ver: 1, stats, rel: Math.round(U.clamp(74 - 5 * c.cx + G.Shop.buildRel(S), 40, 90)), w: c.w }, { kits: p.kits || null, chassis: true });
+          if (bi == null || bi < 0 || (R.bots[bi].subs.drive && R.bots[bi].subs.drive.ver)) bi = -1;
+        } else {
+          const src = d && d.ver && d.concept === p.concept ? d : Object.assign({ concept: p.concept }, p.snap);
+          u = makeUnit(p.sub, src, { kits: p.kits || null, hidden: rng.chance(0.06) ? 1 : 0 });
+          if (bi == null || bi < 0 || Robot.isLatest(R, p.sub, R.bots[bi].subs[p.sub])) bi = Robot.copyTarget(R, p.sub);
+        }
         if (bi === (R.comp || 0) && Robot.garageLock(S)) bi = -1;
         const bagC = bi === (R.comp || 0) && !!Robot.bagLock(S);
+        Robot.lastShort = '';
         const at = bagC ? (hold(S, { k: p.sub, u }), -2) : bi >= 0 ? tryInstall(S, bi, p.sub, u) : (R.store.push(u), -1);
-        G.Career.inbox(S, 'Built: another ' + c.name, 'A v' + u.ver + ' ' + c.name + ' is ready: ' + (at === -2 ? 'packed for your next event (the competition robot is in the bag: fit it on practice day with Install Upgrade)' : at >= 0 ? 'fitted to ' + where(at) : bi >= 0 ? 'in storage (not enough control system parts to fit it to ' + R.bots[bi].name + ')' : 'in storage as a spare') + '. Move subsystems between robots in the Garage.' + pt, 'dev');
-        break;
-      }
-      case 'practiceBot': {
-        if (!R || R.year !== year) return;
-        const bi = p.bot != null ? p.bot : Robot.other(R), put = [], stored = [];
-        (p.subs || []).forEach(k => {
-          const d = R.design[k]; if (!d || !d.ver || d.concept === 'none' || Robot.isLatest(R, k, R.bots[bi].subs[k])) return;
-          const u = makeUnit(k, d, { kits: (p.kitsBySub && p.kitsBySub[k]) || null });
-          (tryInstall(S, bi, k, u) >= 0 ? put : stored).push(G.Seasons.sub(year, k).name);
-        });
-        G.Career.inbox(S, R.bots[bi].name + ' is built', 'New on ' + R.bots[bi].name + ': ' + (put.join(', ') || 'nothing') + '.' + (stored.length ? ' In storage (not enough control system parts): ' + stored.join(', ') + '.' : '') +
-          ' The closer it matches the competition robot, the more it gives: up to +' + D.TEST_BOT_HOURS + ' testing hours a week (with a Practice Field), driver practice on it up to ' + Math.round((D.BOT2_PRACTICE - 1) * 100) + '% more effective without wearing the competition robot, better tuning at events, and its identical subsystems are spares at events. Pick which robot the drivers practice on in the Garage.', 'dev');
-        break;
-      }
-      case 'testChassis': {
-        if (!R || R.year !== year) return;
-        const c = G.Seasons.concept(year, 'drive', p.concept), bi = p.bot != null ? p.bot : Robot.other(R);
-        const stats = {}; Object.keys(c.base).forEach(k => { stats[k] = c.base[k]; });
-        const u = makeUnit('drive', { concept: c.id, ver: 1, stats, rel: Math.round(U.clamp(74 - 5 * c.cx + G.Shop.buildRel(S), 40, 90)), w: c.w }, { chassis: true });
-        const cur = R.bots[bi].subs.drive, at = cur && cur.ver ? (R.store.push(u), -1) : tryInstall(S, bi, 'drive', u);
-        G.Career.inbox(S, 'Test chassis ready', 'A ' + c.name + ' test chassis is ' + (at >= 0 ? 'running as ' + where(at) : 'in storage (no free control system or drivetrain slot for it)') + '. ' +
-          (G.Shop.lvl(S, 'pfield') ? 'It adds testing hours on your Practice Field' : 'Without a Practice Field it still gives ' + D.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot: code, autos, vision and drivetrain projects, and driver practice') +
-          '. Programmers and drivers can start before the competition robot drives, and the electrical team gets a full control system to wire and debug: every week it runs adds to the electrical shakedown (fewer brownouts and comms dropouts at your first events). Practising on a different drivetrain only partly carries over to the competition robot\'s.', 'dev');
+        const place = at === -2 ? 'packed for your next event (the competition robot is in the bag: fit it on practice day with Install Upgrade)' : at >= 0 ? (p.basic ? 'running as ' : 'fitted to ') + where(at)
+          : bi >= 0 ? 'in storage: it could not go on ' + R.bots[bi].name + '. ' + (Robot.lastShort || 'Not enough parts') : p.basic ? 'in storage (the robot it was for has a drivetrain now)' : 'in storage as a spare';
+        // a robot that runs at last (a test chassis, or the drivetrain of a copy): say what a second robot gives
+        const runsNow = at >= 0 && at !== (R.comp || 0) && p.sub === 'drive';
+        G.Career.inbox(S, p.basic ? 'Test chassis ready' : 'Built: another ' + c.name, (p.basic ? 'A ' + c.name + ' test chassis is ' : 'A v' + u.ver + ' ' + c.name + ' is ready: ') + place + '. Move subsystems between robots in the Garage.' + pt +
+          (runsNow ? ' ' + Robot.secondText(S) : ''), 'dev');
         break;
       }
       case 'upgrade': {

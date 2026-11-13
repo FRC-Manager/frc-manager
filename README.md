@@ -12,7 +12,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **2.9.7**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **2.9.8**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -40,7 +40,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 
 - **Concepts, then upgrades.** Pick a design for every subsystem at Kickoff and develop it. Projects share the team's weekly hours; effort (Rush, Standard, Thorough) and extra hours trade time for quality.
 - **Knowledge carries over.** A turret built for one game makes the next one cheaper, faster and more reliable. Unused know-how fades, and rule changes date it.
-- **Two robots.** A second robot, or just a cheap test chassis, gives testing hours, driver practice and spares at events.
+- **Two robots.** A second robot, or just a test chassis, gives testing hours, driver practice and spares at events. Build it a copy at a time, or with one shortcut.
 - **Parts are real.** Control system parts (motors, encoders, hubs), drivetrain parts and kits come from the Inventory, wear out, and sell out in season. What everybody wants sells out first. Stock up before Kickoff. A vision company, planetary gearboxes and servo kits arrive over the decade.
 - **Elite designs.** Seven games offer mechanisms only the best teams build: a little better than the next best, and much harder.
 
@@ -114,6 +114,7 @@ js/local.js           extras for the downloaded copy (save a career to a file)
 js/dev.js             balance tools (see below)
 tools/build-single-file.ps1   builds dist/FRC-Manager.html
 tools/trailer/        60-second reveal trailer generator (open index.html, press Render MP4; index.html?vertical for 9:16)
+tools/match-tester/   match tester: any game, six random robots on random strategies, routes and tasks drawn (open index.html)
 ```
 
 ## Tuning

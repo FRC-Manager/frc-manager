@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRC Manager Match Tester</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  body { padding: 14px 16px 40px; }
+  .mt-wrap { max-width: 1380px; margin: 0 auto; }
+  .mt-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .mt-top h1 { font-size: 20px; margin: 0 12px 0 0; }
+  .mt-top label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .mt-main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
+  @media (max-width: 1100px) { .mt-main { grid-template-columns: minmax(0, 1fr); } }
+  #cv { width: 100%; height: auto; display: block; border-radius: 8px; background: #0b0e12; cursor: default; }
+  #cv.placing { cursor: crosshair; }
+  .mt-score { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 8px; }
+  .mt-score .s { font-size: 30px; font-weight: 800; min-width: 80px; text-align: center; border-radius: 8px; padding: 2px 10px; }
+  .mt-score .r { background: rgba(230, 70, 70, 0.18); color: #ff8a8a; }
+  .mt-score .b { background: rgba(70, 130, 230, 0.18); color: #8ab8ff; }
+  .mt-score .c { text-align: center; }
+  .mt-score .c .t { font-size: 22px; font-weight: 700; }
+  .mt-score .c .p { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  .mt-ctl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .mt-ctl .sel { outline: 2px solid var(--acc); }
+  table.mt-bots { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.mt-bots td, table.mt-bots th { padding: 4px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); vertical-align: top; text-align: left; }
+  table.mt-bots tr.red td:first-child { border-left: 3px solid #e64646; }
+  table.mt-bots tr.blue td:first-child { border-left: 3px solid #4682e6; }
+  table.mt-bots tr.dead { opacity: 0.55; }
+  .mt-log { height: 260px; overflow: auto; font: 12px/1.45 ui-monospace, Consolas, monospace; background: rgba(0, 0, 0, 0.25); border-radius: 6px; padding: 6px 8px; }
+  .mt-log .red { color: #ff9b9b; } .mt-log .blue { color: #9cc4ff; } .mt-log .fault { color: var(--warn); } .mt-log .ai { color: #c9a6ff; } .mt-log .tester { color: var(--acc); }
+  #report { width: 100%; height: 170px; font: 12px ui-monospace, Consolas, monospace; background: rgba(0, 0, 0, 0.25); color: var(--txt, #dde3ea); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 6px; box-sizing: border-box; }
+  .mt-flag { display: inline-block; font-size: 10px; padding: 0 5px; border-radius: 4px; margin: 1px 2px 0 0; background: rgba(255, 255, 255, 0.08); }
+  .mt-flag.bad { background: rgba(230, 70, 70, 0.25); color: #ffb0b0; } .mt-flag.warn { background: rgba(245, 184, 0, 0.22); color: #ffd866; } .mt-flag.ai { background: rgba(150, 110, 255, 0.25); color: #d6c4ff; }
+  .mt-help { font-size: 12px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<!-- FRC Manager match tester. Open this file in a browser (no server needed): it loads the game's match engine, season
+     rules, AI and renderer from ../../js, plays any game with six random robots on random strategies, and shows each
+     robot's route and task so the match AI can be looked at closely. The season and seed reproduce a match. -->
+<div class="mt-wrap">
+  <div class="mt-top">
+    <h1>Match tester <span class="xs muted" id="ver"></span></h1>
+    <label>Game <select class="inp" id="year"></select></label>
+    <label title="The parts of the day (motors, swerve modules, cameras) for the game's own year, or today's parts for every game">Parts <select class="inp" id="era"><option value="own">of the game's year</option><option value="modern">of today</option></select></label>
+    <label>Seed <input class="inp" id="seed" style="width:90px" inputmode="numeric"></label>
+    <button class="btn" id="go">Play this seed</button>
+    <button class="btn primary" id="new">New random match</button>
+    <span class="sp"></span>
+    <label><input type="checkbox" id="paths" checked> routes</label>
+    <label><input type="checkbox" id="labels" checked> tasks</label>
+  </div>
+  <div class="mt-main">
+    <div>
+      <div class="mt-score"><div class="s r" id="scR">0</div><div class="c"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="s b" id="scB">0</div></div>
+      <canvas id="cv" width="1100" height="547"></canvas>
+      <div class="mt-ctl">
+        <span class="xs muted">Speed</span>
+        <button class="btn sm" data-spd="0">❚❚</button><button class="btn sm" data-spd="0.5">½×</button><button class="btn sm" data-spd="1">1×</button><button class="btn sm" data-spd="2">2×</button><button class="btn sm" data-spd="4">4×</button><button class="btn sm" data-spd="8">8×</button>
+        <button class="btn sm" id="step" title="One tenth of a second (pause first)">Step</button>
+        <button class="btn sm" id="restart" title="The same match again from the start, with your changes at the same moments">Replay</button>
+        <span class="sp"></span>
+        <span class="xs muted" id="placeHint"></span>
+      </div>
+      <div class="card mt" style="padding:10px">
+        <div class="ct sm">Robots</div>
+        <table class="mt-bots" id="bots"></table>
+        <div class="mt-help mt">Each robot has a random strength and a random strategy (role, pace, target, endgame timing), not the season's usual meta. Lines show where each robot is heading; a ring marks the spot it wants. <b>Break</b> a robot to see how it and its partners react; <b>Disable</b> one, then click the field to drop it somewhere (in front of a scoring spot, say).</div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="padding:10px"><div class="ct sm">Match log</div><div class="mt-log" id="log"></div></div>
+      <div class="card mt" style="padding:10px">
+        <div class="ct sm">Report</div>
+        <div class="mt-help mb">Seen something off? Pause there, write what you saw at the end, and send this text: it has everything needed to play the same match again.</div>
+        <textarea id="report" spellcheck="false"></textarea>
+        <div class="row mt"><button class="btn sm" id="copy">Copy report</button><span class="xs muted" id="copied"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../../js/core.js"></script>
+<script src="../../js/data/seasons.js"></script>
+<script src="../../js/data/seasons-classic.js"></script>
+<script src="../../js/data/world.js"></script>
+<script src="../../js/data/eras.js"></script>
+<script src="../../js/data/parts.js"></script>
+<script src="../../js/sim/engine.js"></script>
+<script src="../../js/sim/rules.js"></script>
+<script src="../../js/sim/rules-classic.js"></script>
+<script src="../../js/sim/ai.js"></script>
+<script src="../../js/render/draw.js"></script>
+<script src="../../js/render/draw-classic.js"></script>
+<script src="tester.js"></script>
+</body>
+</html>

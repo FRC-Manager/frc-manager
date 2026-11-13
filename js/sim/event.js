@@ -255,6 +255,7 @@
     const puPref = mine && ev.year === 2018 && p.puPref ? { [mine]: p.puPref } : null;
     return G.Engine.create({ defPick, puPref, aud16: Ev.audience16(ev, match),
       towerStrength: ev.year === 2016 && ['dcmp', 'champs', 'einstein'].includes(ev.kind) ? 10 : null, // FIRST raised the tower from 8 to 10 for the championships
+      level: ev.kind === 'dcmp' ? 'dcmp' : ev.kind === 'champs' || ev.kind === 'einstein' ? 'cmp' : 'reg',
       year: ev.year, red: ens.red, blue: ens.blue, seed: hash(ev.seed, (match.key || match.n) * 7919 + (match.game || 0)),
       headless: !!(opts && opts.headless), playoff, diff: { easy: 0.6, normal: 1, hard: 1.3 }[S.diff] || 1,
       calls: G.Career.coachCalls(S, playoff), coachSkill: G.Career.coachSkill(S), playerTeam: S.team.num, feedIQ: ens.feedIQ
@@ -505,12 +506,31 @@
       let best = null, bv = -1e9;
       avail.forEach(t => { const v = pickValue(ev, al, t, rng); if (v > bv) { bv = v; best = t; } });
       if (best === me) { sel.pending = { type: 'invite', k, from: captain }; break; }
-      // AI invitee may decline to captain their own alliance
-      const futureCap = sel.pool.filter(t => !inAlliance(ev, t)).indexOf(best) < (8 - sel.alliances.length) && sel.round === 1 && k >= 3 && rng.chance(0.25);
-      if (futureCap) { sel.declined.push(best); sel.log.push(best + ' declined alliance ' + (k + 1)); continue; }
+      // an AI invitee that would captain an alliance itself may decline, if it can do better that way
+      if (rng.chance(Ev.declineChance(ev, k, best).p)) { sel.declined.push(best); sel.log.push(best + ' declined alliance ' + (k + 1)); continue; }
       Ev.selAccept(ev, k, best);
     }
     if (sel.done) Ev.finishSelection(ev);
+  };
+  // How likely a team is to turn an invitation down: { p, why }. Only a team that would captain an alliance itself later in
+  // the first round can (anyone else who declines sits the playoffs out). It weighs the alliance it is offered (the
+  // inviting captain and itself, by OPR) against the one it could build as a captain: itself and the best team likely
+  // left when its own turn comes, after every alliance before it has picked. Offered the stronger alliance it nearly
+  // always accepts; offered a clearly weaker one, it often declines. (Until v2.9.8 any future captain declined one
+  // invitation in five, whoever asked: the best robot at an event could be turned down three times running.)
+  Ev.declineChance = function (ev, k, team) {
+    const sel = ev.sel, none = { p: 0, why: '' };
+    if (!sel || sel.round !== 1) return none;
+    const order = sel.pool.filter(t => !inAlliance(ev, t)), seats = 8 - sel.alliances.length, pos = order.indexOf(team);
+    if (pos < 0 || pos >= seats) return none; // it would not be a captain
+    const O = Ev.opr(ev), str = t => Math.max(1, O[t] || 0), captain = sel.alliances[k][0];
+    const caps = order.slice(0, seats), rest = order.filter(t => !caps.includes(t) && !sel.declined.includes(t)).sort((a, b) => str(b) - str(a));
+    const theirPick = rest[Math.min(pos + 1, rest.length - 1)]; // this alliance picks again, then the pos alliances before its own: each takes the best left
+    const asCaptain = str(team) + (theirPick != null ? str(theirPick) : 0), offered = str(captain) + str(team);
+    const vals = Object.keys(O).map(t => Math.max(1, O[t])), avg = vals.length ? U.avg(vals) : 10;
+    const gain = (asCaptain - offered) / avg;                    // in average teams
+    const p = gain <= -0.5 ? 0 : gain <= 0 ? 0.04 : U.clamp(0.1 + 0.6 * gain, 0.1, 0.8);
+    return { p, why: gain > 0 ? 'as a captain they expect a stronger alliance (OPR ' + Math.round(str(team)) + ' with ' + (theirPick != null ? Math.round(str(theirPick)) : 0) + ', against ' + Math.round(str(captain)) + ' with ' + Math.round(str(team)) + ')' : 'they wanted to captain their own alliance' };
   };
   Ev.selAccept = function (ev, k, team) {
     const sel = ev.sel;
@@ -527,11 +547,11 @@
   Ev.playerPick = function (ev, team) {
     const sel = ev.sel, k = sel.pending.k;
     sel.pending = null;
-    const rng = G.makeRng(hash(ev.seed, 555 + sel.log.length));
-    const rk = sel.pool.filter(t => !inAlliance(ev, t)).indexOf(team);
-    if (sel.round === 1 && rk >= 0 && rk < 8 - sel.alliances.length && rng.chance(0.2)) {
+    const rng = G.makeRng(hash(ev.seed, 555 + sel.log.length * 7919 + team));
+    const dc = Ev.declineChance(ev, k, team);
+    if (rng.chance(dc.p)) {
       sel.declined.push(team); sel.log.push(team + ' declined your invitation!');
-      sel.pending = { type: 'pick', k, declinedMsg: team + ' declined your invitation to captain their own alliance. Pick again.' };
+      sel.pending = { type: 'pick', k, declinedMsg: team + ' declined your invitation: ' + dc.why + '. Pick again.' };
       return false;
     }
     Ev.selAccept(ev, k, team);

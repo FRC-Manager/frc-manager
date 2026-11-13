@@ -620,22 +620,26 @@
     if (bag) o += inBag ? '<div class="xs muted mt">' + UI.icon('lock', 12) + ' In the bag until the season ends: it may only be touched at events.</div>' : '';
     else o += '<div class="row wrap gap4 mt">' + (bi !== ci ? '<button class="btn sm" data-act="setComp" data-arg="' + bi + '" ' + (run && !lock ? '' : 'disabled') + '>Make it the competition robot</button>' : '') +
       (bi !== di ? '<button class="btn sm" data-act="setDrive" data-arg="' + bi + '" ' + (run ? '' : 'disabled title="Needs a drivetrain"') + '>Drivers practice on it</button>' : '') + '</div>';
-    // the second robot: build every missing subsystem in one batch (the old practice robot project)
+    // the second robot: shortcuts to copy projects (the same as "Build copy" in the Design Office)
     if (bi !== ci && R.year === S.year && S.phase !== 'off') {
-      const tc = S.projects.find(p => p.type === 'testChassis');
-      if (tc) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Test chassis being built: ' + Math.round(tc.done) + '/' + tc.need + ' h</span>' + (G.Robot.canUndoProject(S, tc) ? '<span class="sp"></span><button class="btn sm" data-act="undoProj" data-arg="' + tc.id + '" title="Started this turn: take it back for everything it cost">Undo</button>' : '') + '</div>';
-      else if (!(b.subs.drive && b.subs.drive.ver) && !S.projects.some(p => p.type === 'practiceBot')) {
-        o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A simple drivetrain from parts on the shelf, a few days and no project slot: ' +
-          (G.Shop.lvl(S, 'pfield') ? 'half a second robot on your Practice Field. ' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field. ') + UI.q('garage', 'Test chassis') + '</div><div class="row wrap gap4 mt">' +
-          D.CHASSIS_CONCEPTS.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid); if (!c) return ''; const q = G.Robot.quote(S, { type: 'testChassis', concept: cid }); return '<button class="btn sm" data-act="startChassis" data-arg="' + cid + '"' + (q.err ? ' disabled title="' + h(q.err) + '"' : '') + '>' + h(c.name) + ' · ' + q.hours + ' h · ' + U.money(q.cost) + '</button>'; }).join('') + '</div>' +
+      const mine = S.projects.filter(p => p.type === 'copy' && p.bot === bi);
+      if (mine.length) o += '<div class="copyrow mt col">' + mine.map(p => '<div class="row sm">' + UI.icon('clock', 14) + '<span>' + h(p.name) + ': ' + Math.round(p.done) + '/' + p.need + ' h</span><span class="sp"></span>' +
+        (G.Robot.canUndoProject(S, p) ? '<button class="btn sm" data-act="undoProj" data-arg="' + p.id + '" title="Started this turn: take it back for everything it cost">Undo</button>' : '') + '</div>').join('') + '</div>';
+      if (!(b.subs.drive && b.subs.drive.ver) && !mine.some(p => p.sub === 'drive')) {
+        // a copy of the competition drivetrain, or a basic one of a simple concept (before it is designed, or to drive another way)
+        const dd = R.design.drive, opts = (dd && dd.ver ? [null] : []).concat(D.CHASSIS_CONCEPTS.filter(cid => !(dd && dd.ver && dd.concept === cid)));
+        const spec = cid => (cid ? { type: 'copy', sub: 'drive', concept: cid, bot: bi } : { type: 'copy', sub: 'drive', bot: bi });
+        const btns = opts.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid || dd.concept); if (!c) return ''; const q = G.Robot.quote(S, spec(cid)); return '<button class="btn sm' + (cid || q.err ? '' : ' primary') + '" data-act="startChassis" data-arg="' + (cid || '') + '|' + bi + '"' + (q.err ? ' disabled title="' + h(q.err) + '"' : '') + '>' + (cid ? 'Basic ' + h(c.name) : 'Copy of your ' + h(c.name) + ' v' + dd.ver) + ' · ' + q.hours + ' h · ' + U.money(q.cost) + '</button>'; }).join('');
+        const err = opts.map(cid => { const e = G.Robot.quote(S, spec(cid)).err; return e ? (cid ? 'Basic ' + G.Seasons.concept(R.year, 'drive', cid).name : 'Copy of your ' + G.Seasons.concept(R.year, 'drive', dd.concept).name) + ': ' + e : null; }).find(Boolean);
+        o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A drivetrain for ' + h(b.name) + ': a shortcut for Build copy (Design Office), no project slot. ' +
+          (G.Shop.lvl(S, 'pfield') ? 'Half a second robot on your Practice Field. ' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field. ') + UI.q('garage', 'Test chassis') + '</div><div class="row wrap gap4 mt">' + btns + '</div>' +
           (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f).map(k => G.Seasons.concept(R.year, 'drive', k).name); return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '%. ' + UI.q('garage', 'Second robot drills') + '</div>'; })() +
-          (G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err ? '<div class="xs warn mt">' + h(G.Robot.quote(S, { type: 'testChassis', concept: 'kit' }).err) + '</div>' : '') + '</div></div>';
+          (err ? '<div class="xs warn mt">' + h(err) + '</div>' : '') + '</div></div>';
       }
-      const run2 = S.projects.find(p => p.type === 'practiceBot');
-      if (run2) o += '<div class="copyrow mt">' + UI.icon('clock', 14) + '<span class="sm">Full copy being built: ' + Math.round(run2.done) + '/' + run2.need + ' h</span>' + (G.Robot.canUndoProject(S, run2) ? '<span class="sp"></span><button class="btn sm" data-act="undoProj" data-arg="' + run2.id + '" title="Started this turn: take it back for everything it cost">Undo</button>' : '') + '</div>';
-      else if (G.Robot.fullCopySubs(R).length) {
-        const q = G.Robot.quote(S, { type: 'practiceBot' });
-        o += '<div class="copyrow mt"><div class="sp"><b class="sm">Build a full copy</b><div class="xs muted">Every finished subsystem this robot lacks, in one batch. Needs a second control system. The more of the competition robot it copies, the more testing hours, practice value and spares it gives. ' + UI.q('garage', 'Two robots') + '</div></div><span class="xs muted">' + q.hours + ' h · ' + U.money(q.cost) + '</span><button class="btn sm" data-act="startSimple" data-arg="practiceBot" ' + (q.err ? 'disabled' : '') + '>Start</button></div>' + (q.err ? '<div class="xs bad">' + h(q.err) + '</div>' : '');
+      const fc = G.Robot.fullCopyPlan(S);
+      if (fc.subs.length) {
+        const names = fc.subs.map(k => G.Seasons.sub(R.year, k).name).join(', ');
+        o += '<div class="copyrow mt"><div class="sp"><b class="sm">Build a full copy</b><div class="xs muted">A shortcut: one Build copy for each finished subsystem ' + h(b.name) + ' lacks (' + h(names) + '), no project slots. ' + UI.q('garage', 'Two robots') + '</div></div><span class="xs muted">' + fc.hours + ' h · ' + U.money(fc.cost) + '</span><button class="btn sm" data-act="startFullCopy" ' + (fc.err ? 'disabled' : '') + '>Start</button></div>' + (fc.err ? '<div class="xs bad">' + h(fc.err) + '</div>' : '');
       }
     }
     return o + '</div>';
@@ -645,6 +649,9 @@
     const R = S.robot, year = R.year, order = G.Seasons[year].subs.map(sd => sd.id);
     const list = R.store.slice().sort((a, b) => order.indexOf(a.sub) - order.indexOf(b.sub) || b.ver - a.ver);
     let body = '<div class="sm muted mb">Built subsystems that are not on a robot: up to ' + D.STORE_MAX + ' of each kind. One identical to the competition robot\'s is a spare at events. Take old ones apart for spare parts. ' + UI.q('garage', 'Storage and spares') + '</div>';
+    // event spares per subsystem: identical units in storage or on the other robot, at most STORE_MAX + 1
+    { const ks = order.filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver), mx = G.Robot.SPARE_MAX();
+      if (ks.length) body += '<div class="row wrap gap4 mb xs"><span class="muted">Event spares (most ' + mx + ' each):</span>' + ks.map(k => { const n = G.Robot.spareCount(S, k); return UI.tag(G.Seasons.sub(year, k).name + ' ' + n + '/' + mx, n ? 'good' : ''); }).join('') + '</div>'; }
     if (!list.length) body += '<p class="muted">Empty. Build copies in the Design Office.</p>';
     else body += '<table class="t"><tr><th>Subsystem</th><th>Unit</th><th>Condition</th><th></th></tr>' + list.map(u => {
       const c = G.Seasons.concept(year, u.sub, u.concept), cu = R.subs[u.sub], spare = cu && cu.ver && cu.concept === u.concept && cu.ver === u.ver, n = G.Robot.harvestValue(R, u);
@@ -653,8 +660,17 @@
         [0, 1].map(bi => '<button class="btn sm" data-act="garageFit" data-arg="' + u.uid + '|' + bi + '" ' + (lock ? 'disabled' : '') + '>Fit to ' + h(R.bots[bi].name) + '</button>').join(' ') +
         ' <button class="btn sm bad" data-act="garageHarvest" data-arg="' + u.uid + '">Take apart' + (n ? ' · +' + n + ' spare' + (n > 1 ? 's' : '') : u.kits ? ' · kits back' : '') + '</button></td></tr>';
     }).join('') + '</table>';
+    // the setting: take apart old versions automatically (not the latest design, not a spare for the competition robot)
+    { const old = G.Robot.oldStored(S), on = G.Robot.autoScrapOn(S);
+      body += '<div class="row wrap gap4 mt"><label class="row xs" title="Old versions: units that are neither the latest design nor identical to the competition robot\'s. They are taken apart when a project finishes and at the end of every turn."><input type="checkbox" data-chg="autoScrap" ' + (on ? 'checked' : '') + '> Take apart old versions automatically</label>' +
+        (!on && old.length ? '<span class="xs muted">' + old.length + ' old version' + (old.length > 1 ? 's' : '') + ' here now</span>' : '') + '</div>'; }
     return UI.card(UI.it('box', 'Storage ') + UI.tag(R.store.length + ' unit' + (R.store.length === 1 ? '' : 's')), body);
   }
+  UI.A.autoScrap = v => {
+    const S = G.S; S.settings = S.settings || {}; S.settings.autoScrap = !!v;
+    if (v && !G.Robot.garageLock(S)) { const r = G.Robot.scrapOld(S); if (r) UI.toast(r.n + ' old version' + (r.n > 1 ? 's' : '') + ' taken apart' + (r.spares ? ': +' + r.spares + ' spare part' + (r.spares > 1 ? 's' : '') : ''), 'good'); }
+    G.Save.write('auto'); UI.render();
+  };
   UI.A.garagePlace = (v, el) => {
     if (!v) return;
     if (v === 'off') { UI.err(G.Robot.unmount(G.S, Number(el.dataset.bot), el.dataset.sub)); return UI.render(); }
@@ -711,7 +727,7 @@
         o += UI.card(h(d.name) + (busy ? ' ' + UI.tag('in progress', 'info') : '') + (copying ? ' ' + UI.tag('copy being built', 'info') : ''), body + '<div class="row wrap gap4 mt">' + btns + '</div>');
       });
       o += UI.card('Program projects', '<div class="col">' +
-        '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">"Build copy" here makes more of a finished subsystem. The Garage builds a quick test chassis or a full copy of the robot. ' + UI.q('design', 'Copies and fabrication') + '</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
+        '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">"Build copy" here makes more of a finished subsystem. The Garage has shortcuts for a test chassis (a copy of the drivetrain) and a full copy (a copy of each subsystem). ' + UI.q('design', 'Copies and fabrication') + '</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
         simpleRow('impact', 'Impact Award submission', 'Write your Impact story. Required to compete for the Impact Award this season (see HQ for your odds).') +
         wfaRow() +
         kbRow() + '</div>');
@@ -731,16 +747,19 @@
     return o;
   } };
   // Where the built copies of a subsystem are: on each robot, and how many in storage
+  // Where the built copies of a subsystem are (on each robot, in storage), and how many event spares the competition
+  // robot has for it, out of the most it can have
   function copiesLine(S, k) {
     const R = S.robot, d = R.design[k];
     const where = R.bots.map(b => { const u = b.subs[k]; return h(b.name) + ' ' + (u && u.ver ? (u.concept === d.concept ? '<b class="' + (u.ver >= d.ver ? 'good' : 'warn') + '">v' + u.ver + '</b>' : '<span class="warn">old concept</span>') : '<span class="dim">—</span>'); });
-    const st = G.Robot.storeCount(R, k);
-    return '<div class="xs muted mb">' + UI.icon('garage', 12) + ' ' + where.join(' · ') + (st ? ' · ' + st + ' in storage' : '') + '</div>';
+    const st = G.Robot.storeCount(R, k), lc = G.Robot.latestCopies(R, k), sp = G.Robot.spareCount(S, k), mx = G.Robot.SPARE_MAX();
+    return '<div class="xs muted mb">' + UI.icon('garage', 12) + ' ' + where.join(' · ') + ' · storage <b>' + st + '/' + D.STORE_MAX + '</b>' + (st ? ' (' + lc.store + ' v' + d.ver + ')' : '') + (lc.held ? ' · ' + lc.held + ' packed' : '') +
+      (R.subs[k] && R.subs[k].ver ? ' · <span title="Units identical to the competition robot\'s, in storage or on the other robot: swapped in at events. At most ' + mx + ' (' + D.STORE_MAX + ' in storage + the other robot\'s)">event spares <b class="' + (sp ? 'good' : '') + '">' + sp + '/' + mx + '</b></span>' : '') + '</div>';
   }
   function copyBtn(S, k, copying) {
     const q = G.Robot.quote(S, { type: 'copy', sub: k });
     const tip = q.err ? q.err : q.name + ': ' + q.hours + ' h · ' + U.money(q.cost) + (q.note ? '. ' + q.note : '');
-    return '<button class="btn sm" data-act="startSimpleSub" data-arg="copy|' + k + '" ' + (q.err || copying ? 'disabled ' : '') + 'title="' + h(tip) + '">Build copy</button>';
+    return '<button class="btn sm" data-act="startSimpleSub" data-arg="copy|' + k + '" ' + (q.err || copying ? 'disabled ' : '') + 'title="' + h(tip) + '">Build copy</button>' + (q.err && /^Spares full/.test(q.err) ? ' <span class="xs muted">spares full</span>' : '');
   }
   function simpleRow(type, name, desc) {
     const q = G.Robot.quote(G.S, { type });
@@ -809,9 +828,11 @@
         if (bi >= 0) dr += '<div class="xs mt">Drivers practice on <b>' + h(R.bots[bi].name) + '</b>' + (bi === (R.comp || 0) ? ' (the competition robot)' : ' <span class="warn">(not the competition robot)</span>') + (fam != null ? ' · familiarity ' + Math.round(fam * 100) + '%' : '') + ' · <a href="#" data-act="nav" data-arg="garage">Garage</a></div>';
         if (th.drive && S.parts.spares <= 0 && bi >= 0) dr += '<div class="xs bad">Out of spare parts: practice will wear ' + h(R.bots[bi].name) + '.</div>';
         if (R && R.year === S.year) {
-          const dd = S.defDrill || 0, two = G.Robot.twoBots(S);
-          if (two || dd > 0) dr += '<div class="statrow wide mt"><span class="n">Defense drills</span>' + UI.bar(dd * 100, 100, '#d07be0') + '<span class="v">' + Math.round(dd * 100) + '%</span></div><div class="xs muted">' + (two ? 'With two robots running, one plays defender in practice' : 'Needs a second running robot (a test chassis is enough)') + ': at 100% your drivers lose ' + Math.round(D.DEF_DRILL_EFFECT * 100) + '% less speed, cycle time and accuracy to a defender. Resets at Kickoff.</div>';
-          else dr += '<div class="xs muted mt">A second running robot (a test chassis is enough) adds <b>defense drills</b>: drivers learn to keep cycling against a defender.</div>';
+          // always shown in season, with why it is not growing when it is not
+          const dd = S.defDrill || 0, two = G.Robot.drillPair(S), bag = G.Robot.twoBots(S) && G.Career.bagged(S);
+          dr += '<div class="statrow wide mt"><span class="n">Defense drills</span>' + UI.bar(dd * 100, 100, '#d07be0') + '<span class="v">' + Math.round(dd * 100) + '%</span></div><div class="xs muted">' +
+            (two ? 'With two robots running, one plays defender in practice' : bag ? '<span class="warn">Paused: the competition robot is in the bag, so only one robot drives at home.</span> What the drivers learned before stays' : 'Needs a second running robot (a test chassis is enough)') +
+            ': at 100% your drivers lose ' + Math.round(D.DEF_DRILL_EFFECT * 100) + '% less speed, cycle time and accuracy to a defender. Resets at Kickoff.</div>';
         } }
     }
     if (S.robot && S.robot.year === S.year && S.phase !== 'off' && G.Robot.runnable(S.robot, G.Robot.other(S.robot))) {
@@ -866,7 +887,13 @@
   UI.A.finishNow = id => { const r = G.Robot.finishNow(G.S, id); if (typeof r === 'string') return UI.err(r); UI.toast(r.by + ' card: ' + r.name + ' is finished', 'good'); UI.render(); };
   UI.A.undoProj = id => { const p = G.S.projects.find(x => x.id === id); if (!p) return; if (!UI.err(G.Robot.undoProject(G.S, id))) { UI.toast('Undone: ' + p.name + (p.cost ? ' (' + U.money(p.cost) + ' back)' : ''), 'good'); UI.render(); } };
   UI.A.cancelProj = id => UI.confirm('Cancel project?', 'Progress is lost; you get a partial refund of materials.', 'Cancel project', () => { G.Robot.cancelProject(G.S, id); UI.render(); });
-  UI.A.startChassis = cid => { if (!UI.err(G.Robot.startProject(G.S, { type: 'testChassis', concept: cid }))) { UI.toast('Test chassis started (Fabrication)', 'good'); UI.render(); } };
+  // Garage shortcuts: a test chassis (a copy of the drivetrain, or a basic one) and a full copy (a copy of each subsystem)
+  UI.A.startChassis = arg => {
+    const [cid, bi] = String(arg).split('|'), spec = { type: 'copy', sub: 'drive', bot: Number(bi) };
+    if (cid) spec.concept = cid;
+    if (!UI.err(G.Robot.startProject(G.S, spec))) { UI.toast('Test chassis started (Fabrication)', 'good'); UI.render(); }
+  };
+  UI.A.startFullCopy = () => { const n = G.Robot.fullCopyPlan(G.S).subs.length; if (!UI.err(G.Robot.startFullCopy(G.S))) { UI.toast(n + ' cop' + (n === 1 ? 'y' : 'ies') + ' started (Fabrication)', 'good'); UI.render(); } };
   UI.A.startSimple = type => { if (!UI.err(G.Robot.startProject(G.S, { type }))) { UI.toast('Project started', 'good'); UI.render(); } };
   UI.A.startSimpleSub = arg => { const [type, sub] = arg.split('|'); if (!UI.err(G.Robot.startProject(G.S, { type, sub }))) { UI.toast('Project started', 'good'); UI.render(); } };
   UI.A.startResearch = rid => { if (!UI.err(G.Robot.startProject(G.S, { type: 'research', rid }))) { UI.toast('Research started', 'good'); UI.render(); } };

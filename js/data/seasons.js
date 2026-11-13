@@ -54,7 +54,7 @@
     tagline: 'Shoot cargo into the central Hub and climb the Hangar.',
     brief: [
       'Robots collect Cargo (balls in alliance colours) and score them in the central HUB: the lower goal is easy, the upper goal is worth double.',
-      'In the last 30 seconds robots climb the HANGAR: Low (4), Mid (6), High (10) and Traversal (15) rungs.',
+      'In the last 30 seconds robots climb the HANGAR: Low (4), Mid (6), High (10) and Traversal (15) rungs, Traversal nearest the alliance wall.',
       'Bonus RPs: Cargo Bonus at 20 cargo (18 with a 5-cargo auto "Quintet") and Hangar Bonus at 16 hangar points.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 4, major: 8 },
@@ -118,7 +118,7 @@
     brief: [
       'Robots pick up Cones and Cubes from the Loading Zone and place them on the GRID: bottom (any piece), mid and top rows (cone or cube nodes).',
       'Three pieces in a row form a LINK worth 5 points. The CHARGE STATION is worth 8/12 in auto (docked/engaged) and 6/10 per robot at the end.',
-      'Bonus RPs: Sustainability at 5 links (4 with Coopertition) and Activation at 26 charge-station points.'
+      'Bonus RPs: Sustainability at 6 links (5 with Coopertition) and Activation at 26 charge-station points. A complete grid can be Supercharged: 3 points for every extra piece.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 12 },
     relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 2, arm: 3, intake: 2, index: 0, climb: 0, vision: 2, autoPath: 3, elec: 2 },
@@ -178,7 +178,7 @@
     brief: [
       'Robots collect Notes (foam rings) and score them in the SPEAKER (2 pts, 5 when AMPLIFIED) or the AMP (1 pt).',
       'Two Amp notes let the human player amplify the Speaker for 10 seconds. In the last 20 seconds robots climb the STAGE chains (3), share a chain for Harmony (+2) and score in the Trap (5).',
-      'Bonus RPs: Melody at 18 notes (15 with Coopertition) and Ensemble at 10 stage points with 2 robots onstage.'
+      'Bonus RPs: Melody at 18 notes (15 with Coopertition; 21 and 18 at a District Championship, 25 and 21 at the Championship) and Ensemble at 10 stage points with 2 robots onstage.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 2, major: 5 },
     relevance: { swerve: 2, shooter: 3, turret: 2, elevator: 1, arm: 2, intake: 3, index: 1, climb: 2, vision: 3, autoPath: 3, elec: 2 },
@@ -236,7 +236,7 @@
     brief: [
       'Robots place Coral (PVC tubes) on the REEF: L1 trough (2), L2 (3), L3 (4) and L4 (5), worth more in auto. Algae (balls) sit on the reef blocking branches.',
       'Algae can be removed and scored in the PROCESSOR (6) or thrown into the NET (4). In the last 20 seconds robots park (2) or climb a Shallow (6) or Deep (12) cage.',
-      'Win = 3 RP. Bonus RPs: Auto (all robots leave + coral in auto), Coral (5 on every level, 3 levels with Coopertition), Barge (14 barge points).'
+      'Win = 3 RP. Bonus RPs: Auto (all robots leave + coral in auto), Coral (7 on every level, 3 levels with Coopertition), Barge (16 barge points).'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 3, foul: { minor: 2, major: 6 },
     relevance: { swerve: 2, shooter: 1, turret: 0, elevator: 3, arm: 2, intake: 2, index: 0, climb: 2, vision: 2, autoPath: 3, elec: 2 },
@@ -306,7 +306,7 @@
     brief: [
       'Robots collect Fuel (foam balls) — lots of it — and shoot it into their HUB for 1 point each, but only while the hub is ACTIVE.',
       'After a 10 s transition, hubs alternate in four 25 s SHIFTS (the alliance that won auto goes inactive first), then both are active for the last 30 s. Robots can climb the TOWER: L1 (10, or 15 in auto), L2 (20), L3 (30) — but climbs are slow and risky, and both hubs are active in the endgame, so strong teams usually keep shooting instead.',
-      'Crossing to the neutral zone means driving over a BUMP or, for low-profile robots, under a TRENCH. Win = 3 RP. Bonus RPs: Energized (100 fuel), Supercharged (360 fuel), Traversal (50 tower points).'
+      'Crossing to the neutral zone means driving over a BUMP or, for low-profile robots, under a TRENCH. Win = 3 RP. Bonus RPs: Energized (100 fuel; 240 at a District Championship, 360 at the Championship), Supercharged (360 fuel; 500 at the Championship), Traversal (50 tower points).'
     ],
     timing: { auto: 20, tele: 140, end: 30 }, rpWin: 3, foul: { minor: 5, major: 15 },
     relevance: { swerve: 3, shooter: 3, turret: 3, elevator: 0, arm: 0, intake: 3, index: 3, climb: 2, vision: 3, autoPath: 2, elec: 2 },

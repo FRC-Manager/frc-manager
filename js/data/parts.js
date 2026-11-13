@@ -17,14 +17,14 @@
   // Part categories. elec: sold by vendor A or B and part of the robot's control system (mixing vendors costs a bit).
   // max: inventory slots (enough for two full robots, with a few to spare).
   D.PART_CATS = [
-    { id: 'motor', name: 'Motor + controller', short: 'Motors', icon: 'motor', elec: true, max: 44, desc: 'Drivetrains use 4–8, most mechanisms 1–3.' },
-    { id: 'enc', name: 'Absolute encoder', short: 'Encoders', icon: 'sensor', elec: true, max: 18, desc: 'One per swerve module, plus arms, elevators, hoods and turrets.' },
+    { id: 'motor', name: 'Motor + controller', short: 'Motors', icon: 'motor', elec: true, max: 50, desc: 'Drivetrains use 4–8, most mechanisms 1–3.' },
+    { id: 'enc', name: 'Absolute encoder', short: 'Encoders', icon: 'sensor', elec: true, max: 20, desc: 'One per swerve module, plus arms, elevators, hoods and turrets.' },
     { id: 'ctrl', name: 'Control & power hub', short: 'Control hubs', icon: 'chip', elec: true, max: 3, desc: 'Power distribution, CAN network and IMU. One per robot.' },
     { id: 'wcd', name: 'West Coast drive set', short: 'Drive sets', icon: 'gear', vend: true, group: 'drive', max: 6, desc: 'Gearbox, wheels, belts and bearing blocks for one side of a West Coast drive. A drivetrain uses 2 (motors not included). The best a West Coast drive can run on.' },
     { id: 'swerve', name: 'Swerve module', short: 'Swerve modules', icon: 'swerve', elec: true, group: 'drive', max: 10, desc: 'Four per swerve drivetrain (motors not included).' },
     { id: 'kdrive', name: 'Kit drivetrain', short: 'Kit drivetrain sets', icon: 'gear', max: 6, desc: 'One side of the kit chassis: gearbox, wheels and frame rails. A kitbot tank drive uses 2, and nothing else can use them. Two come free at every Kickoff. The slowest way to drive.' },
     { id: 'gearbox', name: 'Drive gearbox', short: 'Drive gearboxes', icon: 'gear', max: 10, desc: 'A sturdy two-stage gearbox with its wheel shafts, for any drive but swerve. Mecanum uses 4. Two of them also drive a kit chassis (faster and stronger than the kit drivetrain) or a West Coast drive (slower and weaker than a vendor drive set).' },
-    { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 24, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The KOP low-profile gearbox only fits KOP motors.' },
+    { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 32, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The KOP low-profile gearbox only fits KOP motors.' },
     { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'Vision Level 1 needs one, Level 2 needs two.' },
     { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
     { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },

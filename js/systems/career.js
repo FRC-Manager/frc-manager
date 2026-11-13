@@ -738,8 +738,9 @@
     G.Robot.famDrive(S, bi, 1 - Math.exp(-eff / D.FAM.PRACTICE));
     G.Parts.wearElem(S, G.Parts.elemYear(S), h);    // and the game elements on the field
     S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + eff / D.DRILL_PER);
-    // two running robots: one plays defender, so the drive team learns to keep cycling under pressure
-    if (G.Robot.twoBots(S) && R.year === S.year) { out.def0 = S.defDrill || 0; S.defDrill = Math.min(1, (S.defDrill || 0) + eff / D.DEF_DRILL_HOURS); out.def1 = S.defDrill; }
+    // two running robots: one plays defender, so the drive team learns to keep cycling under pressure (not while the
+    // competition robot is in the bag: only one robot drives at home then)
+    if (G.Robot.drillPair(S) && R.year === S.year) { out.def0 = S.defDrill || 0; S.defDrill = Math.min(1, (S.defDrill || 0) + eff / D.DEF_DRILL_HOURS); out.def1 = S.defDrill; }
     const dt = C.driveTeam(S), k = 0.15 * eff;
     if (dt.driver.id) studentXP(S, dt.driver, ['drive', 'aware', 'comp'], k);
     if (dt.operator.id) studentXP(S, dt.operator, ['mech', 'comp'], k);
@@ -856,6 +857,7 @@
     if (C.blockers(S).length) return C.blockers(S);
     C.autoActivities(S); // "every turn": free activity slots are filled first (they take hours too)
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
+    if (G.Robot.autoScrapOn(S) && !G.Robot.garageLock(S)) G.Robot.scrapOld(S); // Garage setting: old versions in storage are taken apart
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
     S.launchQueue = []; // launch pop-ups belong to the turn they happened in
     const hours = Math.max(0, C.turnHours(S, thisWeekEvent) - S.actHours);

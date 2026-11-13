@@ -393,9 +393,7 @@
     S.projects.forEach(p => {
       let cid = null;
       if (p.type === 'build' && p.sub === k && bi === ci) cid = p.concept;
-      else if (p.type === 'copy' && p.sub === k && p.bot === bi) cid = p.concept;
-      else if (p.type === 'practiceBot' && p.bot === bi && (p.subs || []).includes(k) && R.design[k]) cid = R.design[k].concept;
-      else if (p.type === 'testChassis' && p.bot === bi && k === 'drive') cid = p.concept;
+      else if (p.type === 'copy' && p.sub === k && p.bot === bi) cid = p.concept; // a test chassis and a full copy are copies too
       if (cid) b = maxB(b, P.bom(year, k, G.Seasons.concept(year, k, cid)));
     });
     return b;
@@ -476,13 +474,24 @@
     return out;
   };
   // Missing parts if the robots also needed `extra` (on the competition robot, or on the other one when to = 'prac')
+  // Each missing category says how many each robot needs (comp, prac) and how many are on the shelf (have).
+  // Optional parts (planetary gearboxes, network switches, ML accelerators) are never missing.
   P.shortage = function (S, extra, to) {
     const n = P.need(S, extra, to), tot = addB(addB({}, n.comp), n.prac);
     const miss = [];
-    Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (!D.PART_CAT[cat].opt && tot[cat] > have) miss.push({ cat, n: tot[cat] - have }); });
+    Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (!D.PART_CAT[cat].opt && tot[cat] > have) miss.push({ cat, n: tot[cat] - have, need: tot[cat], have, comp: n.comp[cat] || 0, prac: n.prac[cat] || 0 }); });
     return miss;
   };
-  P.shortText = miss => 'Needs ' + miss.map(m => m.n + ' more ' + (m.n > 1 ? D.PART_CAT[m.cat].short.toLowerCase() : D.PART_CAT[m.cat].short.toLowerCase().replace(/s$/, ''))).join(', ') + ' (Inventory)';
+  // "Needs 2 more motors (Robot 1 uses 22, Robot 2 would use 24: 46 in all, 44 on the shelf; the shelf holds 44 at most)"
+  P.shortText = function (miss) {
+    const R = G.S && G.S.robot, nm = side => (R && R.bots ? R.bots[side === 'comp' ? R.comp || 0 : 1 - (R.comp || 0)].name : side === 'comp' ? 'the competition robot' : 'the second robot');
+    return 'Needs ' + miss.map(m => {
+      const c = D.PART_CAT[m.cat], s = c.short.toLowerCase(), word = m.n > 1 ? s : s.replace(/s$/, '');
+      if (m.need == null) return m.n + ' more ' + word;
+      const use = [m.comp ? nm('comp') + ' uses ' + m.comp : '', m.prac ? nm('prac') + (m.comp ? ' would use ' : ' uses ') + m.prac : ''].filter(Boolean).join(', ');
+      return m.n + ' more ' + word + ' (' + use + (m.comp && m.prac ? ': ' + m.need + ' in all' : '') + ', ' + m.have + ' on the shelf' + (m.need > c.max ? '; the shelf holds ' + c.max + ' at most' : '') + ')';
+    }).join(', ') + ' (Inventory)';
+  };
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
   P.kitsUsed = function (S, cat) {
     let used = 0;
@@ -953,7 +962,7 @@
     if (R && R.bots) {
       const west = id => id === 'wcd' || id === 'wcd8';
       let n = R.bots.filter(b => b.subs.drive && b.subs.drive.ver && west(b.subs.drive.concept)).length;
-      if (S.projects.some(p => (p.type === 'build' || p.type === 'copy' || p.type === 'testChassis') && (p.sub === 'drive' || p.type === 'testChassis') && west(p.concept))) n++;
+      if (S.projects.some(p => (p.type === 'build' || p.type === 'copy') && p.sub === 'drive' && west(p.concept))) n++;
       const pr = P.cur(S, 'wcd', 'B') || P.cur(S, 'wcd', 'A');
       if (n && pr) P.add(S, 'wcd', pr.id, 2 * n, 0.8);
     }

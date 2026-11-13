@@ -625,14 +625,22 @@
   const ownsSw18 = (m, a) => forced18(m, a, 'sw') || swOwn18(m, a) > 0;
   const ownsSc18 = (m, a) => forced18(m, a, 'sc') || (!forced18(m, o18(a), 'sc') && scLead18(m, a) > 0);
   const boosted18 = (m, a, what) => !!(m.pu && m.pu.kind === 'boost' && m.pu.a === a && m.pu.until > m.t && (what === 'sw' ? m.pu.lvl !== 2 : m.pu.lvl >= 2));
-  // where a robot stands to reach a plate
-  function spot18(m, r, kind) {
+  // Where a robot stands to reach a plate. A plate is 4 ft wide: two robots can work it side by side, so each plate has
+  // two places; a robot takes the free one nearer to it (the Exchange has room for one).
+  function spots18(m, r, kind) {
     const s = m.side[r.a], q = loc(m, r);
-    if (kind === 'scale') return E.P(m, r.a, G18.scX - 1.15, G18.scY[s.sc]);
-    if (kind === 'switch') return E.P(m, r.a, G18.swX + (q.x > G18.swX ? 1.0 : -1.0), G18.pY[s.sw]);
-    if (kind === 'deny') return E.P(m, r.a, FW - G18.swX - 1.0, G18.pY[1 - m.side[o18(r.a)].sw]);
-    return E.P(m, r.a, G18.exch.x, G18.exch.y(r.a)); // the Exchange
+    const two = (x, y) => [E.P(m, r.a, x, y - 0.46), E.P(m, r.a, x, y + 0.46)];
+    if (kind === 'scale') return two(G18.scX - 1.15, G18.scY[s.sc]);
+    if (kind === 'switch') return two(G18.swX + (q.x > G18.swX ? 1.0 : -1.0), G18.pY[s.sw]);
+    if (kind === 'deny') return two(FW - G18.swX - 1.0, G18.pY[1 - m.side[o18(r.a)].sw]);
+    return [E.P(m, r.a, G18.exch.x, G18.exch.y(r.a))]; // the Exchange
   }
+  // the place to use: free first, then nearest; `free` false when every place is taken by another robot
+  function place18At(m, r, kind) {
+    const l = spots18(m, r, kind).map(p => ({ p, u: H.spotUse(m, r, p) })).sort((a, b) => a.u - b.u || E.dist(r, a.p) - E.dist(r, b.p));
+    return { p: l[0].p, free: l[0].u === 0 };
+  }
+  const spot18 = (m, r, kind) => place18At(m, r, kind).p;
   // what to do with the next cube: the plate that most needs it, or the Vault
   function want18(m, r) {
     const a = r.a, o = o18(a), ss = m.ss[a], reach = r.cap.reach || 1, tl = m.total - m.t, t = r.plan.target;
@@ -645,13 +653,21 @@
     if (ss.vault < 9) opts.push(['vault', (ss.vault < 3 ? 3.3 : ss.vault < 6 ? 2.7 : 2.1) * (t === 'vault' ? 1.8 : 1) * (scaler ? 0.45 : 1)]);
     let best = null, bv = -1;
     opts.forEach(([k, v]) => {
-      const sp = spot18(m, r, k), ev = v / (E.dist(r, sp) / 2.6 + (k === 'scale' ? 3.2 : 2.2) + 2) * (tl < 9 && k !== 'vault' ? 0.5 : 1) + m.rng.next() * 0.01;
+      // a plate whose places are all taken (partners working it, a robot parked there) is worth less: it means a wait
+      const at = place18At(m, r, k === 'vault' ? 'exch' : k), sp = at.p, ev = v / (E.dist(r, sp) / 2.6 + (k === 'scale' ? 3.2 : 2.2) + 2) * (tl < 9 && k !== 'vault' ? 0.5 : 1) * (at.free ? 1 : 0.4) + m.rng.next() * 0.01;
       if (ev > bv) { bv = ev; best = k; }
     });
     return best;
   }
   function place18(m, r, kind) {
-    const sp = spot18(m, r, kind), a = r.a, o = o18(a), ss = m.ss[a];
+    const at = place18At(m, r, kind === 'vault' ? 'exch' : kind), sp = at.p, a = r.a, o = o18(a), ss = m.ss[a];
+    // every place at the plate is taken: hold just behind it until one frees up (a few seconds at most), then go in
+    if (!at.free && E.dist(r, sp) < 4.5 && !r.mem.held18) {
+      const back = H.clearOf(m, { x: sp.x + (sp.x < FW / 2 ? -1.1 : 1.1), y: sp.y }, false, false, r);
+      r.mem.held18 = true;
+      return H.moveTo(m, r, back, () => H.waitUntil(r, () => place18At(m, r, kind === 'vault' ? 'exch' : kind).free, () => place18(m, r, kind), kind === 'scale' ? 'Holding for a place on the Scale' : 'Holding for a place', 4), 'Holding back');
+    }
+    r.mem.held18 = false;
     H.moveTo(m, r, sp, () => {
       if (!H.canScore(m, r)) return;
       H.act(r, H.scoreTime(m, r, kind === 'scale' ? 1.9 : kind === 'vault' ? 0.9 : 1.2) * (r.cap.launch && kind !== 'vault' ? 0.85 : 1), () => { // a launching claw throws the cube from a step back
@@ -675,8 +691,12 @@
     if (ss.pile > 0) src.push({ k: 'pile', p: E.P(m, r.a, G18.pile.x - 0.35, G18.pile.y + (r.slot - 1) * 0.5) });
     if (ss.line > 0) src.push({ k: 'line', p: E.P(m, r.a, G18.lineX + 0.45, H18 + ((6 - ss.line) - 2.5) * 0.66) });
     G18.portalY.forEach((y, i) => { if (ss.portal[i] > 0) src.push({ k: 'portal', i, p: E.P(m, r.a, FW - 1.0, y) }); });
-    if (!src.length) return false;
-    const best = src.sort((p, q) => (E.dist(r, p.p) + E.dist(p.p, tgt) + (p.k === 'portal' ? 1.5 : 0)) - (E.dist(r, q.p) + E.dist(q.p, tgt) + (q.k === 'portal' ? 1.5 : 0)))[0];
+    // a source with a robot parked on it (or one this robot just could not reach) is out; one somebody is using costs a wait
+    const use = new Map(src.map(s => [s, H.spotUse(m, r, s.p)]));
+    const open = src.filter(s => use.get(s) < 2);
+    if (!open.length) return false;
+    const cost = s => E.dist(r, s.p) + E.dist(s.p, tgt) + (s.k === 'portal' ? 1.5 : 0) + (use.get(s) ? 2.5 : 0);
+    const best = open.sort((p, q) => cost(p) - cost(q))[0];
     const left = () => (best.k === 'portal' ? ss.portal[best.i] : ss[best.k]);
     r.mem.want = kind;
     H.moveTo(m, r, best.p, () => {
@@ -797,7 +817,8 @@
       }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
       if (collect18(m, r, want18(m, r))) return;
-      r.label = 'No cubes left'; r.st = 'wait'; r.timer = 2;
+      if (cubes18(m.ss[r.a]) > 0) { r.label = 'Waiting for a cube'; r.st = 'wait'; r.timer = 1; return; } // the cubes left are out of reach for now
+      H.tmpDefend(m, r, 15, 'No cubes left: playing defense');
     },
     endSpot(m, r, lvl) { return lvl ? E.P(m, r.a, G18.rung.x, H18 + (r.slot - 1) * 0.5) : E.P(m, r.a, G18.rung.x - 0.6, H18 + (r.slot - 1) * 1.0); },
     finishEnd(m) {
@@ -893,11 +914,18 @@
       H.act(r, H.collectTime(m, r, r.cap.gearFloor ? 'ground' : 'station', r.cap.gearFloor ? 1.1 : 1.9, true), () => { r.held = 1; r.heldType = 'gear'; }, 'Loading a gear');
     }, 'To the Loading Station');
   }
+  const pegSpot17 = (m, a, k) => { const pg = G17.pegs[k]; return E.P(m, a, pg[0] - (k === 0 ? 0.58 : 0.36), pg[1] + (k === 1 ? -0.5 : k === 2 ? 0.5 : 0)); };
   function gearPlace17(m, r) {
     const ss = m.ss[r.a];
-    // the least busy peg (the centre one faces the wall and is the easiest to reach from a start position)
-    const k = [0, 1, 2].sort((i, j) => (ss.peg[i] - ss.peg[j]) || (E.dist(r, E.P(m, r.a, G17.pegs[i][0], G17.pegs[i][1])) - E.dist(r, E.P(m, r.a, G17.pegs[j][0], G17.pegs[j][1]))))[0];
-    const pg = G17.pegs[k], spot = E.P(m, r.a, pg[0] - (k === 0 ? 0.58 : 0.36), pg[1] + (k === 1 ? -0.5 : k === 2 ? 0.5 : 0));
+    // the least busy peg (the centre one faces the wall and is the easiest to reach from a start position). A peg with a
+    // robot parked in front of it (a disabled partner, say) cannot be reached: it is skipped, and a peg somebody else is
+    // working counts as busy.
+    const use = [0, 1, 2].map(k => H.spotUse(m, r, pegSpot17(m, r.a, k)));
+    const open = [0, 1, 2].filter(k => use[k] < 2);
+    if (!open.length) { r.label = 'Every peg is blocked'; return H.tmpDefend(m, r, 10, 'Every peg is blocked: playing defense'); }
+    const busy = k => Math.max(ss.peg[k], m.t) + (use[k] ? 3 : 0);
+    const k = open.sort((i, j) => (busy(i) - busy(j)) || (E.dist(r, pegSpot17(m, r.a, i)) - E.dist(r, pegSpot17(m, r.a, j))))[0];
+    const spot = pegSpot17(m, r.a, k);
     ss.peg[k] = Math.max(ss.peg[k], m.t) + 4;
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
@@ -996,6 +1024,7 @@
   function fuelRole17(m, r) {
     const c = r.cap;
     if (!c.fuelHigh && !c.fuelLow) return false;
+    if (r.perm.intake && !r.held) return true; // it cannot load gears any more: fuel from the hoppers it is
     if (r.plan.target === 'gears') return false;
     if (r.plan.target === 'fuel' || !c.gear) return true;
     const ss = m.ss[r.a];
@@ -1004,6 +1033,8 @@
   }
   Rules[2017] = {
     leavePts: 5, tempo: { c: 3.6, s: 3.1 },
+    // a fuel robot with a broken intake still catches fuel from the hoppers that are left
+    canWork: (m, r, part) => part === 'intake' && !!(r.cap.fuelHigh || r.cap.fuelLow) && !r.perm.scorer && (m.ss[r.a].hop.some(h => h > 0) || m.hopMid > 0),
     endgame: { levels: [{ name: 'Climb', pts: 50, time: 6.5, drop: 0.2 }], park: 0 }, // a rope that slips out of the drum lets go all at once
     leftCheck: (m, r) => loc(m, r).x > G17.base + 0.3,
     init(m) {
@@ -1212,6 +1243,8 @@
   }
   Rules[2016] = {
     leavePts: 0, tempo: { c: 2.6, s: 2.2 },
+    // crossing the defenses scores and damages them without a boulder: a robot with a broken intake keeps at it until they are breached
+    canWork: (m, r, part) => part === 'intake' && !breached16(m.ss[r.a]),
     endgame: { levels: [{ name: 'Scale', pts: 15, time: 6, drop: 0.25 }], park: 5 },
     leftCheck: (m, r) => !!r.mem.crossed,
     init(m) {
@@ -1285,7 +1318,11 @@
         if (!H.canScore(m, r)) { r.label = 'Shooter jammed'; return; }
         return shoot16(m, r);
       }
-      if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
+      if (!H.canCollect(m, r)) {
+        // an intake broken for good: the robot can still damage the defenses by crossing them (until they are breached)
+        if (r.perm.intake && !breached16(ss)) return cross16(m, r, sd === 'c' ? -1 : 1, null);
+        r.label = 'Intake jammed'; return;
+      }
       if (sd === 'c') return ss.loose.length ? loose16(m, r) : cross16(m, r, -1, null);
       if (fetch16(m, r)) return;
       // no boulder to be had: go after one lying in the courtyard, damage a defense on the way, or wait for the castle

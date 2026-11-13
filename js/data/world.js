@@ -172,7 +172,7 @@
   // before the competition robot drives. Without a Practice Field it gives "parking-lot" testing hours: code and drivetrain
   // projects only, plus driver practice (no real field: lower quality). With a field it counts as half a second robot.
   D.CHASSIS_CONCEPTS = ['kit', 'mec', 'wcd'];
-  D.CHASSIS_HOURS_MULT = 0.4; // build hours vs a full design build of that drivetrain (no design work)
+
   D.CHASSIS_TEST_HOURS = 6;   // testing hours a week from a test chassis without a Practice Field
   D.CHASSIS_SHARE = 0.5;      // with a Practice Field, any runnable second robot counts as at least half a copy
   D.CHASSIS_ELEM = 0.6;       // driver-practice quality in the shop or parking lot (no field)
@@ -393,7 +393,7 @@
   D.ELEC_SHAKE_HOURS = 30;  // testing hours with a second robot running until the electrical shakedown is complete (resets each season)
   D.ELEC_SHAKE_XP = 3;      // Electrical & Reliability XP every week a second robot runs
   D.ELEC_SHAKE_EFFECT = [0.4, 0.25, 0.1]; // fewer brownouts and comms dropouts at 100%: first event of the season, second event, later events
-  D.DRIVE_FAMILY = { kit: 'tank', wcd: 'tank', mec: 'holonomic', swerve: 'holonomic' };
+  D.DRIVE_FAMILY = Object.assign(D.DRIVE_FAMILY || {}, { kit: 'tank', wcd: 'tank', mec: 'holonomic', swerve: 'holonomic' }); // seasons-classic.js (loaded first) adds the 2016 drives
 
   // ---------- Feeder programs ----------
   // attr: skill bonus for a recruit who comes from a fully grown program with this focus; size: extra recruits per year;

@@ -101,7 +101,7 @@
     return Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver).map(k => {
       const sp = G.Robot.spareFor(S, k);
       return '<div class="row gap4">' + '<div class="sp">' + UI.stat(G.Seasons.sub(R.year, k).name, R.subs[k].cond, null, UI.colorFor(R.subs[k].cond)) + '</div>' +
-        (sp ? '<button class="btn sm" data-act="swapSpare" data-arg="' + k + '" title="An identical spare (v' + sp.ver + ', ' + Math.round(sp.cond) + '%) from storage or the other robot">Swap in spare · ' + Math.round(sp.cond) + '%</button>' : '') + '</div>';
+        (sp ? '<button class="btn sm" data-act="swapSpare" data-arg="' + k + '" title="An identical spare (v' + sp.ver + ', ' + Math.round(sp.cond) + '%) from storage or the other robot. You have ' + G.Robot.spareCount(S, k) + ' identical spare' + (G.Robot.spareCount(S, k) > 1 ? 's' : '') + ' (most ' + G.Robot.SPARE_MAX() + ')">Swap in spare · ' + Math.round(sp.cond) + '% <span class="xs muted">(' + G.Robot.spareCount(S, k) + ')</span></button>' : '') + '</div>';
     }).join('');
   };
   UI.A.swapSpare = k => {
@@ -230,7 +230,8 @@
     const rows = avail.map(t => ({ t, sc: G.Ev.scout(ev, t), v: G.Ev.pickScore(ev, al, t, true) })).sort((a, b) => b.v - a.v);
     return '<div class="xs muted mb">Sorted by pick value: OPR discounted by breakdowns, plus auto and climb consistency, fouls, and what your alliance still needs. Hover the headers for details.</div>' +
       '<div style="max-height:440px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num">Value</th><th></th></tr>' + rows.slice(0, 30).map((r, i) => {
-      return '<tr><td class="nowrap">' + tlink(r.t) + (i < 3 ? ' ' + UI.tag('rec', 'acc') : '') + '<div class="xs muted">#' + G.Ev.rankOf(ev, r.t) + ' · ' + h(r.sc.arch || '') + '</div></td><td class="num">' + (opr[r.t] || 0) + '</td>' + obsCells(ev, r.t) + '<td class="num b">' + r.v.toFixed(1) + '</td><td><button class="btn sm primary" data-act="selPick" data-arg="' + r.t + '">Pick</button></td></tr>';
+      const dc = G.Ev.declineChance(ev, sel.pending.k, r.t); // a future captain that could build a stronger alliance itself may say no
+      return '<tr><td class="nowrap">' + tlink(r.t) + (i < 3 ? ' ' + UI.tag('rec', 'acc') : '') + (dc.p >= 0.15 ? ' <span title="About ' + Math.round(dc.p * 100) + '% likely to decline: ' + h(dc.why) + '">' + UI.tag('may decline', 'warn') + '</span>' : '') + '<div class="xs muted">#' + G.Ev.rankOf(ev, r.t) + ' · ' + h(r.sc.arch || '') + '</div></td><td class="num">' + (opr[r.t] || 0) + '</td>' + obsCells(ev, r.t) + '<td class="num b">' + r.v.toFixed(1) + '</td><td><button class="btn sm primary" data-act="selPick" data-arg="' + r.t + '">Pick</button></td></tr>';
     }).join('') + '</table></div>';
   }
   UI.A.selPick = function (t) { const ev = Ev(); const ok = G.Ev.playerPick(ev, Number(t)); if (!ok) UI.toast('They declined!', 'bad'); UI.render(); };
