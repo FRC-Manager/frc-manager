@@ -140,7 +140,7 @@
         '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="endPractice">Continue to ' + (ev.stage === 'playoffs' ? 'playoffs' : 'qualifications') + '</button></div></div>';
     } else {
     o += '<div class="col">' + (mustLighten ? '<button class="btn primary" data-act="practice" data-arg="lighten">Emergency lightening (required to pass inspection)</button>' :
-      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + (S.robot.pending.length + G.Robot.held(S).length) + ' pending' + (G.Robot.held(S).length ? ': ' + h(G.Robot.heldNames(S).join(', ')) : '') + ')' : '') + '</span></button>').join('')) + '</div>';
+      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"' + (p.id === 'install' && !G.Ev.canInstall(S) ? ' disabled title="Nothing to install"' : '') + '><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + (S.robot.pending.length + G.Robot.held(S).length) + ' pending' + (G.Robot.held(S).length ? ': ' + h(G.Robot.heldNames(S).join(', ')) : '') + ')' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
     }
     o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + UI.stat('Auto bonus', ev.tuneAuto * 500) +
@@ -460,6 +460,17 @@
       '<div class="xs muted mt">' + (ci.result === 'winner' ? 'Your team won the most prestigious award in the program. The banner is on your History wall.' : ci.result === 'finalist' ? 'Your team is one of the six Finalists. The banner is on your History wall.' : ci.eligible ? 'Your entry placed ' + U.ord(ci.rank) + ' of ' + ci.of + ' regional Impact winners.' : S.hallOfFame != null ? 'Your team is already in the Hall of Fame.' : 'Only this season\'s regional Impact Award winners are judged.') + '</div></div>';
   }
   UI.A.impactAgain = () => { const ci = G.S.season && G.S.season.cmpImpact; if (ci && ci.cele) UI.impactCele(ci.cele, true); };
+  // the Woodie Flowers Award, presented on Einstein right after the FIRST Impact Award
+  function wfaCard() {
+    const S = G.S, wc = S.season && S.season.wfaCmp;
+    if (!wc || !wc.winner) return '';
+    G.Career.settleWfa(S);
+    const W = wc.winner;
+    return '<div class="card mt"><div class="ct">Woodie Flowers Award' + (wc.mine && wc.cele ? '<span class="sp"></span><button class="btn sm" data-act="wfaEvAgain">' + UI.icon('trophy', 13) + ' Celebration</button>' : '') + '</div>' +
+      '<div class="row sm mb ' + (W.team === me() ? 'acc b' : '') + '"><span>' + h(W.name) + '</span><span class="sp"></span><span>' + W.team + ' ' + h(tname(W.team)) + '</span></div>' +
+      (W.prof ? '<div class="xs muted">' + h(G.Career.profLine(W.prof)) + '</div>' : '') + '</div>';
+  }
+  UI.A.wfaEvAgain = () => { const wc = G.S.season && G.S.season.wfaCmp; if (wc && wc.cele) UI.wfaCele(wc.cele, true); };
   function doneView(ev) {
     if (ev.festival) return ev.stream ? streamDone(ev) : festDone(ev);
     const r = ev.result || {};
@@ -476,7 +487,7 @@
       o += '<div class="grid g2"><div class="card hl"><div class="ct">Einstein finals</div><div class="xs muted b">WORLD CHAMPIONS</div><div class="xl b acc">' + h(alName(ev, w)) + '</div>' +
         '<div class="sm mt">' + ev.alliances[w].map(t => tlink(t) + ' ' + h(tname(t))).join(' · ') + '</div>' +
         '<div class="kv mt"><span class="k">Finals</span><span>' + gw + '–' + gl + ' against ' + h(alName(ev, F.loser)) + '</span><span class="k">Your team</span><span>In the stands' + (ci && ci.result ? ', and on the field for the FIRST Impact Award' : '') + (S.season.wfaCmp && S.season.wfaCmp.mine ? (ci && ci.result ? ' and' : ', and') + ' for ' + h(S.season.wfaCmp.winner.name) + '\'s Woodie Flowers Award' : '') + '</span></div>' +
-        '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>' + impactCard() + '</div>';
+        '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>' + impactCard() + wfaCard() + '</div>';
       return o + '<div class="mt">' + UI.bracket(ev) + '</div>';
     }
     if (ev.kind === 'champs' && S.pendingEinstein && S.lastDivision && S.lastDivision.watch) o += '<div class="hint mb">' + UI.icon('trophy', 14) + ' Your matches are over, but your team is in the running for the <b>FIRST Impact Award</b>. It is presented on Einstein, your next stop: you watch the finals from the stands.</div>';
@@ -490,7 +501,7 @@
     if (r.winners && r.winners.length) o += '<div class="sm mt">Event winners: ' + r.winners.map(tlink).join(', ') + '</div>';
     if (ev.kind !== 'einstein') o += impactLine(ev);
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="leaveEvent">Leave event ▶</button></div></div>';
-    if (ev.kind === 'einstein' && ci) return o + impactCard() + '</div>' + (ev.po ? '<div class="mt">' + UI.bracket(ev) + '</div>' : '');
+    if (ev.kind === 'einstein' && ci) return o + '<div>' + impactCard() + wfaCard() + '</div></div>' + (ev.po ? '<div class="mt">' + UI.bracket(ev) + '</div>' : '');
     const wf = (ev.wffa || []).map(x => '<div class="row sm mb ' + (x.me ? 'acc b' : '') + '" title="' + h(G.Career.profLine(x.prof)) + '"><span>Woodie Flowers Finalist Award</span><span class="sp"></span><span>' + h(x.name) + ', ' + x.team + (x.me ? '' : ' ' + h(tname(x.team))) + '</span></div>').join('');
     o += '<div class="card"><div class="ct">Awards</div>' + (ev.awards.length || wf ? ev.awards.map(a => '<div class="row sm mb ' + (a.team === me() ? 'acc b' : '') + '"><span>' + h(a.name) + '</span><span class="sp"></span><span>' + a.team + ' ' + h(tname(a.team)) + '</span></div>').join('') + wf : '<p class="muted">No judged awards at this event.</p>') + '</div></div>';
     if (ev.po) o += '<div class="mt">' + UI.bracket(ev) + '</div>';
@@ -565,7 +576,9 @@
     if (!ev || !c) return null;
     return c.kind === 'qual' ? c.mt : G.Ev.poMatchObj(ev, c.m);
   }
-  UI.S.prematch = { nav: 'event', html() {
+  // on Einstein the ceremonies come between matches wherever the player is: Finalists before Final 1, winners after it
+  const einCer = () => { const ev = Ev(); if (ev && ev.kind === 'einstein') UI.ceremony(ev); };
+  UI.S.prematch = { nav: 'event', after: einCer, html() {
     const S = G.S, ev = Ev(), obj = curMatchObj();
     if (!obj) return '<p>No match.</p><button class="btn" data-act="nav" data-arg="event">Back</button>';
     const a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
@@ -621,6 +634,12 @@
       '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + (ev.lastTurn ? ' · pit time before this match: ' + ev.lastTurn + ' match slot' + (ev.lastTurn === 1 ? '' : 's') : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
+    // Super pit: one full repair before this match, on the subsystem the player picks (spare parts as usual)
+    if (G.Shop.superPit(S) && R) {
+      const ks = G.Seasons[R.year].subs.filter(sd => sd.id !== 'soft' && R.subs[sd.id] && R.subs[sd.id].ver && R.subs[sd.id].cond < 99.5).sort((a, b) => R.subs[a.id].cond - R.subs[b.id].cond);
+      o += '<div class="row wrap gap4 mt">' + UI.icon('pitcart', 14) + '<span class="sm b">Super pit</span>' + (ev.superSeq === ev.pmSeq ? '<span class="xs good">full repair done for this match</span>' : !ks.length ? '<span class="xs muted">everything is at 100%</span>' : S.parts.spares < 1 ? '<span class="xs warn">no spare parts for a full repair</span>' :
+        '<select class="inp sm" id="superSub">' + ks.map(sd => '<option value="' + sd.id + '">' + h(sd.name) + ' (' + Math.round(R.subs[sd.id].cond) + '%)</option>').join('') + '</select><button class="btn sm" data-act="superFix">Full repair</button>') + '</div>';
+    }
     o += '<div class="mt">' + nextStrip(ev, obj) + '</div>';
     o += '<div class="row mt"><button class="btn primary lg" data-act="watch">Watch ▶</button><button class="btn" data-act="simThis">Simulate</button><span class="sp"></span><button class="btn ghost" data-act="nav" data-arg="event">Back</button></div></div>';
     o += '<div><h3>Blue alliance' + alTag('blue') + '</h3>' + obj.blue.map(t => teamCard(t, 'blue')).join('') + '</div></div>';
@@ -629,6 +648,7 @@
   UI.A.plan = (v, el) => { const k = el.dataset.k; const ev = Ev(); ev.plan[k] = (k === 'endLevel' || k === 'defTarget') ? (v === '' ? null : Number(v)) : v; UI.render(); };
   UI.A.planChk = (v, el) => { Ev().plan[el.dataset.k] = v; };
   UI.A.suggest = (v, el) => { const ev = Ev(); if (v) ev.suggest[Number(el.dataset.t)] = v; else delete ev.suggest[Number(el.dataset.t)]; };
+  UI.A.superFix = () => { const el = document.getElementById('superSub'); if (!el) return; const r = G.Robot.superFix(G.S, Ev(), el.value); if (typeof r === 'string') return UI.err(r); UI.toast('Super pit: back to ' + r.cond + '% (' + r.used + ' spare' + (r.used === 1 ? '' : 's') + ' used)', 'good'); UI.render(); };
   UI.A.timeout = () => { const ev = Ev(), pa = G.Ev.playerAlliance(ev); ev.timeouts[pa] = true; const sp = G.Robot.pitRepair(G.S, 4, 2); UI.toast('Timeout! Extra repairs done (' + sp + ' spares used).', 'good'); UI.render(); };
   UI.A.simThis = function () {
     const ev = Ev(), c = UI.st.match, obj = curMatchObj();
@@ -813,7 +833,7 @@
         : '<button class="btn primary" data-act="nextPO">Next playoff match ▶</button><button class="btn" data-act="simPO">Simulate my next match</button><button class="btn" data-act="nav" data-arg="event">Event page</button>';
     return '<div class="card hl mt">' + (more ? nextStrip(ev) : '') + '<div class="row wrap">' + btns + '</div></div>';
   }
-  UI.S.mresult = { nav: 'event', html() {
+  UI.S.mresult = { nav: 'event', after: einCer, html() {
     const R = UI.st.lastResult; if (!R) return '<button class="btn" data-act="nav" data-arg="event">Back</button>';
     const res = R.res, obj = R.obj, a = obj.red.includes(me()) ? 'red' : 'blue', o2 = a === 'red' ? 'blue' : 'red';
     const w = res[a].win;
@@ -893,7 +913,8 @@
       '</div>', { wide: true, lock: !replay, cls: 'wcm' });
     UI.confetti(replay ? 4500 : 7000); if (!replay) { setTimeout(() => UI.confetti(6000), 2200); setTimeout(() => UI.confetti(5000), 5200); }
   };
-  UI.A.wcClose = () => { UI.closeModal(); const ev = Ev(); if (ev && UI.screen === 'event') UI.ceremony(ev); };
+  // the next ceremony (if any) follows on any event screen: the event page, the pre-match page or a match result
+  UI.A.wcClose = () => { UI.closeModal(); const ev = Ev(); if (ev && ['event', 'prematch', 'mresult'].includes(UI.screen)) UI.ceremony(ev); };
 
   // ---------------- FIRST Impact Award (Championship) ----------------
   const LAUREL = '<svg class="ic-medal" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="icg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff7d6"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#b8860b"/></linearGradient></defs>' +

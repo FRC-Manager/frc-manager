@@ -49,12 +49,30 @@
     weldRel: v => '+' + v.toFixed(1) + ' reliability on new builds',
     outreach: v => '+' + Math.round(v * 100) + '% outreach points',
     pitch: v => '+' + Math.round(v) + ' Impact presentation',
-    ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's')
+    ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's'),
+    superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts)' : ''),
+    scout: v => (v >= 0.5 ? 'sharper scouting at events' : '')
   };
   Shop.effectText = function (S, id, lvl, eff) {
     const it = Shop.item(id);
     return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, k === 'ftc' ? 1 : eff))).filter(Boolean).join(' · ');
   };
+  // a level that does not exist yet in this calendar year (the Super pit: from the 2018 season, on sale from the autumn of 2017)
+  Shop.levelBlock = function (S, id) {
+    const it = Shop.item(id), l = Shop.lvl(S, id), L = it.levels[l];
+    if (!L || !L.from || !S || !S.cal) return null;
+    const cy = G.Parts.buyCy(S);
+    return cy < L.from ? 'The ' + L.name + ' does not exist yet: top teams first build one for the ' + L.from + ' season.' : null;
+  };
+  Shop.superPit = S => Shop.lvl(S, 'pitcart') >= 3;
+  // "Finish now" cards: each top-level CNC Machining, 3D Printing and Machine Shop gives one a season for a hardware project
+  // at least half done, a top-level Programming Station one for a software project. No cost, no penalty.
+  Shop.FINISH = [{ id: 'cnc', kind: 'fab' }, { id: 'printer', kind: 'fab' }, { id: 'lathe', kind: 'fab' }, { id: 'laptops', kind: 'soft' }];
+  Shop.finishCards = function (S) {
+    if (!S.finish || S.finish.si !== S.si) S.finish = { si: S.si, used: [] };
+    return Shop.FINISH.filter(f => Shop.lvl(S, f.id) >= Shop.item(f.id).levels.length && !S.finish.used.includes(f.id));
+  };
+  Shop.finishFor = (S, p) => (p.done / Math.max(1, p.need) >= 0.5 ? Shop.finishCards(S).find(f => f.kind === G.Robot.cat(p)) || null : null);
   // Project slots from facilities: whole slots, lost while a facility is below SLOT_COND condition (renovate to get it back)
   Shop.SLOT_COND = 35;
   Shop.slotOf = (S, id) => Shop.lvl(S, id) && Shop.cond(S, id) >= Shop.SLOT_COND ? Shop.fx(S, id, 'slot', null, 1) : 0;
@@ -151,11 +169,12 @@
     return Math.max(100, Math.round(it.levels[l - 1].cost * D.RENO_RATE * miss / 100 / 50) * 50);
   };
   // opts.grant: paid by the school board's upgrade grant. opts.gift: a donation (no cost, no grant used).
-  Shop.grantOk = (S, id) => { const c = Shop.upgradeCost(S, id); return (S.schoolGrant || 0) > 0 && c != null && c <= D.BOARD.cap && !Shop.spaceBlock(S, id); };
+  Shop.grantOk = (S, id) => { const c = Shop.upgradeCost(S, id); return (S.schoolGrant || 0) > 0 && c != null && c <= D.BOARD.cap && !Shop.spaceBlock(S, id) && !Shop.levelBlock(S, id); };
   Shop.upgrade = function (S, id, opts) {
     const cost = Shop.upgradeCost(S, id), it = Shop.item(id), f = S.shop[id];
     if (cost == null) return 'Already at the top level';
     { const e = Shop.spaceBlock(S, id); if (e) return e; }
+    { const e = Shop.levelBlock(S, id); if (e) return e; }
     if (opts && opts.grant) {
       if (!(S.schoolGrant > 0)) return 'No school grant left';
       if (cost > D.BOARD.cap) return 'The school grant covers upgrades up to ' + U.money(D.BOARD.cap);

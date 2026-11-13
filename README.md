@@ -12,7 +12,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **2.9.6**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **2.9.7**, the beta of 3.0. The main menu's **What's new** page has the version notes. The last finished release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -41,7 +41,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 - **Concepts, then upgrades.** Pick a design for every subsystem at Kickoff and develop it. Projects share the team's weekly hours; effort (Rush, Standard, Thorough) and extra hours trade time for quality.
 - **Knowledge carries over.** A turret built for one game makes the next one cheaper, faster and more reliable. Unused know-how fades, and rule changes date it.
 - **Two robots.** A second robot, or just a cheap test chassis, gives testing hours, driver practice and spares at events.
-- **Parts are real.** Motors, electronics, drivetrain parts and kits come from the Inventory, wear out, and sell out in season. Stock up before Kickoff.
+- **Parts are real.** Control system parts (motors, encoders, hubs), drivetrain parts and kits come from the Inventory, wear out, and sell out in season. What everybody wants sells out first. Stock up before Kickoff. A vision company, planetary gearboxes and servo kits arrive over the decade.
 - **Elite designs.** Seven games offer mechanisms only the best teams build: a little better than the next best, and much harder.
 
 **Matches**
@@ -158,10 +158,11 @@ Event fields in a new career come from the simulated world. It holds its level o
 Systems added after the plan, which it does not describe:
 
 - Two robots per season and the test chassis, with driver familiarity, defense drills, path planning help and the electrical shakedown.
-- The parts inventory: two electronics vendors, stock that sells out in season, wear, mechanism kits, the Kit of Parts and game elements.
+- The parts inventory: two control system vendors, Lanternworks for vision hardware, planetary gearboxes and servo kits, stock that follows demand in season, wear, mechanism kits, the Kit of Parts and game elements.
 - Testing hours, team fatigue and event incidents.
 - Feeder programs (including your own FTC teams) and the detailed Impact rating; the FIRST Impact Award at the Championship with Finalists, the Hall of Fame and watching Einstein from the stands. The Woodie Flowers Finalist Award at regionals and District Championships and the Woodie Flowers Award on Einstein, with mentors who have professions, seasons with the team and years in FIRST.
 - Offseason rule changes and new designs that date tech knowledge.
+- The Super pit (a full repair of one subsystem before every match) and the top-level facilities' Finish now cards.
 - Workshop space in three levels, the school board's renovations and upgrade grants, sponsor donations, and four more facilities (Electronics Workbench, Welding Station, Team Meeting Room, FTC Team Space).
 - A fifth drive-team role (Technician), a team size cap of 100 and slower reputation growth.
 - The official double-elimination bracket with best-of-three finals and FRC tiebreakers, and the Championship page designs.

@@ -34,7 +34,7 @@
       base: { speed: 50, agility: 32, push: 60 }, ceil: { speed: 82, agility: 52, push: 86 }, look: { drive: 'wcd' } },
     { id: 'mec', name: 'Mecanum', desc: 'Strafes in any direction, which makes lining up easy. Slower than a West Coast drive, and its rollers have no grip: a defender shoves it wherever it likes.', cost: 900, hours: 100, w: 36, cx: 2, areas: ['elec'],
       base: { speed: 38, agility: 50, push: 14 }, ceil: { speed: 58, agility: 72, push: 26 }, caps: { noGrip: true }, look: { drive: 'mecanum' } },
-    { id: 'swerve', name: 'Swerve', desc: 'Independent steering modules. The best drivetrain if you can make it reliable. Needs swerve modules from the parts store.', cost: 600, hours: 180, w: 40, cx: 4, areas: ['swerve', 'elec', 'autoPath'],
+    { id: 'swerve', name: 'Swerve', desc: 'Independent steering modules. The best drivetrain if you can make it reliable.', cost: 600, hours: 180, w: 40, cx: 4, areas: ['swerve', 'elec', 'autoPath'],
       base: { speed: 58, agility: 60, push: 50 }, ceil: { speed: 95, agility: 95, push: 76 }, look: { drive: 'swerve' }, req: { part: 'swerve' } }
   ];
   const SOFT = (extra) => ({

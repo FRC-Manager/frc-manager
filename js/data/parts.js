@@ -6,11 +6,12 @@
   const D = G.Data = G.Data || {};
 
   D.VENDORS = {
-    A: { id: 'A', name: 'Apex Motion', short: 'Apex', tag: 'Premium', color: '#ff9f43', desc: 'Top-performance electronics at premium prices.' },
+    A: { id: 'A', name: 'Apex Motion', short: 'Apex', tag: 'Premium', color: '#ff9f43', desc: 'Top-performance control systems at premium prices.' },
     T: { id: 'T', name: 'Sterling Motion', short: 'Sterling', tag: 'Premium', color: '#c8b273', desc: 'The old premium catalogue: thirty years of brushed motors, and the parts most champions ran.' },
-    B: { id: 'B', name: 'Lumen Robotics', short: 'Lumen', tag: 'Value', color: '#35c9d6', desc: 'Dependable, economical electronics.' },
+    B: { id: 'B', name: 'Lumen Robotics', short: 'Lumen', tag: 'Value', color: '#35c9d6', desc: 'Dependable, economical control systems.' },
     K: { id: 'K', name: 'Kit of Parts', short: 'KOP', tag: 'Basic', color: '#8d97a1', desc: 'Basic, low-performance parts: some free at every Kickoff, more for very little, always in stock.' },
-    C: { id: 'C', name: 'COTS suppliers', short: 'COTS', tag: 'Subsystem', color: '#b39dff', desc: 'Subsystem parts and kits from many suppliers. Always compatible.' }
+    C: { id: 'C', name: 'COTS suppliers', short: 'COTS', tag: 'Subsystem', color: '#b39dff', desc: 'Subsystem parts and kits from many suppliers. Always compatible.' },
+    L: { id: 'L', name: 'Lanternworks', short: 'Lanternworks', tag: 'Vision', color: '#8ee05a', desc: 'Vision cameras, network switches and ML accelerators from two former drive-team programmers. The green ring light on half the robots at every event is theirs.' }
   };
 
   // Part categories. elec: sold by vendor A or B and part of the robot's control system (mixing vendors costs a bit).
@@ -23,8 +24,12 @@
     { id: 'swerve', name: 'Swerve module', short: 'Swerve modules', icon: 'swerve', elec: true, group: 'drive', max: 10, desc: 'Four per swerve drivetrain (motors not included).' },
     { id: 'kdrive', name: 'Kit drivetrain', short: 'Kit drivetrain sets', icon: 'gear', max: 6, desc: 'One side of the kit chassis: gearbox, wheels and frame rails. A kitbot tank drive uses 2, and nothing else can use them. Two come free at every Kickoff. The slowest way to drive.' },
     { id: 'gearbox', name: 'Drive gearbox', short: 'Drive gearboxes', icon: 'gear', max: 10, desc: 'A sturdy two-stage gearbox with its wheel shafts, for any drive but swerve. Mecanum uses 4. Two of them also drive a kit chassis (faster and stronger than the kit drivetrain) or a West Coast drive (slower and weaker than a vendor drive set).' },
+    { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 24, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The KOP low-profile gearbox only fits KOP motors.' },
     { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'Vision Level 1 needs one, Level 2 needs two.' },
+    { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
+    { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },
     { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator and end effector builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
+    { id: 'servo', name: 'Servo actuator kit', short: 'Servo kits', icon: 'motor', max: 2, desc: 'Small servos and linear actuators for what small cylinders used to do (big ones gave way to brushless motors). Speeds up intake, manipulator and end effector builds, more every year as air fades. With pneumatics too, the better of the two counts.' },
     { id: 'kElev', kit: 'elevator', name: 'Elevator stage kit', short: 'Elevator kits', icon: 'elevator', max: 6, desc: 'Bearing blocks, tubes and rigging for one elevator stage. Tall elevators use 2.' },
     { id: 'kArm', kit: 'arm', name: 'Arm & pivot kit', short: 'Arm kits', icon: 'arm', max: 6, desc: 'Pivot gearbox, bearings and arm tube for one joint.' },
     { id: 'kShoot', kit: 'shooter', name: 'Flywheel shooter kit', short: 'Shooter kits', icon: 'shooter', max: 6, desc: 'Flywheels, shafts and side plates. Wide dumpers use 2.' },
@@ -45,8 +50,9 @@
   // The lost year (2021): suppliers spent it designing bolt-together mechanisms. In calendar careers these are first sold
   // in August 2021 (month COTS_MONTH of the offseason before the 2022 season). Before that only elevator, shooter
   // and turret kits exist.
-  D.COTS_FROM = { kArm: 2022, kIntake: 2022, kIndex: 2022, kClimb: 2022, kGrip: 2022, kFrame: 2022 };
+  D.COTS_FROM = { kArm: 2022, kIntake: 2022, kIndex: 2022, kClimb: 2022, kGrip: 2022, kFrame: 2022, servo: 2023 };
   D.COTS_MONTH = 3;
+  D.COTS_MO = { servo: 0 }; // servo kits: on sale from May 2022, with the story of the compressor that stays home
   // GridTube frame stock: a build that gets all the bundles it can use takes FRAME_HOURS fewer hours and FRAME_COST less
   // material, on top of what the mechanism kits do. Bundles by size: 1 (simple), 2 (complexity 3 or 4), 3 (complexity 5).
   D.FRAME_HOURS = 0.1; D.FRAME_COST = 0.15;
@@ -65,7 +71,7 @@
   const ELEC_PERF = { A: 0.72, B: 0.5 };
   D.ROMAN = ['', '', ' II', ' III', ' IV'];
   D.makeProduct = function (cat, v, gen) {
-    if (v === 'K') return { id: cat + 'K', cat, v, gen: 0, name: { motor: 'Kit brushed motor + controller', enc: 'Kit low-profile encoder', ctrl: 'Kit control hub', kdrive: 'Kit drivetrain', gearbox: 'Kitbot gearbox' }[cat] || (D.PART_CAT[cat] && D.PART_CAT[cat].kop ? D.PART_CAT[cat].name : 'Kit part'), price: D.KOP_PRICE[cat] || 0, perf: D.KOP_PERF[cat] || 0.05, kop: true };
+    if (v === 'K') return { id: cat + 'K', cat, v, gen: 0, name: { motor: 'Kit brushed motor + controller', enc: 'Kit low-profile encoder', ctrl: 'Kit control hub', kdrive: 'Kit drivetrain', gearbox: 'Kitbot gearbox', pgear: 'KOP low-profile gearbox' }[cat] || (D.PART_CAT[cat] && D.PART_CAT[cat].kop ? D.PART_CAT[cat].name : 'Kit part'), price: D.KOP_PRICE[cat] || 0, perf: D.KOP_PERF[cat] || 0.05, kop: true };
     if (v === 'C') {
       const c = D.PART_CAT[cat];
       return { id: cat + 'C', cat, v, gen: 1, name: c.name, price: D.COTS_PRICE[cat], perf: 0.6 };
@@ -109,15 +115,22 @@
       A: [{ y: 2016, brand: T, name: 'Sterling Ridgeline drive set', perf: 0.55, price: 310, fix: 1 }, { y: 2018, brand: T, name: 'Sterling Ridgeline II drive set', perf: 0.7, price: 325 }],
       B: [{ y: 2016, name: 'Lumen Trailhead drive set', perf: 0.36, price: 205, fix: 1 }, { y: 2018, name: 'Lumen Trailhead II drive set', perf: 0.5, price: 210 }, { y: 2020, name: 'Lumen Trailhead III drive set', perf: 0.64, price: 215, fix: 1 }]
     },
+    // Planetary gearboxes for mechanisms (one per motor): both vendors from the 2017 season, after a year of home-made
+    // gearboxes failing in the pits. Apex took over Sterling's line with its bolt pattern. Not part of the control system.
+    pgear: {
+      A: [{ y: 2017, brand: T, name: 'Sterling Orbital planetary', perf: 0.6, price: 95, fix: 1, story: 'planetary' }, { y: 2020, brand: 'A', name: 'Apex Orbital planetary', perf: 0.72, price: 98, fix: 1, quiet: 1 },
+        { y: 2024, brand: 'A', name: 'Apex Orbital II planetary', perf: 0.86, price: 104 }],
+      B: [{ y: 2017, name: 'Lumen Sunwheel planetary', perf: 0.45, price: 62, fix: 1, story: 'planetary' }, { y: 2022, name: 'Lumen Sunwheel II planetary', perf: 0.6, price: 64 }]
+    },
     swerve: {
       A: [{ y: 2020, brand: 'A', name: 'Apex Vector module', perf: 0.64, price: 460, fix: 1, quiet: 1 }, { y: 2023, brand: 'A', name: 'Apex Vector II module', perf: 0.78, price: 490 }, { y: 2025, brand: 'A', name: 'Apex Vector III module', perf: 0.92, price: 550 }],
       B: [{ y: 2022, name: 'Lumen Pivot module', perf: 0.5, price: 330, fix: 1, story: 'pivot' }, { y: 2024, name: 'Lumen Pivot II module', perf: 0.65, price: 370 }, { y: 2026, name: 'Lumen Pivot III module', perf: 0.8, price: 410 }]
     }
   };
   Object.keys(D.LADDER).forEach(c => ['A', 'B'].forEach(v => D.LADDER[c][v].forEach(L => { if (!L.brand) L.brand = v; })));
-  D.COTS_PRICE = { gearbox: 120, camera: 260, pneu: 500, kElev: 480, kArm: 320, kShoot: 420, kTurret: 650, kIntake: 260, kIndex: 220, kClimb: 210, kGrip: 190, kFrame: 70 };
+  D.COTS_PRICE = { gearbox: 120, camera: 260, pneu: 500, servo: 380, kElev: 480, kArm: 320, kShoot: 420, kTurret: 650, kIntake: 260, kIndex: 220, kClimb: 210, kGrip: 190, kFrame: 70 };
   D.ELEC_CATS = ['motor', 'enc', 'ctrl', 'swerve'];
-  D.VEND_CATS = ['motor', 'enc', 'ctrl', 'wcd', 'swerve']; // everything the two vendors sell (calendar careers): electronics and drivetrain parts
+  D.VEND_CATS = ['motor', 'enc', 'ctrl', 'wcd', 'swerve', 'pgear']; // everything the two vendors sell (calendar careers): control system, drivetrain parts, planetary gearboxes
   D.DRIVE_CATS = ['wcd', 'swerve'];
   // What a drive runs on (calendar careers), from the lowest performance to the best:
   //  - the kit drivetrain (Kit of Parts): the kit chassis only;
@@ -132,7 +145,22 @@
   // A product line that its own vendor replaces. { category: { vendor slot: the category whose first launch ends it } }.
   // What is in stock stays on sale through the season the replacement was launched for (one more year), then it is gone.
   D.LINE_ENDS = { wcd: { B: 'swerve' } };
-  D.COTS_CATS = ['gearbox', 'camera', 'pneu', 'kElev', 'kArm', 'kShoot', 'kTurret', 'kIntake', 'kIndex', 'kClimb', 'kGrip', 'kFrame'];
+  D.COTS_CATS = ['gearbox', 'camera', 'pneu', 'servo', 'kElev', 'kArm', 'kShoot', 'kTurret', 'kIntake', 'kIndex', 'kClimb', 'kGrip', 'kFrame'];
+  // Lanternworks (vendor L), the vision company: y = the season a product is first sold for, mo = the launch month in the
+  // autumn before (D.MONTHS index: 4 = September), last = the last season it is sold for (its successor replaces it).
+  // Lantern 1 still works after Lantern 2, but its tracking was made for reflective tape: from the AprilTag season it
+  // counts for CAM_OLD_TAGS of its performance.
+  D.LANTERN = [
+    { id: 'cameraL1', cat: 'camera', name: 'Lantern 1 vision camera', perf: 0.6, price: 260, y: 2018, mo: 4, last: 2022 },
+    { id: 'nswitchL', cat: 'nswitch', name: 'Lantern Link network switch', perf: 0.7, price: 110, y: 2018, mo: 4 },
+    { id: 'cameraL2', cat: 'camera', name: 'Lantern 2 vision camera', perf: 0.86, price: 320, y: 2023, mo: 6 },
+    { id: 'accelL', cat: 'accel', name: 'Lantern Spark ML accelerator', perf: 0.8, price: 150, y: 2023, mo: 6 }
+  ];
+  D.CAM_OLD_TAGS = 0.7;
+  // what the vision hardware does on the competition robot (G.Cap.build): a better camera aims better, a switch cuts comms
+  // dropouts, an accelerator finds game pieces and targets
+  D.VISION_HW = { camAcc: 5, camVision: 20, swDrop: 0.6, swVision: 2, swAcc: 1, accVision: 6, accIntake: 3, accAuto: 3 };
+
   // ---------- The second-hand market ----------
   // What a used part fetches follows the news: a technology that has been overtaken is worth less from the day its
   // replacement goes on sale. (A closed vendor's parts: Era.STERLING_RESALE.)
@@ -145,23 +173,24 @@
 
   // Kit of Parts electronics can also be bought any time, even in season: very cheap and always in stock, but slow
   // (brushed motors, low-profile encoders). Mixing them with Apex or Lumen electronics costs a little integration time.
-  D.KOP_PRICE = { motor: 45, enc: 18, ctrl: 220, kdrive: 60, gearbox: 60, kopGrip: 45, kopIntake: 60, kopShoot: 90, kopLift: 80 };
-  D.KOP_PERF = { motor: 0.08, enc: 0.15, ctrl: 0.2, kdrive: 0.3, gearbox: 0.3 };
+  D.KOP_PRICE = { motor: 45, enc: 18, ctrl: 220, kdrive: 60, gearbox: 60, pgear: 28, kopGrip: 45, kopIntake: 60, kopShoot: 90, kopLift: 80 };
+  D.KOP_PERF = { motor: 0.08, enc: 0.15, ctrl: 0.2, kdrive: 0.3, gearbox: 0.3, pgear: 0.35 };
   D.KOP_KITS = ['kopGrip', 'kopIntake', 'kopShoot', 'kopLift'];
-  D.KOP_CATS = ['motor', 'enc', 'ctrl', 'kdrive'].concat(D.KOP_KITS);
+  D.KOP_CATS = ['motor', 'enc', 'ctrl', 'kdrive', 'pgear'].concat(D.KOP_KITS);
+  D.KOP_FROM = { pgear: 2017 }; // the KOP low-profile gearbox: sold and in the kit from the 2017 season (calendar careers only)
   // A Kit of Parts subsystem kit helps the simplest concept of a subsystem only (complexity 1, or the first concept on
   // the list when that is complexity 2): KOP_KIT_HOURS fewer hours and KOP_KIT_COST less material. A build that uses a
   // COTS mechanism kit does not take one as well.
   D.KOP_KIT_HOURS = 0.2; D.KOP_KIT_COST = 0.2;
   D.KOP_MIX_HOURS = 1.05; // KOP electronics next to vendor electronics: 5% more hardware and software hours
   // Kit of parts: limited and basic, free at every Kickoff (rookies get a bigger kit in their first season)
-  D.KOP = { motor: 4, enc: 2, kdrive: 2 }; // veterans: no control hub (like FRC, only rookies get the control system)
-  D.KOP_ROOKIE = { motor: 8, enc: 4, kdrive: 4, ctrl: 1 };
+  D.KOP = { motor: 4, enc: 2, kdrive: 2, pgear: 2 }; // veterans: no control hub (like FRC, only rookies get the control system)
+  D.KOP_ROOKIE = { motor: 8, enc: 4, kdrive: 4, ctrl: 1, pgear: 4 };
   // KOP mechanism vouchers handed out at Kickoff: each pays for one Kit of Parts subsystem kit until the next Kickoff
   D.KOP_VOUCHERS = { rookie: 2, vet: 1 };
 
   // How likely an item is in stock in a given week during the season (the offseason is almost always fine)
-  D.STOCK = { elec: 0.42, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, diff: { easy: 0.15, normal: 0, hard: -0.1 } };
+  D.STOCK = { elec: 0.48, cots: 0.62, elem: 0.35, off: 0.97, newRelease: -0.12, demand: 0.8, diff: { easy: 0.15, normal: 0, hard: -0.1 } };
   D.PART_PRICE_DIFF = { easy: 0.9, normal: 1, hard: 1.05 };
 
   // ---------- Vendor loyalty ----------

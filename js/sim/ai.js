@@ -58,6 +58,14 @@
     cap.rel = U.clamp(0.6 * avg + 0.4 * mn + (pp ? 3 * pp.enc - 10 * (1 - pp.health) - (pp.mixed ? 3 : pp.kopMix ? 2 : 0) : 0), 5, 99);
     cap.brown = pp ? (1.25 - 0.5 * pp.motor) * (1 + 0.6 * (1 - pp.health)) : 1.25;
     if (pp) { const k = (0.97 + 0.03 * pp.health) * (pp.mixed ? 0.98 : pp.kopMix ? 0.99 : 1); cap.speed = Math.round(cap.speed * k); cap.scoreSpd = Math.round(cap.scoreSpd * k); }
+    // optional hardware (calendar careers): planetary gearboxes keep mechanisms running; the vision hardware of the day
+    if (pp) {
+      const VH = G.Data.VISION_HW, vl = cap.visionLvl || 0;
+      if (pp.pgear) cap.rel = U.clamp(cap.rel + 4 * pp.pgear, 5, 99);
+      if (vl && pp.cam != null) { cap.accuracy += Math.round(VH.camAcc * (pp.cam - 0.6) * vl); cap.vision += Math.round(VH.camVision * (pp.cam - 0.6)); }
+      if (pp.nsw) { cap.netSw = pp.nsw; if (vl) { cap.vision += VH.swVision; cap.accuracy += VH.swAcc; } }
+      if (pp.accel && vl) { cap.vision += VH.accVision; cap.intake += VH.accIntake; cap.auto += VH.accAuto; }
+    }
     cap.weight = Math.round(weight);
     if (cap.endLevel && !cap.endgame) cap.endgame = 40;
     return cap;

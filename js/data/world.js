@@ -117,8 +117,8 @@
       levels: [{ name: 'Charger cart', cost: 500 }, { name: 'Smart charging station', cost: 1800 }],
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
     { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.2, event: 6 },
-      levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }],
-      fx: { repair: [0.25, 0.45] }, desc: 'Faster pit repairs between matches.' },
+      levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }, { name: 'Super pit', cost: 9000, from: 2018 }],
+      fx: { repair: [0.25, 0.45, 0.6], superPit: [0, 0, 1], scout: [0, 0, 1] }, desc: 'Faster pit repairs between matches. The Super pit (road cases, from 2018) also fully repairs one subsystem of your choice before any match, with spare parts, and its screens help the strategy team scout.' },
     { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.2, event: 5 },
       levels: [{ name: 'Team trailer', cost: 18000 }],
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
@@ -140,7 +140,7 @@
   ];
   // ---------- Workshop space ----------
   // Floor space per facility level in square feet: rough real-world footprints including working room. The trailer parks outside.
-  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], laptops: [80, 140, 200], charger: [20, 40], pitcart: [40, 80], trailer: [0],
+  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], laptops: [80, 140, 200], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
     pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], ftc: [300, 500, 720] };
   // The biggest room holds every facility at its top level
   D.SPACE_MAX = Math.ceil(D.EQUIP.reduce((s, e) => s + (D.EQUIP_SIZE[e.id] || [0])[(D.EQUIP_SIZE[e.id] || [0]).length - 1], 0) / 100) * 100;
@@ -151,7 +151,7 @@
     { pct: 1, sup: 90, title: 'Robotics center', name: 'your own robotics center' }];
   D.SPACE_START = { rookie: 0, established: 1, powerhouse: 1 }; // a rookie starts in the classroom, an existing program in the technology wing
   // School board gifts at the season review, when Program Support went up: a free full renovation, and after a strong year one upgrade of your choice
-  D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000 };
+  D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000, cash: 3000 }; // cash: when no upgrade fits, in 2026 dollars (shown in the year's dollars)
   // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
   D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3 };
   // A satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor has
@@ -221,7 +221,7 @@
   const lvl = (S, id) => G.Shop.lvl(S, id);
   D.ACTIVITIES = [
     { id: 'demo', name: 'Community robot demo', icon: 'garage', kind: 'outreach', cost: 100, impact: 6, rep: 2, robot: true, desc: 'Show the robot at a library or fair.' },
-    { id: 'camp', name: 'STEM summer camp', icon: 'team', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, desc: 'Run a week-long camp for middle schoolers.' },
+    { id: 'camp', name: 'STEM summer camp', icon: 'team', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, req: S => !G.Career.inSeason(S), reqText: 'Offseason only: a summer camp needs the summer.', desc: 'Run a week-long camp for middle schoolers.' },
     { id: 'fll', name: 'Mentor a junior robotics team', icon: 'mentors', kind: 'outreach', cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
     { id: 'openhouse', name: 'Weekend shop open house', icon: 'lathe', kind: 'outreach', cost: 150, impact: 9, rep: 2, recruits: 1, money: [150, 450], req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Families tour the machine shop; a donation box by the door.' },
     { id: 'workshop', name: 'Machining workshop for local teams', icon: 'cnc', kind: 'outreach', cost: 200, impact: 11, rep: 3, req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Teach other teams to make their own parts.' },
@@ -230,7 +230,7 @@
     { id: 'fieldday', name: 'Practice-field scrimmage day', icon: 'pfield', kind: 'outreach', cost: 250, impact: 10, rep: 3, money: [300, 800], robot: true, req: S => lvl(S, 'pfield') >= 2, reqText: 'Needs a half or full practice field', desc: 'Host local teams on your field; small entry fees.' },
     { id: 'roadshow', name: 'Trailer roadshow', icon: 'trailer', kind: 'outreach', cost: 300, impact: 13, rep: 3, robot: true, req: S => lvl(S, 'trailer') > 0, reqText: 'Needs the Team Trailer', desc: 'Take the robot on tour to schools across the region.' },
     { id: 'industry', name: 'Industry night with a mentor', icon: 'mentors', kind: 'outreach', cost: 0, impact: 6, rep: 2, req: S => S.mentors.some(m => m.role === 'biz' || m.role === 'design'), reqText: 'Needs a Business or Design mentor', desc: 'A mentor hosts a careers talk.' },
-    { id: 'pizza', name: 'Team pizza & movie night', icon: 'team', kind: 'rest', cost: 150, fatigue: -6, morale: 2, desc: 'No outreach at all, but a tired team gets some rest (fatigue −6 in season).' },
+    { id: 'pizza', name: 'Team pizza & movie night', icon: 'team', kind: 'rest', cost: 150, fatigue: -6, morale: 2, req: S => G.Career.inSeason(S), reqText: 'In season only: in the offseason nobody is tired.', desc: 'No outreach at all, but a tired team gets some rest (fatigue −6 in season).' },
     { id: 'bake', name: 'Bake sale', icon: 'fund', kind: 'fund', cost: 50, money: [300, 600], desc: 'Classic.' },
     { id: 'carwash', name: 'Car wash', icon: 'fund', kind: 'fund', cost: 80, money: [400, 900], desc: 'Weekend car wash.' },
     { id: 'crowd', name: 'Crowdfunding campaign', icon: 'money', kind: 'fund', cost: 0, money: [600, 2000], repScale: true, desc: 'Online campaign. Pays more with a good reputation.' },
@@ -307,7 +307,7 @@
   // The first number given to each season's rookies, from FRC Events (Team 5800 is a 2016 rookie, 6300 a 2017 one, and
   // so on; rounded to 50). A career's teams at the start are numbered below the start year's first rookie, and every
   // season's rookies take that season's block. The 2021 rookies, who never played a 2021 season, join the 2022 class.
-  D.NUM_FROM = { 2016: 5750, 2017: 6250, 2018: 6750, 2019: 7300, 2020: 8000, 2021: 8450, 2022: 8650, 2023: 8900, 2024: 9350, 2025: 9800, 2026: 10800, 2027: 11400 };
+  D.NUM_FROM = { 2015: 5350, 2016: 5750, 2017: 6250, 2018: 6750, 2019: 7300, 2020: 8000, 2021: 8450, 2022: 8650, 2023: 8900, 2024: 9350, 2025: 9800, 2026: 10800, 2027: 11400 };
   D.numTop = cy => (D.NUM_FROM[cy] ? D.NUM_FROM[cy] - 1 : 10999);                 // established teams: 1 to this
   D.numBlock = cy => (D.NUM_FROM[cy] && D.NUM_FROM[cy + 1] ? [D.NUM_FROM[cy === 2022 ? 2021 : cy], D.NUM_FROM[cy + 1] - 1] : [1, 11999]);
   // older programs are a little stronger: the oldest 18% of the numbers (below 2000 of 11,000 before numbers followed the year)

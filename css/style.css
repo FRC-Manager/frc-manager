@@ -570,3 +570,6 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 .wfa-past { text-align: left; margin: 10px auto 0; max-width: 560px; border-top: 1px solid var(--line); padding-top: 8px; }
 .wfa-past > div + div { margin-top: 5px; }
 .wc.wfa .wc-note b.acc { color: #ffe9a0; }
+/* Stop Build Day: the bagged robot is out of reach until its next event */
+.botcard.bagged { filter: grayscale(0.9); opacity: .72; }
+.botcard.bagged .botimg { opacity: .6; }

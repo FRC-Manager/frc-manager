@@ -153,6 +153,8 @@
   Robot.isLatest = (R, k, u) => !!(u && u.ver && R.design[k] && u.concept === R.design[k].concept && u.ver >= R.design[k].ver);
   Robot.runnable = (R, bi) => !!(R && R.bots && R.bots[bi] && R.bots[bi].subs.drive && R.bots[bi].subs.drive.ver);
   Robot.twoBots = S => !!(S.robot && S.robot.bots && Robot.runnable(S.robot, 0) && Robot.runnable(S.robot, 1));
+  // a real second robot: it runs and carries at least one mechanism (a test chassis is only a drivetrain)
+  Robot.realSecond = S => { const R = S.robot; if (!R || !R.bots || R.year !== S.year) return false; const o = Robot.other(R), s = R.bots[o].subs; return Robot.runnable(R, o) && Object.keys(s).some(k => k !== 'soft' && k !== 'drive' && s[k] && s[k].ver); };
   // The robot that is not the competition robot runs this season (a test chassis counts), even before the competition robot drives
   Robot.secondRuns = S => { const R = S.robot; return !!(R && R.bots && R.year === S.year && S.phase !== 'off' && Robot.runnable(R, Robot.other(R))); };
   // The robot the drivers practice on (their pick if it can drive, otherwise the other one; -1 if neither can)
@@ -370,7 +372,7 @@
     if (missingTotal(S) > before) {
       const txt = G.Parts.shortText(G.Parts.shortage(S));
       R.store = snap.store; R.bots[0].subs[k] = snap.a; R.bots[1].subs[k] = snap.b; S.wearTick++;
-      return 'Not enough electronics for both robots. ' + txt;
+      return 'Not enough control system parts for both robots. ' + txt;
     }
     return null;
   };
@@ -455,7 +457,7 @@
     let m = G.Shop.hwHoursMult(S);
     m *= 1 - 0.12 * G.Career.mentorSkill(S, 'fab') / 100;
     if (G.Career.hasPerk(S, 'fabSpeed')) m *= 0.9;
-    if (G.Parts.count(S, 'pneu') && (subId === 'intake' || subId === 'scorer' || subId === 'effector' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu)) m *= 1 - G.Era.of(S).pneu; // air mattered more before brushless motors
+    if (subId === 'intake' || subId === 'scorer' || subId === 'effector' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu) m *= 1 - Robot.actuatorShare(S); // air (or, later, servos) for the small motions
     return m * G.Parts.devMult(S);
   }
   function swMult(S) {
@@ -464,6 +466,9 @@
     if (G.Career.hasPerk(S, 'progSpeed')) m *= 0.85;
     return m * G.Parts.devMult(S);
   }
+  // What a pneumatics kit or a servo kit saves on intake, manipulator and end effector builds: the better of the two the
+  // team owns (air mattered most before brushless motors; servos take over as it fades, from 2023)
+  Robot.actuatorShare = S => Math.max(G.Parts.count(S, 'pneu') ? G.Era.of(S).pneu || 0 : 0, G.Parts.count(S, 'servo') ? G.Era.of(S).servo || 0 : 0);
   // team-built swerve modules (before 2020): the era's extra hours, materials and risk; null when modules are sold
   Robot.teamBuilt = (S, subId, c) => (subId === 'drive' && c && c.id === 'swerve' && !G.Era.of(S).swerve.cots ? G.Era.of(S).swerve : null);
   const copyHours = (S, k, c, kq) => c.hours * D.COPY_HOURS * (1 - 0.06 * Robot.lvl(S, c)) * kq.hours * hwMult(S, k) * (Robot.teamBuilt(S, k, c) ? Robot.teamBuilt(S, k, c).hours : 1);
@@ -542,7 +547,7 @@
           const x = extraFor(S, o, k, c); Object.keys(x).forEach(p => { extra[p] = (extra[p] || 0) + x[p]; });
         });
         hours *= 0.9; cost *= 0.9; // one batch: shared setup
-        if (!err) { const miss = G.Parts.shortage(S, extra, 'prac'); if (miss.length) err = 'A second set of electronics: ' + G.Parts.shortText(miss); }
+        if (!err) { const miss = G.Parts.shortage(S, extra, 'prac'); if (miss.length) err = 'A second control system: ' + G.Parts.shortText(miss); }
         fields = { bot: o, subs, kits: Object.keys(held).length ? held : null, kitsBySub: bySub };
         name = 'Build ' + R.bots[o].name + ' (copy of every subsystem)';
         break;
@@ -604,12 +609,14 @@
   Robot.slots = S => Robot.permSlots(S) + G.Shop.boostSlots(S);
   // Fabrication (copies of finished designs, a full second robot) uses team hours but no project slot
   Robot.isFab = p => p.type === 'copy' || p.type === 'practiceBot' || p.type === 'testChassis';
-  Robot.slotUsed = S => S.projects.filter(p => !Robot.isFab(p)).length;
+  // program projects (the Impact and Woodie Flowers essays, research for the knowledge base) take no project slot either
+  Robot.noSlot = p => Robot.isFab(p) || p.type === 'impact' || p.type === 'wfa' || p.type === 'kb';
+  Robot.slotUsed = S => S.projects.filter(p => !Robot.noSlot(p)).length;
   Robot.slotText = S => { const p = Robot.slotParts(S), raw = p.base + p.mentors + p.perk + p.facilities; return p.base + ' base + ' + p.mentors + ' mentors' + (p.perk ? ' + 1 sponsor' : '') + ' + ' + p.facilities + ' facilities' + (raw > Robot.MAX_SLOTS ? ' (capped at ' + Robot.MAX_SLOTS + ')' : ' (max ' + Robot.MAX_SLOTS + ')') + (p.temp ? ' + ' + p.temp + ' temporary' : ''); };
   Robot.startProject = function (S, spec) {
     const q = Robot.quote(S, spec);
     if (q.err) return q.err;
-    if (!Robot.isFab(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
+    if (!Robot.noSlot(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     { const e = G.Career.afford(S, q.cost); if (e) return e; }
     G.Career.spend(S, q.cost, q.name);
     S.projects.push(Object.assign({ id: U.uid('p'), name: q.name, need: q.hours, done: 0, prio: spec.prio || 'normal', cost: q.cost, started: G.Career.dateLabel(S), startTurn: G.Career.turnKey(S), extra: 0 }, q.fields, spec));
@@ -633,6 +640,19 @@
       else G.Career.spend(S, -cost, 'Undone: ' + p.name);
     }
     return null;
+  };
+  // A top-level facility's card: the project is finished at once (extra hours included), at no cost
+  Robot.finishNow = function (S, id) {
+    const p = S.projects.find(x => x.id === id);
+    if (!p) return 'Project not found';
+    const f = G.Shop.finishFor(S, p);
+    if (!f) return 'No card for this project (a hardware or software project at least half done, and a card left this season)';
+    S.finish.used.push(f.id);
+    p.done = p.need; p.polish = p.extra || 0;
+    S.projects = S.projects.filter(x => x !== p);
+    Robot.complete(S, p);
+    S.wearTick = (S.wearTick || 0) + 1;
+    return { by: G.Shop.item(f.id).name, name: p.name };
   };
   Robot.cancelProject = function (S, id) {
     const p = S.projects.find(x => x.id === id);
@@ -818,7 +838,7 @@
         if (bi === (R.comp || 0) && Robot.garageLock(S)) bi = -1;
         const bagC = bi === (R.comp || 0) && !!Robot.bagLock(S);
         const at = bagC ? (hold(S, { k: p.sub, u }), -2) : bi >= 0 ? tryInstall(S, bi, p.sub, u) : (R.store.push(u), -1);
-        G.Career.inbox(S, 'Built: another ' + c.name, 'A v' + u.ver + ' ' + c.name + ' is ready: ' + (at === -2 ? 'packed for your next event (the competition robot is in the bag: fit it on practice day with Install Upgrade)' : at >= 0 ? 'fitted to ' + where(at) : bi >= 0 ? 'in storage (not enough electronics to fit it to ' + R.bots[bi].name + ')' : 'in storage as a spare') + '. Move subsystems between robots in the Garage.' + pt, 'dev');
+        G.Career.inbox(S, 'Built: another ' + c.name, 'A v' + u.ver + ' ' + c.name + ' is ready: ' + (at === -2 ? 'packed for your next event (the competition robot is in the bag: fit it on practice day with Install Upgrade)' : at >= 0 ? 'fitted to ' + where(at) : bi >= 0 ? 'in storage (not enough control system parts to fit it to ' + R.bots[bi].name + ')' : 'in storage as a spare') + '. Move subsystems between robots in the Garage.' + pt, 'dev');
         break;
       }
       case 'practiceBot': {
@@ -829,7 +849,7 @@
           const u = makeUnit(k, d, { kits: (p.kitsBySub && p.kitsBySub[k]) || null });
           (tryInstall(S, bi, k, u) >= 0 ? put : stored).push(G.Seasons.sub(year, k).name);
         });
-        G.Career.inbox(S, R.bots[bi].name + ' is built', 'New on ' + R.bots[bi].name + ': ' + (put.join(', ') || 'nothing') + '.' + (stored.length ? ' In storage (not enough electronics): ' + stored.join(', ') + '.' : '') +
+        G.Career.inbox(S, R.bots[bi].name + ' is built', 'New on ' + R.bots[bi].name + ': ' + (put.join(', ') || 'nothing') + '.' + (stored.length ? ' In storage (not enough control system parts): ' + stored.join(', ') + '.' : '') +
           ' The closer it matches the competition robot, the more it gives: up to +' + D.TEST_BOT_HOURS + ' testing hours a week (with a Practice Field), driver practice on it up to ' + Math.round((D.BOT2_PRACTICE - 1) * 100) + '% more effective without wearing the competition robot, better tuning at events, and its identical subsystems are spares at events. Pick which robot the drivers practice on in the Garage.', 'dev');
         break;
       }
@@ -839,7 +859,7 @@
         const stats = {}; Object.keys(c.base).forEach(k => { stats[k] = c.base[k]; });
         const u = makeUnit('drive', { concept: c.id, ver: 1, stats, rel: Math.round(U.clamp(74 - 5 * c.cx + G.Shop.buildRel(S), 40, 90)), w: c.w }, { chassis: true });
         const cur = R.bots[bi].subs.drive, at = cur && cur.ver ? (R.store.push(u), -1) : tryInstall(S, bi, 'drive', u);
-        G.Career.inbox(S, 'Test chassis ready', 'A ' + c.name + ' test chassis is ' + (at >= 0 ? 'running as ' + where(at) : 'in storage (no free electronics or drivetrain slot for it)') + '. ' +
+        G.Career.inbox(S, 'Test chassis ready', 'A ' + c.name + ' test chassis is ' + (at >= 0 ? 'running as ' + where(at) : 'in storage (no free control system or drivetrain slot for it)') + '. ' +
           (G.Shop.lvl(S, 'pfield') ? 'It adds testing hours on your Practice Field' : 'Without a Practice Field it still gives ' + D.CHASSIS_TEST_HOURS + ' testing hours a week in the shop or parking lot: code, autos, vision and drivetrain projects, and driver practice') +
           '. Programmers and drivers can start before the competition robot drives, and the electrical team gets a full control system to wire and debug: every week it runs adds to the electrical shakedown (fewer brownouts and comms dropouts at your first events). Practising on a different drivetrain only partly carries over to the competition robot\'s.', 'dev');
         break;
@@ -1070,6 +1090,22 @@
     S.parts.spares -= sp; used += sp;
     S.parts.spareUse = S.parts.spares > 0 ? Math.max(0, (S.parts.spareUse || 0) - sp) : 0;
     return used;
+  };
+  // Super pit: bring one subsystem of the competition robot back to 100% before a match, with spare parts (once a match)
+  Robot.superFix = function (S, ev, k) {
+    const R = S.robot, u = R && R.subs[k], P = S.parts, per = D.SPARE_COND_PER_UNIT;
+    if (!G.Shop.superPit(S)) return 'Needs the Super pit (Pit Setup level 3)';
+    if (!u || !u.ver || k === 'soft') return 'Nothing to repair';
+    if (ev && ev.superSeq === ev.pmSeq) return 'The Super pit crew has already done its full repair before this match';
+    if (u.cond >= 99.5) return 'Already at 100%';
+    const credit = Math.max(0, P.spares - (P.spareUse || 0)) * per;
+    if (credit < 1) return 'No spare parts left for a full repair';
+    const fix = Math.min(100 - u.cond, credit);
+    u.cond = Math.min(100, u.cond + fix); P.spareUse = (P.spareUse || 0) + fix / per;
+    const used = Math.min(P.spares, Math.floor(P.spareUse + 1e-6));
+    P.spares -= used; P.spareUse = P.spares > 0 ? Math.max(0, P.spareUse - used) : 0;
+    if (ev) ev.superSeq = ev.pmSeq;
+    return { used, cond: Math.round(u.cond) };
   };
   // Repairs at home use spare parts (one spare ≈ D.SPARE_COND_PER_UNIT condition points). Without spares the team
   // can only patch a subsystem up to D.NO_SPARE_COND. The competition robot comes first (compOnly: only it).

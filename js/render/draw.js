@@ -291,8 +291,15 @@
     ctx.fillStyle = '#111';
     if (drv === 'swerve') {
       [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => { ctx.save(); ctx.translate(c[0] * h * 0.68, c[1] * h * 0.68); ctx.beginPath(); ctx.arc(0, 0, sz * 0.13, 0, 7); ctx.fillStyle = '#222'; ctx.fill(); ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.stroke(); ctx.beginPath(); ctx.moveTo(-sz * 0.1, 0); ctx.lineTo(sz * 0.1, 0); ctx.stroke(); ctx.restore(); });
+    } else if (drv === 'tread') {
+      // tank treads: one long belt down each side, with its grousers
+      [-1, 1].forEach(sd => {
+        ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.roundRect(-h * 0.86, sd * h * 0.95 - sz * 0.08, h * 1.72, sz * 0.16, sz * 0.07); ctx.fill();
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+        for (let k = 0; k <= 8; k++) { const tx = -h * 0.78 + k * (h * 1.56 / 8); ctx.beginPath(); ctx.moveTo(tx, sd * h * 0.95 - sz * 0.07); ctx.lineTo(tx, sd * h * 0.95 + sz * 0.07); ctx.stroke(); }
+      });
     } else {
-      const n = drv === 'wcd' ? 3 : drv === 'mecanum' ? 2 : 3;
+      const n = drv === 'wcd8' ? 4 : drv === 'mecanum' ? 2 : 3;
       for (let i = 0; i < n; i++) {
         const wx = -h * 0.7 + i * (h * 1.4 / Math.max(1, n - 1));
         [-1, 1].forEach(sd => {
@@ -391,8 +398,8 @@
       ctx.fillStyle = lk.c2 || '#ffcf4a';
       for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(h * 0.41, -h * 0.68 + i * h * 0.34, sz * 0.055, 0, 7); ctx.fill(); }
     }
-    // 2020 revolver indexer: a drum of five cells beside the shooter
-    if (lk.indexer === 'revolver') { ctx.beginPath(); ctx.arc(h * 0.5, 0, sz * 0.13, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#ffd84a'; for (let i = 0; i < 5; i++) { const g = i * Math.PI * 0.4 + (o.t || 0) * 2; ctx.beginPath(); ctx.arc(h * 0.5 + Math.cos(g) * sz * 0.075, Math.sin(g) * sz * 0.075, sz * 0.032, 0, 7); ctx.fill(); } }
+    // 2020 revolver indexer: a drum of five 7-inch power cells (about 20 inches across) in front of the shooter
+    if (lk.indexer === 'revolver') { ctx.beginPath(); ctx.arc(h * 0.42, 0, sz * 0.25, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#ffd84a'; for (let i = 0; i < 5; i++) { const g = i * Math.PI * 0.4 + (o.t || 0) * 2; ctx.beginPath(); ctx.arc(h * 0.42 + Math.cos(g) * sz * 0.15, Math.sin(g) * sz * 0.15, sz * 0.085, 0, 7); ctx.fill(); } }
     // algae mech
     if (lk.algae === 'net') { ctx.beginPath(); ctx.arc(-h * 0.55, h * 0.45, sz * 0.12, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
     else if (lk.algae === 'proc') { ctx.fillStyle = COL.algae; ctx.fillRect(-h * 0.8, h * 0.35, h * 0.3, h * 0.3); }
@@ -466,8 +473,21 @@
     const low = lk.frame === 'low';
     // wheels
     const wr = 0.075 * s;
-    const nW = lk.drive === 'swerve' ? 2 : 3;
-    for (let i = 0; i < nW; i++) { const wx = x0 + wr + 4 + i * ((fw - 2 * wr - 8) / (nW - 1)); ctx.beginPath(); ctx.arc(wx, gy - wr, wr, 0, 7); ctx.fillStyle = '#151515'; ctx.fill(); ctx.strokeStyle = '#666'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(wx, gy - wr, wr * 0.35, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill(); }
+    // wheels on one side: 2 for swerve and mecanum (four-wheel drives), 4 for the 2016 eight-wheel drive, 3 for six-wheel ones
+    const nW = lk.drive === 'swerve' || lk.drive === 'mecanum' ? 2 : lk.drive === 'wcd8' ? 4 : 3;
+    if (lk.drive === 'tread') {
+      // tank treads: a belt looped over the drive sprockets, with road wheels and grousers
+      const r2 = wr * 1.05, xa = x0 + r2 + 4, xb = x0 + fw - r2 - 4, cy0 = gy - r2;
+      ctx.fillStyle = '#1b1d20'; ctx.beginPath(); ctx.roundRect(xa - r2, cy0 - r2, xb - xa + 2 * r2, 2 * r2, r2); ctx.fill(); ctx.strokeStyle = '#7d858d'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = '#8d959d'; ctx.lineWidth = 1.5;
+      for (let k = 0; k <= 12; k++) { const tx = xa + k * (xb - xa) / 12; ctx.beginPath(); ctx.moveTo(tx, gy - 3); ctx.lineTo(tx, gy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(tx, cy0 - r2); ctx.lineTo(tx, cy0 - r2 + 3); ctx.stroke(); }
+      [xa, (xa + xb) / 2, xb].forEach((wx, k) => { ctx.beginPath(); ctx.arc(wx, cy0, r2 * (k === 1 ? 0.55 : 0.7), 0, 7); ctx.fillStyle = '#454c54'; ctx.fill(); ctx.beginPath(); ctx.arc(wx, cy0, r2 * 0.25, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill(); });
+    } else for (let i = 0; i < nW; i++) {
+      const wx = x0 + wr + 4 + i * ((fw - 2 * wr - 8) / (nW - 1));
+      ctx.beginPath(); ctx.arc(wx, gy - wr, wr, 0, 7); ctx.fillStyle = '#151515'; ctx.fill(); ctx.strokeStyle = '#666'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(wx, gy - wr, wr * 0.35, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill();
+      if (lk.drive === 'mecanum') { ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.2; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(wx - wr * 0.75 + k * wr * 0.5, gy - wr * 1.7); ctx.lineTo(wx - wr * 0.25 + k * wr * 0.5, gy - wr * 0.3); ctx.stroke(); } } // the angled rollers
+    }
     // frame + bumper
     const fy = gy - 2 * wr - 0.06 * s;
     ctx.fillStyle = frame; ctx.fillRect(x0, fy - 0.05 * s, fw, 0.07 * s);

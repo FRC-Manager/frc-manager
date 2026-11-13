@@ -21,8 +21,8 @@
     { y: 2019, aiSwerve: 0.1, aiMotor: -0.2 },
     { y: 2020, swerve: { cots: true, hours: 1, rel: 0, ceil: 1, mat: 0 }, pneu: 0.2, aiSwerve: 0.3, aiMotor: -0.09, bag: false },
     { y: 2022, aiSwerve: 0.5, aiMotor: 0 },
-    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, pneu: 0.1, aiSwerve: 0.65 },
-    { y: 2024, pneu: 0.05, aiSwerve: 0.75 }
+    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, pneu: 0.1, servo: 0.15, aiSwerve: 0.65 },
+    { y: 2024, pneu: 0.05, servo: 0.2, aiSwerve: 0.75 }
   ];
 
   const Era = G.Era = {};
@@ -135,6 +135,24 @@
         'About 3,100 teams played, and 600 of them met under one roof for a single Championship. It was the last time everyone fit in one building.'],
       means: ['From next season there are two Championships. Twice as many teams are invited, so qualifying gets easier.', 'The robots do not change yet: brushed motors, no vision camera for sale, swerve only if you machine it yourself.'],
       talk: [['Six wheels, a drop centre and a driver who trusts it. What else is there?', 'a drive coach'], ['One Championship felt like the whole world in one hall. I will miss it.', 'a mentor on Team {t}'], ['Our vision system is a student holding a flashlight.', 'a programmer on Team {t}']] },
+    // the autumn of 2016: after a season of student-made gearboxes coming apart, both vendors sell planetary gearboxes
+    { id: 'planetary', cy: 2017, at: 'off:4', tag: 'VENDOR NEWS · STERLING & LUMEN', color: VC.B, title: 'Gearboxes in a can', btn: 'parts',
+      body: ['Ask any pit crew about the 2016 season and they will tell you about gearboxes. Most mechanisms ran on gear plates the students had cut and drilled themselves, and a lot of them came apart under load: stripped teeth, walked shafts, bearings that fell out mid-match.',
+        'This autumn both vendors have the same answer, a month apart. Sterling\'s Orbital and Lumen\'s Sunwheel are sealed planetary gearboxes that bolt straight onto a motor: pick a ratio, add a motor, done. And the Kit of Parts adds its own low-profile planetary for the kit motor, in every kit from this Kickoff.'],
+      means: ['Planetary gearboxes are on sale in the Inventory (Control system tab): one per motor on a mechanism (not the drivetrain).', 'They are optional. The more of a robot\'s mechanism motors have one, the fewer breakdowns, and better gearboxes help more.', 'They are not part of the control system: Sterling and Lumen gearboxes mix freely with either vendor\'s motors.', 'The KOP low-profile gearbox only fits KOP motors. Two come in every Kickoff kit (four in a rookie kit).'],
+      talk: [['We cut forty gear plates last season. I am not cutting forty gear plates this season.', 'a fabrication mentor'], ['Same motor, same mount, and it does not explode. Revolutionary.', 'a student on Team {t}'], ['The kit one is tiny. I want to put it on a keychain.', 'a rookie on Team {t}']] },
+    // the summer of 2017: the pit in road cases (the Super pit, Pit Setup level 3)
+    { id: 'superpit', cy: 2018, at: 'off:3', tag: 'SPOTTED AT THE CHAMPIONSHIP', color: 'var(--info)', title: 'The pit that rolls in', btn: 'workshop',
+      body: ['A few of the best teams arrived at the Championship this year with no pit to build. Their whole pit came in road cases: lift the lids and you have workbenches, tool walls, a parts library in labelled drawers and a television for the strategy team, set up in twenty minutes.',
+        'Between matches the crews did not patch the robot. They took one mechanism off, rebuilt it from spares and had it back on before queuing, while the scouts argued over the next alliance on the big screen.'],
+      means: ['The Super pit is the new top level of Pit Setup in the Workshop. It packs into the same space as a full pit setup: no extra room needed.', 'Before any match, the crew fully repairs one subsystem of your choice (spare parts as usual). When you simulate the qualification matches, it repairs whichever subsystem is in the worst shape.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.'],
+      talk: [['Twenty minutes from the truck to a working pit. I timed it.', 'an inspector'], ['We still use a folding table. It is a very good folding table.', 'a mentor on Team {t}'], ['There is a TV in their pit. For the scouts. I need to sit down.', 'a student on Team {t}']] },
+    // the autumn of 2022: after AprilTags are announced, Lanternworks launches Lantern 2 and the Spark accelerator
+    { id: 'lantern2', cy: 2023, at: 'off:6', tag: 'VENDOR NEWS · LANTERNWORKS', color: '#8ee05a', title: 'Lanternworks answers the tags', btn: 'parts',
+      body: ['When the paper tags were announced, the two programmers who founded Lanternworks five years ago in an apartment said one thing in public: "Give us a month." It took six weeks.',
+        'Lantern 2 reads AprilTags out of the box and works out where the robot is on the field, not only where the goal is. Beside it on the launch table sat something nobody expected: the Spark, a USB stick that runs a neural network on the robot and picks out game pieces in a single frame.'],
+      means: ['Lantern 2 replaces Lantern 1 in the Inventory (Subsystem COTS, Lanternworks).', 'Lantern 1 cameras keep working, but they were made for reflective tape: with tags on the field they aim less well than a Lantern 2.', 'The Spark ML accelerator is optional, one per robot with vision: the robot finds game pieces and lines up its shots better.'],
+      talk: [['Six weeks. They said a month. I am not even mad.', 'a programming mentor'], ['The robot drove to a ball I threw behind it. I threw another one. It did it again.', 'a student on Team {t}'], ['Our Lantern 1 still works. It just looks confused now.', 'a programmer on Team {t}']] },
     // ---- 2017 ----
     { id: 'recap2017', cy: 2017, at: 'recap', tag: 'SEASON RECAP · 2017', color: 'var(--accent)', title: 'Two Championships, one long argument',
       body: ['The Championship split in two this year, in two cities a week apart. More teams than ever got to go. And for the first time the season ended with two winning alliances, each sure it was the best in the world.',
@@ -147,11 +165,11 @@
         'It went the distance. Five matches, the last one decided in the final seconds, in front of a crowd that had driven across the country to see the question settled.'],
       means: ['2017 has one champion alliance after all.', 'The Festival is not held again: from next season the two Championships each crown their own winners.'],
       talk: [['Best robot match I have ever watched, and it was in July.', 'a forum regular'], ['We watched the stream in the shop with the whole team. Nobody sat down.', 'a mentor on Team {t}'], ['Do it every year. Please.', 'everyone']] },
-    { id: 'visionbox', cy: 2018, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'Vision in a box', btn: 'parts',
-      body: ['Until now robot vision was a science project. This autumn two former drive-team programmers started selling a camera with the computer, the lights and the software already inside. You bolt it on, plug it in, and it tells the robot where the target is.',
-        'They built the first fifty in an apartment. The waiting list passed a thousand in a week.'],
-      means: ['Vision cameras are now sold in the Inventory, under Subsystem COTS.', 'Vision Level 1 takes half the hours it used to, and Level 2 is possible for the first time.', 'Expect more robots with auto-aim next season.'],
-      talk: [['We spent three seasons on our vision code. It is now a checkbox.', 'a programming mentor'], ['I am not crying. It is the green light ring.', 'a student on Team {t}'], ['Calibrated in ten minutes. I do not know what to do with the rest of January.', 'a programmer on Team {t}']] },
+    { id: 'visionbox', cy: 2018, at: 'off:4', tag: 'NEW TECHNOLOGY · LANTERNWORKS', color: '#8ee05a', title: 'Vision in a box', btn: 'parts',
+      body: ['Until now robot vision was a science project. This autumn two former drive-team programmers started a company called Lanternworks and began selling the Lantern 1: a camera with the computer, the green ring light and the software already inside. You bolt it on, plug it in, and it tells the robot where the target is.',
+        'They built the first fifty in an apartment. The waiting list passed a thousand in a week. In the same box, almost as an afterthought, came the Lantern Link: a small network switch that puts the camera, the robot controller and the radio on one network, because the founders had lost too many matches to a camera flooding the radio.'],
+      means: ['Lanternworks sells the Lantern 1 vision camera and the Lantern Link network switch in the Inventory, under Subsystem COTS.', 'Vision Level 1 takes half the hours it used to, and Level 2 is possible for the first time.', 'The network switch is optional, one per robot: fewer comms dropouts in matches, and a little better vision.', 'Expect more robots with auto-aim next season.'],
+      talk: [['We spent three seasons on our vision code. It is now a checkbox.', 'a programming mentor'], ['I am not crying. It is the green light ring.', 'a student on Team {t}'], ['Calibrated in ten minutes. I do not know what to do with the rest of January.', 'a programmer on Team {t}'], ['The switch is the real hero. Our radio stopped rebooting.', 'an electrical lead on Team {t}']] },
     // ---- 2018 ----
     { id: 'recap2018', cy: 2018, at: 'recap', tag: 'SEASON RECAP · 2018', color: 'var(--accent)', title: 'Swerve\'s first light',
       body: ['The story of 2018 was not on the scoreboard. A handful of teams arrived with swerve drives they had machined themselves: every wheel steering on its own, the robot sliding sideways around defenders as if the carpet were ice.',
@@ -196,10 +214,10 @@
         'The Pivot is heavier than the Vector and a little slower to steer. It also costs about a third less, and Lumen says it shipped the first batch to rookie teams at cost.'],
       means: ['Lumen now sells a swerve module too.', 'Lumen has stopped making West Coast drive sets. What is in stock stays on sale through the 2022 season. After that a new West Coast drive runs on COTS Drive gearboxes, at lower performance, or on sets you already own.', 'With two vendors and falling prices, swerve is about to be everywhere.'],
       talk: [['Four modules for what we used to spend on gearboxes and regret.', 'a team treasurer'], ['The instructions fit on one page. I read them twice out of habit.', 'a student on Team {t}'], ['Tank drive had a good run.', 'a drive coach, converted']] },
-    { id: 'cylinders', cy: 2023, at: 'off:0', tag: 'SPOTTED ONLINE', color: 'var(--info)', title: 'The compressor stays home',
+    { id: 'cylinders', cy: 2023, at: 'off:0', tag: 'SPOTTED ONLINE', color: 'var(--info)', title: 'The compressor stays home', btn: 'parts',
       body: ['Scroll through the build threads of the season that just ended and count the air tanks. There are not many.',
-        'Brushless motors are now so strong and so cheap that a small motor on a gearbox does what a cylinder used to do, without a compressor, a tank, forty fittings and the leak that nobody can find. Teams that swore by pneumatics for a decade are leaving the whole system in the cupboard.'],
-      means: ['From the 2023 season a pneumatics kit still speeds up intake, manipulator and end effector builds, but by 10% instead of 20%.', 'The gap keeps closing: 5% from 2024.', 'A used pneumatics kit is worth less every year.'],
+        'Brushless motors are now so strong and so cheap that a small motor on a gearbox does what a big cylinder used to do, without a compressor, a tank, forty fittings and the leak that nobody can find. The small cylinders are going too: latches, flaps and little flippers now run on servos and linear actuators, and the COTS suppliers sell them as a kit. Teams that swore by pneumatics for a decade are leaving the whole system in the cupboard.'],
+      means: ['Servo actuator kits are on sale in the Inventory (Subsystem COTS). Like a pneumatics kit, a servo kit speeds up intake, manipulator and end effector builds, and from the 2023 season it saves more: 15%, then 20% from 2024.', 'From the 2023 season a pneumatics kit saves 10% instead of 20%, and 5% from 2024. With both kits, the better one counts.', 'A used pneumatics kit is worth less every year.'],
       talk: [['I can finally hear myself think in the pit.', 'a mentor on Team {t}'], ['Found the leak. It only took four seasons. We are removing the system on Monday.', 'a student on Team {t}'], ['A cylinder is still the fastest way to move something two inches. Fight me.', 'a forum regular']] },
     // the last recap before everything stops: told first, then the pandemic window follows it
     { id: 'recap2020', cy: 2020, at: 'recap', tag: 'SEASON RECAP · 2020', color: 'var(--accent)', title: 'No bag, and swerve in a box',

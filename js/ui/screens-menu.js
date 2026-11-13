@@ -25,10 +25,19 @@
   // =====================================================================
   // NEW GAME
   // =====================================================================
+  // the suggested team number for the start year: a rookie gets a number from that year's rookie block, an established or
+  // powerhouse team one at least a year older. It follows the start year and profile until the player types a number.
+  UI.ngAutoNum = function (n) {
+    const cy = n.mode === 'single' ? n.year : n.start, rng = G.makeRng((Date.now() ^ (cy * 7919)) & 0xffffff);
+    if (n.profile === 'rookie') { const b = D.numBlock(cy); return rng.int(b[0], b[1]); }
+    const top = (D.NUM_FROM[cy - 1] || D.NUM_FROM[cy] || 11000) - 1; // at least a season older than this year's rookies
+    return n.profile === 'powerhouse' ? rng.int(100, Math.min(top, 3500)) : rng.int(1000, top);
+  };
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: rng.int(1000, 9999), name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
+    UI.st.ng = { mode, num: 0, numAuto: true, name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
+    UI.st.ng.num = UI.ngAutoNum(UI.st.ng);
     UI.go('newgame');
   };
   UI.S.newgame = { full: true, html() {
@@ -75,8 +84,9 @@
     const n = UI.st.ng, k = el.dataset.k;
     if (k === 'homeSel') { if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); } UI.render(); return; }
     n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
+    if (k === 'num') n.numAuto = false; // the player's own number stays
   };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
   UI.A.startGame = function () {
     const n = UI.st.ng;
     if (!String(n.name).trim()) return UI.toast('Give your team a name', 'bad');
@@ -122,6 +132,21 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '2.9.7', title: 'Preview of 3.0: a vision company, planetary gearboxes, the Super pit and a busier Inventory', notes: [
+      'Control system. The Inventory\'s Electronics tab is now the Control system tab, and the game calls the motors, encoders and hubs your control system everywhere.',
+      'Lanternworks, the vision company. The "Vision in a box" story of 2017 now has a name: Lanternworks sells the Lantern 1 camera and the Lantern Link network switch (fewer comms dropouts, a little better vision) in its own catalogue under Subsystem COTS. After AprilTags are announced it launches the Lantern 2 camera (it replaces Lantern 1, which aims less well with tags) and the Spark ML accelerator (object detection on the robot). Stories, rumours and news follow the company.',
+      'Planetary gearboxes. After a 2016 of broken home-made gearboxes, Sterling and Lumen launch planetary gearboxes for mechanism motors in the autumn of 2016; Apex keeps the line. One per motor, optional, fewer breakdowns, and they mix freely with either control system. The Kit of Parts adds a low-profile one for KOP motors, two in every kit.',
+      'Servo actuator kits arrive with the story of the compressor that stays home (2022): they do the job of small cylinders and save more build hours than pneumatics from 2023. With both kits, the better counts.',
+      'The Super pit: a third Pit Setup level from 2018 (a story in the summer of 2017 shows it first), in the same space. Before any match it fully repairs one subsystem of your choice with spare parts, and in simulated qualifications it repairs the worst one before every match. Its screens sharpen scouting.',
+      'Finish now cards. Each top-level CNC Machining, 3D Printing and Machine Shop gives one card a season to finish a hardware project that is at least half done, and a top-level Programming Station one for a software project. No cost, no penalty.',
+      'Stock that follows demand. In season the parts everybody wants sell out (the first brushless motor in 2019, the first swerve modules, kits this game uses a lot) and outclassed or unused parts stay on the shelf. The stock alert in the Inbox now names a control system or COTS part that really will be out next week, in season only, and lets you order it from the message.',
+      'Stop Build Day. With two running robots you choose which one goes in the bag; the bagged robot is greyed out in the Garage and neither robot can change role. A scrimmage while the robot is bagged needs a real second robot (not a test chassis), and a team with one does its sponsor demos and shows with it, sparing the competition robot.',
+      'Hall of Fame. A new World tab lists every team that won the FIRST Impact Award at the Championship during your career; they qualify for every Championship from Kickoff. Championship places now include your own team, highlighted, and marks Hall of Fame teams.',
+      'Einstein. The Impact Finalists are announced before Final 1 and the Impact and Woodie Flowers winners after it on the pre-match and match pages too, not only on the event page. The Einstein results page shows the Woodie Flowers Award winner. The Woodie Flowers banners no longer carry the mentor\'s name, and a season\'s Woodie Flowers banner no longer shows twice in History during the offseason.',
+      'Every turn activities (Team page): all fundraising, all outreach or mixed, run on their own when you press Continue. The STEM summer camp is offseason only, and the pizza and movie night is for the season.',
+      'Smaller things. Program projects (the two award essays and the Knowledge Base) take no project slot. Install Upgrade with nothing to install no longer uses a practice block. The default team number fits the start year (a rookie gets that year\'s number, other teams an older one). A November pop-up reminds you to preorder field elements. With nothing left to upgrade, the school\'s grant comes as cash. Knowledge levels are coloured. The swerve concept no longer talks of buying modules before anyone sells them. Driver practice shows its weeks plainly, and defense drills have their own colour. Mecanum drives show four wheels from the side, the 2016 eight-wheel drive eight and tank treads a tread; the 2020 revolver is drawn at its real size.',
+      'A "?" inside a window now puts the window away while you read the guide, and Back brings it back. How to play has been rebuilt for this version.'
+    ] },
     { v: '2.9.6', title: 'Preview of 3.0: the world on a map, scouting for every team, the Woodie Flowers Award and more', notes: [
       'Woodie Flowers Award. Your students can nominate one mentor a season in an essay (Design Office, Program projects). The strongest nomination is picked for you, and you can choose another; extra hours make a better essay. Mentors now have a profession, seasons with the team and years in FIRST.',
       'As in the real rules: a regional team\'s nominee is judged at its next regional, a district team\'s at the District Championship. Each regional names one Woodie Flowers Finalist, each District Championship one (two or three from 2022). A mentor is a Finalist once.',

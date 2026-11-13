@@ -172,6 +172,12 @@
     S.regionals = ev.filter(e => e.kind === 'regional' && (S.team.home ? e.dist === S.team.home : !e.dist));
     return S.wseason;
   };
+  // Hall of Fame teams (FIRST Impact Award winners at the Championship during the career) are invited to every
+  // Championship: they qualify at Kickoff (the player's own Hall of Fame place is handled with its season)
+  W.hofQualify = function (S) {
+    const ws = S.wseason; if (!ws) return;
+    (S.hof || []).forEach(n => { if (n !== S.team.num && S.teams[n] && !ws.q[n]) ws.q[n] = 'Hall of Fame'; });
+  };
   // who plays where: district teams two events of their district, regional teams one to three regionals near home
   W.schedule = function (S, rng) {
     const ws = S.wseason; if (!ws || ws.scheduled) return;

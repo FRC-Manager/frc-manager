@@ -452,7 +452,7 @@
     if (m.rng.next() < hb * DT) { triggerFault(m, r, 'brown'); return; }
     // brief comms dropouts are common: radio resets, loose connectors, hard hits. Poor electronics and contact make them more frequent and longer.
     if (!r.fault) {
-      const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff * (1 - r.elecK);
+      const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff * (1 - r.elecK) * (1 - (1 - G.Data.VISION_HW.swDrop) * (c.netSw || 0)); // a network switch: fewer dropouts
       if (m.rng.next() < hc * DT) { triggerFault(m, r, 'comms'); return; }
     }
     // tall robots tip on their own now and then (high reach, fast turns), more in tip-heavy seasons

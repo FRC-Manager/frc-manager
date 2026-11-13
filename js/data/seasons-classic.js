@@ -290,9 +290,9 @@
     { id: 'wcd', name: '6-wheel pneumatic drive', desc: 'Six 8-inch pneumatic tyres on a custom frame. Fast in the open and good on most defenses.', cost: 1300, hours: 130, w: 44, cx: 2, areas: ['elec'],
       base: { speed: 50, agility: 32, push: 60, traverse: 52 }, ceil: { speed: 82, agility: 52, push: 86, traverse: 84 }, look: { drive: 'wcd' } },
     { id: 'wcd8', name: '8-wheel pneumatic drive', desc: 'Eight wheels, so some rubber is always on the next obstacle. The drivetrain of the robots that crossed everything without slowing down.', cost: 1700, hours: 170, w: 48, cx: 3, areas: ['elec'],
-      base: { speed: 48, agility: 30, push: 62, traverse: 60 }, ceil: { speed: 80, agility: 50, push: 88, traverse: 96 }, look: { drive: 'wcd' } },
+      base: { speed: 48, agility: 30, push: 62, traverse: 60 }, ceil: { speed: 80, agility: 50, push: 88, traverse: 96 }, look: { drive: 'wcd8' } },
     { id: 'tread', name: 'Tank treads', desc: 'Belts instead of wheels: nothing stops it and nothing pushes it, but it is slow and the treads wear.', cost: 1500, hours: 160, w: 50, cx: 3, areas: ['elec'],
-      base: { speed: 40, agility: 26, push: 68, traverse: 58 }, ceil: { speed: 68, agility: 44, push: 95, traverse: 93 }, look: { drive: 'tank' } }
+      base: { speed: 40, agility: 26, push: 68, traverse: 58 }, ceil: { speed: 68, agility: 44, push: 95, traverse: 93 }, look: { drive: 'tread' } }
   ];
   Object.assign(G.Data.DRIVE_FAMILY = G.Data.DRIVE_FAMILY || {}, { wcd8: 'tank', tread: 'tank' });
   S[2016] = {

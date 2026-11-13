@@ -37,6 +37,13 @@
   const addRep = (S, v) => G.Career.addRep(S, v);
   const addMorale = (S, v) => { S.morale = U.clamp(S.morale + v, 0, 100); };
   const wearRobot = (S, lo, hi) => { let w = 0; if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver && s !== S.robot.subs.soft) { const d = R().range(lo, hi); s.cond = Math.max(0, s.cond - d); w += d; } }); return w; };
+  // demos and shows: a team with a real second robot brings that one, and the competition robot is spared
+  const wearDemo = (S, lo, hi) => {
+    const Rb = S.robot; if (!(Rb && Rb.bots && G.Robot.realSecond(S))) return wearRobot(S, lo, hi);
+    const s = Rb.bots[G.Robot.other(Rb)].subs;
+    Object.keys(s).forEach(k => { const u = s[k]; if (k !== 'soft' && u && u.ver) u.cond = Math.max(0, u.cond - R().range(lo, hi)); });
+    return 0; // nothing off the competition robot
+  };
   const ROBOT_NAMES = ['Sir Spins-a-Lot', 'Captain Torque', 'Gearbox Gertrude', 'The Toaster', 'Big Bertha', 'Sparky', 'Turbo Tortoise', 'Chonk', 'Professor Zip Tie', 'Bolt Bucket', 'Steve', 'Lady Hex Key', 'The Dishwasher', 'Mr. Brownout', 'Wheelie Nelson'];
   const FOODS = ['three trays of homemade lasagna', 'a mountain of pizza', 'dumplings for forty', 'a cooler of tamales', 'a cake shaped like a swerve module', 'enough cookies to void the weight limit', 'a slow cooker of chili', 'two hundred samosas'];
   const PLUSH = ['penguin', 'capybara', 'axolotl', 'shark', 'frog', 'goose', 'otter'];
@@ -50,7 +57,7 @@
   const REPLY = {
     interview: [
       { text: 'Send the team captain', run: S => { addRep(S, 0.5); return 'The captain was calm, clear and only said "basically" six times. Reputation +0.5.'; } },
-      { text: 'Bring the robot too', req: S => S.robot, run: S => { addRep(S, 1); const w = inSeason(S) ? wearRobot(S, 2, 5) : 0; return 'The robot drove circles around the reporter and stole the show. Reputation +1' + (w ? ', robot condition slightly down from the demo.' : '.'); } },
+      { text: 'Bring the robot too', req: S => S.robot && !G.Career.bagged(S), run: S => { addRep(S, 1); const w = inSeason(S) ? wearDemo(S, 2, 5) : 0; return 'The robot drove circles around the reporter and stole the show. Reputation +1' + (w ? ', robot condition slightly down from the demo.' : '.'); } },
       { text: 'Politely decline', run: () => 'You thanked them and kept the team focused on the shop.' }
     ],
     rookie: [
@@ -59,7 +66,7 @@
       { text: 'Point them to the online guides', run: () => 'You sent a list of good tutorials. They said thanks.' }
     ],
     scrimmage: [
-      { text: 'Accept: bring the competition robot', req: S => S.robot, run: S => {
+      { text: 'Accept: bring the competition robot', req: S => S.robot && !G.Career.bagged(S), run: S => {
         S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + 1);
         S.lastConf = Math.min(0.9, (S.lastConf || 0) + 0.05);
         const dt = G.Career.driveTeam(S); if (dt.driver.id) G.Career.studentXP(S, dt.driver, ['drive', 'comp'], 0.6);
@@ -67,7 +74,7 @@
         const c0 = G.Robot.condAvg(S); wearRobot(S, 6, 12);
         return 'Real matches against a real defender. Your drivers came home sharper (+1 week of driver practice, a little more confidence at your next event), but the robot took a beating (condition −' + Math.round(c0 - G.Robot.condAvg(S)) + '%).';
       } },
-      { text: 'Send the drive team with the practice robot', req: S => G.Robot.twoBots(S), run: S => { S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + 0.5); S.actHours += 4; return 'The practice robot took the hits. +0.5 week of driver practice, no wear on the competition robot.'; } },
+      { text: 'Send the drive team with the second robot', req: S => G.Robot.realSecond(S), run: S => { S.practiceWeeks = Math.min(D.DRILL_CAP, (S.practiceWeeks || 0) + 0.5); S.actHours += 4; return 'The practice robot took the hits. +0.5 week of driver practice, no wear on the competition robot.'; } },
       { text: 'Decline: we need the build time', run: () => 'You declined. The shop stayed busy.' }
     ],
     sponsorPost: [
@@ -97,32 +104,57 @@
       { text: 'Invite them to talk to the team', run: S => { addMorale(S, 2); return 'Their talk on "what I wish I knew as a freshman" was a hit. Morale +2.'; } },
       { text: 'Ask them to review your design', req: S => S.robot, run: S => { addRep(S, 0.3); S.parts.spares += 1; return 'They found a weak bracket and brought a replacement from their lab. +1 spare part.'; } }
     ],
+    // a vendor warns that a part will be out of stock next week: order it now, or wait (data: { pid, n })
     restock: [
-      { get text() { return 'Stock up now (' + G.U.money(400) + ')'; }, req: S => !G.Career.afford(S, 400), run: S => { G.Career.spend(S, 400, 'Stocked up before a shortage'); S.parts.spares += 2; return 'Bought ahead of the shortage. +2 spare parts for ' + G.U.money(400) + '.'; } },
-      { text: 'Wait and see', run: () => 'You decided to wait.' }
+      { text: (S, d) => { const p = G.Parts.prod(d.pid); return 'Order ' + d.n + ' now (' + G.U.money(d.n * G.Parts.price(S, p)) + ')'; },
+        req: (S, d) => { const p = G.Parts.prod(d.pid); return !!p && G.Parts.inStock(S, d.pid) && G.Parts.buyRoom(S, d.pid) > 0 && !G.Career.afford(S, d.n * G.Parts.price(S, p)); },
+        run: (S, d) => { const r = G.Parts.buy(S, d.pid, d.n); if (typeof r === 'string') return 'The order did not go through: ' + r; return 'Ordered ' + r.bought + '× ' + G.Parts.prod(d.pid).name + ' before the shelves emptied.'; } },
+      { text: 'Wait and see', run: () => 'You decided to wait. Next week the shelf will be empty.' }
     ],
     tired: [
       { text: 'Give them a weekend off', run: (S, d) => { const m = S.mentors.find(x => x.id === d.m); if (m) m.morale = Math.min(100, (m.morale || 70) + 12); S.actHours += 4; return (m ? m.name : 'Your mentor') + ' came back rested. Mentor morale +12, a few team hours lost.'; } },
       { text: 'Thank them in front of the team', run: (S, d) => { const m = S.mentors.find(x => x.id === d.m); if (m) m.morale = Math.min(100, (m.morale || 70) + 5); addMorale(S, 1); return 'The team made a card. It has 31 signatures and a drawing of a robot. Mentor morale +5.'; } }
     ],
     showcase: [
-      { text: 'Do the demo', req: S => S.robot, run: S => { addRep(S, 1); S.support = U.clamp(S.support + 0.5, 0, 100); const w = inSeason(S) ? wearRobot(S, 1, 4) : 0; return 'The robot drove through the gym during the assembly. The applause was louder than for the basketball team. Reputation +1, program support +0.5' + (w ? ', a little robot wear.' : '.'); } },
+      { text: 'Do the demo', req: S => S.robot && (!G.Career.bagged(S) || G.Robot.realSecond(S)), run: S => { addRep(S, 1); S.support = U.clamp(S.support + 0.5, 0, 100); const w = inSeason(S) ? wearDemo(S, 1, 4) : 0; return 'The robot drove through the gym during the assembly. The applause was louder than for the basketball team. Reputation +1, program support +0.5' + (w ? ', a little robot wear.' : '.'); } },
       { text: 'Show the video instead', run: S => { addRep(S, 0.3); return 'The highlight video played on the big screen. Reputation +0.3.'; } }
     ]
   };
+  // In season: a part that will be out of stock next week, in stock now. Something the team's robots use, or that this
+  // game's robots want, picked by demand; the vendor's warning comes true (S.stockNext). peek: only check there is one.
+  function stockAlert(S, peek) {
+    const P = G.Parts;
+    if (!S.inv || !P.inSeason(S)) return null;
+    const need = S.robot ? P.need(S) : { comp: {}, prac: {} };
+    const cand = P.forSale(S).filter(x => !x.kop && !x.ending && !x.closing && P.inStock(S, x.prod.id) && P.buyRoom(S, x.prod.id) > 0 && !(S.stockNext && S.stockNext[x.prod.id])).map(x => {
+      const cat = x.prod.cat, uses = (need.comp[cat] || 0) + (need.prac[cat] || 0), kit = D.PART_CAT[cat].kit;
+      return { x, dm: P.demand(S, x), w: P.demand(S, x) * (uses ? 2 : kit ? 1 : 0.3), uses };
+    }).filter(c => c.w > 0.2);
+    if (!cand.length) return null;
+    if (peek) return true;
+    const c = R().wpick(cand, z => z.w), p = c.x.prod, cat = p.cat;
+    const n = Math.max(1, Math.min(P.buyRoom(S, p.id), { motor: 4, enc: 2, swerve: 4, pgear: 4, wcd: 2 }[cat] || 1));
+    (S.stockNext = S.stockNext || {})[p.id] = 'new'; // out of stock from next week
+    const who = p.v === 'C' ? 'Your usual COTS supplier' : D.VENDORS[P.brand(p)].name;
+    const why = c.dm >= 0.8 ? 'Every team wants one this season.' : D.PART_CAT[cat].kit ? 'This game\'s robots use a lot of them, and the last batch sold in a day.' : 'A shipment is stuck at the port.';
+    const have = P.count(S, cat);
+    return { prod: p, n, text: who + ' warns that the ' + p.name + ' will be out of stock next week. ' + why + '\n\nYou have ' + have + ' ' + D.PART_CAT[cat].short.toLowerCase() + ' on the shelf' + (c.uses ? ' and your robots use ' + c.uses : '') + '. Order now, or do without until it is back.' };
+  }
   function replyMsg(key, extra) {
-    return Object.assign({ reply: { key, opts: REPLY[key].map(o => o.text) } }, extra || {});
+    const data = extra && extra.data; if (extra) delete extra.data;
+    return Object.assign({ reply: { key, data, opts: REPLY[key].map(o => (typeof o.text === 'function' ? '' : o.text)) } }, extra || {});
   }
   N.replyOptions = function (S, m) {
     if (!m.reply || m.replied != null) return [];
     if (m.until != null && turnNo(S) > m.until) return [];
-    return REPLY[m.reply.key].map((o, i) => ({ i, text: o.text, ok: !o.req || o.req(S) }));
+    const dt = m.reply.data || {};
+    return REPLY[m.reply.key].map((o, i) => ({ i, text: typeof o.text === 'function' ? o.text(S, dt) : o.text, ok: !o.req || o.req(S, dt) }));
   };
   N.reply = function (S, id, i) {
     const m = S.inbox.find(x => x.id === id);
     if (!m || !m.reply || m.replied != null) return null;
     const o = REPLY[m.reply.key][i];
-    if (!o || (o.req && !o.req(S))) return null;
+    if (!o || (o.req && !o.req(S, m.reply.data || {}))) return null;
     const res = o.run(S, m.reply.data || {});
     m.replied = i; m.outcome = res; m.read = true;
     return res;
@@ -183,7 +215,7 @@
     { id: 'borrow', w: 3, cd: 5, req: S => S.phase === 'comp', run: S => ['Pit request from ' + rival(S), 'Their drivetrain cracked a gearbox plate in the last match and the vendor booth is sold out. They are asking around the pits for a spare.', replyMsg('borrow', { until: turnNo(S) })] },
     { id: 'parent', w: 2, cd: 12, run: S => ['A parent wants to help', 'The parent of ' + student(S) + ' offered to help the team "with anything that does not involve a soldering iron".', replyMsg('parent', { until: turnNo(S) + 2 })] },
     { id: 'alumni', w: 2, cd: 12, req: S => off(S) || S.phase === 'build', run: S => ['An alum checks in', 'A former team captain is home from an engineering degree and offered to stop by the shop.', replyMsg('alumni', { until: turnNo(S) + 2 })] },
-    { id: 'restock', w: 2, cd: 10, req: S => S.phase === 'build' || (off(S) && ['Oct', 'Nov', 'Dec'].includes(month(S))), run: S => ['Vendor stock alert', 'A big FRC vendor warns that ' + (brushlessOut(S) ? 'brushless motors' : 'motors') + ' and gearbox parts will be back-ordered for six weeks.', replyMsg('restock', { until: turnNo(S) + 1 })] },
+    { id: 'restock', w: 0.01, cd: 4, req: S => (S.phase === 'build' || S.phase === 'comp') && !!stockAlert(S, true), run: S => { const a = stockAlert(S); return ['Stock alert: ' + a.prod.name, a.text, replyMsg('restock', { until: turnNo(S), data: { pid: a.prod.id, n: a.n } })]; } },
     { id: 'spPost', w: 3, cd: 6, req: S => S.sponsors.length > 0, run: S => { const sp = R().pick(S.sponsors); return [sp.name + ' posted about you', sp.name + ' shared a photo of your team on their company page: "Proud to support ' + teamName(S) + '!" It has more likes than anything else they have posted this year.', replyMsg('sponsorPost', { until: turnNo(S) + 2, reply: { key: 'sponsorPost', opts: REPLY.sponsorPost.map(o => o.text), data: { sp: sp.id } } })]; } },
     { id: 'tired', w: 3, cd: 8, req: S => S.mentors.some(m => (m.morale || 70) < 55), run: S => { const m = S.mentors.filter(x => (x.morale || 70) < 55).sort((a, b) => a.morale - b.morale)[0]; return [m.name + ' looks tired', m.name + ' has been in the shop every night this week and fell asleep in the car park. The students noticed.', { reply: { key: 'tired', opts: REPLY.tired.map(o => o.text), data: { m: m.id } }, until: turnNo(S) + 1 }]; } },
     { id: 'pepRally', w: 2, cd: 14, req: S => S.robot && (S.phase === 'comp' || (off(S) && ['Sep', 'Oct'].includes(month(S)))), run: S => ['Pep rally invitation', 'The principal asked if the robot could appear at the ' + (S.phase === 'comp' ? 'spring' : 'homecoming') + ' pep rally.', replyMsg('showcase', { until: turnNo(S) + 1 })] },
@@ -392,7 +424,16 @@
     { id: 'v9wars', w: 3, cd: 80, req: S => sold(S, 'swerve', 'A') && sold(S, 'swerve', 'B'), run: S => ['Vendor watch: module wars', 'Apex posted a video of its swerve module drifting sideways for half a minute in slow motion. Lumen answered with its own module being driven off a kerb forty times in a car park. Both videos end with the same sentence: "Available now."'] },
     { id: 'v9rookie', w: 2, cd: 80, req: S => between(S, 2019.5, 2030) && off(S) && G.Parts.premium(S) === 'A', run: S => ['Vendor watch: boxes for rookies', 'Both vendors now send every rookie team a starter box. Lumen\'s holds a motor and a sticker sheet. Apex\'s holds a torque wrench and a card that says "Use it". Veteran teams have asked, without much hope, whether they can be rookies again.'] },
     { id: 'v9blame', w: 2, cd: 80, req: S => between(S, 2022, 2030) && S.phase === 'build' && S.week >= 2 && G.Parts.premium(S) === 'A', run: S => ['Vendor watch: who has the magnets?', 'Motors are back-ordered again. Apex blames a strike at the port. Lumen blames Apex, for buying every magnet on the continent in November. The teams that stocked up before Kickoff are saying nothing and building robots.'] },
-    { id: 'v9stick', w: 2, cd: 80, req: S => cal(S) && S.phase === 'comp' && G.Parts.loyalOn(S), run: S => ['Vendor watch: counting stickers', 'Vendor reps walk the pits at every event and write down whose parts are on which robot. A team that ran one vendor\'s electronics for years got a letter and a crate. A team that ran both got two polite phone calls in the same afternoon.'] }
+    // ---- planetary gearboxes, Lanternworks, servo kits, the Super pit
+    { id: 'n16gear', w: 3, cd: 80, req: S => between(S, 2016, 2016) && S.phase === 'comp', run: S => ['Trend: the gearbox graveyard', 'Pit crews at every regional are swapping gearboxes between matches. Most of them were cut, drilled and stacked by students in January, and plenty are now in pieces. ' + rival(S) + ' has a cardboard box labelled "gearbox graveyard" with nine in it, and it is only Saturday.'] },
+    { id: 'v9orbit', w: 3, cd: 80, req: S => between(S, 2016.5, 2019.5) && sold(S, 'pgear', 'B'), run: S => ['Vendor watch: two planetaries', 'Sterling\'s Orbital planetary is machined steel with a lifetime warranty. Lumen\'s Sunwheel costs two thirds as much, is made of sintered metal and comes with a sticker. A forum thread asked which one survives a hard hit and got forty photos of each, broken.'] },
+    { id: 'v9lantern', w: 3, cd: 80, req: S => between(S, 2017.5, 2030) && off(S) && G.Parts.lanternOut(S, D.LANTERN[0]), run: S => ['Vendor watch: Lanternworks moves out', 'Lanternworks, the vision company that started in an apartment, has moved into a real building with a loading dock. The founders say the first fifty cameras were assembled on a kitchen table, and that the table has been retired with honours.'] },
+    { id: 'n9ring', w: 3, cd: 60, req: S => between(S, 2018, 2022.5) && S.phase === 'comp', run: S => ['Trend: the green glow', 'Count the green ring lights on any qualification field: most of the strong robots carry one now. Drive coaches say a robot that lines up its own shot is worth a second per cycle. Spectators say the field looks like an aquarium.'] },
+    { id: 'n9switch', w: 2, cd: 80, req: S => between(S, 2018, 2030) && S.phase === 'comp' && S.week >= 2, run: S => ['Ref corner: why robots stop', 'A field technician posted the season\'s comms losses so far. The top three causes: a loose radio cable, a loose camera cable, and a camera that floods the radio with video. Her advice: one network switch, labelled cables, and zip ties.'] },
+    { id: 'v9spark', w: 3, cd: 80, req: S => between(S, 2022.5, 2030) && G.Parts.lanternOut(S, D.LANTERN[3]), run: S => ['Vendor watch: the stick that sees', 'The Lanternworks Spark is a USB stick that runs a neural network on the robot. The demo video shows a robot driving straight to a game piece that was thrown behind it. The comments are split between "witchcraft" and "my programmers will not sleep until April".'] },
+    { id: 'n9servo', w: 3, cd: 80, req: S => between(S, 2022, 2030) && S.phase === 'build', run: S => ['Trend: the servo drawer', 'Reveal videos this year show fewer air tanks and more small grey boxes: servos and linear actuators for the latches, hood flaps and little flippers. The big motions went to brushless motors years ago. The small ones are going now.'] },
+    { id: 'n9superpit', w: 3, cd: 80, req: S => between(S, 2017.5, 2030) && S.phase === 'comp', run: S => ['Trend: pits that roll in', 'The top teams no longer build their pits at the event: they wheel them in. Road cases that open into workbenches, tool walls and a screen for the strategy team, set up in twenty minutes. Inspectors have started timing it for fun.'] },
+    { id: 'v9stick', w: 2, cd: 80, req: S => cal(S) && S.phase === 'comp' && G.Parts.loyalOn(S), run: S => ['Vendor watch: counting stickers', 'Vendor reps walk the pits at every event and write down whose parts are on which robot. A team that ran one vendor\'s control system for years got a letter and a crate. A team that ran both got two polite phone calls in the same afternoon.'] }
   );
 
   CHAT.push(
@@ -411,6 +452,13 @@
     { id: 'c9hp', req: S => S.phase === 'comp' && G.Seasons[S.year].hpLoad, title: 'Human player practice', body: S => 'The human player has been feeding game pieces to a cardboard box with a slot in it for an hour. The box has not dropped one.' },
     { id: 'c9bag', req: S => cal(S) && G.Era.of(S).bag && S.phase === 'build' && S.week >= 5, title: 'The bag', body: S => 'Somebody bought the bag early this year. It sits folded on the shelf, and people have stopped making eye contact with it.' },
     { id: 'c9brush', req: S => cal(S) && !brushlessOut(S) && inSeason(S), title: 'That smell', body: S => 'A drive motor got hot enough at practice to smell like a toaster. ' + student(S) + ' wrote "let it rest" on it in marker.' },
+    { id: 'c9pgear', req: S => inSeason(S) && G.Parts.count(S, 'pgear') > 0, title: 'Planetaries', body: S => student(S) + ' opened a planetary gearbox "just to look" and spent the evening putting it back together. It works. There is one spare washer on the bench and nobody will talk about it.' },
+    { id: 'c9ring', req: S => G.Parts.items(S, 'camera').some(it => /^cameraL/.test(it.p)), title: 'Green', body: S => 'The vision camera\'s ring light is so bright that ' + student(S) + ' wears sunglasses to tune it. ' + mentor(S) + ' has asked for a pair.' },
+    { id: 'c9switch', req: S => G.Parts.count(S, 'nswitch') > 0 && inSeason(S), title: 'Cable labels', body: S => 'Every cable that goes into the network switch has a printed label now. ' + student(S) + ' labelled the label printer as well.' },
+    { id: 'c9spark', req: S => G.Parts.count(S, 'accel') > 0 && inSeason(S), title: 'Object detection', body: S => 'The accelerator recognised a game piece across the shop in one frame. It also recognised ' + student(S) + '\'s lunch as a game piece. The model is being retrained.' },
+    { id: 'c9servo', req: S => G.Parts.count(S, 'servo') > 0, title: 'Servo drawer', body: S => student(S) + ' sorted the servo kit by size and torque and labelled the drawer. ' + mentor(S) + ' put the old pneumatic fittings in a box marked "history".' },
+    { id: 'c9superpit', req: S => G.Shop.superPit(S) && (S.phase === 'comp' || S.phase === 'champs'), title: 'Road cases', body: S => 'The Super pit opened in eighteen minutes at the last event. ' + student(S) + ' times the setup now and posts the record on the whiteboard.' },
+    { id: 'c9finish', req: S => !!(S.finish && S.finish.used && S.finish.used.length), title: 'Overnight', body: S => 'The machines ran all night and the parts were on the bench in the morning. ' + mentor(S) + ' called it "the best shift nobody worked".' },
     { id: 'c9deep', req: S => off(S) && D.AREAS.some(a => G.Robot.know(S, a.id) >= 4), title: 'The way we do it', body: S => mentor(S) + ' explained to a new member how the team builds its best mechanism, and finished with "and that is how it is done". ' + student(S) + ' asked what happens if the rules change. There was a pause.' }
   );
 
@@ -434,6 +482,12 @@
     { id: 'r_pneu', cy: 2022, ph: 'comp', at: [2, 6], title: 'Heard in the pits: count the compressors', body: 'A scout with too much time counted the air tanks at the last event: fewer than half the robots carry one, and most of the fast ones do not. "A small motor does it now," said one mentor, "and it never leaks." A pneumatics kit on the shelf is not getting more valuable.' },
     { id: 'r_de', cy: 2022, ph: 'comp', at: [4, 6], title: 'Forum whispers: a new bracket', body: 'An offseason event has announced "an experimental playoff format, at the request of headquarters": eight alliances, one match at a time, and nobody out before losing twice. If that is the future, a robot will play more playoff matches than it used to, with less time between them.' },
     { id: 'r_tags', cy: 2023, ph: 'off', at: [1, 4], title: 'Heard at an offseason event: paper squares', body: 'The test field at a summer event had black-and-white squares taped beside every target. A volunteer said they were "for calibration" and changed the subject. The programmers who went home and read up on them have stopped tuning their reflective-tape code. What a team knows about vision today may not be what it needs to know by Kickoff.' },
+    { id: 'r_pg1', cy: 2016, ph: 'comp', at: [3, 6], title: 'Heard in the pits: a gearbox in a can', body: 'An engineer from Sterling and one from Lumen were seen in the same pit queue this week, both holding a broken student-made gearbox, both taking notes. The rumour is that each company is working on a sealed planetary gearbox that bolts straight to a motor.' },
+    { id: 'r_pg2', cy: 2017, ph: 'off', at: [0, 3], title: 'Forum whispers: do not cut gear plates this summer', body: 'A distributor told a team that "something for mechanism gearboxes" is coming from both big vendors before Kickoff. The thread advises against cutting any more gear plates until then.' },
+    { id: 'r_sp1', cy: 2017, ph: 'comp', at: [3, 6], title: 'Heard in the pits: a pit that folds up', body: 'One of the top teams arrived at its last event with the whole pit in four road cases: tool walls, a workbench, a television for the scouts. It was open before the team next door had found its extension cord. People took photos.' },
+    { id: 'r_lan1', cy: 2022, ph: 'comp', at: [3, 6], title: 'Heard in the pits: Lanternworks is hiring', body: 'Lanternworks posted three job adverts this month, all for machine-learning engineers, and one more for "someone who knows what an AprilTag is". The paper squares at the offseason events are starting to make sense.' },
+    { id: 'r_srv', cy: 2022, ph: 'comp', at: [2, 6], title: 'Heard in the pits: where did the air go?', body: 'A pneumatics supplier\'s rep was overheard saying orders are down by a third. The teams that stopped buying are not buying air tanks somewhere else. They are buying servos.' },
+    { id: 'r_lan2', cy: 2023, ph: 'off', at: [3, 5], title: 'Forum whispers: a camera that knows where it is', body: 'Beta testers are not allowed to talk about the next Lanternworks camera. One posted a photo of a robot parked within a centimetre of a target with nobody at the controls, and deleted it an hour later.' },
     { id: 'r_pool', cy: 2024, ph: 'comp', at: [3, 6], req: S => !S.team.home, title: 'Forum whispers: points instead of wildcards', body: 'A leaked slide shows regional teams collecting points at their two best events, with the Championship places going down a list. If it is real, a second regional stops being a luxury and becomes half of the qualification.' }
   ];
   // Every game has one argument everybody ends up having (must: 1). It is told once a season, by competition week 5.
@@ -509,6 +563,8 @@
     for (let k = 0; k < 4 && !got; k++) got = runNews(S, pickT(S, NEWS, 12));
     if (R().chance(0.2)) runNews(S, pickT(S, NEWS, 12));
     seasonTalk(S); // this game's big argument, once a season
+    // in season, about one week in four: a vendor warns that a part will be gone next week (its own roll, not the news lottery)
+    if ((S.phase === 'build' || S.phase === 'comp') && R().chance(0.25) && !(seen(S).restock >= turnNo(S) - 1)) { const e = NEWS.find(x => x.id === 'restock'); if (e && e.req(S)) runNews(S, e); }
     rumours(S);   // what people have heard about the changes the calendar is about to bring
     usedNews(S);  // the second-hand market, the first time it marks a kind of part down
     // one to three chatter posts

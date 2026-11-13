@@ -368,8 +368,10 @@
     if (how === 'student') { S.lastConf = Math.max(0, S.lastConf - 0.1); S.morale = Math.max(0, S.morale - 1); if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
     if (how === 'robot') {
       const tr = G.Shop.lvl(S, 'trailer') > 0, wear = tr ? 4 : 10; // a trailer means a proper display and safe transport
-      if (S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - wear); });
-      if ((S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: wear };
+      // a team with a real second robot demos that one: the competition robot keeps its condition
+      const second = G.Robot.realSecond(S), demoSubs = S.robot ? (second ? S.robot.bots[G.Robot.other(S.robot)].subs : S.robot.subs) : null;
+      if (demoSubs) Object.values(demoSubs).forEach(s => { if (s && s.ver) s.cond = Math.max(0, s.cond - wear); });
+      if (!second && (S.phase === 'comp' || S.phase === 'champs') && !S.event) S.demoWear = { key: turnKey(S), amt: wear };
       if (sp) sp.sat = Math.min(100, sp.sat + (tr ? 13 : 10)); C.addRep(S, 1); S.season.impact += tr ? 4 : 3;
     }
     if (how === 'hours') { S.actHours += 30; if (sp) sp.sat = Math.min(100, sp.sat + 8); S.season.impact += 2; }
@@ -772,10 +774,21 @@
   C.bagDay = function (S) {
     if (!C.bagged(S)) return;
     const k = C.bagK(S), second = G.Robot.secondRuns(S);
+    // two robots that both run: the team picks the one that goes in the bag (the competition robot by default)
+    if (G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1)) { S.bagPick = true; (S.launchQueue = S.launchQueue || []).push({ kind: 'bagPick' }); }
     if (!(S.storySeen = S.storySeen || {}).bagday) C.tellStory(S, D.STORY_BAG);
     else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and research carry on as usual.', 'dev');
   };
 
+  // Stop Build Day: put the chosen robot in the bag (it becomes the competition robot). Only on the day itself.
+  C.bagPick = function (S, bi) {
+    if (!S.bagPick) return 'The robot is already in the bag';
+    const R = S.robot;
+    if (!G.Robot.runnable(R, bi)) return R.bots[bi].name + ' has no drivetrain';
+    S.bagPick = false;
+    if (bi !== (R.comp || 0)) { R.comp = bi; R.pending = []; if (R.drive === bi) R.drive = 1 - bi; S.wearTick = (S.wearTick || 0) + 1; }
+    return null;
+  };
   // Hours still free this turn after team activities
   C.freeHours = S => Math.max(0, C.turnHours(S, C.isEventTurn(S)) - S.actHours);
   // This turn's development plan: how free hours will be shared between projects
@@ -841,6 +854,7 @@
   C.regWarn = S => S.mode === 'career' && S.phase === 'off' && S.month >= D.MONTHS.length - 1 && !S.registered.length && !C.needReg(S);
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
+    C.autoActivities(S); // "every turn": free activity slots are filled first (they take hours too)
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     const thisWeekEvent = S.lastEventTurn === turnKey(S);
     S.launchQueue = []; // launch pop-ups belong to the turn they happened in
@@ -998,8 +1012,16 @@
       C.inbox(S, ...C.regNotice(S));
     }
     if (mo === 'Nov') C.inbox(S, 'Drive team tryouts', 'Pick next season\'s drive team on the Team screen.', 'staff');
+    // November: last call for next season's field elements (preorders arrive with the Kit of Parts and never sell out)
+    if (mo === 'Nov' && S.mode === 'career' && G.Parts.nextYear(S) != null && !G.Parts.elemPending(S, G.Parts.nextYear(S)).length) { C.inbox(S, ...C.preorderNotice(S)); (S.launchQueue = S.launchQueue || []).push({ kind: 'preorder' }); }
     if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event');
   }
+  // the November preorder reminder (Inbox; the pop-up says the same)
+  C.preorderNotice = function (S) {
+    const fs = G.Parts.fieldSize(S);
+    return ['Preorder field elements for next season', 'Kickoff is two months away. Field elements preordered now arrive with the Kit of Parts and never sell out; ordered in season they often do, and the week of waiting costs driver practice.\n\n' +
+      (fs ? 'Your Practice Field fits a ' + G.Parts.setName(fs).toLowerCase() + ' set. Preorder one in the Inventory (Preorder tab).' : 'Without a Practice Field the free kit game pieces are all your drivers need, so a set is only a spare for later.'), 'dev'];
+  };
   function autoDriveTeamIfMissing(S) {
     const ids = S.students.map(s => s.id);
     if (!ids.includes(S.driveTeam.driver) || !ids.includes(S.driveTeam.operator) || !ids.includes(S.driveTeam.hp)) autoDriveTeam(S);
@@ -1054,7 +1076,8 @@
     const Sz = G.Seasons[S.year];
     C.inbox(S, 'KICKOFF — ' + C.seasonName(S),Sz.brief.join('\n\n') + '\n\nOpen the Design Office to choose your concepts. Your Tech Knowledge shows which past experience helps this game.', 'kickoff');
     G.News.kickoff(S);
-    C.inbox(S, 'Program goals for ' + S.year, 'The program director expects:\n' + S.season.goals.map(g => '• [' + g.tier + '] ' + C.goalText(S, D.PROGRAM_GOALS[g.id].text)).join('\n') + '\n\nAnd finish the season with money in the bank.', 'goal');
+    if (G.World.on(S)) G.World.hofQualify(S); // Hall of Fame teams are invited to every Championship, from Kickoff
+    C.inbox(S, 'Program goals for ' + C.calYear(S), 'The program director expects:\n' + S.season.goals.map(g => '• [' + g.tier + '] ' + C.goalText(S, D.PROGRAM_GOALS[g.id].text)).join('\n') + '\n\nAnd finish the season with money in the bank.', 'goal');
     G.Save.write('auto');
   };
   // goals read "district event" for a district team (home: the team's home when the goal was set, for old seasons)
@@ -1171,9 +1194,15 @@
   C.beforePlayerMatch = function (S, ev, opts) {
     const turn = ev.lastPlayerMatch < 0 ? 0 : (ev.stage === 'playoffs' ? G.Ev.poTurnaround(ev) : G.Ev.turnaround(ev));
     ev.lastTurn = turn;
+    ev.pmSeq = (ev.pmSeq || 0) + 1; // one Super pit full repair per match
     if (ev.lastPlayerMatch >= 0 || ev.stage === 'playoffs') {
       const sp = G.Robot.pitRepair(S, turn, opts && opts.timeout ? 2.5 : 1);
       ev.lastRepair = sp;
+    }
+    // simulated matches: the Super pit crew fully repairs whatever is in the worst shape
+    if (opts && opts.sim && G.Shop.superPit(S) && S.robot) {
+      const R = S.robot, ks = Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver && R.subs[k].cond < 99.5).sort((a, b) => R.subs[a].cond - R.subs[b].cond);
+      if (ks.length) { const r = G.Robot.superFix(S, ev, ks[0]); if (r && typeof r === 'object') ev.lastRepair = (ev.lastRepair || 0) + r.used; }
     }
     // batteries
     const rate = G.Shop.chargeRate(S), fleet = S.parts.batts;
@@ -1335,7 +1364,7 @@
     // watching other alliances teaches the meta (more when it is common at the event, and with scouting focus)
     if (S.season && ev.year === S.year && ev.kind !== 'einstein') {
       const fs = ev.feedStats, share = fs && fs.n ? fs.f / fs.n : 0;
-      S.season.metaSeen = (S.season.metaSeen || 0) + (0.12 + 0.6 * share + 0.08 * (ev.scoutBonus || 0)) * C.expMult(ev);
+      S.season.metaSeen = (S.season.metaSeen || 0) + (0.12 + 0.6 * share + 0.08 * ((ev.scoutBonus || 0) + (G.Shop.superPit(S) ? 1 : 0))) * C.expMult(ev);
     }
     S.lastTune = ev.tune; S.lastConf = ev.conf;
     if (ev.kind === 'offseason') {
@@ -1654,7 +1683,7 @@
     }
     if ((all || stage === 'win') && !ci.told.win) {
       ci.told.win = true;
-      S.hof = S.hof || []; if (!S.hof.includes(ci.winner)) S.hof.push(ci.winner); // one FIRST Impact Award per team, ever
+      S.hof = S.hof || []; if (!S.hof.includes(ci.winner)) { S.hof.push(ci.winner); (S.hofList = S.hofList || []).push({ num: ci.winner, cy: C.calYear(S), name: ci.winner === me ? S.team.name : (S.teams[ci.winner] || {}).name || '' }); } // one FIRST Impact Award per team, ever; the Hall of Fame page lists them
       if (ci.out === 'winner') {
         ci.result = 'winner'; ci.cele = C.impactCele(S, 'winner'); S.hallOfFame = S.si;
         S.rep = 100; S.morale = 100; S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 20); });
@@ -1738,7 +1767,7 @@
       if (ok) {
         mine.wffa = C.calYear(S); C.addRep(S, D.WFA.rep.wffa); S.morale = Math.min(100, S.morale + 6);
         (S.wfaHonors = S.wfaHonors || []).push({ kind: 'wffa', cy: C.calYear(S), mid: mine.id, name: mine.name, prof: mine.prof, event: e.name });
-        C.inbox(S, 'Woodie Flowers Finalist Award: ' + mine.name, 'At the ' + e.name + ' the judges read your students\' essay aloud and called ' + mine.name + ', ' + C.profLine(mine.prof).replace(/^./, c => c.toLowerCase()) + ', to the field: a Woodie Flowers Finalist. The award honours a mentor who leads, inspires and teaches through communication, and the students\' words about ' + mine.prof.area + ' made the case. A blue banner with ' + mine.name + '\'s name on it goes on your wall (History).\n\n' + mine.name + ' is now one of the mentors the Woodie Flowers Award is chosen from at the Championship, this season and, re-nominated, in any season after.', 'event');
+        C.inbox(S, 'Woodie Flowers Finalist Award: ' + mine.name, 'At the ' + e.name + ' the judges read your students\' essay aloud and called ' + mine.name + ', ' + C.profLine(mine.prof).replace(/^./, c => c.toLowerCase()) + ', to the field: a Woodie Flowers Finalist. The award honours a mentor who leads, inspires and teaches through communication, and the students\' words about ' + mine.prof.area + ' made the case. A blue banner for the award goes on your wall (History).\n\n' + mine.name + ' is now one of the mentors the Woodie Flowers Award is chosen from at the Championship, this season and, re-nominated, in any season after.', 'event');
       } else C.inbox(S, 'Woodie Flowers Finalist Award at the ' + e.name, 'Your students\' essay about ' + mine.name + ' was judged here. The award went to ' + (other ? other.name + ' of Team ' + other.team + ', ' + C.profLine(other.prof).replace(/^./, c => c.toLowerCase()) : 'another mentor') + '. ' + mine.name + ' can be nominated again next season.', 'event');
     }
     return won;
@@ -2010,8 +2039,10 @@
     const cy = S.cal[0], era = G.Era.at(cy), prem = cy <= G.Era.STERLING_LAST ? 'Sterling Motion' : 'Apex Motion', lines = [];
     lines.push(cy < 2019 ? 'Motors: every motor has brushes. ' + prem + ' is the premium catalogue, Lumen Robotics the cheaper one.' : cy === 2019 ? 'Motors: Lumen has just launched the first brushless motor, the Ion. Sterling Motion, the premium catalogue, still sells brushed ones.' : 'Motors: brushless. ' + prem + ' is the premium vendor, Lumen Robotics the value one.');
     lines.push(era.swerve.cots ? 'Swerve: modules are sold in the Inventory' + (cy < 2022 ? ' (Apex only, for now).' : '.') : 'Swerve: nobody sells modules. A swerve drive means machining your own (a CNC Router or a Lathe, ' + (era.swerve.hours >= 2 ? 'twice' : 'one and a half times') + ' the build hours, and it is fragile).');
-    lines.push(!era.vision.cam ? 'Vision: home-made. No camera is sold; Vision Level 1 takes twice the hours and Level 2 is out of reach.' : era.vision.tags ? 'Vision: cameras are sold and the field has AprilTags, so vision also helps autonomous.' : 'Vision: cameras are sold; they track reflective tape (auto-aim), not yet the robot\'s position.');
-    lines.push('Pneumatics: a kit saves ' + Math.round(era.pneu * 100) + '% of the hours on intake and manipulator builds.');
+    lines.push(!era.vision.cam ? 'Vision: home-made. No camera is sold; Vision Level 1 takes twice the hours and Level 2 is out of reach.' : era.vision.tags ? 'Vision: Lanternworks sells the Lantern 2 camera, a network switch and the Spark ML accelerator, and the field has AprilTags, so vision also helps autonomous.' : 'Vision: Lanternworks sells the Lantern 1 camera and a network switch; the camera tracks reflective tape (auto-aim), not yet the robot\'s position.');
+    if (cy >= 2017) lines.push('Gearboxes: both vendors sell planetary gearboxes for mechanism motors (optional, fewer breakdowns), and a low-profile one comes in every Kit of Parts.');
+    lines.push('Pneumatics: a kit saves ' + Math.round(era.pneu * 100) + '% of the hours on intake and manipulator builds' + (era.servo ? '; a servo actuator kit saves ' + Math.round(era.servo * 100) + '% (the better of the two counts).' : '.'));
+    if (cy >= 2018) lines.push('Pits: the top teams roll in a Super pit in road cases (the top level of Pit Setup): a full repair of one subsystem before every match.');
     lines.push(G.Era.playoffs(cy) === 'se' ? 'Playoffs: single elimination, every series best of three' + (cy <= 2022 ? ' (double elimination arrives in 2023).' : '.') : 'Playoffs: double elimination, finals best of three.');
     if (era.bag) lines.push('Stop Build Day: after the build season the competition robot goes in a bag and may only be touched at events. Teams that can afford it build a second robot.');
     lines.push('Money: shown in ' + cy + ' dollars. Prices and budgets rise a little every year.');
@@ -2085,8 +2116,8 @@
     if ((e.awards || []).includes('impact')) out.push({ award: 'Impact Award', year, event: e.name.replace('Championship — ', '') });
     return out;
   };
-  C.wfaBanner = x => (x.kind === 'wfa' ? { award: 'Woodie Flowers Award', year: x.cy, event: 'FIRST Championship', motto: x.name, world: true, key: 'wfa' } // blue, as the real one
-    : { award: 'Woodie Flowers Finalist Award', year: x.cy, event: x.event, motto: x.name });
+  C.wfaBanner = x => (x.kind === 'wfa' ? { award: 'Woodie Flowers Award', year: x.cy, event: 'FIRST Championship', world: true, key: 'wfa' } // blue, as the real one
+    : { award: 'Woodie Flowers Finalist Award', year: x.cy, event: x.event });
   C.festBanner = S => ({ award: S.festival.won ? 'Festival of Champions' : 'Festival of Champions Finalist', year: S.festival.cy, event: 'Manchester, New Hampshire', gold: !!S.festival.won, world: true, key: 'fest', motto: S.festival.won ? 'The one champion' : null });
   C.banners = function (S) {
     const out = [];
@@ -2097,12 +2128,14 @@
       if (past && S.festival && S.festival.cele && S.festival.gy === gy) out.push(C.festBanner(S)); // played in the July after that season
       const ci = s.cmpImpact && s.cmpImpact.result;
       if (ci) out.push({ award: ci === 'winner' ? 'FIRST Impact Award' : 'FIRST Impact Award Finalist', year: C.calYear(S, gy), event: 'FIRST Championship', gold: ci === 'winner', world: true, key: 'impact' });
-      // the Woodie Flowers awards of that season (a blue banner for the team, as on The Blue Alliance; the mentor's name under it)
+      // the Woodie Flowers awards of that season (a blue banner for the team, as on The Blue Alliance)
       (S.wfaHonors || []).forEach(x => { if (x.cy === C.calYear(S, gy)) out.push(C.wfaBanner(x)); });
       for (let i = n0; i < out.length; i++) out[i].gy = gy;
     };
     S.history.forEach(h => add(h.year, h.events, h, true));
-    if (S.season && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year || S.year, S.season.events, S.season);
+    // the season being played (after the review the season state has no year: everything is in History already, and
+    // adding it again would hang that season's Woodie Flowers banners twice)
+    if (S.season && S.season.year && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year, S.season.events, S.season);
     return out;
   };
   // The school board at the season review. More room when Program Support has reached the next tier (never taken back), and
@@ -2113,13 +2146,19 @@
     D.SPACE_TIERS.forEach((T, i) => { if (S.support >= T.sup && i > t) t = i; });
     if (t > t0) { S.spaceTier = t; b.space = { from: Sh.spaceOfTier(t0), to: Sh.spaceOfTier(t), name: D.SPACE_TIERS[t].name }; }
     if (dSup >= D.BOARD.reno) D.EQUIP.forEach(e => { const f = S.shop[e.id]; if (f && f.lvl && f.cond < 99) { f.cond = 100; f.warned = 0; b.reno++; } });
-    if (dSup >= D.BOARD.grant && S.support >= D.BOARD.grantSup) { S.schoolGrant = (S.schoolGrant || 0) + 1; b.grant = true; }
+    if (dSup >= D.BOARD.grant && S.support >= D.BOARD.grantSup) {
+      // nothing the grant could pay for (every facility at its top level, too dear or out of room): the board sends cash
+      const canUse = D.EQUIP.some(e => { const c = Sh.upgradeCost(S, e.id); return c != null && c <= D.BOARD.cap && !Sh.spaceBlock(S, e.id) && !Sh.levelBlock(S, e.id); });
+      if (canUse) { S.schoolGrant = (S.schoolGrant || 0) + 1; b.grant = true; }
+      else { C.earn(S, D.BOARD.cash, 'School board grant (cash)'); b.cash = D.BOARD.cash; }
+    }
     S.season.board = b;
-    if (!b.space && !b.reno && !b.grant) return;
+    if (!b.space && !b.reno && !b.grant && !b.cash) return;
     C.inbox(S, 'From the school board: your workshop', 'The board reviewed the robotics program this week (Program Support ' + Math.round(S.support) + ', ' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season).\n\n' +
       (b.space ? '• More room: the team moves into ' + b.space.name + '. Your workshop grows from ' + b.space.from.toLocaleString('en-US') + ' to ' + b.space.to.toLocaleString('en-US') + ' sq ft.\n' : '') +
       (b.reno ? '• Maintenance: the district\'s facilities crew will bring ' + (b.reno === 1 ? 'your worn facility' : 'all ' + b.reno + ' of your worn facilities') + ' back to full condition over the summer, at no cost to the team.\n' : '') +
       (b.grant ? '• Equipment grant: the board will pay for one facility upgrade of your choice, up to ' + U.money(D.BOARD.cap) + '. Use it in the Workshop whenever you like.\n' : '') +
+      (b.cash ? '• Grant: there is nothing in the workshop the board could upgrade, so it sends ' + U.money(b.cash) + ' in cash instead, for the program to spend as it sees fit.\n' : '') +
       '\nKeep it up. Room is never taken back, but the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.', 'shop');
   }
   // Rare: a very satisfied sponsor donates equipment, one facility level of a kind that fits what they do, if the workshop has room
@@ -2157,6 +2196,8 @@
 
   C.toReview = function (S) {
     if (S.phase === 'review') return;
+    // the FIRST Impact Award is given at every Championship, played or not: the Hall of Fame keeps every winner
+    if (!S.season.cmpImpact && S.mode === 'career' && S.teams) S.season.cmpImpact = C.rollChampsImpact(S);
     C.settleImpact(S, 'all');
     if (G.World.on(S) && S.mode === 'career') {
       if (!S.season.wfaCmp) C.rollWfa(S);
@@ -2316,6 +2357,32 @@
       msg = g ? 'Raised ' + U.money(g) + (fat < 1 ? ' (repeat donors this month give less: ×' + fat.toFixed(2) + ')' : '') : 'The application was not funded this time.';
     }
     return { ok: true, msg };
+  };
+  // "Every turn" activities (S.settings.autoAct: 'fund', 'outreach' or 'mixed'): when Continue is pressed the team fills
+  // its free activity slots on its own, the best-paying fundraiser or the outreach worth most points first (taking this
+  // month's repeat penalty into account), only what it can afford, and alternating the two kinds when mixed.
+  C.autoActivities = function (S) {
+    const mode = S.settings && S.settings.autoAct;
+    if (!mode) return [];
+    const done = [], kinds = mode === 'mixed' ? ['outreach', 'fund'] : [mode];
+    const worth = a => { const f = C.fundFatigue(S, a.id); if (a.kind === 'outreach') return a.impact * f + (a.money ? (a.money[0] + a.money[1]) / 400 : 0) - a.cost / 200; const m = a.money ? (a.money[0] + a.money[1]) / 2 * (a.grant ? 0.4 : a.repScale ? 0.5 + S.rep / 100 : 1) : 0; return m * f - a.cost; };
+    for (let i = 0; i < 24; i++) {
+      const lim = C.actLimits(S);
+      if (lim.used >= lim.max) break;
+      const ok = a => C.actAvailable(S, a) && (lim.counts[a.id] || 0) < lim.perType && !C.afford(S, a.cost);
+      let pick = null;
+      for (let k = 0; k < kinds.length && !pick; k++) {
+        const kind = kinds[(done.length + k) % kinds.length];
+        pick = D.ACTIVITIES.filter(a => a.kind === kind && ok(a)).sort((a, b) => worth(b) - worth(a))[0] || null;
+        if (pick && worth(pick) <= 0) pick = null;
+      }
+      if (!pick) break;
+      const r = C.doActivity(S, pick.id);
+      if (!r || typeof r === 'string') break;
+      done.push(pick.name);
+    }
+    if (done.length) C.inbox(S, 'Activities this ' + (S.phase === 'off' ? 'month' : 'week'), 'The team ran ' + done.length + ' activit' + (done.length === 1 ? 'y' : 'ies') + ' on its own: ' + done.join(', ') + '. (Team page: "every turn" is on.)', 'info');
+    return done;
   };
   // Facilities are bought/upgraded through G.Shop (parts and game elements: G.Parts).
   C.buyEquip = (S, id, opts) => G.Shop.upgrade(S, id, opts);
