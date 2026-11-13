@@ -348,19 +348,23 @@
   // How valuable a pick is to an alliance, from the scouting data (shared by AI captains and the player's recommendations).
   // Small samples are shrunk toward a typical robot so one lucky or unlucky match doesn't dominate.
   // shown: use the data the player's scouts recorded (possibly mixed up) instead of the truth
+  // shown: everything comes from your own scouting (match sheets that tired scouts may have mixed up, and the pit
+  // scouts' estimate of how hard a robot pushes); otherwise the truth, as for the AI captains. The OPR is public: it is
+  // worked out from the official scores, so both use it, blended with the points the scouts saw each robot score.
   Ev.pickScore = function (ev, al, cand, shown) {
     const S = G.S, capOf = t => ev.caps[t] ? ev.caps[t].cap : G.Robot.matchEntry(S, ev).cap, obs = shown ? Ev.obsShown : Ev.obsOf;
-    const cap = capOf(cand), o = obs(ev, cand), n = o ? o.n : 0, K = 3;
+    const cap = capOf(cand), o = obs(ev, cand), n = o ? o.n : 0, K = 3, opr = Ev.opr(ev)[cand] || 0;
     const shrink = (rate, cnt, prior) => ((rate == null ? 0 : rate * cnt) + prior * K) / (cnt + K);
-    const rel = shrink(o && o.rel, n, 0.8), auto = shrink(o && o.auto, n, 0.75);
+    const rel = shrink(o && o.rel, n, 0.8), auto = shrink(o && o.auto, n, 0.75), pts = shrink(o && o.pts, n, opr);
     const lvl = o && o.climbLvl ? o.climbLvl : (o && o.climbTry ? 0 : cap.endLevel || 0);
     const climb = shrink(o && o.climb, o ? o.climbTry : 0, lvl ? 0.65 : 0);
-    let v = (Ev.opr(ev)[cand] || 0) * (0.55 + 0.45 * rel);          // unreliable robots lose a lot of their value in playoffs
+    let v = (0.5 * opr + 0.5 * pts) * (0.55 + 0.45 * rel);            // unreliable robots lose a lot of their value in playoffs
     v += (auto - 0.75) * 8 + climb * lvl * 2 - (o ? o.fouls * 1.5 + o.dead * 1.5 : 0);
     const climbers = al.filter(t => { const ob = obs(ev, t); return ob ? (ob.climb || 0) >= 0.6 && ob.climbLvl >= 2 : (capOf(t).endLevel || 0) >= 2; }).length;
     if (!climbers && lvl >= 2) v += 4 * climb;                         // complement: the alliance still needs a reliable climber
     const meta = G.Seasons[ev.year].meta;
-    if (meta && meta.defense && al.length === 2) v += (cap.push || 0) / 20 + (o && o.def ? 2 : 0); // a second pick that can defend
+    const push = shown && cand !== S.team.num && ev.caps[cand] ? Ev.scout(ev, cand).est.push : cap.push || 0;
+    if (meta && meta.defense && al.length === 2) v += push / 20 + (o && o.def ? 2 : 0); // a second pick that can defend
     return v;
   };
   // Simulate AI matches until the next player match (or end of quals). Returns the player's match or null.
@@ -470,7 +474,7 @@
     const noise = U.clamp(14 - sk / 10 - ((ev.scoutBonus || 0) + (G.Shop.superPit(S) ? 1 : 0)) * 3 - Math.min(6, (ev.rank[team] ? ev.rank[team].played : 0) * 0.5), 2, 16);
     const r = G.makeRng(hash(ev.seed, team));
     const est = {};
-    ['speed', 'intake', 'scoreSpd', 'accuracy', 'endgame', 'auto', 'rel'].forEach(k => { est[k] = Math.round(U.clamp((e.cap[k] || 0) + r.norm(0, noise), 0, 100)); });
+    ['speed', 'intake', 'scoreSpd', 'accuracy', 'endgame', 'auto', 'rel', 'push'].forEach(k => { est[k] = Math.round(U.clamp((e.cap[k] || 0) + r.norm(0, noise), 0, 100)); });
     return { cap: e.cap, est, look: e.look, arch: e.arch, noise: Math.round(noise) };
   };
 

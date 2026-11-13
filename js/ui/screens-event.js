@@ -76,7 +76,9 @@
     const div = G.S.champsDiv || 'Newton';
     return ev.kind === 'einstein' ? '<div class="eribbon einstein">' + UI.icon('trophy', 14) + (ev.festival ? ' FESTIVAL OF CHAMPIONS · MANCHESTER, NEW HAMPSHIRE' + (ev.stream ? ' · LIVESTREAM' : '') : ' EINSTEIN FIELD · WORLD FINALS') + '</div>' : '<div class="eribbon champs" style="--div:' + UI.divColor(div) + '"><i></i>' + h(div.toUpperCase()) + ' DIVISION · FIRST CHAMPIONSHIP</div>';
   }
-  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (ev.festival && !ev.introSeen && ev.stage !== 'done') { ev.introSeen = true; UI.festivalIntro(ev); return; } if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
+  UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (ev.festival && !ev.introSeen && ev.stage !== 'done') { ev.introSeen = true; UI.festivalIntro(ev); return; }
+    if (ev.kind === 'champs' && !ev.openSeen && ev.stage !== 'practice' && ev.stage !== 'done') { ev.openSeen = true; UI.champsOpening(ev); return; }
+    if (ev.kind === 'einstein' && !ev.festival && !ev.stream && !ev.einSeen && ev.stage !== 'done') { ev.einSeen = true; UI.einsteinIntro(ev); return; } if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
@@ -143,7 +145,7 @@
       G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"' + (p.id === 'install' && !G.Ev.canInstall(S) ? ' disabled title="Nothing to install"' : '') + '><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + (S.robot.pending.length + G.Robot.held(S).length) + ' pending' + (G.Robot.held(S).length ? ': ' + h(G.Robot.heldNames(S).join(', ')) : '') + ')' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
     }
-    o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + UI.stat('Auto bonus', ev.tuneAuto * 500) +
+    o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + (S.robot ? UI.stat('Auto success', G.Engine.autoChance(G.Robot.cap(S).auto, ev.tuneAuto) * 100, G.Engine.autoChance(G.Robot.cap(S).auto, 0.2) * 100) : '') +
       UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) +
       (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
       '<div class="sm mt">' + UI.icon('fatigue', 14) + ' Fatigue ' + UI.fatigueBar(ev.fatigue == null ? 30 : ev.fatigue) + ' <b>' + Math.round(ev.fatigue == null ? 30 : ev.fatigue) + '</b> (' + G.Career.fatigueLabel(ev.fatigue == null ? 30 : ev.fatigue) + ') · ' + UI.icon('scout', 14) + ' scouting credibility <b>' + Math.round((ev.scoutCred || 1) * 100) + '%</b></div>' + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
@@ -228,7 +230,7 @@
     const sel = ev.sel, opr = G.Ev.opr(ev), al = sel.alliances[sel.pending.k] || [me()];
     const avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t)) && !sel.declined.includes(t) && t !== me());
     const rows = avail.map(t => ({ t, sc: G.Ev.scout(ev, t), v: G.Ev.pickScore(ev, al, t, true) })).sort((a, b) => b.v - a.v);
-    return '<div class="xs muted mb">Sorted by pick value: OPR discounted by breakdowns, plus auto and climb consistency, fouls, and what your alliance still needs. Hover the headers for details.</div>' +
+    return '<div class="xs muted mb">Sorted by pick value from your own scouting (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%): OPR and the points your scouts saw, discounted by breakdowns, plus auto and climb consistency, fouls and what your alliance still needs.</div>' +
       '<div style="max-height:440px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num">Value</th><th></th></tr>' + rows.slice(0, 30).map((r, i) => {
       const dc = G.Ev.declineChance(ev, sel.pending.k, r.t); // a future captain that could build a stronger alliance itself may say no
       return '<tr><td class="nowrap">' + tlink(r.t) + (i < 3 ? ' ' + UI.tag('rec', 'acc') : '') + (dc.p >= 0.15 ? ' <span title="About ' + Math.round(dc.p * 100) + '% likely to decline: ' + h(dc.why) + '">' + UI.tag('may decline', 'warn') + '</span>' : '') + '<div class="xs muted">#' + G.Ev.rankOf(ev, r.t) + ' · ' + h(r.sc.arch || '') + '</div></td><td class="num">' + (opr[r.t] || 0) + '</td>' + obsCells(ev, r.t) + '<td class="num b">' + r.v.toFixed(1) + '</td><td><button class="btn sm primary" data-act="selPick" data-arg="' + r.t + '">Pick</button></td></tr>';
@@ -1025,6 +1027,54 @@
         'A champion alliance does not stay home: the event cannot be skipped. The organisers pay the trip for both alliances, so it costs you nothing.',
         'Win it for reputation, legacy and a banner no other team will ever hang. Lose it and you are still the World Champions of ' + (F.city || 'your Championship') + '.']).map(x => '<li>' + h(x) + '</li>').join('') + '</ul></div>' +
       '<div class="row mt"><span class="xs muted">' + (live ? 'Shown once, when the stream opens.' : 'Shown once, on arrival.') + '</span><span class="sp"></span><button class="btn primary" data-act="closeModal">' + (live ? 'Watch ▶' : 'To the field ▶') + '</button></div>', { wide: true });
+  };
+  // ---------------- Opening Ceremonies and Einstein (shown once each) ----------------
+  const STATE = { Houston: 'Houston, Texas', 'St. Louis': 'St. Louis, Missouri', Detroit: 'Detroit, Michigan' };
+  const pickN = (rng, list, n) => rng.shuffle(list.slice()).slice(0, n);
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => (v[k] != null ? v[k] : ''));
+  function champsInfo(S) {
+    const cy = G.Career.calYear(S, S.year), CH = S.cal ? G.Career.champs(S) : { n: 1, divs: 8, fmt: 'de', city: 'Houston', div: ['Archimedes', 'Curie', 'Daly', 'Galileo', 'Hopper', 'Johnson', 'Milstein', 'Newton'], cities: ['Houston'], side: 0 };
+    return { cy, CH, city: CH.city || 'Houston', place: STATE[CH.city] || CH.city || 'Houston', other: CH.n > 1 ? CH.cities[1 - CH.side] : null, fmt: CH.fmt === 'rr' ? 'a round robin, then a best-of-three final' : CH.fmt === 'se' ? 'best-of-three series' : 'double elimination' };
+  }
+  // after practice day at the Championship: the season so far, and the event itself
+  UI.champsOpening = function (ev) {
+    const S = G.S, I = champsInfo(S), Sz = G.Seasons[ev.year], rng = G.makeRng((ev.seed || 1) + 404), div = S.champsDiv || 'Newton';
+    const divs = I.CH.div || [], per = ev.teams.length, total = per * divs.length, world = G.World && G.World.total ? G.World.total(I.cy) : null;
+    const road = ((S.season && S.season.events) || []).filter(e => e.kind !== 'scrimmage' && e.kind !== 'champs').map(e => h(e.name) + ' <span class="muted">(' + h(e.finish) + ')</span>');
+    const meta = Sz.meta && Sz.meta.note ? Sz.meta.note.split(': ')[0].replace(/\.$/, '') : '';
+    const v = { city: I.city, div, game: Sz.name, other: I.other || '', n: total };
+    const say = pickN(rng, [['Welcome to {city}! {n} teams, one game, and four days to find out who plays it best.', 'the emcee, opening the ceremony'], ['I have been coming since before half these students were born. The noise when the drumline starts still gets me.', 'a Championship volunteer'],
+      ['{div} looks like the toughest division on paper. Then again, every division looks like that on paper.', 'a scout in the stands'], ['Somebody traded me a button from a team on the other side of the world. I do not know what it says. I love it.', 'a student on Team ' + S.team.num],
+      ['The pits are a city of their own. I got lost twice before lunch.', 'a first-year mentor'], ['Every robot here survived a whole season of {game}. That alone deserves the applause.', 'a referee']].concat(I.other ? [['Half the country is here, and the other half is in {other}. Both of them think they have the better Championship.', 'a forum regular']] : []), 3);
+    UI.modal('<div class="xs b" style="color:' + UI.divColor(div) + ';letter-spacing:.08em">FIRST CHAMPIONSHIP · ' + h(I.city.toUpperCase()) + ' · ' + I.cy + '</div><h2>Opening Ceremonies</h2>' +
+      '<p class="story-p">The lights go down, the drumline comes in, and ' + (total ? total + ' teams' : 'the best teams of the season') + ' fill the stands of ' + h(I.place) + '. ' + (I.other ? 'It is one of two Championships this year: the other is in ' + h(I.other) + ', a week apart.' : 'One Championship, one world title.') + '</p>' +
+      '<div class="kv mb"><span class="k">Host city</span><span>' + h(I.place) + '</span><span class="k">Divisions</span><span>' + divs.length + ' of about ' + per + ' teams' + (total ? ' · ' + total + ' teams in all' : '') + '</span>' +
+      (world ? '<span class="k">Teams in the world</span><span>' + world.toLocaleString('en-US') + ' played ' + h(Sz.name) + '</span>' : '') + '<span class="k">Einstein</span><span>' + divs.length + ' division champions · ' + h(I.fmt) + '</span></div>' +
+      '<div class="row wrap gap4 mb">' + divs.map(d => '<span class="eh-div' + (d === div ? ' me' : '') + '" style="--div:' + UI.divColor(d) + '"><i></i>' + h(d) + (d === div ? ' · you' : '') + '</span>').join('') + '</div>' +
+      (meta || road.length ? '<div class="card flat mb"><div class="xs muted b">THE SEASON SO FAR</div>' + (meta ? '<div class="sm">' + h(meta) + '.</div>' : '') + (road.length ? '<div class="sm mt">Your road here: ' + road.join(' · ') + '</div>' : '') + '</div>' : '') +
+      '<div class="wc-qs" style="margin:0">' + say.map(q => cq([fill(q[0], v), q[1]])).join('') + '</div>' +
+      '<div class="row mt"><span class="xs muted">Qualification matches start now.</span><span class="sp"></span><button class="btn primary" data-act="closeModal">To the ' + h(div) + ' field ▶</button></div>', { wide: true });
+  };
+  // arriving at Einstein: the emcee, the commentators and the livestream chat
+  UI.einsteinIntro = function (ev) {
+    const S = G.S, I = champsInfo(S), rng = G.makeRng((ev.seed || 1) + 808), me0 = S.team.num, pa = G.Ev.playerAlliance(ev);
+    const als = (ev.alliances || []).map((al, i) => ({ i, al, div: (ev.divNames || [])[i] || 'Alliance ' + (i + 1), pw: al.reduce((s, t) => s + ((ev.oprBase || {})[t] || (ev.caps[t] ? ev.caps[t].power : 50)), 0) }));
+    if (!als.length) return;
+    const by = als.slice().sort((a, b) => b.pw - a.pw), fav = by[0], dark = by[by.length - 1], mine = pa >= 0 ? als[pa] : null;
+    const cap = a => a.al[0] + ' ' + (tname(a.al[0]) || ''), star = fav.al.slice().sort((p, q) => ((ev.oprBase || {})[q] || 0) - ((ev.oprBase || {})[p] || 0))[0];
+    const v = { city: I.city, fav: fav.div, dark: dark.div, star, mydiv: mine ? mine.div : '', me: me0, n: als.length };
+    const cast = [['Ladies and gentlemen, from ' + als.length + ' divisions, ' + als.length + ' champion alliances. Only one of them leaves as World Champions. Welcome to Einstein!', 'the emcee']];
+    cast.push([fill(pickN(rng, ['On paper it is {fav}. Their scoring numbers this week are a level above everyone else, and {star} has been the robot of the tournament.', 'If you made me pick one, it would be {fav}. But nobody on this field got here by being predictable.', 'The {fav} alliance has not looked troubled once all week. That is exactly when it happens.'], 1)[0], v), 'the play-by-play commentator']);
+    cast.push([fill(pickN(rng, ['Watch {dark}. They came through the hardest bracket of the week and nobody wants to play them twice.', 'My dark horse is {dark}: lowest numbers on the board, and they keep winning anyway.', 'Defense is going to decide this. Whoever slows {fav} down first wins it.'], 1)[0], v), 'the colour commentator']);
+    if (mine && !ev.watch) cast.push([fill(pickN(rng, ['And the {mydiv} champions, with Team {me}: they have not stopped smiling since the division final.', 'Keep an eye on Team {me} with the {mydiv} alliance. That drive team has nerves of steel.'], 1)[0], v), 'the emcee']);
+    const handles = ['gearhead_42', 'pitcrew_pat', 'swervelord', 'zip_tie_queen', 'scoutmaster9k', 'rookie_mentor', 'bumper_bandit', 'drivecoach_dad', 'firsttimer', 'cad_monkey', 'robo_grandma', 'brownout_bob'];
+    const who = pickN(rng, handles, 6), chat = pickN(rng, ['{fav} in 3, calling it now', 'who else is watching from the pits lol', 'the crowd in {city} is LOUD', '{dark} upset incoming, trust', 'first time watching Einstein live, I have goosebumps', 'that bracket is brutal', 'my whole team is screaming at the projector', 'imagine being on Einstein. IMAGINE', '{star} auto is unreal', 'stream quality 10/10 no notes', 'GO {fav}!!!', 'the field crew deserves a banner too']
+      .concat(mine && !ev.watch ? ['let\'s go {me}!!', 'Team {me} represent!', '{mydiv} till I die'] : ev.watch ? ['{me} is in the stands somewhere, wave!'] : []), 6);
+    UI.modal('<div class="xs b" style="color:#f5c542;letter-spacing:.08em">EINSTEIN FIELD · WORLD FINALS · ' + h(I.city.toUpperCase()) + ' ' + I.cy + '</div><h2>The world is watching</h2>' +
+      '<div class="row wrap gap4 mb">' + als.map(a => '<span class="eh-div' + (a === mine ? ' me' : '') + '" style="--div:' + UI.divColor(a.div) + '" title="' + h(a.al.map(t => t + ' ' + tname(t)).join(', ')) + '"><i></i>' + h(a.div) + ' · ' + h(cap(a)) + '</span>').join('') + '</div>' +
+      '<div class="wc-qs" style="margin:0">' + cast.map(cq).join('') + '</div>' +
+      '<div class="card flat mt"><div class="xs muted b">LIVESTREAM CHAT · ' + (1200 + rng.int(0, 400) * 25).toLocaleString('en-US') + ' WATCHING</div>' + chat.map((c, k) => '<div class="sm"><b class="acc">' + h(who[k]) + '</b> ' + h(fill(c, v)) + '</div>').join('') + '</div>' +
+      '<div class="row mt"><span class="xs muted">' + h(I.fmt.charAt(0).toUpperCase() + I.fmt.slice(1)) + '.</span><span class="sp"></span><button class="btn primary" data-act="closeModal">' + (ev.watch ? 'Watch ▶' : 'To Einstein ▶') + '</button></div>', { wide: true });
   };
   // its own emblem: the two Championships as two rings that slide together, and one star where they meet
   const RINGS = '<svg class="fc-rings" viewBox="0 0 160 110" aria-hidden="true"><defs><linearGradient id="fcg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#fff7d6"/><stop offset=".5" stop-color="#f5c542"/><stop offset="1" stop-color="#b8860b"/></linearGradient></defs>' +

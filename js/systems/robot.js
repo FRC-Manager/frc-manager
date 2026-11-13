@@ -336,19 +336,34 @@
       return h.u ? nm + ' v' + h.u.ver : h.set ? nm + ' upgrade to v' + h.set.ver : h.clear ? nm + ' hardening' : nm + ' lightweighting'; });
   };
   // fit everything in the crate to the competition robot; returns the names of what went on
+  // A stored unit worth packing for the bagged robot: the newest version of the design, or one identical to the unit in
+  // the bag (a fresher spare). Older units stay in storage, where they can be taken apart.
+  Robot.packable = (R, u) => { const t = R.subs[u.sub]; return Robot.isLatest(R, u.sub, u) || !!(t && t.ver && t.concept === u.concept && t.ver === u.ver); };
   Robot.installHeld = function (S) {
     const R = S.robot; if (!R || !Robot.held(S).length) return [];
     const ci = R.comp || 0, names = Robot.heldNames(S), done = [];
+    // whole units: one per subsystem goes on, the newest (then the freshest); the rest go to storage. An identical unit
+    // only goes on if it is in better shape than the one in the bag.
+    const rank = h => (Robot.isLatest(R, h.k, h.u) ? 1e4 : 0) + h.u.ver * 100 + h.u.cond, best = {};
+    R.held.forEach(h => { if (h.u && (!best[h.k] || rank(h) > rank(best[h.k]))) best[h.k] = h; });
     R.held.forEach((h, i) => {
-      if (h.u) { install(R, ci, h.k, h.u); done.push(names[i]); return; }
+      if (!h.u) return;
+      const t = R.bots[ci].subs[h.k], same = t && t.ver && t.concept === h.u.concept && t.ver === h.u.ver;
+      if (best[h.k] !== h || (same && h.u.cond <= t.cond)) { R.store.push(h.u); return; }
+      install(R, ci, h.k, h.u); done.push(names[i]);
+    });
+    R.held.forEach((h, i) => {
+      if (h.u) return;
       const t = R.bots[ci].subs[h.k];
       if (!t || !t.ver || t.concept !== h.concept) return; // the mechanism it was made for is no longer on the robot
+      if (h.set && t.ver >= h.set.ver) return; // a newer unit went on already
       if (h.set) Object.assign(t, h.set, { stats: Object.assign({}, h.set.stats) });
       if (h.relMin != null) t.rel = Math.max(t.rel, h.relMin);
       if (h.relAdd) t.rel = Math.max(20, t.rel + h.relAdd);
       if (h.wMax != null) t.w = Math.min(t.w, h.wMax);
-      if (h.clear) { t.hidden = 0; t.cond = 100; }
+      if (h.clear) t.hidden = 0;
       if (h.hid) t.hidden += h.hid;
+      t.cond = 100; // new parts: the subsystem comes out of the pits as good as new
       done.push(names[i]);
     });
     R.held = []; S.wearTick = (S.wearTick || 0) + 1; trimStore(S);
@@ -384,7 +399,10 @@
     { const bag = Robot.bagLock(S), ci = R.comp || 0;
       if (bag && (bi === ci || f.bi === ci)) {
         // a stored unit can be packed for the next event; nothing comes off the bagged robot, and nothing goes straight onto it
-        if (f.bi < 0 && bi === ci) { R.store = R.store.filter(x => x !== f.u); hold(S, { k: f.k, u: f.u }); return null; }
+        if (f.bi < 0 && bi === ci) {
+          if (!Robot.packable(R, f.u)) return 'Only the newest version (v' + R.design[f.k].ver + ') or a unit identical to the one in the bag can be packed. Older units stay in storage, where they can be taken apart.';
+          R.store = R.store.filter(x => x !== f.u); hold(S, { k: f.k, u: f.u }); return null;
+        }
         return bag + ' Only units from storage can be packed for it; they are fitted on practice day.';
       } }
     const k = f.k, before = missingTotal(S), snap = { store: R.store.slice(), a: R.bots[0].subs[k], b: R.bots[1].subs[k] };
@@ -486,6 +504,8 @@
   // Event spares: units identical to the competition robot's (same concept and version), in storage or on the other robot.
   // Storage keeps D.STORE_MAX of each kind, so a subsystem has at most D.STORE_MAX + 1 of them.
   Robot.SPARE_MAX = () => D.STORE_MAX + 1;
+  // the subsystems up high, which a tip-over knocks about: lifts, arms and shooters, climbers, end effectors, amp and algae mechanisms
+  Robot.UPPER = ['scorer', 'endgame', 'effector', 'amp', 'algae'];
   Robot.spareCount = function (S, k) {
     const R = S.robot, u = R && R.subs[k];
     if (!u || !u.ver || k === 'soft') return 0;
@@ -548,11 +568,21 @@
   };
 
   // ---------------- Projects ----------------
-  function hwMult(S, subId) {
+  // What has small motions that air or servos can drive: intakes, lifts, arms and other manipulators, end effectors, amp
+  // and algae mechanisms, climbers (latches, hooks, ratchets) and shooters with an adjustable hood or a pivot. A fixed
+  // shooter or a turret has nothing for them to do, and neither has a drivetrain, a frame or a hopper.
+  Robot.actuated = function (S, subId, c) {
+    const year = (S.robot && S.robot.year) || S.year, sd = G.Seasons.sub(year, subId) || {};
+    if (['intake', 'effector', 'endgame', 'amp', 'algae'].includes(subId) || sd.pneu) return true;
+    if (subId !== 'scorer') return false;
+    const sh = c && c.look && c.look.shooter;
+    return !sh || sh === 'hood' || sh === 'pivot' || !!(c.caps && c.caps.hood);
+  };
+  function hwMult(S, subId, c) {
     let m = G.Shop.hwHoursMult(S);
     m *= 1 - 0.12 * G.Career.mentorSkill(S, 'fab') / 100;
     if (G.Career.hasPerk(S, 'fabSpeed')) m *= 0.9;
-    if (subId === 'intake' || subId === 'scorer' || subId === 'effector' || ((S.robot && G.Seasons.sub(S.robot.year, subId)) || {}).pneu) m *= 1 - Robot.actuatorShare(S); // air (or, later, servos) for the small motions
+    if (Robot.actuated(S, subId, c)) m *= 1 - Robot.actuatorShare(S); // air (or, later, servos) for the small motions
     return m * G.Parts.devMult(S);
   }
   function swMult(S) {
@@ -566,7 +596,7 @@
   Robot.actuatorShare = S => Math.max(G.Parts.count(S, 'pneu') ? G.Era.of(S).pneu || 0 : 0, G.Parts.count(S, 'servo') ? G.Era.of(S).servo || 0 : 0);
   // team-built swerve modules (before 2020): the era's extra hours, materials and risk; null when modules are sold
   Robot.teamBuilt = (S, subId, c) => (subId === 'drive' && c && c.id === 'swerve' && !G.Era.of(S).swerve.cots ? G.Era.of(S).swerve : null);
-  const copyHours = (S, k, c, kq) => c.hours * D.COPY_HOURS * (1 - 0.06 * Robot.lvl(S, c)) * kq.hours * hwMult(S, k) * (Robot.teamBuilt(S, k, c) ? Robot.teamBuilt(S, k, c).hours : 1);
+  const copyHours = (S, k, c, kq) => c.hours * D.COPY_HOURS * (1 - 0.06 * Robot.lvl(S, c)) * kq.hours * hwMult(S, k, c) * (Robot.teamBuilt(S, k, c) ? Robot.teamBuilt(S, k, c).hours : 1);
   const copyCost = (c, kq) => (0.55 * c.cost + 150 * c.cx) * D.COPY_COST * kq.cost;
   // Returns {hours, cost, name, err, fields (stored on the project), kitCov}
   Robot.quote = function (S, spec) {
@@ -587,7 +617,7 @@
         if (tb && !err && G.Shop.lvl(S, 'cnc') < 1 && G.Shop.lvl(S, 'lathe') < 1) err = 'Nobody sells swerve modules yet: machining your own needs a CNC Router or a Lathe (Workshop)';
         // subsystem COTS kits (as many as are free on the shelf) speed the build and soften first-build penalties
         const kq = Robot.kitQuote(S, year, spec.sub, c), first = Robot.firstTime(S, c);
-        hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub) * (tb ? tb.hours : 1);
+        hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub, c) * (tb ? tb.hours : 1);
         cost = (0.55 * c.cost + 150 * c.cx) * ef.cost * kq.cost * D.PROTO_COST + (tb ? tb.mat : 0); // materials (a prototype); motors, electronics and kits come from the inventory
         fields = { kits: kq.use, kitCov: kq.cov, frameWant: kq.frameWant, frame: kq.frame, kop: kq.kop, kopUse: kq.kopUse };
         if (tb) fields.teamBuilt = true;
@@ -619,13 +649,13 @@
       case 'upgrade': {
         const c = G.Seasons.concept(year, spec.sub, des.concept);
         const soft = spec.sub === 'soft';
-        hours = (soft ? 60 : 40 + 20 * c.cx) * ef.h * (1 - 0.06 * lvlFor(S, spec.sub, c, spec.focus)) * (soft ? swMult(S) : hwMult(S, spec.sub));
+        hours = (soft ? 60 : 40 + 20 * c.cx) * ef.h * (1 - 0.06 * lvlFor(S, spec.sub, c, spec.focus)) * (soft ? swMult(S) : hwMult(S, spec.sub, c));
         cost = (soft ? 120 : (250 + 200 * c.cx) * D.PROTO_COST) * ef.cost;
         name = sd.name + ' upgrade (' + (D.STAT[spec.focus] || spec.focus) + ')';
         break;
       }
-      case 'harden': { const c = G.Seasons.concept(year, spec.sub, des.concept); hours = (40 + 10 * c.cx) * hwMult(S, spec.sub) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 100 + 50 * c.cx; name = sd.name + ' hardening'; break; }
-      case 'light': { hours = 40 * hwMult(S, spec.sub) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 150; name = sd.name + ' lightweighting'; break; }
+      case 'harden': { const c = G.Seasons.concept(year, spec.sub, des.concept); hours = (40 + 10 * c.cx) * hwMult(S, spec.sub, c) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 100 + 50 * c.cx; name = sd.name + ' hardening'; break; }
+      case 'light': { hours = 40 * hwMult(S, spec.sub, G.Seasons.concept(year, spec.sub, des.concept)) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 150; name = sd.name + ' lightweighting'; break; }
       case 'auto': {
         const t = R.autoTier;
         if (t >= 3) err = 'Best auto already';
@@ -1072,7 +1102,13 @@
     trimStore(S);
     return { name: G.Seasons.sub(R.year, k).name, from: Math.round(old.cond), to: Math.round(sp.cond), where: fromBot ? R.bots[oi].name : 'storage' };
   };
-  Robot.installPending = function (S) { const n = S.robot.pending.length; S.robot.pending = []; return n; };
+  // upgrades finished during the event go on in the pits with new parts: those subsystems are back to full condition
+  Robot.installPending = function (S) {
+    const R = S.robot, n = R.pending.length;
+    R.pending.forEach(k => { const u = R.subs[k]; if (u && u.ver) u.cond = 100; });
+    R.pending = []; S.wearTick = (S.wearTick || 0) + 1;
+    return n;
+  };
   Robot.matchEntry = function (S, ev) {
     const R = S.robot, subs = {};
     // drivers who don't know a subsystem well get less out of it
@@ -1138,7 +1174,18 @@
         if (G.R.chance(0.25)) { const ks = Object.keys(R.subs).filter(k => R.subs[k] && R.subs[k].ver && k !== 'soft'); if (ks.length) R.subs[G.R.pick(ks)].hidden++; }
         return;
       }
-      const map = { 'Intake broke': 'intake', 'Scorer broke': 'scorer', 'Climber broke': 'endgame', 'TIPPED OVER': 'scorer' };
+      if (f === 'TIPPED OVER') {
+        // the robot lands on its side: what stands up high takes the knock (elevators, arms, shooters, climbers, the end
+        // effector), the lift or shooter most; the drivetrain and the intake down low are fine
+        Object.keys(R.subs).forEach(k => {
+          const s = R.subs[k]; if (!s || !s.ver || !Robot.UPPER.includes(k)) return;
+          s.cond = Math.max(0, s.cond - (k === 'scorer' ? G.R.range(10, 18) : G.R.range(5, 12)));
+        });
+        if (G.R.chance(0.15)) { const ks = Robot.UPPER.filter(k => R.subs[k] && R.subs[k].ver); if (ks.length) R.subs[G.R.pick(ks)].hidden++; }
+        rr.tipDmg = true; S.tipT = S.newsTurn || 0;
+        return;
+      }
+      const map = { 'Intake broke': 'intake', 'Scorer broke': 'scorer', 'Climber broke': 'endgame' };
       const k = map[f];
       if (k && R.subs[k] && R.subs[k].ver) R.subs[k].cond = Math.max(0, R.subs[k].cond - 25);
     });

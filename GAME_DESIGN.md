@@ -354,7 +354,7 @@ Parts are **owned and carried into the next season**. Swerve modules bought in 2
 | Spare parts kits | $200–$600 per subsystem | Used by pit repairs |
 
 ### 7.7 Tech Knowledge — the carry-over system
-This is how your robot's history shapes your future seasons. **11 knowledge areas**, each at Level 0–5:
+This is how your robot's history shapes your future seasons. **12 knowledge areas**, each at Level 0–5:
 
 | Knowledge area | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -363,6 +363,7 @@ This is how your robot's history shapes your future seasons. **11 knowledge area
 | Turrets & Auto-Aim | ★★★ | – | ★★ | – | ★★★ |
 | Elevators | – | ★★ | ★ (amp/trap) | ★★★ | – |
 | Arms & Wrists | ★ | ★★★ | ★★ (pivot) | ★★ | – |
+| End Effectors | – | ★★★ | – | ★★★ | – |
 | Ground Intakes | ★★ | ★★ | ★★★ | ★★ | ★★★ |
 | Indexers & Hoppers | ★★ | – | ★ | – | ★★★ |
 | Climbers | ★★★ | – | ★★ | ★★ | ★★ |
@@ -799,7 +800,7 @@ Activities available each month:
 4. **Inbox**: decisions and news
 5. **Garage**: robot drawing (top + side), stats radar/bars, subsystems with version, condition, and weight
 6. **Design Office**: concepts, project queue and hours, parts store
-7. **Tech Knowledge**: 11 areas, levels, and relevance to the current game
+7. **Tech Knowledge**: 12 areas, levels, and relevance to the current game
 8. **Team**: core students, drive team, recruitment, morale
 9. **Mentors**: your mentors, market, contracts
 10. **Workshop**: equipment

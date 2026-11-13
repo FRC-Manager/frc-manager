@@ -527,6 +527,15 @@
       m.robots.forEach(r => { if (r.left) { const p = r.mem.hab2 ? 6 : 3; m.score[r.a].auto += p; r.stats.pts += p; } });
       // the bay floors tilt: cargo staged in a nose bay that got no hatch rolls out
       ['red', 'blue'].forEach(a => m.ss[a].bays.forEach(b => { b.pre = false; }));
+      // HAB Levels 2 and 3 are 6 and 19 inches up: in teleop only a robot climbing in the endgame goes up there. A defender
+      // waiting by the opponents' HAB stays on the carpet or Level 1. (Robots still starting from Level 2 drive off first:
+      // each deck turns solid once nobody is on it.)
+      m.hab19 = [];
+      ['red', 'blue'].forEach(a => [[FH / 2 - 1.175, 0.5], [FH / 2, 0.55], [FH / 2 + 1.175, 0.5]].forEach(([y, h]) => { const c = E.P(m, a, 0.66, y); m.hab19.push({ x: c.x, y: c.y, r: 0.7, h, end: true, hab: true }); }));
+    },
+    tick(m) {
+      if (!m.hab19 || !m.hab19.length) return;
+      m.hab19 = m.hab19.filter(o => { if (m.robots.some(r => Math.hypot(r.x - o.x, r.y - o.y) < o.h + RR + 0.05)) return true; m.obs.push(o); return false; });
     },
     guard(m, a) { return E.P(m, a, 4.6, FH / 2 - 1.4); },
     // The HAB Zone runs from rail to rail behind the HAB Line, Loading Stations and depots included: a robot wholly inside

@@ -401,13 +401,28 @@
   };
 
   // ======================= mentors & students =======================
-  C.refreshMarket = function (S) {
+  C.refreshMarket = function (S, search) {
     const rng = G.R, n = rng.int(6, 9);
     S.market = [];
     for (let i = 0; i < n; i++) {
       const stars = rng.wpick([1, 2, 3, 4, 5], s => [0, 3, 4, 3 + S.rep / 40, 1.5 + S.rep / 50, 0.5 + S.rep / 60][s]);
       S.market.push(D.makeMentor(rng, null, stars));
     }
+    if (!search) S.mSearch = { n: 0 }; // the yearly refresh: two searches of your own until Kickoff
+  };
+  // After the August refresh the team can go looking for more candidates (ads, a booth at a local maker fair, calls to
+  // alumni): a new list of candidates, twice at most before Kickoff, for a small fee
+  D.MENTOR_SEARCH = { cost: 400, max: 2 };
+  C.mentorSearchLeft = S => (S.phase === 'off' && S.month >= D.MONTHS.indexOf('Aug') ? D.MENTOR_SEARCH.max - (S.mSearch ? S.mSearch.n : 0) : 0);
+  C.searchMentors = function (S) {
+    if (S.phase !== 'off' || S.month < D.MONTHS.indexOf('Aug')) return 'You can search for mentors after the market refreshes in August, until Kickoff';
+    if (!S.mSearch) S.mSearch = { n: 0 };
+    if (S.mSearch.n >= D.MENTOR_SEARCH.max) return 'You have searched twice already: the next new candidates come with next August\'s refresh';
+    { const e = C.afford(S, D.MENTOR_SEARCH.cost); if (e) return e; }
+    C.spend(S, D.MENTOR_SEARCH.cost, 'Mentor search');
+    S.mSearch.n++;
+    C.refreshMarket(S, true);
+    return null;
   };
   C.hireMentor = function (S, id) {
     const m = S.market.find(x => x.id === id);
@@ -1240,6 +1255,7 @@
       ev.log.push(msg);
       G.Career.inbox(S, 'Hard fall at ' + ev.name, msg, 'event');
     }
+    if (rr.tipDmg) ev.log.push('Your robot tipped over: the parts up high (' + G.Robot.UPPER.filter(k => S.robot.subs[k] && S.robot.subs[k].ver).map(k => G.Seasons.sub(S.robot.year, k).name.toLowerCase()).join(', ') + ') took a knock.');
     if (rr.faults.some(f => /^Dropped by a partner/.test(f))) {
       const msg = 'A partner\'s buddy climber let go of your robot on the way up: the drivetrain took most of it, and everything else took some. The pit crew will need spares. To stay on the ground next time, tick "Don\'t let a partner carry us" in the match plan.';
       ev.log.push(msg);
@@ -2043,7 +2059,7 @@
     lines.push(era.swerve.cots ? 'Swerve: modules are sold in the Inventory' + (cy < 2022 ? ' (Apex only, for now).' : '.') : 'Swerve: nobody sells modules. A swerve drive means machining your own (a CNC Router or a Lathe, ' + (era.swerve.hours >= 2 ? 'twice' : 'one and a half times') + ' the build hours, and it is fragile).');
     lines.push(!era.vision.cam ? 'Vision: home-made. No camera is sold; Vision Level 1 takes twice the hours and Level 2 is out of reach.' : era.vision.tags ? 'Vision: Lanternworks sells the Lantern 2 camera, a network switch and the Spark ML accelerator, and the field has AprilTags, so vision also helps autonomous.' : 'Vision: Lanternworks sells the Lantern 1 camera and a network switch; the camera tracks reflective tape (auto-aim), not yet the robot\'s position.');
     if (cy >= 2017) lines.push('Gearboxes: both vendors sell planetary gearboxes for mechanism motors (optional, fewer breakdowns), and a low-profile one comes in every Kit of Parts.');
-    lines.push('Pneumatics: a kit saves ' + Math.round(era.pneu * 100) + '% of the hours on intake and manipulator builds' + (era.servo ? '; a servo actuator kit saves ' + Math.round(era.servo * 100) + '% (the better of the two counts).' : '.'));
+    lines.push('Pneumatics: a kit saves ' + Math.round(era.pneu * 100) + '% of the hours on intake, manipulator, end effector, climber and adjustable-hood shooter builds' + (era.servo ? '; a servo actuator kit saves ' + Math.round(era.servo * 100) + '% (the better of the two counts).' : '.'));
     if (cy >= 2018) lines.push('Pits: the top teams roll in a Super pit in road cases (the top level of Pit Setup): a full repair of one subsystem before every match.');
     lines.push(G.Era.playoffs(cy) === 'se' ? 'Playoffs: single elimination, every series best of three' + (cy <= 2022 ? ' (double elimination arrives in 2023).' : '.') : 'Playoffs: double elimination, finals best of three.');
     if (era.bag) lines.push('Stop Build Day: after the build season the competition robot goes in a bag and may only be touched at events. Teams that can afford it build a second robot.');
@@ -2492,6 +2508,9 @@
       for (let i = 0; i < n; i++) { C.addProgram(S, 'balanced'); S.programs[i].years = 2; }
     }
     S.feeders = S.programs.length;
+    // v2.9.9: End Effectors became their own knowledge area. Until then claws and grippers taught Arms & Wrists and Ground
+    // Intakes, so a career starts it from half of the better of those two.
+    if (S.know && S.know.effector == null) S.know.effector = Math.round(0.5 * Math.max(S.know.arm || 0, S.know.intake || 0));
   };
   // STEM support fund: emergency money when the balance is under $1,000, at a cost in reputation. Twice per program year at most.
   C.stemFundInfo = function (S) {

@@ -114,6 +114,19 @@
   const CUBE = '#f4d03f', NULLT = 'rgba(214,200,80,';
   Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.17 };
   function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.11 + (i % 3 - 1) * 0.25, y - 0.11 + Math.floor(i / 3) * 0.25 * dir, 0.22, 0.22, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
+  // A balance tips toward the plate with more cubes: that plate is drawn sunk (shaded), the raised one lit, and chevrons
+  // in the lower plate's colour run along the arm towards it. Level when the counts are equal.
+  function tilt18(ctx, s, p0, p1, n0, n1, c0, c1, w, h) {
+    if (n0 === n1) return;
+    const dn = n0 > n1 ? p0 : p1, up = n0 > n1 ? p1 : p0, col = n0 > n1 ? c0 : c1;
+    rect(ctx, s, dn.x - w / 2, dn.y - h / 2, w, h, 'rgba(0,0,0,0.30)', null, 0);
+    rect(ctx, s, up.x - w / 2, up.y - h / 2, w, h, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.75)', 1.5);
+    const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2, L = Math.hypot(dn.x - mx, dn.y - my) || 1, dx = (dn.x - mx) / L, dy = (dn.y - my) / L;
+    [0.22, 0.48].forEach(f => {
+      const cx = mx + (dn.x - mx) * f, cy = my + (dn.y - my) * f;
+      poly(ctx, s, [{ x: cx + dx * 0.16, y: cy + dy * 0.16 }, { x: cx - dx * 0.06 - dy * 0.2, y: cy - dy * 0.06 + dx * 0.2 }, { x: cx - dx * 0.06 + dy * 0.2, y: cy - dy * 0.06 - dx * 0.2 }], alc(col), 'rgba(0,0,0,0.5)', 1);
+    });
+  }
   FIELD[2018] = function (ctx, s, sym, m) {
     const g = G.Rules.G18, H2 = FH / 2, side = m && m.side ? m.side : { blue: { sw: 0, sc: 0 }, red: { sw: 1, sc: 1 } }, pY = g.pY, scY = g.scY;
     // Null Territory at each end of the Scale (6 ft along the field, 7 ft 11 in out from the guardrail), then the two
@@ -130,6 +143,7 @@
       aline(ctx, s, sym, a, 4.27, H2 - 1.2, 4.27, H2 + 1.2, '#cfd6dd', 4);
       [0, 1].forEach(k => { const mine = side[a].sw === k, col = mine ? a : o; arect(ctx, s, sym, a, 3.7, pY[k] - 0.5, 1.14, 1.0, tint(col, 0.35), alc(col), 2);
         const q = P(sym, a, 4.27, pY[k]); cubes18(ctx, s, q.x, q.y - 0.12, m && m.sw ? m.sw[a][k] : 0, 1); });
+      if (m && m.sw) tilt18(ctx, s, P(sym, a, 4.27, pY[0]), P(sym, a, 4.27, pY[1]), m.sw[a][0], m.sw[a][1], side[a].sw === 0 ? a : o, side[a].sw === 1 ? a : o, 1.14, 1.0);
       // Power Cube Zone (the pile of ten) against the Switch, the line of six on the Platform side, the Exchange, the far Portals
       arect(ctx, s, sym, a, 2.5, H2 - 0.6, 1.08, 1.2, tint(a, 0.2), NULLT + '0.75)', 1.5);
       { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.12, q.y - 0.12, 0.24, 0.24, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
@@ -148,6 +162,7 @@
     rect(ctx, s, CX - 0.3, H2 - 0.45, 0.6, 0.9, '#4a525b', '#aab4be', 1.5);
     line(ctx, s, CX - 0.75, H2 - 0.45, CX - 0.75, H2 + 0.45, '#e8edf2', 3); line(ctx, s, CX + 0.75, H2 - 0.45, CX + 0.75, H2 + 0.45, '#e8edf2', 3);
     [0, 1].forEach(k => { const col = side.blue.sc === k ? 'blue' : 'red'; rect(ctx, s, CX - 0.61, scY[k] - 0.46, 1.22, 0.92, tint(col, 0.35), alc(col), 2.5); cubes18(ctx, s, CX, scY[k] - 0.2, m && m.scale ? m.scale[k] : 0, 1); });
+    if (m && m.scale) tilt18(ctx, s, { x: CX, y: scY[0] }, { x: CX, y: scY[1] }, m.scale[0], m.scale[1], side.blue.sc === 0 ? 'blue' : 'red', side.blue.sc === 1 ? 'blue' : 'red', 1.22, 0.92);
     text(ctx, s, 'SCALE', CX, H2 + 0.85, '#cfd6dd', 8);
   };
 

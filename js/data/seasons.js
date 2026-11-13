@@ -8,7 +8,8 @@
     { id: 'shooter', name: 'Flywheel Shooters', desc: 'Flywheels, hoods, shot tuning and consistency.' },
     { id: 'turret', name: 'Turrets & Auto-Aim', desc: 'Rotating turrets, target tracking, shoot-on-the-move.' },
     { id: 'elevator', name: 'Elevators', desc: 'Cascading / continuous elevators, rigging, fast safe motion.' },
-    { id: 'arm', name: 'Arms & Wrists', desc: 'Pivoting arms, wrists, claws and pivot shooters.' },
+    { id: 'arm', name: 'Arms & Wrists', desc: 'Pivoting arms, wrists and pivot shooters.' },
+    { id: 'effector', name: 'End Effectors', desc: 'Claws, roller grippers and the hand at the end of a lift or arm: taking, holding and placing game pieces.' },
     { id: 'intake', name: 'Ground Intakes', desc: 'Roller intakes, deploy mechanisms, "touch it, own it".' },
     { id: 'index', name: 'Indexers & Hoppers', desc: 'Storing and feeding many game pieces reliably.' },
     { id: 'climb', name: 'Climbers', desc: 'Winches, hooks, multi-stage climbs.' },
@@ -58,7 +59,7 @@
       'Bonus RPs: Cargo Bonus at 20 cargo (18 with a 5-cargo auto "Quintet") and Hangar Bonus at 16 hangar points.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 4, major: 8 },
-    relevance: { swerve: 2, shooter: 3, turret: 3, elevator: 0, arm: 1, intake: 2, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
+    relevance: { swerve: 2, shooter: 3, turret: 3, elevator: 0, arm: 1, effector: 0, intake: 2, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
     autoTiers: ['Taxi + preload', '2-ball', '3-ball', '5-ball'], autoPieces: [1, 2, 3, 5],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'upper', name: 'Upper Hub' }, { id: 'lower', name: 'Lower Hub' }],
     endNames: ['—', 'Low', 'Mid', 'High', 'Traversal'],
@@ -121,7 +122,7 @@
       'Bonus RPs: Sustainability at 6 links (5 with Coopertition) and Activation at 26 charge-station points. A complete grid can be Supercharged: 3 points for every extra piece.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 12 },
-    relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 2, arm: 3, intake: 2, index: 0, climb: 0, vision: 2, autoPath: 3, elec: 2 },
+    relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 2, arm: 3, effector: 3, intake: 2, index: 0, climb: 0, vision: 2, autoPath: 3, elec: 2 },
     autoTiers: ['Mobility + preload', 'Preload + balance', '2-piece', '3-piece'], autoPieces: [1, 1, 2, 3],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'top', name: 'Top row' }, { id: 'links', name: 'Complete links' }, { id: 'fast', name: 'Fast low cycles' }],
     endNames: ['Park', 'Dock'],
@@ -152,11 +153,11 @@
           base: { scoreSpd: 42, accuracy: 42 }, ceil: { scoreSpd: 95, accuracy: 92 }, caps: { reach: 3, coneReach: 3, tall: 0, lowCG: true }, look: { manip: 'tele' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
-        { id: 'claw', name: 'Pneumatic claw', desc: 'A cylinder closes two jaws on a cone or a cube. Cheap and light, but it has to be lined up, and a hard hit can shake the piece loose.', cost: 250, hours: 55, w: 5, cx: 1, areas: ['arm'],
+        { id: 'claw', name: 'Pneumatic claw', desc: 'A cylinder closes two jaws on a cone or a cube. Cheap and light, but it has to be lined up, and a hard hit can shake the piece loose.', cost: 250, hours: 55, w: 5, cx: 1, areas: ['effector'],
           base: { grip: 40 }, ceil: { grip: 72 }, caps: { cones: true, cubes: true }, self: { ground: false, groundCone: false, station: true, lo: 40, hi: 72 }, look: { eff: 'claw' } },
-        { id: 'roller', name: 'Roller gripper', desc: 'Two powered rollers swallow a cone or a cube from any angle and hold on to it.', cost: 600, hours: 110, w: 7, cx: 3, areas: ['intake', 'arm'],
+        { id: 'roller', name: 'Roller gripper', desc: 'Two powered rollers swallow a cone or a cube from any angle and hold on to it.', cost: 600, hours: 110, w: 7, cx: 3, areas: ['effector'],
           base: { grip: 45 }, ceil: { grip: 88 }, caps: { cones: true, cubes: true }, self: { ground: false, groundCone: false, station: true, lo: 44, hi: 80 }, look: { eff: 'claw' } },
-        { id: 'wrist', name: 'Wristed roller gripper', desc: 'A roller gripper on its own wrist: it takes a cone upright, lying down or off the shelf, and turns it the right way up on the way to the node.', cost: 1000, hours: 170, w: 9, cx: 4, areas: ['arm', 'intake'],
+        { id: 'wrist', name: 'Wristed roller gripper', desc: 'A roller gripper on its own wrist: it takes a cone upright, lying down or off the shelf, and turns it the right way up on the way to the node.', cost: 1000, hours: 170, w: 9, cx: 4, areas: ['effector'],
           base: { grip: 48 }, ceil: { grip: 95 }, caps: { cones: true, cubes: true, coneAny: true }, self: { ground: false, groundCone: false, station: true, lo: 46, hi: 84 }, look: { eff: 'claw' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT({ base: { balance: 22 }, ceil: { balance: 95 } })] }
@@ -177,11 +178,12 @@
     tagline: 'Score notes in the Speaker and Amp, then get onstage. Top alliances learn to feed notes across the field.',
     brief: [
       'Robots collect Notes (foam rings) and score them in the SPEAKER (2 pts, 5 when AMPLIFIED) or the AMP (1 pt).',
-      'Two Amp notes let the human player amplify the Speaker for 10 seconds. In the last 20 seconds robots climb the STAGE chains (3), share a chain for Harmony (+2) and score in the Trap (5).',
+      'Two Amp notes let the human player AMPLIFY the Speaker for 10 seconds, best timed for scorers lined up with notes. No full-court shots: a robot in the opponent\'s Wing may not send notes into its own (G414).',
+      'In the last 20 seconds robots climb the STAGE chains (3), share a chain for Harmony (+2) and score in the Trap (5). The human player throws HIGH NOTES at the microphones: each one that lands SPOTLIGHTS the robots on that chain (+1).',
       'Bonus RPs: Melody at 18 notes (15 with Coopertition; 21 and 18 at a District Championship, 25 and 21 at the Championship) and Ensemble at 10 stage points with 2 robots onstage.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 2, major: 5 },
-    relevance: { swerve: 2, shooter: 3, turret: 2, elevator: 1, arm: 2, intake: 3, index: 1, climb: 2, vision: 3, autoPath: 3, elec: 2 },
+    relevance: { swerve: 2, shooter: 3, turret: 2, elevator: 1, arm: 2, effector: 0, intake: 3, index: 1, climb: 2, vision: 3, autoPath: 3, elec: 2 },
     autoTiers: ['Leave + preload', '2-note', '4-note', '6-note centerline'], autoPieces: [1, 2, 4, 6],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'speaker', name: 'Speaker' }, { id: 'amp', name: 'Amp (charge amplify)' }],
     endNames: ['Park', 'Onstage'],
@@ -239,7 +241,7 @@
       'Win = 3 RP. Bonus RPs: Auto (all robots leave + coral in auto), Coral (7 on every level, 3 levels with Coopertition), Barge (16 barge points).'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 3, foul: { minor: 2, major: 6 },
-    relevance: { swerve: 2, shooter: 1, turret: 0, elevator: 3, arm: 2, intake: 2, index: 0, climb: 2, vision: 2, autoPath: 3, elec: 2 },
+    relevance: { swerve: 2, shooter: 1, turret: 0, elevator: 3, arm: 2, effector: 3, intake: 2, index: 0, climb: 2, vision: 2, autoPath: 3, elec: 2 },
     autoTiers: ['Leave', '1-coral', '3-coral', '4-coral'], autoPieces: [0, 1, 3, 4],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'L4', name: 'L4 coral' }, { id: 'mid', name: 'L2–L3 coral' }, { id: 'L1', name: 'L1 trough' }, { id: 'algae', name: 'Algae' }],
     endNames: ['Park', 'Shallow', 'Deep'],
@@ -265,11 +267,11 @@
           base: { scoreSpd: 42, accuracy: 46 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 4, tall: 0, lowCG: true, algaeRemove: true }, look: { manip: 'tele' } }
       ] },
       { id: 'effector', name: 'End Effector', concepts: [
-        { id: 'chute', name: 'Gravity chute', desc: 'An open channel: coral slides in at the station and slides out onto the branch when the robot stops. Nothing to break, but the robot has to be square and still.', cost: 150, hours: 40, w: 3, cx: 1, areas: ['arm'],
+        { id: 'chute', name: 'Gravity chute', desc: 'An open channel: coral slides in at the station and slides out onto the branch when the robot stops. Nothing to break, but the robot has to be square and still.', cost: 150, hours: 40, w: 3, cx: 1, areas: ['effector'],
           base: { grip: 42 }, ceil: { grip: 72 }, self: { ground: false, station: true, lo: 45, hi: 78 }, look: { eff: 'funnel' } },
-        { id: 'roller', name: 'Powered roller box', desc: 'Rollers pull the coral in, keep hold of it through a hit and push it out onto the branch.', cost: 600, hours: 110, w: 6, cx: 3, areas: ['intake', 'arm'],
+        { id: 'roller', name: 'Powered roller box', desc: 'Rollers pull the coral in, keep hold of it through a hit and push it out onto the branch.', cost: 600, hours: 110, w: 6, cx: 3, areas: ['effector'],
           base: { grip: 45 }, ceil: { grip: 90 }, self: { ground: false, station: true, lo: 45, hi: 84 }, look: { eff: 'funnel' } },
-        { id: 'pivot', name: 'Pivoting coral head', desc: 'A roller box on its own pivot: it lines the coral up with the branch by itself and flicks algae off the reef on the way past.', cost: 1050, hours: 170, w: 8, cx: 4, areas: ['arm', 'intake'],
+        { id: 'pivot', name: 'Pivoting coral head', desc: 'A roller box on its own pivot: it lines the coral up with the branch by itself and flicks algae off the reef on the way past.', cost: 1050, hours: 170, w: 8, cx: 4, areas: ['effector'],
           base: { grip: 48 }, ceil: { grip: 96 }, caps: { algaeRemove: true }, self: { ground: false, station: true, lo: 46, hi: 86 }, look: { eff: 'funnel' } }
       ] },
       { id: 'algae', name: 'Algae', concepts: [
@@ -309,7 +311,7 @@
       'Crossing to the neutral zone means driving over a BUMP or, for low-profile robots, under a TRENCH. Win = 3 RP. Bonus RPs: Energized (100 fuel; 240 at a District Championship, 360 at the Championship), Supercharged (360 fuel; 500 at the Championship), Traversal (50 tower points).'
     ],
     timing: { auto: 20, tele: 140, end: 30 }, rpWin: 3, foul: { minor: 5, major: 15 },
-    relevance: { swerve: 3, shooter: 3, turret: 3, elevator: 0, arm: 0, intake: 3, index: 3, climb: 2, vision: 3, autoPath: 2, elec: 2 },
+    relevance: { swerve: 3, shooter: 3, turret: 3, elevator: 0, arm: 0, effector: 0, intake: 3, index: 3, climb: 2, vision: 3, autoPath: 2, elec: 2 },
     autoTiers: ['Leave + preload', 'Preload + depot', 'Neutral-zone sweep', 'Sweep + L1 climb'], autoPieces: [1, 2, 2, 2],
     coachTargets: [{ id: 'auto', name: 'Hold for active hub' }, { id: 'shoot', name: 'Shoot on sight' }],
     endNames: ['—', 'L1', 'L2', 'L3'],
@@ -350,8 +352,8 @@
         // more fuel a second and steadier shots (rules: ROTOR26)
         { id: 'rotor', name: 'Dye-rotor turret', elite: true, desc: 'A turret fed by a rotor: more fuel a second than a standard turret, and more consistent shots. The hardest shooter of the year.', cost: 2400, hours: 290, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
           base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 94, accuracy: 95, range: 95 }, caps: { rmin: 1.2, rmax: 5.0, turret: true, rotor: true }, look: { shooter: 'rotor' } },
-        { id: 'dumper', name: 'Wide dumper', desc: 'A full-width bank of fixed flywheels that empties the hopper in seconds. Huge throughput and simpler than a turret, but it must line up close to the hub and suffers more under defense.', cost: 1500, hours: 190, w: 19, cx: 3, areas: ['shooter', 'index'],
-          base: { scoreSpd: 50, accuracy: 46, range: 0 }, ceil: { scoreSpd: 99, accuracy: 91, range: 25 }, caps: { rmin: 1.0, rmax: 2.4, dumper: true }, look: { shooter: 'wide' } }
+        { id: 'dumper', name: 'Wide dumper (adjustable hood)', desc: 'A bank of flywheels four balls wide under an adjustable hood: it empties the hopper in seconds. Huge throughput and simpler than a turret, but the whole robot must square up to the hub, not far from it, and it suffers more under defense.', cost: 1500, hours: 190, w: 19, cx: 3, areas: ['shooter', 'index'],
+          base: { scoreSpd: 50, accuracy: 46, range: 5 }, ceil: { scoreSpd: 99, accuracy: 91, range: 40 }, caps: { rmin: 1.0, rmax: 2.9, dumper: true, hood: true }, look: { shooter: 'wide' } }
       ] },
       { id: 'endgame', name: 'Tower Climber', concepts: [
         NONE_END,

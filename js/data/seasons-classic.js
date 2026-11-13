@@ -13,7 +13,7 @@
       'In the last 30 seconds robots park under the Shield Generator (5) or HANG from its switch (25); a level switch adds 15. Bonus RPs: Shield Operational (65 endgame points) and Shield Energized (Stage 3 completed).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 3, major: 15 },
-    relevance: { swerve: 2, shooter: 3, turret: 3, elevator: 0, arm: 0, intake: 3, index: 3, climb: 3, vision: 3, autoPath: 2, elec: 2 },
+    relevance: { swerve: 2, shooter: 3, turret: 3, elevator: 0, arm: 0, effector: 0, intake: 3, index: 3, climb: 3, vision: 3, autoPath: 2, elec: 2 },
     autoTiers: ['Line + 3 preloads', 'Preloads + 2 from the trench', '6-cell auto', '8-cell auto'], autoPieces: [3, 5, 6, 8],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'upper', name: 'High ports' }, { id: 'lower', name: 'Bottom port' }],
     endNames: ['Park', 'Hang'],
@@ -90,7 +90,7 @@
       'In the last 30 seconds robots climb back onto the HAB: Level 1 (3), Level 2 (6) or Level 3 (12). Bonus RPs: one complete Rocket (6 hatches and 6 cargo) and HAB Docking (15 climb points).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 3, major: 10 },
-    relevance: { swerve: 3, shooter: 0, turret: 1, elevator: 3, arm: 2, intake: 3, index: 0, climb: 3, vision: 2, autoPath: 1, elec: 2 },
+    relevance: { swerve: 3, shooter: 0, turret: 1, elevator: 3, arm: 2, effector: 3, intake: 3, index: 0, climb: 3, vision: 2, autoPath: 1, elec: 2 },
     autoTiers: ['Drive off the HAB', '1 hatch', '2 hatches', '2 hatches + cargo'], autoPieces: [0, 1, 2, 3],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'rocket', name: 'Finish a rocket' }, { id: 'ship', name: 'Cargo ship first' }],
     endNames: ['—', 'HAB 1', 'HAB 2', 'HAB 3'],
@@ -125,11 +125,11 @@
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 96, accuracy: 97 }, caps: { reach: 3, tall: 0.6, turretLift: true }, look: { manip: 'turretlift' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
-        { id: 'plate', name: 'Hook-and-loop hatch plate', desc: 'A plate covered in hook tape: push it against a hatch panel and the panel sticks, push the panel onto the ship and it stays there. Hatches only, so cargo has to come from a partner.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['arm'],
+        { id: 'plate', name: 'Hook-and-loop hatch plate', desc: 'A plate covered in hook tape: push it against a hatch panel and the panel sticks, push the panel onto the ship and it stays there. Hatches only, so cargo has to come from a partner.', cost: 100, hours: 30, w: 3, cx: 1, areas: ['effector'],
           base: { grip: 42 }, ceil: { grip: 70 }, caps: { hatch: true, cargo: false }, self: { ground: false, station: true, lo: 40, hi: 66 }, look: { eff: 'claw' } },
-        { id: 'combo', name: 'Hatch plate + cargo roller', desc: 'The plate for hatch panels and a roller above it for cargo. What most robots carried.', cost: 350, hours: 70, w: 6, cx: 2, areas: ['arm', 'intake'],
+        { id: 'combo', name: 'Hatch plate + cargo roller', desc: 'The plate for hatch panels and a roller above it for cargo. What most robots carried.', cost: 350, hours: 70, w: 6, cx: 2, areas: ['effector'],
           base: { grip: 44 }, ceil: { grip: 84 }, caps: { hatch: true, cargo: true }, self: { ground: false, station: true, lo: 40, hi: 70 }, look: { eff: 'claw' } },
-        { id: 'active', name: 'Active hatch claw + cargo roller', desc: 'Fingers that open inside the hatch panel and let go on command, with a roller for cargo: a missed placement stays in the claw instead of falling on the carpet.', cost: 800, hours: 130, w: 8, cx: 4, areas: ['arm', 'intake'],
+        { id: 'active', name: 'Active hatch claw + cargo roller', desc: 'Fingers that open inside the hatch panel and let go on command, with a roller for cargo: a missed placement stays in the claw instead of falling on the carpet.', cost: 800, hours: 130, w: 8, cx: 4, areas: ['effector'],
           base: { grip: 48 }, ceil: { grip: 96 }, caps: { hatch: true, cargo: true, hatchGrab: true }, self: { ground: false, station: true, lo: 44, hi: 78 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'HAB Climber', concepts: [
@@ -169,7 +169,7 @@
       'In the last 30 seconds robots CLIMB the rung on the Scale tower (30) or park on the platform (5). Bonus RPs: Auto Quest (all three robots cross the auto line and you own your Switch when auto ends) and Face the Boss (three climbs; Levitate counts as one).'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
-    relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 3, arm: 2, intake: 3, index: 0, climb: 3, vision: 1, autoPath: 3, elec: 2 },
+    relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 3, arm: 2, effector: 3, intake: 3, index: 0, climb: 3, vision: 1, autoPath: 3, elec: 2 },
     autoTiers: ['Auto-run', 'Switch auto', 'Scale auto', 'Multi-cube scale auto'], autoPieces: [0, 1, 1, 3],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'scale', name: 'Hold the Scale' }, { id: 'switch', name: 'Hold our Switch' }, { id: 'vault', name: 'Feed the Vault' }],
     endNames: ['Park', 'Climb'],
@@ -196,11 +196,11 @@
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
-        { id: 'pinch', name: 'Pinch claw', desc: 'Two arms and a cylinder squeeze the cube. The robot has to line up on it exactly, and a hard hit can shake it loose.', cost: 200, hours: 45, w: 5, cx: 1, areas: ['arm'],
+        { id: 'pinch', name: 'Pinch claw', desc: 'Two arms and a cylinder squeeze the cube. The robot has to line up on it exactly, and a hard hit can shake it loose.', cost: 200, hours: 45, w: 5, cx: 1, areas: ['effector'],
           base: { grip: 40 }, ceil: { grip: 68 }, self: { ground: true, station: true, lo: 40, hi: 68 }, look: { eff: 'claw' } },
-        { id: 'roller', name: 'Roller claw', desc: 'Powered compliant wheels pull the cube in and spit it out: no lining up, and it lets go the moment it is over the plate.', cost: 550, hours: 100, w: 8, cx: 3, areas: ['intake', 'arm'],
+        { id: 'roller', name: 'Roller claw', desc: 'Powered compliant wheels pull the cube in and spit it out: no lining up, and it lets go the moment it is over the plate.', cost: 550, hours: 100, w: 8, cx: 3, areas: ['effector'],
           base: { grip: 45 }, ceil: { grip: 88 }, self: { ground: true, station: true, lo: 45, hi: 86 }, look: { eff: 'claw' } },
-        { id: 'launch', name: 'Launching roller claw', desc: 'Rollers fast enough to throw the cube: it scores from a step back, before the lift has finished moving.', cost: 900, hours: 150, w: 10, cx: 4, areas: ['intake', 'arm'],
+        { id: 'launch', name: 'Launching roller claw', desc: 'Rollers fast enough to throw the cube: it scores from a step back, before the lift has finished moving.', cost: 900, hours: 150, w: 10, cx: 4, areas: ['effector'],
           base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [
@@ -233,7 +233,7 @@
       'In the last 30 seconds robots climb their ROPE: 50 points each. Bonus RPs: 40 kPa of pressure, and all four rotors turning. In playoffs these are worth 20 and 100 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 25 },
-    relevance: { swerve: 2, shooter: 2, turret: 1, elevator: 0, arm: 1, intake: 3, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
+    relevance: { swerve: 2, shooter: 2, turret: 1, elevator: 0, arm: 1, effector: 0, intake: 3, index: 2, climb: 3, vision: 2, autoPath: 2, elec: 2 },
     autoTiers: ['Cross the base line', 'Gear on a peg', 'Gear + preloaded fuel', 'Gear + hopper of fuel'], autoPieces: [0, 1, 1, 1],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'gears', name: 'Gears only' }, { id: 'fuel', name: 'Fuel when possible' }, { id: 'deny', name: 'Tip their hoppers first' }],
     endNames: ['—', 'Climb'],
@@ -305,7 +305,7 @@
       'In the last 20 seconds robots drive onto the tower\'s base to CHALLENGE it (5) or climb it to SCALE (15). Bonus RPs: BREACH (four of the five defenses damaged) and CAPTURE (the tower weakened and all three robots on it). In playoffs these are worth 20 and 25 points instead.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 2, foul: { minor: 5, major: 5 },
-    relevance: { swerve: 0, shooter: 3, turret: 1, elevator: 0, arm: 2, intake: 2, index: 0, climb: 2, vision: 3, autoPath: 2, elec: 2 },
+    relevance: { swerve: 0, shooter: 3, turret: 1, elevator: 0, arm: 2, effector: 0, intake: 2, index: 0, climb: 2, vision: 3, autoPath: 2, elec: 2 },
     autoTiers: ['Reach a defense', 'Cross a defense', 'Cross + low goal', 'Cross + high goal'], autoPieces: [0, 0, 1, 1],
     coachTargets: [{ id: 'auto', name: 'Best option' }, { id: 'breach', name: 'Breach first' }, { id: 'tower', name: 'Boulders first' }],
     endNames: ['Challenge', 'Scale'],

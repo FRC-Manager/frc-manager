@@ -42,7 +42,7 @@
       const p = R.start(m, r);
       r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
-      r.autoOK = m.rng.chance(U.clamp(0.5 + 0.46 * r.cap.auto / 100 + (r.tuneAuto || 0), 0.3, 0.985)) && !r.autoFail;
+      r.autoOK = m.rng.chance(E.autoChance(r.cap.auto, r.tuneAuto)) && !r.autoFail;
       if (r.toolIn) { r.perm[r.toolIn] = true; const nm = r.toolIn === 'endgame' ? 'Climber' : r.toolIn === 'intake' ? 'Intake' : 'Scorer'; r.stats.faults.push(nm + ' blocked (tool left inside)'); log(m, r.a, r.team + ': ' + nm.toLowerCase() + ' blocked by a tool left inside the robot', 'fault'); }
     });
     return m;
@@ -154,6 +154,8 @@
       case 'defend': defendStep(m, r); break;
       default: break;
     }
+    // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
+    if (r.faceAt) { if (r.st === 'act' || r.st === 'wait') turnTo(r, Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x)); else if (r.st !== 'idle') r.faceAt = null; }
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
       const pg = r.prog || (r.prog = { t: m.t, x: r.x, y: r.y, n: 0, chk: m.t });
@@ -256,7 +258,7 @@
     // the spot is taken (a robot stopped on it, a partner about to get there, or this robot gave up on it a moment ago):
     // use a free one beside it. Climbing spots are not moved.
     if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt); if (alt) pt = alt; }
-    r.goal = pt; r.gprog = null;
+    r.goal = pt; r.gprog = null; r.faceAt = null;
     r.path = planTo(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
     // alignment / acceleration overhead at the end of each leg
@@ -272,6 +274,8 @@
   // are shared by design: a partner on the charge station or the rung is where it is meant to be), only round the ones
   // elsewhere on the way and the disabled ones. A defender does not steer round the robot it is defending either:
   // getting in its way is the point.
+  // an element only a climbing robot may pass (end: true): with an alliance set (o.a), only that alliance's climbers
+  const skipE = (o, noEnd, who) => !!(o.end && noEnd && !(o.a && who && who.a && o.a !== who.a));
   const robsFor = (m, self) => (m.robs || []).filter(o => o.bot !== self && !(self && self.endBusy && !o.bot.dead && self.goal && Math.hypot(o.x - self.goal.x, o.y - self.goal.y) < 0.9) && !(self && self.st === 'defend' && o.bot === self.defT));
   const solids = (m, self) => { const l = robsFor(m, self); return l.length ? m.obs.concat(l) : m.obs; };
   // Push a point out of every solid element (and robot standing still) it is inside: a waypoint there can never be reached
@@ -280,7 +284,7 @@
     for (let it = 0; it < 4; it++) {
       let moved = false;
       for (const o of list) {
-        if (!o.h || (o.end && noEnd) || (o.under && low)) continue;
+        if (!o.h || skipE(o, noEnd, self) || (o.under && low)) continue;
         const min = o.h + RR + 0.06, dx = q.x - o.x, dy = q.y - o.y, d = Math.hypot(dx, dy);
         if (d >= min - 1e-6) continue;
         if (d < 1e-4) q.x = o.x + min; else { q.x = o.x + dx / d * min; q.y = o.y + dy / d * min; }
@@ -293,10 +297,10 @@
   }
   E.clearOf = clearOf;
   // a straight run from a to b touches no solid element (nor a robot standing still)
-  function clearRun(list, a, b, noEnd, low) {
+  function clearRun(list, a, b, noEnd, low, who) {
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
     for (const o of list) {
-      if ((o.end && noEnd) || (o.under && low)) continue;
+      if (skipE(o, noEnd, who) || (o.under && low)) continue;
       const rad = o.h ? Math.max(o.r, o.h + RR + 0.05) : o.r;
       const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1);
       if (t > 0.03 && t < 0.97 && Math.hypot(o.x - a.x - dx * t, o.y - a.y - dy * t) < rad) return false;
@@ -310,7 +314,7 @@
     let cur = a, i = 0;
     while (i < path.length) {
       let j = path.length - 1;
-      while (j > i && !clearRun(list, cur, path[j], noEnd, low)) j--;
+      while (j > i && !clearRun(list, cur, path[j], noEnd, low, self)) j--;
       out.push(path[j]); cur = path[j]; i = j + 1;
     }
     return out;
@@ -326,7 +330,7 @@
     const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6, list = solids(m, self);
     let hit = null;
     for (const o of list) {
-      if ((o.end && noEnd) || (o.under && low)) continue;
+      if (skipE(o, noEnd, self) || (o.under && low)) continue;
       const rad = o.h ? Math.max(o.r, o.h + RR + 0.05) : o.r;
       const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1);
       const cx = a.x + dx * t, cy = a.y + dy * t;
@@ -342,7 +346,7 @@
       const p = { x: o.x + nx / nl * off * k, y: o.y + ny / nl * off * k };
       const c = { x: U.clamp(p.x, 0.45, FW - 0.45), y: U.clamp(p.y, 0.45, FH - 0.45) };
       let bad = Math.hypot(p.x - c.x, p.y - c.y);
-      for (const q of list) if (q !== o && q.h && !(q.end && noEnd) && !(q.under && low)) bad += Math.max(0, q.h + RR - Math.hypot(c.x - q.x, c.y - q.y));
+      for (const q of list) if (q !== o && q.h && !skipE(q, noEnd, self) && !(q.under && low)) bad += Math.max(0, q.h + RR - Math.hypot(c.x - q.x, c.y - q.y));
       return { c, bad };
     };
     const s1 = side(1), s2 = s1.bad > 0.15 ? side(-1) : null;
@@ -362,7 +366,7 @@
     const room = p => {
       let c = Math.min(p.x - RR, FW - RR - p.x, p.y - RR, FH - RR - p.y) + 0.43;
       for (const o of m.robots) if (o !== r) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - 2 * RR);
-      for (const o of m.obs) if (o.h && !(o.end && r.endBusy) && !(o.under && r.cap.lowProfile)) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - o.h - RR);
+      for (const o of m.obs) if (o.h && !skipE(o, r.endBusy, r) && !(o.under && r.cap.lowProfile)) c = Math.min(c, Math.hypot(o.x - p.x, o.y - p.y) - o.h - RR);
       return c;
     };
     let best = null, bc = -1e9;
@@ -507,6 +511,8 @@
   // disabled or parked — makes the other one give way completely) and cannot drive through solid field elements
   // (hubs, reef, stage legs, barge leg, towers and cages; a robot heading for its climb may touch its own tower/cage).
   const RR = E.RR = 0.43;
+  // chance the autonomous routine runs as planned: the Autonomous stat, plus what auto tuning on practice day added (up to +20%)
+  E.autoChance = (auto, tuneAuto) => U.clamp(0.5 + 0.46 * (auto || 0) / 100 + (tuneAuto || 0), 0.3, 0.985);
   // A beached robot (2020: on a Power Cell, 2026: on fuel) that another robot runs into: seven times in ten the knock
   // frees it at once, three times in ten it goes over. Once per beaching; a low centre of gravity is always freed.
   function beachHit(m) {
@@ -539,7 +545,7 @@
       for (const r of rs) {
         if (fixed(r)) continue;
         for (const o of m.obs) {
-          if (!o.h || (o.end && (r.endBusy || r.end)) || (o.under && r.cap.lowProfile)) continue;
+          if (!o.h || skipE(o, r.endBusy || r.end, r) || (o.under && r.cap.lowProfile)) continue;
           const dx = r.x - o.x, dy = r.y - o.y, d = Math.hypot(dx, dy), min = o.h + RR;
           if (d >= min) continue;
           if (d < 1e-4) { r.x = o.x + min; continue; }
@@ -598,8 +604,11 @@
     const guard = m.R.guard(m, t.a, t), prot = m.R.protect ? m.R.protect(m, t) : '';
     // a season may give the defender a place to wait while its target is protected (2020: across the mouth of the Trench Run)
     const block = prot && !(r.backoff > m.t) && m.R.blockSpot ? m.R.blockSpot(m, r, t, prot) : null;
+    // or keep it in the middle of the target's cycle, meeting it there instead of chasing it into a zone (2025)
+    const hold = !block && m.R.defSpot ? m.R.defSpot(m, r, t, prot) : null;
     let goal;
     if (block) { goal = block; r.label = 'Blocking the way out of the ' + prot; }
+    else if (hold) { goal = hold; r.label = 'Blocking ' + t.team + '\'s lane'; }
     else if (prot || r.backoff > m.t) {
       // pin count used up, or the target is in a protected zone: give it room (6 ft) and wait beside its path
       const gx = guard.x - t.x, gy = guard.y - t.y, gl = Math.hypot(gx, gy) || 1, nx = -gy / gl, ny = gx / gl;
@@ -708,7 +717,7 @@
         pinCheck(m, d, t, dd, DF);
         t.defTime += DT; d.contacts += DT;
         const pf = 0.012 * DF.foul * PACE[d.plan.pace].foul * (1 - d.drv.comp / 220) * (d.plan.avoid ? 0.4 : 1) * (1 - 0.6 * d.confK);
-        if (m.rng.next() < pf * DT) foul(m, d, m.rng.chance(0.2));
+        if (m.rng.next() < pf * DT) foul(m, d, m.rng.chance(DF.majorK == null ? 0.2 : DF.majorK)); // now and then the contact is a major one (a season may say how often)
         if (m.rng.next() < 0.002 * DT) foul(m, t, false);
         const tall = t.cap.lowCG ? 0 : t.cap.tall || 0; // a low centre of gravity (pivoting telescope) cannot be pushed over
         if (tall > 0 && m.rng.next() < 0.0015 * tall * ((m.R.faults && m.R.faults.tip) || 1) * PACE[t.plan.pace].wear * tipDrv(m, t) * DT) triggerFault(m, t, 'tip');
@@ -918,6 +927,7 @@
   const gripK = (r, at0, per100) => (r.cap.grip == null ? 1 : at0 + per100 * r.cap.grip / 100);
   const H = E.H = {
     P: E.P, dist, opp, moveTo, act, waitUntil, speedOf, log, foul, avoid,
+    face: (r, pt) => { r.faceAt = pt; }, // keep the chassis pointed at pt while the robot works where it stands
     // traffic sense for the season rules: is a spot taken (0 free, 1 for now, 2 for good), a free spot beside one,
     // and a spell of defense when there is nothing useful to do
     spotUse: (m, r, p) => spotUse(m, r, p), freeNear, tmpDefend, clearOf,

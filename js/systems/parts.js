@@ -334,6 +334,7 @@
     if (c.look && c.look.shooter === 'wide') motor = 4;
     let enc = 0;
     (c.areas || []).forEach(a => { if (a === 'turret' || a === 'arm' || a === 'elevator') enc++; });
+    if (subId === 'effector') enc++; // an end effector senses the game piece it holds
     if (c.id === 'hood' || (c.look && c.look.shooter === 'pivot')) enc++;
     const out = { motor };
     if (enc) out.enc = enc;

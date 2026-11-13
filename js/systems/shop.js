@@ -73,6 +73,12 @@
     return Shop.FINISH.filter(f => Shop.lvl(S, f.id) >= Shop.item(f.id).levels.length && !S.finish.used.includes(f.id));
   };
   Shop.finishFor = (S, p) => (p.done / Math.max(1, p.need) >= 0.5 ? Shop.finishCards(S).find(f => f.kind === G.Robot.cat(p)) || null : null);
+  // cards left and cards earned this season, by kind: { fab: [left, total], soft: [left, total] }
+  Shop.finishCount = function (S) {
+    const left = Shop.finishCards(S), out = { fab: [0, 0], soft: [0, 0] };
+    Shop.FINISH.forEach(f => { if (Shop.lvl(S, f.id) >= Shop.item(f.id).levels.length) { out[f.kind][1]++; if (left.includes(f)) out[f.kind][0]++; } });
+    return out;
+  };
   // Project slots from facilities: whole slots, lost while a facility is below SLOT_COND condition (renovate to get it back)
   Shop.SLOT_COND = 35;
   Shop.slotOf = (S, id) => Shop.lvl(S, id) && Shop.cond(S, id) >= Shop.SLOT_COND ? Shop.fx(S, id, 'slot', null, 1) : 0;

@@ -195,10 +195,17 @@
       }
       rect(ctx, s, legs[0].x - 0.27, legs[0].y - 0.27, 0.54, 0.54, '#30373e', alc(a), 1.5); // the Podium
       legs.forEach(p => rect(ctx, s, p.x - 0.13, p.y - 0.13, 0.26, 0.26, '#5d6670', METAL, 2));
+      // SPOTLIGHT: a HIGH NOTE ringing the microphone above a chain (thrown by the human player in the last 20 s)
+      if (ss && ss.lit) [0, 120, 240].forEach((d, k) => {
+        if (!ss.lit[k] || !(ss.hiT[k] <= m.t)) return;
+        const g = d * Math.PI / 180, q = P(sym, a, ST.x + Math.cos(g) * 0.75, ST.y + Math.sin(g) * 0.75);
+        circ(ctx, s, q.x, q.y, 0.42, 'rgba(255,210,77,0.22)'); ring(ctx, s, q.x, q.y, 0.15, '#ffffff');
+      });
       // notes: staged wing notes and the fed pile near the speaker
       if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
       if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35));
     });
+    if (m && m.loose) m.loose.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35)); // notes lobbed into the Neutral Zone
     if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
     else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, 0.16, COL.note));
   };
@@ -413,10 +420,14 @@
       ctx.fillStyle = '#23282e'; ctx.fillRect(-h * 0.62, -h * 0.38, h * 0.6, h * 0.76);
       ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.strokeRect(-h * 0.72, -h * 0.5, h * 0.8, h);
     } else if (sh === 'wide') {
-      // 2026 wide dumper: a full-width bank of flywheels
-      ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.2, -h * 0.86, h * 0.42, h * 1.72);
-      ctx.fillStyle = lk.c2 || '#ffcf4a';
-      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(h * 0.41, -h * 0.68 + i * h * 0.34, sz * 0.055, 0, 7); ctx.fill(); }
+      // 2026 wide dumper: a bank of flywheels across the front, four fuel balls wide (4 x 15 cm), under an adjustable hood
+      ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.16, -h * 0.72, h * 0.5, h * 1.44);
+      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.beginPath(); ctx.arc(h * 0.05, 0, h * 0.72, -0.85, 0.85); ctx.stroke(); // the hood
+      for (let i = 0; i < 4; i++) {
+        const yy = (i - 1.5) * sz * 0.17;
+        ctx.beginPath(); ctx.arc(h * 0.41, yy, sz * 0.075, 0, 7); ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fill();
+        ctx.beginPath(); ctx.arc(h * 0.41, yy, sz * 0.03, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill();
+      }
     }
     // 2020 revolver indexer: a drum of five 7-inch power cells (about 20 inches across) in front of the shooter
     if (lk.indexer === 'revolver') { ctx.beginPath(); ctx.arc(h * 0.42, 0, sz * 0.25, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#ffd84a'; for (let i = 0; i < 5; i++) { const g = i * Math.PI * 0.4 + (o.t || 0) * 2; ctx.beginPath(); ctx.arc(h * 0.42 + Math.cos(g) * sz * 0.15, Math.sin(g) * sz * 0.15, sz * 0.085, 0, 7); ctx.fill(); } }

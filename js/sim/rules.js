@@ -403,7 +403,7 @@
   const ampSpd24 = r => (r.cap.amp ? (r.cap.ampSkill || 45) + 30 : r.cap.scoreSpd * (viaF(r) - 0.05));
   // The amp specialist is the amp-capable robot that is not defending and has the weakest speaker game (re-picked live).
   function ampBotOf(m, a) {
-    const rs = m.robots.filter(r => r.a === a && canAmp(r) && r.plan.role !== 'defend' && !r.dead && !r.perm.scorer);
+    const rs = m.robots.filter(r => r.a === a && canAmp(r) && r.plan.role !== 'defend' && r.plan.role !== 'feed' && !r.dead && !r.perm.scorer);
     if (!rs.length) return null;
     // every shooter can put notes in the Amp, but a real amp mechanism is far better at it: the amp robot is the one that
     // gives up the least speaker scoring for the most amp ability
@@ -418,13 +418,41 @@
     if (r.plan.target === 'amp') return true;
     if (r.plan.target === 'speaker' || m.phase === 'auto') return false;
     if (ss.ampUntil > m.t || ss.bank >= 2) return false;
-    return ampBotOf(m, r.a) === r.team;
+    if (ampBotOf(m, r.a) === r.team) return true;
+    // a partner with a real amp mechanism or a pivot/turret shooter helps arm Amplify when the amp robot alone would
+    // leave the bank short (a fixed shooter's lob into the Amp is too slow to be worth it)
+    const going = H.alliance(m, r.a).filter(x => x !== r && (x.label === 'To amp' || x.label === 'Scoring amp')).length;
+    return ss.bank + going < 2 && (!!r.cap.amp || viaF(r) >= 0.75) && m.total - m.t > 30;
   }
+  // AMPLIFY is the human player's button, not automatic. Two notes in the Amp arm it; a good human player at the Amp holds
+  // it until the scorers are lined up at the Speaker with notes (or the fed pile is ready), so the 10 seconds catch
+  // several 5-point notes. A beginner presses it as soon as it lights. The scorers hold their shot while they wait.
+  const hpAmp24 = (m, a) => (m.hpTop && m.hpTop[a]) || (m.hp && m.hp[a]) || 50, GOODHP24 = 50;
+  // how long a good human player holds the button for a second scorer (6 s, up to 18 s for the best); a beginner
+  // presses it within a few seconds whoever is ready
+  const ampPatience24 = (m, a) => { const hp = hpAmp24(m, a); return hp >= GOODHP24 ? 6 + 12 * (hp - GOODHP24) / 45 : U.clamp(1 + 3 * (hp - 30) / 20, 0.5, 4); };
+  const shooters24 = (m, a) => H.alliance(m, a).filter(r => !r.dead && r.cap.speaker && !r.perm.scorer && r.plan.role !== 'defend' && r.plan.role !== 'feed');
+  // scorers with a note at (or almost at) the Speaker, plus every two notes ready in the fed pile
+  const linedUp24 = (m, a) => shooters24(m, a).filter(r => r.held && H.canScore(m, r) && (r.label === 'Waiting for Amplify' || E.dist(r, m.spk[a]) < (r.cap.rangeM || 1.5) + 1.5)).length
+    + Math.floor(m.ss[a].pile.filter(n => n.t <= m.t).length / 2);
+  function amplifyNow24(m, a) {
+    const ss = m.ss[a], lined = linedUp24(m, a), waited = m.t - ss.readyT;
+    if (m.total - m.t < 14) return true; // spend it before the endgame
+    // an average human player presses for the first scorer at the Speaker; a beginner may not even wait for that
+    if (hpAmp24(m, a) < GOODHP24) return lined >= 1 || (hpAmp24(m, a) < 42 && waited >= ampPatience24(m, a));
+    if (lined >= Math.min(2, shooters24(m, a).length)) return true;
+    return lined >= 1 && waited >= ampPatience24(m, a);
+  }
+  // a scorer at its spot while the bank is full and a good human player is holding the button: wait for it
+  const holdAmp24 = (m, r) => { const ss = m.ss[r.a]; return m.phase === 'tele' && ss.bank >= 2 && !(ss.ampUntil > m.t) && hpAmp24(m, r.a) >= GOODHP24 && m.total - m.t > 14; };
   function speaker24(m, r) {
     const ss = m.ss[r.a], spk = m.spk[r.a];
     const spot = H.shootSpot(m, r, spk, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (holdAmp24(m, r) && !r.mem.held24) { r.mem.held24 = 1; ss.waited = (ss.waited || 0) + 1; return H.waitUntil(r, () => ss.ampUntil > m.t || ss.bank < 2, () => speaker24(m, r), 'Waiting for Amplify', ampPatience24(m, r.a) + 0.5); }
+      r.mem.held24 = 0;
+      const t0 = m.t; // a note that leaves the shooter inside the 10 seconds counts (the field gives notes in flight 3 more seconds)
       H.act(r, H.aimTime(m, r) + H.scoreTime(m, r, 0.5), () => {
         const hit = m.rng.chance(H.hit(m, r, 1.0, H.rangePen(m, r, spk)));
         r.stats.shots++; H.shotFx(m, r, spk, hit);
@@ -432,7 +460,7 @@
           r.stats.hits++; r.stats.cycles++;
           let pts = 2;
           if (m.phase === 'auto') pts = 5;
-          else if (ss.ampUntil > m.t && ss.ampLeft > 0) { pts = 5; ss.ampLeft--; ss.ampScored++; if (ss.ampLeft <= 0) ss.ampUntil = 0; }
+          else if (ss.ampLeft > 0 && (ss.ampUntil > m.t || (ss.ampUntil > t0 && m.t - ss.ampUntil < 3))) { pts = 5; ss.ampLeft--; ss.ampScored++; if (ss.ampLeft <= 0) ss.ampUntil = 0; }
           ss.notes++; if (m.phase === 'auto') ss.autoNotes++;
           H.addPts(m, r, pts, '+' + pts, spk);
         }
@@ -463,6 +491,14 @@
   // grasp of the strategy: pass accuracy, pickup speed and self-passing.
   const canPass24 = r => !!r.cap.speaker && (r.cap.range || 0) >= 30 && !r.perm.scorer;
   const iq24 = (m, a) => m.feedIQ[a] || 0;
+  // G414 (no full-court shots): a robot with any part of its bumpers in the opponent's Wing may not send a note into or
+  // through its own Wing. The opponent's Wing line is 5.87 m from their wall, so a feeder at the Source drives out until
+  // its bumpers are clear of that line (LAUNCH24) before it lobs a note home: a longer trip, and one a defender in the
+  // lane can break up. A defended feeder can lob from where it is into the Neutral Zone instead: its partners drive out to
+  // collect those notes, and the opponents may take them first.
+  const WING24 = 5.87, LAUNCH24 = FW - WING24 - RR - 0.25;
+  const inOppWing24 = (m, r) => loc(m, r).x > FW - WING24 - RR;
+  const defended24 = (m, r) => !!r.defBy || m.robots.some(o => o.a !== r.a && !o.dead && o.st === 'defend' && o.defT === r && E.dist(o, r) < 2.2);
   function source24(m, r) {
     const ground = r.cap.ground;
     const pt = ground ? E.P(m, r.a, m.rng.range(13.4, 15.0), m.rng.range(0.9, 2.5)) : E.P(m, r.a, 15.45, 0.95);
@@ -471,19 +507,70 @@
       H.act(r, H.collectTime(m, r, ground ? 'ground' : 'station', ground ? 1.0 : 1.9, true), () => { r.held = 1; }, ground ? 'Intaking' : 'At source');
     }, 'To source');
   }
-  function pass24(m, r) {
-    const ss = m.ss[r.a], tgt = m.pileSpot[r.a], iq = iq24(m, r.a);
-    H.act(r, H.aimTime(m, r) * 0.7 + H.scoreTime(m, r, 0.45), () => {
+  // mode: undefined = drive out of the opponent's Wing first (G414), then lob home; 'here' = at the line already;
+  // 'mid' = lob from where it is into the Neutral Zone
+  function pass24(m, r, mode, tries) {
+    const q = loc(m, r);
+    tries = tries || 0;
+    // pushed aside or sent to a free spot that is still past the line: drive out again (twice at most)
+    if (mode === 'here' && q.x > LAUNCH24 + 0.25 && !r.mem.short24) mode = tries < 2 ? undefined : 'mid'; // still boxed in: lob to midfield
+    if (!mode && q.x > LAUNCH24 + 0.25) {
+      // a driver who misjudges the line stops with a bumper still over it: a FOUL when the note goes
+      const short = tries === 0 && m.rng.chance(0.05 * (1 - (r.drv.aware == null ? 50 : r.drv.aware) / 100)) ? 0.75 : 0;
+      r.mem.short24 = short > 0;
+      const pt = E.P(m, r.a, LAUNCH24 - 0.15 * tries + short, U.clamp(q.y + (tries ? 0.8 : 0), 0.7, 3.0));
+      return H.moveTo(m, r, pt, () => { if (r.held && H.canScore(m, r)) pass24(m, r, 'here', tries + 1); }, 'To the wing line');
+    }
+    r.mem.short24 = false;
+    const ss = m.ss[r.a], mid = mode === 'mid', iq = iq24(m, r.a);
+    const tgt = mid ? E.P(m, r.a, 6.6, U.clamp(q.y + 1.6, 2.2, 5.8)) : m.pileSpot[r.a];
+    const fd = r.plan.role === 'feed' ? 0.75 : 1; // a dedicated feeder has its lob tuned and fires as it reaches the line
+    H.act(r, (H.aimTime(m, r) * 0.55 + H.scoreTime(m, r, 0.4)) * fd, () => {
       if (!r.held) return;
       r.held = 0; r.stats.passes = (r.stats.passes || 0) + 1;
       // lobs are forgiving: accuracy comes from shooter range, the drive team and strategy read; a defender in contact spoils them
-      const p = U.clamp(0.4 + 0.3 * (r.cap.range || 0) / 100 + 0.15 * r.cap.accuracy / 100 + 0.15 * iq + 0.1 * r.confK - (r.defBy ? 0.2 : 0), 0.2, 0.97);
+      const p = U.clamp(0.5 + 0.3 * (r.cap.range || 0) / 100 + 0.15 * r.cap.accuracy / 100 + 0.15 * iq + 0.1 * r.confK - (r.defBy ? 0.2 : 0), 0.2, 0.97);
       const ok = m.rng.chance(p), jit = ok ? 0.55 : 2.0;
+      if (mid) {
+        // into the Neutral Zone, short of the alliance's own Wing line: anyone may pick it up
+        const o = E.P(m, r.a, U.clamp(6.6 + m.rng.range(-jit, jit), WING24 + 0.3, 9.6), U.clamp(tgt.y + m.rng.range(-jit, jit), 0.7, FH - 0.7));
+        m.loose.push({ x: o.x, y: o.y, t: m.t + 1.4, a: r.a }); ss.midShots = (ss.midShots || 0) + 1;
+        H.shotFx(m, r, o, ok);
+        return;
+      }
+      if (inOppWing24(m, r)) {
+        r.mem.g414 = (r.mem.g414 || 0) + 1;
+        H.foul(m, r, false, 'G414: launched from the opponent\'s Wing');
+        if (r.mem.g414 > 1) H.foul(m, r, true, 'G414 repeated');
+      }
       const land = { x: U.clamp(tgt.x + m.rng.range(-jit, jit), 0.7, 9.0), y: U.clamp(tgt.y + m.rng.range(-jit, jit), 0.7, FH - 0.7), t: m.t + 1.3 };
       if (r.a === 'red') land.x = U.clamp(tgt.x + m.rng.range(-jit, jit), FW - 9.0, FW - 0.7);
       ss.pile.push(land); ss.fed++;
       H.shotFx(m, r, land, ok);
-    }, 'Feeding a note');
+    }, mid ? 'Lobbing to midfield' : 'Feeding a note');
+  }
+  // a note lying in the Neutral Zone: partners go out for it, and an opponent takes it when it is closer than its Source
+  function loosePick24(m, r) {
+    if (!m.loose.length) return false;
+    const src = E.P(m, r.a, 14.3, 1.5), ds = E.dist(r, src);
+    let best = null, bd = 1e9;
+    for (const n of m.loose) {
+      if (n.t > m.t || (n.claim && n.claim !== r.team && n.claimT > m.t)) continue;
+      const d = E.dist(r, n);
+      if (n.a === r.a ? d > ds - 0.5 : (d > 0.8 * ds || d > 5.5)) continue;
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (!best) return false;
+    best.claim = r.team; best.claimT = m.t + 5;
+    H.moveTo(m, r, best, () => {
+      if (!H.canCollect(m, r) || m.loose.indexOf(best) < 0) return;
+      H.act(r, H.collectTime(m, r, 'ground', 0.7), () => {
+        const j = m.loose.indexOf(best); if (j < 0) return;
+        m.loose.splice(j, 1); r.held = 1;
+        if (best.a !== r.a) { const o = m.ss[best.a]; o.stolen = (o.stolen || 0) + 1; }
+      }, best.a === r.a ? 'Grabbing a lobbed note' : 'Stealing a lobbed note');
+    }, best.a === r.a ? 'To the lobbed notes' : 'To a loose note');
+    return true;
   }
   // hoard discipline (the real "amp cycle"): the amp robot charges the Amp straight from the pile, and the
   // scorers keep a 4-note buffer for the 10-second AMPLIFY burst instead of spending it at 2 points a note
@@ -504,18 +591,23 @@
     best.claim = r.team; best.claimT = m.t + 5;
     H.moveTo(m, r, best, () => {
       const i = ss.pile.indexOf(best); if (i < 0 || !H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, 'ground', 0.7) * (1 - 0.25 * iq24(m, r.a)), () => { const j = ss.pile.indexOf(best); if (j < 0) return; ss.pile.splice(j, 1); r.held = 1; }, 'Grabbing fed note');
+      H.act(r, H.collectTime(m, r, 'ground', 0.7) * (1 - 0.35 * iq24(m, r.a)), () => { const j = ss.pile.indexOf(best); if (j < 0) return; ss.pile.splice(j, 1); r.held = 1; }, 'Grabbing fed note');
     }, 'To fed notes');
     return true;
   }
   function feeder24(m, r) {
-    if (r.held) { if (!H.canScore(m, r)) { r.label = 'Shooter jammed'; return; } return pass24(m, r); }
+    if (r.held) {
+      if (!H.canScore(m, r)) { r.label = 'Shooter jammed'; return; }
+      // defended at the Source: the drive out to the line would be smothered, so lob into the Neutral Zone instead
+      if (inOppWing24(m, r) && defended24(m, r) && m.rng.chance(0.35 + 0.6 * iq24(m, r.a))) return pass24(m, r, 'mid');
+      return pass24(m, r);
+    }
     if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
     // stay at the Source: the human player keeps dropping notes and the feeder lobs each one home
     const home = E.P(m, r.a, 14.3, 1.5), pt = E.dist(r, home) < 1.6 ? { x: r.x + m.rng.range(-0.4, 0.4), y: U.clamp(r.y + m.rng.range(-0.4, 0.4), 0.6, FH - 0.6) } : home;
     H.moveTo(m, r, pt, () => {
       if (!H.canCollect(m, r)) return;
-      H.act(r, H.collectTime(m, r, 'ground', 0.75), () => { r.held = 1; }, 'Taking a note from the Source'); // notes the human player drops are scooped off the floor
+      H.act(r, H.collectTime(m, r, 'ground', 0.55), () => { r.held = 1; }, 'Taking a note from the Source'); // notes the human player drops are scooped off the floor
     }, 'To source');
   }
   // The Stage (blue's coordinates): a triangle of three legs 1.5 m from its centre, pointing at the alliance wall. The leg
@@ -544,7 +636,9 @@
         const c = E.P(m, a, ST24.x, ST24.y); m.obs.push({ x: c.x, y: c.y, r: 1.05, h: 0, end: true });
         [0, 1, 2].forEach(k => { const p = stLeg24(m, a, k); m.obs.push({ x: p.x, y: p.y, r: k ? 0.1 : 0.25, h: 0.15 }); }); // the Podium leg: a little wider for routes, as solid as the others (the wing note sits just in front of it)
       });
-      m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {};
+      m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {}; m.loose = [];
+      // the human player at the Amp (Amplify, the HIGH NOTES) is the alliance's best one
+      m.hpTop = {}; ['red', 'blue'].forEach(a => { m.hpTop[a] = Math.max(30, ...H.alliance(m, a).map(r => r.drv.hp || 40)); });
       m.center = [0.75, 2.4, 4.1, 5.8, 7.45].map(y => ({ x: FW / 2, y }));
       ['red', 'blue'].forEach(a => {
         m.spk[a] = E.P(m, a, 0.2, 5.55);
@@ -554,6 +648,7 @@
         const rs = H.alliance(m, a).filter(canAmp).sort((p, q) => (p.cap.speaker ? p.cap.accuracy + p.cap.scoreSpd + (p.cap.range || 0) : -50) - (q.cap.speaker ? q.cap.accuracy + q.cap.scoreSpd + (q.cap.range || 0) : -50));
         const iq = m.feedIQ[a] || 0, feeding = H.alliance(m, a).some(x => x.plan.role === 'feed');
         m.ss[a] = { notes: 0, autoNotes: 0, ampNotes: 0, bank: 0, ampUntil: 0, ampLeft: 0, coopPressed: false, stage: 0, onstage: 0, chains: [0, 0, 0],
+          amps: 0, readyT: 0, waited: 0, midShots: 0, stolen: 0, lit: [false, false, false], hiT: [0, 0, 0], hiDone: false, spot: 0,
           // the wing pile is the hoard: notes stockpiled near the Speaker get dumped fast when AMPLIFIED
           pile: [], fed: 0, ampScored: 0, feeding, hoard: false, selfPass: iq >= 0.55,
           wing: [4.1, 5.55, 7.0].map(y => E.P(m, a, 2.9, y)), ampBot: rs.length ? rs[0].team : null };
@@ -612,19 +707,37 @@
       }
       if (!H.canCollect(m, r)) { r.label = 'Intake jammed'; return; }
       if (c.ground && pileOpen24(m, r) && pilePick24(m, r)) return;
+      if (c.ground && m.phase === 'tele' && loosePick24(m, r)) return;
       source24(m, r);
     },
     tick(m) {
       if (m.phase !== 'tele') return;
-      const tt = m.t - m.T.auto;
+      const tt = m.t - m.T.auto, tl = m.total - m.t;
       ['red', 'blue'].forEach(a => {
         const ss = m.ss[a];
-        if (tt <= 45 && !ss.coopPressed && ss.bank >= 1) {
+        if (tt <= 45 && !ss.coopPressed && ss.bank >= 1 && !m.playoff) {
           ss.coopPressed = true; ss.bank--;
           H.log(m, a, a.toUpperCase() + ' pressed Coopertition', 'rp');
           if (m.ss[E.opp(a)].coopPressed && !m.coop) { m.coop = true; H.log(m, null, 'COOPERTITION — Melody now needs ' + MELODY24[m.level][1] + ' notes', 'rp'); }
         }
-        if (ss.bank >= 2 && !(ss.ampUntil > m.t)) { ss.bank = 0; ss.ampUntil = m.t + 10; ss.ampLeft = 4; H.log(m, a, a.toUpperCase() + ' AMPLIFIED!', 'rp'); }
+        if (ss.bank >= 2 && !(ss.ampUntil > m.t)) {
+          if (!ss.readyT) ss.readyT = m.t;
+          if (amplifyNow24(m, a)) {
+            const w = Math.round(m.t - ss.readyT);
+            ss.bank = 0; ss.ampUntil = m.t + 10; ss.ampLeft = 4; ss.readyT = 0; ss.amps++;
+            H.log(m, a, a.toUpperCase() + ' AMPLIFIED!' + (w >= 2 ? ' (the human player held it ' + w + ' s for the scorers)' : ''), 'rp');
+          }
+        }
+        // SPOTLIGHT: in the last 20 seconds the human player at the Amp throws the three HIGH NOTES at the microphones
+        // above the chains. Each one that rings a microphone adds a point for every robot onstage on that chain. It is a
+        // long, high throw: a beginner almost never lands one, an expert lands most.
+        if (tl <= 17 && !ss.hiDone) {
+          ss.hiDone = true;
+          const hp = hpAmp24(m, a), p = U.clamp(0.02 + 0.85 * Math.pow(U.clamp((hp - 40) / 55, 0, 1), 1.8), 0.02, 0.87);
+          for (let k = 0; k < 3; k++) { ss.hiT[k] = m.t + 1.2 + 2.6 * k; ss.lit[k] = m.rng.chance(p); }
+          ss.spot = ss.lit.filter(Boolean).length;
+          if (ss.spot) H.log(m, a, a.toUpperCase() + ' human player rang ' + ss.spot + ' of 3 microphones (SPOTLIGHT)', 'rp');
+        }
       });
     },
     endSpot(m, r, lvl) {
@@ -648,9 +761,7 @@
         const by = {};
         on.forEach(r => { const k = r.mem.chain || 0; (by[k] = by[k] || []).push(r); });
         Object.values(by).forEach(arr => { if (arr.length > 1) pts += 2 * (arr.length - 1); });
-        const lit = {};
-        for (let i = 0; i < 3; i++) if (m.rng.chance(0.2 + 0.45 * m.hp[a] / 100)) lit[i] = true;
-        Object.keys(by).forEach(k => { if (lit[k]) pts += by[k].length; });
+        Object.keys(by).forEach(k => { if (ss.lit[k]) { pts += by[k].length; by[k].forEach(r => { r.stats.pts += 1; }); } }); // SPOTLIT: +1 per robot onstage below a rung microphone
         on.forEach(r => {
           if (r.cap.trap && r.cap.trapMech && m.rng.chance(0.35 + 0.55 * (r.cap.ampSkill || 40) / 100)) { pts += 5; r.stats.pts += 5; ss.trap = (ss.trap || 0) + 1; }
         });
@@ -671,7 +782,8 @@
     hud(m, a) {
       const ss = m.ss[a], o = [];
       if (ss.ampUntil > m.t) o.push('AMPLIFIED ' + Math.ceil(ss.ampUntil - m.t) + 's');
-      else o.push('Amp bank ' + ss.bank + '/2');
+      else o.push(ss.bank >= 2 ? 'AMPLIFY READY' : 'Amp bank ' + ss.bank + '/2');
+      if (ss.spot && ss.hiT.some((t, k) => ss.lit[k] && t <= m.t)) o.push('SPOTLIT ' + ss.lit.filter((x, k) => x && ss.hiT[k] <= m.t).length);
       if (m.coop) o.push('CO-OP');
       return o;
     }
@@ -824,7 +936,7 @@
         m.procSpot[a] = E.P(m, a, 6.0, FH - 0.7);           // processor: on the alliance's right-hand side wall
         m.netSpot[a] = E.P(m, a, FW / 2 - 1.15, 2.1);       // shoot algae into the net above the alliance's half of the Barge
         m.cages[a] = CAGE_Y.map(y => E.P(m, a, FW / 2, y)); // three cages on the alliance's half (its left)
-        m.cages[a].forEach(c => m.obs.push({ x: c.x, y: c.y, r: 0.2, h: 0.1, end: true }));
+        m.cages[a].forEach(c => m.obs.push({ x: c.x, y: c.y, r: 0.2, h: 0.1, end: true, a })); // only this alliance's climbers may touch them
         const algae = H.alliance(m, a).filter(canProcess).sort((p, q) => (p.cap.reach || 0) - (q.cap.reach || 0));
         // station assignment: best two coral scorers get a station each, the third shares with the weaker of them
         const coral = H.alliance(m, a).filter(r => (r.cap.reach || 0) > 0).sort((p, q) => coralPower(q) - coralPower(p));
@@ -835,7 +947,22 @@
       m.robots.forEach(r => { r.held = (r.cap.reach || 0) > 0 ? 1 : 0; r.heldType = r.held ? 'coral' : null; });
     },
     start(m, r) { return E.P(m, r.a, 6.85, [1.4, 4.03, 6.6][r.slot]); },
-    guard(m, a) { return E.P(m, a, 6.4, 3.0); },
+    // where a defended robot is heading: the Reef with coral in its hands, else its coral station
+    guard(m, a, t) {
+      if (!t) return E.P(m, a, 6.4, 3.0);
+      if (t.held && t.heldType === 'coral') return E.P(m, a, 4.49, 4.03);
+      return m.stations[a][stationOf(m, t)];
+    },
+    // Defense in REEFSCAPE blocks a robot's lane between its coral station and the Reef, midway: the defender meets it
+    // there, and waits there while it is at the station or near the Reef. It never follows it into the Reef Zone (G427,
+    // a MAJOR FOUL whoever starts the contact) nor shoves it all the way back.
+    defSpot(m, d, t, prot) {
+      const q = loc(m, t), st = E.P(m, t.a, m.stations[t.a][stationOf(m, t)].x, m.stations[t.a][stationOf(m, t)].y);
+      const ux = st.x - 4.49, uy = st.y - 4.03, ul = Math.hypot(ux, uy) || 1, R0 = 1.38 + RR + 1.3;
+      const hold = E.P(m, t.a, 4.49 + ux / ul * R0, 4.03 + uy / ul * R0);
+      if (prot || Math.hypot(q.x - 4.49, q.y - 4.03) < 1.38 + RR + 1.0 || Math.hypot(q.x - st.x, q.y - st.y) < 1.5) return hold;
+      return null;
+    },
     // Crossing the field (a defender on its way to the opposing side): under the Barge truss, through a gap between two
     // of its own alliance's Cages (G418: the opponent's are off-limits in teleop)
     route(m, r, from, to) {
@@ -908,6 +1035,15 @@
           pts += v; r.stats.pts += v;
         });
         ss.barge = pts; m.score[a].end += pts;
+      });
+    },
+    // G418: a robot may never touch the opponents' Cages, even when it was pushed there: a MAJOR FOUL (at most one per
+    // robot every few seconds)
+    tick(m) {
+      m.robots.forEach(r => {
+        if (r.dead || (r.mem.cageF || 0) > m.t) return;
+        const o = r.a === 'red' ? 'blue' : 'red';
+        if (m.cages[o].some(c => E.dist(r, c) < 0.1 + RR + 0.04)) { r.mem.cageF = m.t + 5; H.foul(m, r, true, 'touched an opponent Cage'); }
       });
     },
     bonus(m, a) {
@@ -997,6 +1133,7 @@
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (r.cap.dumper) H.face(r, hub); // a dumper's flywheels are fixed across its front: the whole robot squares up to the hub
       if (!active26(m, r.a) && r.plan.target !== 'shoot') {
         return H.waitUntil(r, () => active26(m, r.a) || m.inEnd, () => H.act(r, H.aimTime(m, r), () => volley26(m, r), 'Aiming'), 'Holding — hub inactive', 30);
       }
@@ -1265,11 +1402,11 @@
   R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3, credit: { 'Hangar Zone': 4 } }; // G208: touching a robot in its Hangar Zone in the last 30 s gives it Traversal points
   R[2023].defense = { eff: 0.5, foul: 1.7, pin: 5, reset: 3 };
   R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true };
-  R[2025].defense = { eff: 0.5, foul: 1.7, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // one robot at most on the opposing side of the field
+  R[2025].defense = { eff: 0.5, foul: 1.1, majorK: 0.08, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // one robot at most on the opposing side of the field; it blocks lanes midway (defSpot)
   R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // two defenders could block both bumps or both trenches, which the rules forbid
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
-  S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes across the field and hoard them for Amplify. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
+  S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes home from the Source end (G414: only once the feeder\'s bumpers are out of the opponent\'s Wing), and their human players hold Amplify until two scorers are lined up. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers. Each of its six faces has its own branches: the faces nearest the coral stations fill first, and the last coral means a longer drive around to the far side.' };
   S[2026].meta = { defense: true, note: 'Defense wins in REBUILT: a defender in the opponent\'s alliance zone during their active shift cuts the fuel stream. Later in the season, top alliances also hoard: while their hub is inactive they lob fuel from the neutral zone back into their own zone, so the next scoring shift starts with short cycles.' };
 

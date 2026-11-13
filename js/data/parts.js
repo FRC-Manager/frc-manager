@@ -28,8 +28,8 @@
     { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'Vision Level 1 needs one, Level 2 needs two.' },
     { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
     { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },
-    { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator and end effector builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
-    { id: 'servo', name: 'Servo actuator kit', short: 'Servo kits', icon: 'motor', max: 2, desc: 'Small servos and linear actuators for what small cylinders used to do (big ones gave way to brushless motors). Speeds up intake, manipulator and end effector builds, more every year as air fades. With pneumatics too, the better of the two counts.' },
+    { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
+    { id: 'servo', name: 'Servo actuator kit', short: 'Servo kits', icon: 'motor', max: 2, desc: 'Small servos and linear actuators for what small cylinders used to do (big ones gave way to brushless motors). Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds, more every year as air fades. With pneumatics too, the better of the two counts.' },
     { id: 'kElev', kit: 'elevator', name: 'Elevator stage kit', short: 'Elevator kits', icon: 'elevator', max: 6, desc: 'Bearing blocks, tubes and rigging for one elevator stage. Tall elevators use 2.' },
     { id: 'kArm', kit: 'arm', name: 'Arm & pivot kit', short: 'Arm kits', icon: 'arm', max: 6, desc: 'Pivot gearbox, bearings and arm tube for one joint.' },
     { id: 'kShoot', kit: 'shooter', name: 'Flywheel shooter kit', short: 'Shooter kits', icon: 'shooter', max: 6, desc: 'Flywheels, shafts and side plates. Wide dumpers use 2.' },
@@ -46,7 +46,7 @@
     { id: 'kFrame', kit: 'frame', name: 'GridTube frame stock', short: 'GridTube bundles', icon: 'parts', max: 24, desc: 'Box tube and gussets drilled on one hole pattern, so everything lines up without a mill. Every mechanical build can use 1 to 3 bundles (drivetrain included), on top of any kit.' }
   ];
   D.PART_CAT = {}; D.PART_CATS.forEach(c => D.PART_CAT[c.id] = c);
-  D.KIT_FOR_AREA = { elevator: 'kElev', arm: 'kArm', shooter: 'kShoot', turret: 'kTurret', intake: 'kIntake', index: 'kIndex', climb: 'kClimb' };
+  D.KIT_FOR_AREA = { elevator: 'kElev', arm: 'kArm', effector: 'kGrip', shooter: 'kShoot', turret: 'kTurret', intake: 'kIntake', index: 'kIndex', climb: 'kClimb' };
   // The lost year (2021): suppliers spent it designing bolt-together mechanisms. In calendar careers these are first sold
   // in August 2021 (month COTS_MONTH of the offseason before the 2022 season). Before that only elevator, shooter
   // and turret kits exist.

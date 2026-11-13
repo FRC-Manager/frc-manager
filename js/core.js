@@ -66,7 +66,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '2.9.8';
+  G.VERSION = '2.9.9';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';

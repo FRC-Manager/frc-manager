@@ -206,6 +206,7 @@
     { id: 'rs_shooter', name: 'Shooter R&D', area: 'shooter', cost: 1200, hours: 200, xp: 170 },
     { id: 'rs_elev', name: 'Elevator Prototype', area: 'elevator', cost: 1500, hours: 240, xp: 190 },
     { id: 'rs_arm', name: 'Arm & Wrist R&D', area: 'arm', cost: 1200, hours: 200, xp: 170 },
+    { id: 'rs_eff', name: 'End Effector R&D', area: 'effector', cost: 900, hours: 170, xp: 160 },
     { id: 'rs_intake', name: 'Ground Intake R&D', area: 'intake', cost: 900, hours: 180, xp: 160 },
     { id: 'rs_index', name: 'Hopper / Indexer R&D', area: 'index', cost: 800, hours: 160, xp: 150 },
     { id: 'rs_climb', name: 'Climber R&D', area: 'climb', cost: 1000, hours: 180, xp: 160 },
@@ -250,7 +251,7 @@
     { id: 'biz', name: 'Business & Outreach Mentor', desc: '+1 sponsor slot, +10% sponsor money, fundraising, and the core of your Impact presentation (60% of their skill).', hours: [4, 8] }
   ];
   D.MENTOR_COST = [0, 0, 1000, 2500, 5000, 9000]; // by stars
-  D.SPEC_FOR = { design: ['shooter', 'turret', 'elevator', 'arm', 'intake', 'index', 'climb', 'swerve'], fab: ['swerve', 'elevator', 'arm', 'climb', 'elec', 'intake'], prog: ['vision', 'autoPath', 'turret', 'swerve', 'elec'] };
+  D.SPEC_FOR = { design: ['shooter', 'turret', 'elevator', 'arm', 'effector', 'intake', 'index', 'climb', 'swerve'], fab: ['swerve', 'elevator', 'arm', 'effector', 'climb', 'elec', 'intake'], prog: ['vision', 'autoPath', 'turret', 'swerve', 'elec'] };
   D.makeMentor = function (rng, role, stars) {
     const r = D.MENTOR_ROLES.find(x => x.id === role) || rng.pick(D.MENTOR_ROLES);
     stars = stars || rng.wpick([1, 2, 3, 4, 5], s => [0, 3, 4, 3, 2, 1][s]);
@@ -362,11 +363,14 @@
       talk: [['Every gain we tuned last year is now a suggestion.', 'a controls mentor'], ['It drives great. Sideways. Only sideways.', 'a driver on Team {t}']] },
     { id: 'bumper', area: 'intake', tag: 'Robot rules', title: 'Bumper and frame rule change', body: 'Bumpers sit in a different height zone next season and robots may reach less far beyond the frame. Last year\'s intake geometry no longer fits inside the rules.',
       talk: [['We spent two seasons perfecting that intake. The new rules moved the bumper two inches.', 'a design mentor'], ['On the bright side, bumpers are still red and blue.', 'a forum comment']] },
+    { id: 'gamepiece', area: 'effector', tag: 'Robot rules', title: 'Game pieces may not be grabbed from inside', body: 'A new rule bans holding a game piece by anything that reaches inside it or pins it against the frame, and caps how far a piece may stick out beyond the bumpers. Claws and grippers that were tuned to last season\'s grip are back on the drawing board.',
+      talk: [['Our gripper was legal for three seasons. It is now a paperweight with rollers.', 'a design mentor'], ['Rule Q: "may not grab it like that". We grabbed it exactly like that.', 'a student on Team {t}']] },
     { id: 'height', area: 'climb', tag: 'Robot rules', title: 'New height and extension limits', body: 'A lower height limit, and no reaching above the robot before the endgame. Tall telescoping climbers need a rethink, and so do the hooks that go with them.',
       talk: [['Our climber is now four inches too proud of itself.', 'a mentor on Team {t}'], ['Measure twice, read the rule three times, cut once.', 'a fabrication mentor']] }
   ];
   D.TECH_DESIGNS = [
     { id: 'pivot', area: 'arm', title: 'A new pivot design', body: 'A top team posted the CAD of a pivot driven through a dead-axle chain stage, with the encoder on the output shaft: half the backlash and a third of the parts. Every arm built the old way suddenly looks a season old.' },
+    { id: 'gripper', area: 'effector', title: 'A new roller end effector', body: 'An offseason robot showed a printed roller end effector with compliant wheels on a spring-loaded side plate: it takes a game piece from any angle, centres it and lets go in a tenth of a second. Pinch claws looked old by the next morning.' },
     { id: 'rigging', area: 'elevator', title: 'New elevator rigging', body: 'An offseason reveal showed a continuous-rigged elevator with a spring tensioner that never needs re-tying. The build thread has 900 replies and counting.' },
     { id: 'visalg', area: 'vision', title: 'A new vision algorithm', body: 'An open-source pose estimator that fuses several tags with the gyro landed over the summer. Teams report localization twice as steady as last season\'s best.' },
     { id: 'intake', area: 'intake', title: 'A new intake geometry', body: 'Somebody worked out a compliant-wheel intake that centers the game piece by itself. Slow-motion videos of it are everywhere.' },
