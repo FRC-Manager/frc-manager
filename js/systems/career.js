@@ -2747,8 +2747,13 @@
   const NTH = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
   C.chalInvite = function (S, c, yr) {
     const rng = G.R, ed = yr - c.from + 1, prev = C.chalState(S).res[c.id + (yr - 1)];
-    const past = (G.SEASON_YEARS || []).filter(y => y < yr - 1 && G.Seasons[y]), gy = past.length ? rng.pick(past) : null;
-    const x = c.twist ? rng.pick(c.twist) : gy ? G.Seasons[gy].name + ' (' + gy + ')' : 'a game from the archive'; // the CAD Sprint: a real past game
+    // the CAD Sprint's game from the past. Real order: any real game from before last season. Random order: only a game this
+    // career has already played (not last season's, while there is another), with its year in this timeline, so a game
+    // still to come is never named
+    const played = (S.order || []).slice(0, Math.max(0, S.si) + 1).filter(g => G.Seasons[g]);
+    const past = C.isFictional(S) ? (played.length > 1 ? played.slice(0, -1) : played) : (G.SEASON_YEARS || []).filter(y => y < yr - 1 && G.Seasons[y]);
+    const gy = past.length ? rng.pick(past) : null;
+    const x = c.twist ? rng.pick(c.twist) : gy ? G.Seasons[gy].name + ' (' + C.calYear(S, gy) + ')' : 'a game from the archive';
     const sub = s => s.replace('{n}', NTH[ed] || U.ord(ed)).replace('{x}', x);
     const nm = n => (n === S.team.num ? 'your team' : 'Team ' + n + ' ' + ((S.teams && S.teams[n] || {}).name || ''));
     const last = ed > 1 && prev ? 'Last year\'s first prize went to ' + nm(prev.win[0]) + (prev.place === 1 ? '' : prev.place === 2 ? ', and your team took one of the two second prizes' : prev.entered ? '; your entry placed ' + U.ord(prev.rank) + ' of ' + prev.n : '; your team did not enter') + '.' : null;

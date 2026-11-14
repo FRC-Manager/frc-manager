@@ -135,6 +135,10 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1.4', title: 'Fixes', notes: [
+      'Fixed a crash on practice day at events when packed parts or an upgrade waiting to be installed met full storage. Working out the robot\'s strength with the packed parts fitted no longer takes stored units apart either: only fitting them for real does.',
+      'In a random-order career the Apex CAD Sprint picks its game from the past among the games this career has already played, with the year it played them, so it never names a game still to come.'
+    ] },
     { v: '3.1.3', title: 'Summit Champs, vendor contests and offseason R&D', notes: [
       'Code library: a new program project for the programmers, like the Knowledge Base. Built once and ported every offseason to next season\'s control system release, it starts the robot code a little further on and makes the first code upgrade, auto routine and vision level of the season 40% faster.',
       'The Knowledge Base is an offseason job now too: built and updated before Kickoff. The robot code shows its auto routine version and vision level, the buttons name the next one, and hardened or lightened subsystems say how often (with the pounds taken off), and when they are maxed.',

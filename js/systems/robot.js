@@ -383,13 +383,18 @@
   Robot.installPerBlock = (S, blocks) => Math.max(1, Math.ceil(G.Seasons[S.robot.year].subs.filter(sd => sd.id !== 'soft').length / Math.max(1, blocks || 3)));
   // what fitting each subsystem's packed parts alone adds to the robot's strength: { sub: gain }, tried on a copy (new
   // units and upgrades break ties ahead of hardening and lightweighting)
+  // Strength trials run on a copy of the robot (heldGains, powerPacked). The copy is linked like the real robot (R.subs is a
+  // getter JSON does not copy), and storage is not trimmed during a trial: taking units apart would change the real spare
+  // parts and post to the Inbox, and storage does not change the robot's strength.
+  let trial = false;
+  const trialCopy = R0 => Robot.link(JSON.parse(JSON.stringify(R0)));
   Robot.heldGains = function (S) {
     const R0 = S.robot, wt = S.wearTick || 0, out = {}, base = Robot.powerNow(S); let w2 = wt;
     const ks = []; Robot.held(S).forEach(h => { if (!ks.includes(h.k)) ks.push(h.k); });
     ks.forEach(k => {
-      S.robot = JSON.parse(JSON.stringify(R0)); S.robot.held = S.robot.held.filter(h => h.k === k);
+      S.robot = trialCopy(R0); S.robot.held = S.robot.held.filter(h => h.k === k); trial = true;
       try { Robot.installHeld(S); out[k] = G.Cap.power(S.robot.year, Robot.cap(S)) - base + R0.held.filter(h => h.k === k).reduce((s, h) => s + (h.u ? 0.03 : h.set ? 0.02 : 0.01), 0); }
-      finally { w2 = Math.max(w2, S.wearTick || 0); S.robot = R0; }
+      finally { trial = false; w2 = Math.max(w2, S.wearTick || 0); S.robot = R0; }
     });
     S.wearTick = w2 + 1; // a fresh tick: nothing the trials cached is reused
     return out;
@@ -399,9 +404,9 @@
   Robot.powerPacked = function (S) {
     if (!S.robot || (!Robot.held(S).length && !(S.robot.pending || []).length)) return null;
     const R0 = S.robot, wt = S.wearTick || 0;
-    S.robot = JSON.parse(JSON.stringify(R0));
+    S.robot = trialCopy(R0); trial = true;
     try { Robot.installHeld(S); Robot.installPending(S); return G.Cap.power(S.robot.year, Robot.cap(S)); }
-    finally { const w2 = S.wearTick || 0; S.robot = R0; S.wearTick = Math.max(wt, w2) + 1; } // a fresh tick: nothing the trial cached is reused
+    finally { trial = false; const w2 = S.wearTick || 0; S.robot = R0; S.wearTick = Math.max(wt, w2) + 1; } // a fresh tick: nothing the trial cached is reused
   };
   // take a packed unit out of the crate again (back to storage)
   Robot.unpack = function (S, i) {
@@ -498,7 +503,7 @@
   };
   Robot.autoScrapOn = S => !!(S.settings && S.settings.autoScrap);
   function trimStore(S) {
-    const R = S.robot; if (!R || !R.store) return;
+    const R = S.robot; if (!R || !R.store || trial) return; // not on a strength trial's copy (see trialCopy)
     if (Robot.autoScrapOn(S) && !Robot.garageLock(S)) Robot.scrapOld(S);
     Object.keys(R.design).forEach(k => {
       while (Robot.storeCount(R, k) > D.STORE_MAX) {
