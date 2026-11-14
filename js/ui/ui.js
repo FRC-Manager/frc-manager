@@ -542,8 +542,8 @@
   // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
   // (projects done, knowledge levels), team chatter and general news about the FRC world. A message that names a team,
   // shows a robot, takes a reply or changes something is never background. The Inbox toggle hides them (S.settings.hideBg).
-  // (S given) a general-news offer whose reply lapsed unanswered is background too
-  UI.isBg = (m, S) => G.Career.msgBg(m) || (!!S && !!m.reply && m.replied == null && m.kind === 'news' && !(m.teams && m.teams.length) && !G.News.replyOptions(S, m).length);
+  // (S given) a general-news offer or outside request whose reply lapsed unanswered is background too (even one naming a team)
+  UI.isBg = (m, S) => G.Career.msgBg(m) || (!!S && !!m.reply && m.replied == null && !m.prio && (m.kind === 'news' || m.kind === 'mail') && !G.News.replyOptions(S, m).length);
   UI.hideBg = S => !!(S.settings && S.settings.hideBg);
   UI.inboxShown = S => (UI.hideBg(S) ? S.inbox.filter(m => !UI.isBg(m, S)) : S.inbox);
   UI.A.hideBg = () => { const S = G.S; S.settings = S.settings || {}; S.settings.hideBg = !S.settings.hideBg; G.Save.write('auto'); UI.render(); };
@@ -559,7 +559,8 @@
     const kt = m => KIND[m.kind] ? UI.tag(KIND[m.kind][0], KIND[m.kind][1]) + ' ' : '';
     // messages can carry optional replies with small effects: shown inline when the message is open, never as a popup
     let openReplies = 0;
-    const shown = UI.inboxShown(S), nBg = S.inbox.length - shown.length;
+    const shown = UI.inboxShown(S), nBg = S.inbox.length - shown.length, cur = S.turnSeq || 0;
+    let divDone = false;
     const list = shown.map(m => {
       const opts = G.News.replyOptions(S, m), open = UI.st.openMsg === m.id;
       if (opts.length) openReplies++;
@@ -568,7 +569,8 @@
       if (open) {
         body = (m.robot && m.robot.look ? '<div class="mb revpic">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 480, 270) + '</div>' : '') + // a reveal: the robot's picture (at most 480 px wide, so it stays sharp)
           (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div><div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '') + // an email: its header
-          '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>';
+          '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>' +
+          (m.note ? '<div class="xs muted mb msgnote">' + UI.icon('info', 12) + ' ' + h(m.note) + '</div>' : ''); // what a letter means in the game
         if (m.series && UI.festSeriesBox) body += UI.festSeriesBox(m.series, m.seriesTag); // the Festival's result, as in the pop-up
         // the teams it names, on the World map (a convenience: it does not make the message one that waits for you)
         { const ts = UI.msgTeams(S, m); if (ts.length) body += '<div class="row wrap gap4 mb">' + ts.map(n => '<button class="btn sm" data-act="mapTeam" data-arg="' + n + '">' + UI.icon('map', 13) + ' ' + (ts.length > 1 ? 'Show ' + n + ' on the map' : 'Show this team on the map') + '</button>').join('') + '</div>'; }
@@ -576,10 +578,13 @@
         else if (m.reply && m.replied == null) body += '<div class="xs muted mt">No reply was sent; the offer lapsed at the end of its ' + (S.phase === 'off' ? 'month' : 'week') + '.</div>';
         if (m.outcome) body += '<div class="mb good">↳ ' + h(m.outcome) + '</div>';
       }
-      return '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
+      // this turn's messages first, then a divider before the older ones (m.tq: the turn a message arrived in)
+      const now = (m.tq || 0) === cur, div = !now && !divDone ? (divDone = true, '<div class="inbox-div"><span>Earlier</span></div>') : '';
+      return div + '<div class="msg ' + (m.read ? '' : 'unread') + (m.prio ? ' prio' : '') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + (m.prio ? '<span class="tag bad prio-tag" title="High priority: it can change what you do this turn or soon">! High priority</span> ' : '') + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
     }).join('');
+    const nNew = shown.filter(m => (m.tq || 0) === cur).length, top = '<div class="inbox-div top" title="Messages that arrived since you last pressed Continue"><span>' + (nNew ? 'This turn · ' + nNew + ' new' : 'Nothing new this turn') + '</span></div>';
     const due = G.Career.dueActivities(S);
-    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + '<button class="btn sm' + (UI.hideBg(S) ? ' sel' : '') + '" data-act="hideBg" title="Background messages: development reports (projects done, knowledge levels), team chatter and general FRC news. Anything that names a team, shows a robot, takes a reply or changes something always stays.">' + (UI.hideBg(S) ? 'Background hidden (' + nBg + ')' : 'Hide background') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
+    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + '<button class="btn sm' + (UI.hideBg(S) ? ' sel' : '') + '" data-act="hideBg" title="Background messages: development reports (projects done, knowledge levels), team chatter and general FRC news. Anything that names a team, shows a robot, takes a reply or changes something always stays.">' + (UI.hideBg(S) ? 'Background hidden (' + nBg + ')' : 'Hide background') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list ? top + list : '<p class="muted">Empty.</p>');
   } };
   UI.A.badgeAct = () => { const S = G.S; S.settings = S.settings || {}; S.settings.badgeAct = !S.settings.badgeAct; G.Save.write('auto'); UI.render(); };
   UI.A.readMsg = id => { const m = G.S.inbox.find(x => x.id === id); if (m) m.read = true; UI.st.openMsg = UI.st.openMsg === id ? null : id; UI.render(); };
@@ -657,10 +662,11 @@
         const dd = R.design.drive, opts = (dd && dd.ver ? [null] : []).concat(D.CHASSIS_CONCEPTS.filter(cid => !(dd && dd.ver && dd.concept === cid)));
         const spec = cid => (cid ? { type: 'copy', sub: 'drive', concept: cid, bot: bi } : { type: 'copy', sub: 'drive', bot: bi });
         const btns = opts.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid || dd.concept); if (!c) return ''; const q = G.Robot.quote(S, spec(cid)); return '<button class="btn sm' + (cid || q.err ? '' : ' primary') + '" data-act="startChassis" data-arg="' + (cid || '') + '|' + bi + '"' + (q.err ? ' disabled title="' + h(q.err) + '"' : '') + '>' + (cid ? 'Basic ' + h(c.name) : 'Copy of your ' + h(c.name) + ' v' + dd.ver) + ' · ' + q.hours + ' h · ' + U.money(q.cost) + '</button>'; }).join('');
-        const err = opts.map(cid => { const e = G.Robot.quote(S, spec(cid)).err; return e ? (cid ? 'Basic ' + G.Seasons.concept(R.year, 'drive', cid).name : 'Copy of your ' + G.Seasons.concept(R.year, 'drive', dd.concept).name) + ': ' + e : null; }).find(Boolean);
+        // (3.1.2 fix) a basic chassis this game has no concept for (2016 has no mecanum) is skipped here too, as in the buttons
+        const err = opts.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid || dd.concept); if (!c) return null; const e = G.Robot.quote(S, spec(cid)).err; return e ? (cid ? 'Basic ' : 'Copy of your ') + c.name + ': ' + e : null; }).find(Boolean);
         o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A drivetrain for ' + h(b.name) + ': a shortcut for Build copy (Design Office), no project slot. ' +
           (G.Shop.lvl(S, 'pfield') ? 'Half a second robot on your Practice Field. ' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field. ') + UI.q('garage', 'Test chassis') + '</div><div class="row wrap gap4 mt">' + btns + '</div>' +
-          (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f).map(k => G.Seasons.concept(R.year, 'drive', k).name); return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '%. ' + UI.q('garage', 'Second robot drills') + '</div>'; })() +
+          (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f && G.Seasons.concept(R.year, 'drive', k)).map(k => G.Seasons.concept(R.year, 'drive', k).name); if (!ok.length) return ''; return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '%. ' + UI.q('garage', 'Second robot drills') + '</div>'; })() +
           (err ? '<div class="xs warn mt">' + h(err) + '</div>' : '') + '</div></div>';
       }
       const fc = G.Robot.fullCopyPlan(S);

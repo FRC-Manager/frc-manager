@@ -7,7 +7,7 @@
 
   // ======================= helpers =======================
   C.inbox = function (S, title, body, kind, extra) {
-    S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false }, extra || {}));
+    S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false, tq: S.turnSeq || 0 }, extra || {}));
     // The Inbox keeps D.INBOX_MAX messages (120 until 3.1.1, when a busy season pushed its own messages out). The newest
     // D.INBOX_RECENT always stay. Older than that, background messages (C.msgBg) and lapsed replies go first, then the
     // oldest of the rest, so results, emails and decisions outlast the chatter. A reply still open is never removed.
@@ -24,19 +24,38 @@
   // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
   // (projects done, knowledge levels), team chatter and general news (m.bg). A message that names a team, shows a robot,
   // takes a reply, is marked plot or announces a product is never background. The Inbox can hide them (Hide background).
-  C.msgBg = m => !m.reply && !m.robot && !m.plot && !m.launch && !(m.teams && m.teams.length) && (!!m.bg || m.kind === 'dev' || m.kind === 'know' || m.kind === 'fun');
+  C.msgBg = m => !m.reply && !m.prio && !m.robot && !m.plot && !m.launch && !(m.teams && m.teams.length) && (!!m.bg || m.kind === 'dev' || m.kind === 'know' || m.kind === 'fun');
   // An email (3.1.1): a letter with From / To / Subject, shown in the Inbox as one
   C.mail = function (S, from, to, subject, body, extra) { C.inbox(S, subject, body, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {})); };
   const leadMentor = S => (S.mentors.length ? S.mentors.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.ten || 0) - (a.ten || 0))[0] : null);
   const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
+  C.leadMentor = leadMentor;
+  // (3.1.2) A letter from outside the team, as an email to the lead mentor: a greeting, the letter, a sign-off. What it
+  // does in the game goes in extra.note, shown under the letter, so the letter itself stays a letter.
+  C.letter = function (S, from, subject, text, sign, extra, kind) {
+    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name;
+    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {}));
+  };
+  const board = S => 'The ' + (S.team.school || 'school') + ' school board';
   // the World Champions hear from the mentor of the alliance they beat in the finals
   C.mailChampCongrats = function (S, ev) {
     const F = ev.po && ev.po.matches.find(x => x.id === 'F'); if (!F || F.loser == null) return;
     const fin = ev.alliances[F.loser] || [], cap = fin[0], T = S.teams[cap]; if (!T) return;
-    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), games = F.games.filter(g => !g.replay), lost = games.filter(g => g.winner !== (F.red === F.winner ? 'red' : 'blue')).length;
-    const close = games.length >= 3 || lost > 0, el = !!T.elite;
+    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), el = !!T.elite;
+    // the finals as they were played: every game that counted (replays aside), from the champions' side, with its score
+    const cs = F.red === F.winner ? 'red' : 'blue', fs = cs === 'red' ? 'blue' : 'red', W = ['', 'one', 'two', 'three', 'four', 'five'];
+    const gs = F.games.filter(g => !g.replay).map(g => ({ w: g[cs], l: g[fs], res: g.winner === cs ? 'won' : g.winner === fs ? 'lost' : 'tie', tb: g.tb || null }));
+    const isClose = g => Math.abs(g.w - g.l) <= Math.max(5, Math.round(0.08 * Math.max(g.w, g.l))) || !!g.tb, sc = g => g.w + '–' + g.l;
+    const won = gs.filter(g => g.res === 'won'), lost = gs.filter(g => g.res === 'lost'), ties = gs.filter(g => g.res === 'tie'), nClose = gs.filter(isClose).length, last = gs[gs.length - 1];
+    const ord = i => ['first', 'second', 'third', 'fourth', 'fifth'][i] || 'next';
+    let story;
+    if (!lost.length && !ties.length) story = nClose === gs.length ? (W[gs.length] || gs.length).replace(/^./, c => c.toUpperCase()) + ' finals, and ' + (gs.length === 2 ? 'both' : 'all of them') + ' came down to the last few points (' + gs.map(sc).join(', ') + '). Your drive team did not give us one mistake to work with.'
+      : nClose ? 'We ran you close in the ' + ord(gs.findIndex(isClose)) + ' final (' + sc(gs.find(isClose)) + '), but you pulled away in the ' + ord(gs.findIndex(g => !isClose(g))) + ' (' + sc(gs.find(g => !isClose(g))) + ').'
+      : 'Two finals (' + gs.map(sc).join(', ') + '), and we never found a way back into either of them.';
+    else story = (W[gs.length] || gs.length).replace(/^./, c => c.toUpperCase()) + ' finals. ' + (lost.length ? 'We took Final ' + (gs.indexOf(lost[0]) + 1) + ' (' + lost[0].l + '–' + lost[0].w + ' to us)' : 'Final ' + (gs.indexOf(ties[0]) + 1) + ' ended in a tie') + (lost.length && ties.length ? ' and tied Final ' + (gs.indexOf(ties[0]) + 1) : '') + ', and you won ' + (won.length === 2 ? 'the other two' : won.length + ' of them') + ' (' + won.map(sc).join(', ') + '). ' +
+      (isClose(last) ? 'The last one came down to the final seconds' + (last.tb ? ' and a tiebreaker' : '') + '. I still have not sat down.' : 'In the last one you left no doubt.');
     const body = 'Hi ' + (lead ? lead.name.split(' ')[0] : 'everyone') + ',\n\n' +
-      'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + (close ? 'That was ' + (['', 'one', 'two', 'three', 'four', 'five'][games.length] || games.length) + ' finals, and every one of them was close: your drive team did not give us one mistake to work with.' : 'Two finals, and we never found a way back into either of them. Your drive team did not give us one mistake to work with.') + '\n\n' +
+      'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + story + '\n\n' +
       'Well done this year. ' + (el ? 'We have been on that stage before and we will be on it again, so enjoy the banner while it is the newest one in the building.' : 'We will be back, a little faster and a lot more stubborn.') + ' We\'ll see if you can be as lucky next year.\n\n' +
       'Our students asked me to say one more thing: your pit crew lent us a spare on Friday, and they have not stopped talking about it.\n\n' +
       'See you next April,\n' + name + '\nLead mentor, Team ' + cap + ' ' + T.name;
@@ -448,7 +467,7 @@
         g.paid = bonus;
         C.earn(S, bonus, 'Bonus: ' + sp.name + ' — ' + C.goalText(S, D.GOALS[g.id].text));
         sp.sat = Math.min(100, sp.sat + 10);
-        C.inbox(S, 'Sponsor bonus: ' + U.money(bonus), sp.name + ' is thrilled: "' + C.goalText(S, D.GOALS[g.id].text) + '" achieved.', 'money');
+        C.letter(S, sp.name, 'Sponsor bonus: ' + U.money(bonus), 'Everyone here has been following your season, and we are thrilled: "' + C.goalText(S, D.GOALS[g.id].text) + '", done. As promised, a bonus of ' + U.money(bonus) + ' is on its way.', 'Congratulations,\n' + sp.name, { note: '+' + U.money(bonus) + ' (Finance). The sponsor is happier with the partnership.' });
       }
     }));
   };
@@ -854,7 +873,7 @@
     // two robots that both run: the team picks the one that goes in the bag (the competition robot by default)
     if (G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1)) { S.bagPick = true; (S.launchQueue = S.launchQueue || []).push({ kind: 'bagPick' }); }
     if (!(S.storySeen = S.storySeen || {}).bagday) C.tellStory(S, D.STORY_BAG);
-    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and research carry on as usual.', 'dev');
+    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and research carry on as usual.', 'dev', { prio: true });
   };
 
   // Stop Build Day: put the chosen robot in the bag (it becomes the competition robot). Only on the day itself.
@@ -933,6 +952,7 @@
   C.regWarn = S => S.mode === 'career' && S.phase === 'off' && S.month >= D.MONTHS.length - 1 && !S.registered.length && !C.needReg(S);
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
+    S.turnSeq = (S.turnSeq || 0) + 1; // (3.1.2) every message stamps the turn it arrived in (m.tq): the Inbox divides this turn's from older ones
     C.autoActivities(S); // "every turn": free activity slots are filled first (they take hours too)
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     if (G.Robot.autoScrapOn(S) && !G.Robot.garageLock(S)) G.Robot.scrapOld(S); // Garage setting: old versions in storage are taken apart
@@ -1094,7 +1114,7 @@
     if (mo === 'Nov') C.inbox(S, 'Drive team tryouts', 'Pick next season\'s drive team on the Team screen.', 'staff');
     // November: last call for next season's field elements (preorders arrive with the Kit of Parts and never sell out)
     if (mo === 'Nov' && S.mode === 'career' && G.Parts.nextYear(S) != null && !G.Parts.elemPending(S, G.Parts.nextYear(S)).length) { C.inbox(S, ...C.preorderNotice(S)); (S.launchQueue = S.launchQueue || []).push({ kind: 'preorder' }); }
-    if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event');
+    if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event', { prio: true });
   }
   // the November preorder reminder (Inbox; the pop-up says the same)
   C.preorderNotice = function (S) {
@@ -1138,7 +1158,7 @@
     G.Robot.newSeason(S, S.year);
     G.Parts.kickoff(S, first);
     // spare parts are specific to each game: last season's stock is no use now
-    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev');
+    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev', { prio: true });
     S.parts.spares = 0; S.parts.spareUse = 0;
     S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.elecShake = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(S.cal ? C.champs(S).div : DIVS);
@@ -1309,7 +1329,7 @@
     return [(d ? 'District event' : 'Regional') + ' registration is open', 'Sign up for next season\'s ' + (d ? d.name + ' events' : 'regionals') + ' in the Calendar while every event still has spots. ' +
       (d ? 'Two district events cost ' + U.money(D.FEES.firstRegional) + ', a third ' + U.money(D.FEES.extraDistrict) + ' (no points).' : 'The first regional costs ' + U.money(D.FEES.firstRegional) + ', each one after it ' + U.money(D.FEES.addRegional) + '.') +
       ' After Kickoff some events fill up and late registration costs ' + U.money(D.FEES.late) + ' more; withdrawing at least a month ahead returns half the fee.\n\n' +
-      'Stronger fields (more ★) are harder to win but teach the team more: drive-team skills, know-how and strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★.', 'event'];
+      'Stronger fields (more ★) are harder to win but teach the team more: drive-team skills, know-how and strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★.', 'event', { prio: true }];
   };
   // what an event teaches, by the strength of its field (D.EVENT_EXP): takes a running event (star) or a registration entry (str)
   C.expMult = ev => (ev && (ev.kind == null || ev.kind === 'regional' || ev.kind === 'dcmp') ? 1 + D.EVENT_EXP * ((ev.star != null ? ev.star : ev.str || 3) - 3) : 1);
@@ -1493,7 +1513,7 @@
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
-          C.inbox(S, 'Invitation: the Festival of Champions', 'There were two Championships this year, so there are two champion alliances. In July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it. The organisers pay the trip for both alliances, and a champion alliance does not stay home: the event is on your calendar and cannot be skipped. Keep the robot ready.', 'event'); } }
+          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.' }); } }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
       if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
@@ -1889,7 +1909,7 @@
     S.pendingEinstein = true;
     S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
     const W = S.season.wfaCmp.winner;
-    C.inbox(S, 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee has asked ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals. Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', 'event');
+    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true });
   };
   C.wfaCele = function (S) {
     const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
@@ -2309,12 +2329,12 @@
     }
     S.season.board = b;
     if (!b.space && !b.reno && !b.grant && !b.cash) return;
-    C.inbox(S, 'From the school board: your workshop', 'The board reviewed the robotics program this week (Program Support ' + Math.round(S.support) + ', ' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season).\n\n' +
+    C.letter(S, board(S), 'From the school board: your workshop', 'The board reviewed the robotics program at this week\'s meeting, and we are glad to share what we decided.\n\n' +
       (b.space ? '• More room: the team moves into ' + b.space.name + '. Your workshop grows from ' + b.space.from.toLocaleString('en-US') + ' to ' + b.space.to.toLocaleString('en-US') + ' sq ft.\n' : '') +
       (b.reno ? '• Maintenance: the district\'s facilities crew will bring ' + (b.reno === 1 ? 'your worn facility' : 'all ' + b.reno + ' of your worn facilities') + ' back to full condition over the summer, at no cost to the team.\n' : '') +
       (b.grant ? '• Equipment grant: the board will pay for one facility upgrade of your choice, up to ' + U.money(D.BOARD.cap) + '. Use it in the Workshop whenever you like.\n' : '') +
       (b.cash ? '• Grant: there is nothing in the workshop the board could upgrade, so it sends ' + U.money(b.cash) + ' in cash instead, for the program to spend as it sees fit.\n' : '') +
-      '\nKeep it up. Room is never taken back, but the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.', 'shop');
+      '\nKeep it up. The students have earned it.', 'With thanks,\n' + board(S), { note: 'Program Support ' + Math.round(S.support) + ' (' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season). Room is never taken back; the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.' });
   }
   // Rare: a very satisfied sponsor donates equipment, one facility level of a kind that fits what they do, if the workshop has room
   C.rollDonation = function (S) {
@@ -2330,7 +2350,8 @@
       S.season.donated = true; sp.sat = Math.min(100, sp.sat + 2);
       const L = { kind: 'donation', sponsor: sp.name, type: sp.typeName, id, name: it.name, level: it.levels[l0].name, lvl: l0 + 1, value, sqft: Sh.sizeOf(id, l0 + 1) - Sh.sizeOf(id, l0), month: C.dateLabel(S),
         intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name)]) };
-      C.inbox(S, 'Donation from ' + sp.name + ': ' + L.level, L.intro + '\n\n' + sp.name + ' (' + sp.typeName + ') donated a ' + L.level + ' to the team: ' + it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '.\n\nSponsors do this when they are happy with the partnership and the workshop has the room: the higher their satisfaction above ' + DN.sat + ', the likelier. Keep every sponsor slot filled and never skip their activities, and it averages about one donation a year.', 'money');
+      C.letter(S, sp.name + ' (' + sp.typeName + ')', 'Donation from ' + sp.name + ': ' + L.level, 'We are proud to sponsor your team, and we would like to do a little more: please accept a ' + L.level + ' for your workshop. Our people have seen what your students do with what they have. We think they will do even more with this.\n\nIt should arrive this week. Send us a picture when it is running.', 'With best wishes,\n' + sp.name,
+        { note: it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '. Sponsors donate when they are happy with the partnership and the workshop has room: about one a year with every slot filled and no activity skipped.' });
       (S.launchQueue = S.launchQueue || []).push(L);
       return L;
     }
@@ -2379,9 +2400,9 @@
       S.rep = U.clamp(S.rep - pen.rep, 0, 100);
       s.debt = debt; s.debtPen = pen;
       S.money = 0; S.ledger.unshift({ d: C.dateLabel(S), desc: 'School board covered the season\'s debt', amt: debt, px: C.px(S) });
-      C.inbox(S, 'From the school board: about the overdraft', 'The district has covered this season\'s ' + U.money(debt) + ' overdraft so the team can keep operating, and your balance is back to $0. ' +
-        'The board has noted it in your program review (program support −' + pen.support + ') and word has got around (reputation −' + pen.rep + '). ' + (pen.mult > 1 ? 'This is not the first time, so the board is less forgiving (penalties ×' + pen.mult.toFixed(1) + '). Another overdraft next season will cost even more. ' : 'If it happens again next season, the penalties grow. ') +
-        (debt > 20000 ? 'Please present a realistic budget before next season.' : 'A strong season goes a long way with the board — results like yours make this easier to defend.'), 'money');
+      C.letter(S, board(S) + ' (district finance office)', 'From the school board: about the overdraft', 'The district has covered this season\'s ' + U.money(debt) + ' overdraft so the team can keep operating, and your balance is back to $0.\n\n' +
+        'The board has noted it in the program review, and I am afraid word has got around. ' + (pen.mult > 1 ? 'This is not the first time, so the board is less forgiving this year. Another overdraft next season will cost the program even more. ' : 'If it happens again next season, the board will take a firmer line. ') +
+        (debt > 20000 ? 'Please present a realistic budget before next season.' : 'A strong season goes a long way with the board, and results like yours make this easier to defend.'), 'Regards,\nThe District Finance Office', { note: 'Program support −' + pen.support + ', reputation −' + pen.rep + (pen.mult > 1 ? ' (penalties ×' + pen.mult.toFixed(1) + ' for a repeat overdraft)' : '') + '.' });
     }
     S.legacy += s.legacy;
     { const hr = G.Shop.fx(S, 'honors', 'rep'); if (hr > 0) S.rep = U.clamp(Math.round((S.rep + hr) * 10) / 10, 0, 100); } // every visitor walks past the Honors Wall (the reputation it shows, as it says)
@@ -2439,7 +2460,7 @@
     if (S.robot && G.Robot.held(S).length) { const fit = G.Robot.installHeld(S); if (fit.length) C.inbox(S, 'The bag is open', 'The season is over and the robot is out of the bag. The parts that were still packed are on it now: ' + fit.join(', ') + '.', 'dev'); }
     if (C.pandemicDue(S)) { C.fireStories(S, 'recap'); C.startPandemic(S); return; } // 2020: the year in review, then there is no summer and no 2021 season
     C.fireStories(S, 'recap'); C.fireStories(S, 'off:0'); // the year in review, and what the summer brings
-    if (S.equip.kb) C.inbox(S, 'The Knowledge Base needs its yearly update', 'The rules have changed and the students who wrote half the wiki have graduated. A short project in the Design Office (' + D.KB_UPKEEP_HOURS + ' hours) brings the wiki and the CAD library up to date for the coming season. Left as it is, it will not slow the loss of know-how at the end of next season.', 'know');
+    if (S.equip.kb) C.inbox(S, 'The Knowledge Base needs its yearly update', 'The rules have changed and the students who wrote half the wiki have graduated. A short project in the Design Office (' + D.KB_UPKEEP_HOURS + ' hours) brings the wiki and the CAD library up to date for the coming season. Left as it is, it will not slow the loss of know-how at the end of next season.', 'know', { prio: true });
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
     G.Parts.teaser(S);
@@ -2543,9 +2564,10 @@
   // Facilities are bought/upgraded through G.Shop (parts and game elements: G.Parts).
   C.buyEquip = (S, id, opts) => G.Shop.upgrade(S, id, opts);
   C.buyBatteries = (S, n) => G.Shop.buyBatteries(S, n);
-  // Spare parts cost more when bought at an event (rush delivery to the pits).
+  // Spare parts cost more when bought at an event (rush delivery to the pits); a print farm prints many of them in the pit
+  C.spareEventMult = S => (G.Shop.lvl(S, 'printer') >= 4 ? D.SPARES_EVENT_PRINT : D.SPARES_EVENT_MULT);
   C.spareUnitPrice = function (S, atEvent) {
-    return Math.round(D.SPARES_COST * (atEvent ? D.SPARES_EVENT_MULT : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
+    return Math.round(D.SPARES_COST * (atEvent ? C.spareEventMult(S) : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
   };
   // Auto-restock: buy up to n spares at shop prices. Before events it may use the in-season overdraft like any purchase;
   // the weekly top-up only spends cash on hand. Returns { bought, short }.
@@ -2676,7 +2698,7 @@
     S.stemFund = { key, n: (S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0) + 1 };
     C.earn(S, f.amt, 'STEM support fund');
     S.rep = Math.max(0, S.rep - f.rep);
-    C.inbox(S, 'STEM support fund approved', U.money(f.amt) + ' has been granted to keep the team running. Word gets around that the team needed a bailout (reputation −' + f.rep + ').', 'money');
+    C.letter(S, 'The district STEM support fund', 'STEM support fund approved', 'Your application has been approved: ' + U.money(f.amt) + ' to keep the team running this season. We know how hard it is to run a program like yours, and we are glad to help.', 'Best of luck,\nThe STEM support fund committee', { note: 'Word gets around that the team needed a bailout: reputation −' + f.rep + '.' });
     return null;
   };
 })();

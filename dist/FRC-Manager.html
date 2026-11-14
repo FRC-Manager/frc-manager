@@ -597,6 +597,13 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 .msg .mb.mailbody { color: var(--text, inherit); font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 4px 2px; }
 .msg .revpic { max-width: 480px; }
 .msg .revpic canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+/* 3.1.2: this turn's messages and older ones, high priority, a letter's note */
+.inbox-div { display: flex; align-items: center; gap: 10px; margin: 14px 2px 10px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.inbox-div::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.inbox-div.top { margin-top: 2px; color: var(--accent); }
+.msg.prio { border-color: rgba(229, 72, 77, 0.55); }
+.tag.prio-tag { font-weight: 700; }
+.msg .msgnote { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(127, 127, 127, 0.08); white-space: normal; }
 
 </style>
 </head>
@@ -671,7 +678,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.1.1';
+  G.VERSION = '3.1.2';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -1592,6 +1599,7 @@ window.G = window.G || {};
   // Parts, vendors and game elements live in js/data/parts.js
   D.BATTERY_COST = 150; D.SPARES_COST = 120; // per spare unit
   D.SPARES_EVENT_MULT = 2;    // spare parts bought at an event cost double
+  D.SPARES_EVENT_PRINT = 1.15; // with a print farm (Prototyping Lab level 4) the pit prints many of them: a little more than at home
   D.SPARE_COND_PER_UNIT = 30; // condition points one spare part restores
 
   // ---------- Workshop facilities ----------
@@ -1600,8 +1608,8 @@ window.G = window.G || {};
   // fx values are per level. wear = condition lost per in-season week / offseason month / event attended.
   D.EQUIP = [
     { id: 'printer', name: 'Prototyping Lab', upkeep: 250, wear: { season: 2.5, off: 1.2, event: 0 },
-      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm + laser cutter', cost: 4500 }, { name: 'Industrial printer + laser cutter', cost: 10000 }],
-      fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: '3D printers, and from level 2 a laser cutter for plates and gussets: faster prototypes and custom parts, fewer hours on hardware projects.' },
+      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Printer bench + laser cutter', cost: 4500 }, { name: 'Industrial printer + laser cutter', cost: 10000 }, { name: 'Print farm + laser cutter', cost: 7500, from: 2023, fromMonth: 4 }],
+      fx: { hours: [0.08, 0.15, 0.2, 0.25], slot: [0, 1, 1, 1] }, desc: '3D printers, and from level 2 a laser cutter for plates and gussets: faster prototypes and custom parts, fewer hours on hardware projects. The print farm (from the autumn of 2022) is a shelf of fast desktop printers that print carbon-fiber parts overnight, and in the pit between matches.' },
     { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 1.2, event: 0 },
       levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC mill and CNC lathe', cost: 20000 }],
       fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Computer-controlled machines (a router, then a CNC mill and a CNC lathe): precise parts, fewer hardware hours, stronger upgrades, more reliable new builds.' },
@@ -1656,7 +1664,7 @@ window.G = window.G || {};
   // Floor space per facility level in square feet: rough real-world footprints including working room. The trailer parks outside.
   // the Workshop's second tab: the facilities that serve the team and the program rather than the robot
   D.EQUIP_TEAM = ['meeting', 'lounge', 'honors', 'ftc', 'trailer'];
-  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], shelf: [40, 80, 120], laptops: [80, 140, 200, 220], cad: [60, 120, 180], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
+  D.EQUIP_SIZE = { printer: [40, 100, 180, 200], cnc: [160, 280], lathe: [150, 240], shelf: [40, 80, 120], laptops: [80, 140, 200, 220], cad: [60, 120, 180], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
     pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], lounge: [80, 150, 250], honors: [20, 40], ftc: [300, 500, 720] };
   // The biggest room holds every facility at its top level
   D.SPACE_MAX = Math.ceil(D.EQUIP.reduce((s, e) => s + (D.EQUIP_SIZE[e.id] || [0])[(D.EQUIP_SIZE[e.id] || [0]).length - 1], 0) / 100) * 100;
@@ -2419,6 +2427,12 @@ window.G = window.G || {};
         'From this season, at the start of Build Week 2, Apex will publish the Apex Blueprint: a complete competitive robot on swerve for that year\'s game, with every drawing and every part listed, build videos, practice drills and a simulator model for the drivers. "Buy the parts from whoever you like," said the founder at the announcement. "We just want better robots on the field."'],
       means: ['From the 2022 season the Apex Blueprint comes out at the start of Build Week 2, next to the Anybot (Design Office). Design your own from Kickoff, or wait a week for it.', 'Copying saves on the first build only: a third fewer hours, 10% less material, no first-build penalty, a version 2 to start with, more reliable (+4), and drivers at 55% familiarity (from the simulator model; less if you copy only part of it). Upgrades after that are your own work.', 'It drives on swerve: the whole robot takes 4 swerve modules (Inventory, Control system tab), plus motors and encoders for each subsystem. A subsystem the shelf can\'t cover waits until you buy its parts.', 'Any vendor\'s parts fit. Copying teaches half the know-how of designing it yourself.'],
       talk: [['Apex gave away a robot. I have read the license twice. It really is free.', 'a forum regular'], ['Half our division will have the same intake. At least we will know how to fix each other\'s.', 'a pit crew lead on Team {t}'], ['The Blueprint is where you start. It is not where you stop.', 'a design mentor']] },
+    // September 2022: fast premium desktop printers that print carbon-fiber parts (a fictional maker) reach the shops
+    { id: 'printfarm', cy: 2023, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'Printers that do not wait', btn: 'workshop',
+      body: ['Last January a young company called Corvane Labs started shipping the CX1 Carbon: a desktop 3D printer in a closed box that prints four or five times faster than anything a team owned, switches materials by itself, and prints nylon filled with chopped carbon fiber, strong enough for real robot parts. It costs about as much as a good laptop.',
+        'One season later the shops of the top teams have changed. A shelf of CX1s runs all night: gussets, swerve covers, intake rollers, bumper brackets, camera mounts. A part that used to wait a week for the machine shop is on the robot the next morning, and the best teams bring printers to events and print replacements in the pit between matches.'],
+      means: ['A fourth Prototyping Lab level is on sale in the Workshop: the print farm (a shelf of fast desktop printers and a laser cutter).', 'The print farm takes fewer hours on hardware projects, gives a second Finish now card a season for hardware projects, and spare parts bought at an event cost little more than at home: the team prints many of them in the pit.', 'Printing does more from now on: every Prototyping Lab level saves a little more on hardware hours. The Manual Machine Shop does a little less, because more of the parts it made are printed now: the reliability it adds to new builds is a little smaller (its cheaper spares stay).'],
+      talk: [['We printed a new intake between two qualification matches. It was better than the old one.', 'a pit crew lead on Team {t}'], ['Carbon-fiber nylon, printed overnight, on a printer that cost less than our bandsaw.', 'a design mentor'], ['The printers are louder than the robot now. Nobody minds.', 'a student on Team {t}']] },
     // the autumn of 2024: AI coding assistants reach the robot code
     { id: 'aicode', cy: 2025, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'The code writes back', btn: 'workshop',
       body: ['Over the summer the AI coding assistants got good enough that nobody could pretend not to use them. A student describes what the intake should do when the beam break trips; the assistant writes the command, the test and a comment explaining both, and a mentor reads every line before it goes on the robot.',
@@ -8817,7 +8831,7 @@ window.G = window.G || {};
         (c.areas || []).forEach((a, i) => Robot.addXP(S, a, Math.round(30 * ef.gain * (i === 0 ? 1 : 0.4))));
         const onComp = soft || tgt === R.subs[p.sub];
         const note = soft ? '' : !tgt ? ' No robot has this mechanism right now: build a copy to use v' + des.ver + '.' : onComp ? '' : ' Fitted to ' + where(R.bots.findIndex(b => b.subs[p.sub] === tgt)) + '.';
-        if (S.event && S.event.stage !== 'done' && !soft && onComp) { R.pending.push(p.sub); G.Career.inbox(S, 'Upgrade ready: ' + p.name, 'Install it in the pits (practice block) to use it at this event. ' + changes.join(', '), 'dev', { plot: true }); }
+        if (S.event && S.event.stage !== 'done' && !soft && onComp) { R.pending.push(p.sub); G.Career.inbox(S, 'Upgrade ready: ' + p.name, 'Install it in the pits (practice block) to use it at this event. ' + changes.join(', '), 'dev', { plot: true, prio: true }); }
         else G.Career.inbox(S, 'Upgrade complete: ' + p.name, (changes.join(', ') || 'Already near the ceiling.') + (bagU ? ' The competition robot is in the bag: the new parts are packed and go on at your next event (Install Upgrade on practice day).' : note) + qt + pt, 'dev');
         break;
       }
@@ -9109,7 +9123,7 @@ window.G = window.G || {};
 
   // ======================= helpers =======================
   C.inbox = function (S, title, body, kind, extra) {
-    S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false }, extra || {}));
+    S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false, tq: S.turnSeq || 0 }, extra || {}));
     // The Inbox keeps D.INBOX_MAX messages (120 until 3.1.1, when a busy season pushed its own messages out). The newest
     // D.INBOX_RECENT always stay. Older than that, background messages (C.msgBg) and lapsed replies go first, then the
     // oldest of the rest, so results, emails and decisions outlast the chatter. A reply still open is never removed.
@@ -9126,19 +9140,38 @@ window.G = window.G || {};
   // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
   // (projects done, knowledge levels), team chatter and general news (m.bg). A message that names a team, shows a robot,
   // takes a reply, is marked plot or announces a product is never background. The Inbox can hide them (Hide background).
-  C.msgBg = m => !m.reply && !m.robot && !m.plot && !m.launch && !(m.teams && m.teams.length) && (!!m.bg || m.kind === 'dev' || m.kind === 'know' || m.kind === 'fun');
+  C.msgBg = m => !m.reply && !m.prio && !m.robot && !m.plot && !m.launch && !(m.teams && m.teams.length) && (!!m.bg || m.kind === 'dev' || m.kind === 'know' || m.kind === 'fun');
   // An email (3.1.1): a letter with From / To / Subject, shown in the Inbox as one
   C.mail = function (S, from, to, subject, body, extra) { C.inbox(S, subject, body, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {})); };
   const leadMentor = S => (S.mentors.length ? S.mentors.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.ten || 0) - (a.ten || 0))[0] : null);
   const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
+  C.leadMentor = leadMentor;
+  // (3.1.2) A letter from outside the team, as an email to the lead mentor: a greeting, the letter, a sign-off. What it
+  // does in the game goes in extra.note, shown under the letter, so the letter itself stays a letter.
+  C.letter = function (S, from, subject, text, sign, extra, kind) {
+    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name;
+    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {}));
+  };
+  const board = S => 'The ' + (S.team.school || 'school') + ' school board';
   // the World Champions hear from the mentor of the alliance they beat in the finals
   C.mailChampCongrats = function (S, ev) {
     const F = ev.po && ev.po.matches.find(x => x.id === 'F'); if (!F || F.loser == null) return;
     const fin = ev.alliances[F.loser] || [], cap = fin[0], T = S.teams[cap]; if (!T) return;
-    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), games = F.games.filter(g => !g.replay), lost = games.filter(g => g.winner !== (F.red === F.winner ? 'red' : 'blue')).length;
-    const close = games.length >= 3 || lost > 0, el = !!T.elite;
+    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), el = !!T.elite;
+    // the finals as they were played: every game that counted (replays aside), from the champions' side, with its score
+    const cs = F.red === F.winner ? 'red' : 'blue', fs = cs === 'red' ? 'blue' : 'red', W = ['', 'one', 'two', 'three', 'four', 'five'];
+    const gs = F.games.filter(g => !g.replay).map(g => ({ w: g[cs], l: g[fs], res: g.winner === cs ? 'won' : g.winner === fs ? 'lost' : 'tie', tb: g.tb || null }));
+    const isClose = g => Math.abs(g.w - g.l) <= Math.max(5, Math.round(0.08 * Math.max(g.w, g.l))) || !!g.tb, sc = g => g.w + '–' + g.l;
+    const won = gs.filter(g => g.res === 'won'), lost = gs.filter(g => g.res === 'lost'), ties = gs.filter(g => g.res === 'tie'), nClose = gs.filter(isClose).length, last = gs[gs.length - 1];
+    const ord = i => ['first', 'second', 'third', 'fourth', 'fifth'][i] || 'next';
+    let story;
+    if (!lost.length && !ties.length) story = nClose === gs.length ? (W[gs.length] || gs.length).replace(/^./, c => c.toUpperCase()) + ' finals, and ' + (gs.length === 2 ? 'both' : 'all of them') + ' came down to the last few points (' + gs.map(sc).join(', ') + '). Your drive team did not give us one mistake to work with.'
+      : nClose ? 'We ran you close in the ' + ord(gs.findIndex(isClose)) + ' final (' + sc(gs.find(isClose)) + '), but you pulled away in the ' + ord(gs.findIndex(g => !isClose(g))) + ' (' + sc(gs.find(g => !isClose(g))) + ').'
+      : 'Two finals (' + gs.map(sc).join(', ') + '), and we never found a way back into either of them.';
+    else story = (W[gs.length] || gs.length).replace(/^./, c => c.toUpperCase()) + ' finals. ' + (lost.length ? 'We took Final ' + (gs.indexOf(lost[0]) + 1) + ' (' + lost[0].l + '–' + lost[0].w + ' to us)' : 'Final ' + (gs.indexOf(ties[0]) + 1) + ' ended in a tie') + (lost.length && ties.length ? ' and tied Final ' + (gs.indexOf(ties[0]) + 1) : '') + ', and you won ' + (won.length === 2 ? 'the other two' : won.length + ' of them') + ' (' + won.map(sc).join(', ') + '). ' +
+      (isClose(last) ? 'The last one came down to the final seconds' + (last.tb ? ' and a tiebreaker' : '') + '. I still have not sat down.' : 'In the last one you left no doubt.');
     const body = 'Hi ' + (lead ? lead.name.split(' ')[0] : 'everyone') + ',\n\n' +
-      'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + (close ? 'That was ' + (['', 'one', 'two', 'three', 'four', 'five'][games.length] || games.length) + ' finals, and every one of them was close: your drive team did not give us one mistake to work with.' : 'Two finals, and we never found a way back into either of them. Your drive team did not give us one mistake to work with.') + '\n\n' +
+      'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + story + '\n\n' +
       'Well done this year. ' + (el ? 'We have been on that stage before and we will be on it again, so enjoy the banner while it is the newest one in the building.' : 'We will be back, a little faster and a lot more stubborn.') + ' We\'ll see if you can be as lucky next year.\n\n' +
       'Our students asked me to say one more thing: your pit crew lent us a spare on Friday, and they have not stopped talking about it.\n\n' +
       'See you next April,\n' + name + '\nLead mentor, Team ' + cap + ' ' + T.name;
@@ -9550,7 +9583,7 @@ window.G = window.G || {};
         g.paid = bonus;
         C.earn(S, bonus, 'Bonus: ' + sp.name + ' — ' + C.goalText(S, D.GOALS[g.id].text));
         sp.sat = Math.min(100, sp.sat + 10);
-        C.inbox(S, 'Sponsor bonus: ' + U.money(bonus), sp.name + ' is thrilled: "' + C.goalText(S, D.GOALS[g.id].text) + '" achieved.', 'money');
+        C.letter(S, sp.name, 'Sponsor bonus: ' + U.money(bonus), 'Everyone here has been following your season, and we are thrilled: "' + C.goalText(S, D.GOALS[g.id].text) + '", done. As promised, a bonus of ' + U.money(bonus) + ' is on its way.', 'Congratulations,\n' + sp.name, { note: '+' + U.money(bonus) + ' (Finance). The sponsor is happier with the partnership.' });
       }
     }));
   };
@@ -9956,7 +9989,7 @@ window.G = window.G || {};
     // two robots that both run: the team picks the one that goes in the bag (the competition robot by default)
     if (G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1)) { S.bagPick = true; (S.launchQueue = S.launchQueue || []).push({ kind: 'bagPick' }); }
     if (!(S.storySeen = S.storySeen || {}).bagday) C.tellStory(S, D.STORY_BAG);
-    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and research carry on as usual.', 'dev');
+    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and research carry on as usual.', 'dev', { prio: true });
   };
 
   // Stop Build Day: put the chosen robot in the bag (it becomes the competition robot). Only on the day itself.
@@ -10035,6 +10068,7 @@ window.G = window.G || {};
   C.regWarn = S => S.mode === 'career' && S.phase === 'off' && S.month >= D.MONTHS.length - 1 && !S.registered.length && !C.needReg(S);
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
+    S.turnSeq = (S.turnSeq || 0) + 1; // (3.1.2) every message stamps the turn it arrived in (m.tq): the Inbox divides this turn's from older ones
     C.autoActivities(S); // "every turn": free activity slots are filled first (they take hours too)
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     if (G.Robot.autoScrapOn(S) && !G.Robot.garageLock(S)) G.Robot.scrapOld(S); // Garage setting: old versions in storage are taken apart
@@ -10196,7 +10230,7 @@ window.G = window.G || {};
     if (mo === 'Nov') C.inbox(S, 'Drive team tryouts', 'Pick next season\'s drive team on the Team screen.', 'staff');
     // November: last call for next season's field elements (preorders arrive with the Kit of Parts and never sell out)
     if (mo === 'Nov' && S.mode === 'career' && G.Parts.nextYear(S) != null && !G.Parts.elemPending(S, G.Parts.nextYear(S)).length) { C.inbox(S, ...C.preorderNotice(S)); (S.launchQueue = S.launchQueue || []).push({ kind: 'preorder' }); }
-    if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event');
+    if (mo === 'Dec' && S.mode === 'career' && !S.registered.length) C.inbox(S, 'Kickoff is next month: register first', 'The team is not registered for any ' + C.evWord(S) + ' yet. Sign up for at least one in the Calendar this month: the season cannot start without one.', 'event', { prio: true });
   }
   // the November preorder reminder (Inbox; the pop-up says the same)
   C.preorderNotice = function (S) {
@@ -10240,7 +10274,7 @@ window.G = window.G || {};
     G.Robot.newSeason(S, S.year);
     G.Parts.kickoff(S, first);
     // spare parts are specific to each game: last season's stock is no use now
-    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev');
+    if (S.parts.spares) C.inbox(S, 'Spare parts cleared out', 'Last season\'s ' + S.parts.spares + ' spare parts don\'t fit the new game. Restock before your first event (Inventory), or turn on auto-restock.', 'dev', { prio: true });
     S.parts.spares = 0; S.parts.spareUse = 0;
     S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.elecShake = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(S.cal ? C.champs(S).div : DIVS);
@@ -10411,7 +10445,7 @@ window.G = window.G || {};
     return [(d ? 'District event' : 'Regional') + ' registration is open', 'Sign up for next season\'s ' + (d ? d.name + ' events' : 'regionals') + ' in the Calendar while every event still has spots. ' +
       (d ? 'Two district events cost ' + U.money(D.FEES.firstRegional) + ', a third ' + U.money(D.FEES.extraDistrict) + ' (no points).' : 'The first regional costs ' + U.money(D.FEES.firstRegional) + ', each one after it ' + U.money(D.FEES.addRegional) + '.') +
       ' After Kickoff some events fill up and late registration costs ' + U.money(D.FEES.late) + ' more; withdrawing at least a month ahead returns half the fee.\n\n' +
-      'Stronger fields (more ★) are harder to win but teach the team more: drive-team skills, know-how and strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★.', 'event'];
+      'Stronger fields (more ★) are harder to win but teach the team more: drive-team skills, know-how and strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★.', 'event', { prio: true }];
   };
   // what an event teaches, by the strength of its field (D.EVENT_EXP): takes a running event (star) or a registration entry (str)
   C.expMult = ev => (ev && (ev.kind == null || ev.kind === 'regional' || ev.kind === 'dcmp') ? 1 + D.EVENT_EXP * ((ev.star != null ? ev.star : ev.str || 3) - 3) : 1);
@@ -10595,7 +10629,7 @@ window.G = window.G || {};
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
-          C.inbox(S, 'Invitation: the Festival of Champions', 'There were two Championships this year, so there are two champion alliances. In July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it. The organisers pay the trip for both alliances, and a champion alliance does not stay home: the event is on your calendar and cannot be skipped. Keep the robot ready.', 'event'); } }
+          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.' }); } }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
       if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
@@ -10991,7 +11025,7 @@ window.G = window.G || {};
     S.pendingEinstein = true;
     S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
     const W = S.season.wfaCmp.winner;
-    C.inbox(S, 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee has asked ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals. Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', 'event');
+    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true });
   };
   C.wfaCele = function (S) {
     const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
@@ -11411,12 +11445,12 @@ window.G = window.G || {};
     }
     S.season.board = b;
     if (!b.space && !b.reno && !b.grant && !b.cash) return;
-    C.inbox(S, 'From the school board: your workshop', 'The board reviewed the robotics program this week (Program Support ' + Math.round(S.support) + ', ' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season).\n\n' +
+    C.letter(S, board(S), 'From the school board: your workshop', 'The board reviewed the robotics program at this week\'s meeting, and we are glad to share what we decided.\n\n' +
       (b.space ? '• More room: the team moves into ' + b.space.name + '. Your workshop grows from ' + b.space.from.toLocaleString('en-US') + ' to ' + b.space.to.toLocaleString('en-US') + ' sq ft.\n' : '') +
       (b.reno ? '• Maintenance: the district\'s facilities crew will bring ' + (b.reno === 1 ? 'your worn facility' : 'all ' + b.reno + ' of your worn facilities') + ' back to full condition over the summer, at no cost to the team.\n' : '') +
       (b.grant ? '• Equipment grant: the board will pay for one facility upgrade of your choice, up to ' + U.money(D.BOARD.cap) + '. Use it in the Workshop whenever you like.\n' : '') +
       (b.cash ? '• Grant: there is nothing in the workshop the board could upgrade, so it sends ' + U.money(b.cash) + ' in cash instead, for the program to spend as it sees fit.\n' : '') +
-      '\nKeep it up. Room is never taken back, but the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.', 'shop');
+      '\nKeep it up. The students have earned it.', 'With thanks,\n' + board(S), { note: 'Program Support ' + Math.round(S.support) + ' (' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season). Room is never taken back; the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.' });
   }
   // Rare: a very satisfied sponsor donates equipment, one facility level of a kind that fits what they do, if the workshop has room
   C.rollDonation = function (S) {
@@ -11432,7 +11466,8 @@ window.G = window.G || {};
       S.season.donated = true; sp.sat = Math.min(100, sp.sat + 2);
       const L = { kind: 'donation', sponsor: sp.name, type: sp.typeName, id, name: it.name, level: it.levels[l0].name, lvl: l0 + 1, value, sqft: Sh.sizeOf(id, l0 + 1) - Sh.sizeOf(id, l0), month: C.dateLabel(S),
         intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name)]) };
-      C.inbox(S, 'Donation from ' + sp.name + ': ' + L.level, L.intro + '\n\n' + sp.name + ' (' + sp.typeName + ') donated a ' + L.level + ' to the team: ' + it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '.\n\nSponsors do this when they are happy with the partnership and the workshop has the room: the higher their satisfaction above ' + DN.sat + ', the likelier. Keep every sponsor slot filled and never skip their activities, and it averages about one donation a year.', 'money');
+      C.letter(S, sp.name + ' (' + sp.typeName + ')', 'Donation from ' + sp.name + ': ' + L.level, 'We are proud to sponsor your team, and we would like to do a little more: please accept a ' + L.level + ' for your workshop. Our people have seen what your students do with what they have. We think they will do even more with this.\n\nIt should arrive this week. Send us a picture when it is running.', 'With best wishes,\n' + sp.name,
+        { note: it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '. Sponsors donate when they are happy with the partnership and the workshop has room: about one a year with every slot filled and no activity skipped.' });
       (S.launchQueue = S.launchQueue || []).push(L);
       return L;
     }
@@ -11481,9 +11516,9 @@ window.G = window.G || {};
       S.rep = U.clamp(S.rep - pen.rep, 0, 100);
       s.debt = debt; s.debtPen = pen;
       S.money = 0; S.ledger.unshift({ d: C.dateLabel(S), desc: 'School board covered the season\'s debt', amt: debt, px: C.px(S) });
-      C.inbox(S, 'From the school board: about the overdraft', 'The district has covered this season\'s ' + U.money(debt) + ' overdraft so the team can keep operating, and your balance is back to $0. ' +
-        'The board has noted it in your program review (program support −' + pen.support + ') and word has got around (reputation −' + pen.rep + '). ' + (pen.mult > 1 ? 'This is not the first time, so the board is less forgiving (penalties ×' + pen.mult.toFixed(1) + '). Another overdraft next season will cost even more. ' : 'If it happens again next season, the penalties grow. ') +
-        (debt > 20000 ? 'Please present a realistic budget before next season.' : 'A strong season goes a long way with the board — results like yours make this easier to defend.'), 'money');
+      C.letter(S, board(S) + ' (district finance office)', 'From the school board: about the overdraft', 'The district has covered this season\'s ' + U.money(debt) + ' overdraft so the team can keep operating, and your balance is back to $0.\n\n' +
+        'The board has noted it in the program review, and I am afraid word has got around. ' + (pen.mult > 1 ? 'This is not the first time, so the board is less forgiving this year. Another overdraft next season will cost the program even more. ' : 'If it happens again next season, the board will take a firmer line. ') +
+        (debt > 20000 ? 'Please present a realistic budget before next season.' : 'A strong season goes a long way with the board, and results like yours make this easier to defend.'), 'Regards,\nThe District Finance Office', { note: 'Program support −' + pen.support + ', reputation −' + pen.rep + (pen.mult > 1 ? ' (penalties ×' + pen.mult.toFixed(1) + ' for a repeat overdraft)' : '') + '.' });
     }
     S.legacy += s.legacy;
     { const hr = G.Shop.fx(S, 'honors', 'rep'); if (hr > 0) S.rep = U.clamp(Math.round((S.rep + hr) * 10) / 10, 0, 100); } // every visitor walks past the Honors Wall (the reputation it shows, as it says)
@@ -11541,7 +11576,7 @@ window.G = window.G || {};
     if (S.robot && G.Robot.held(S).length) { const fit = G.Robot.installHeld(S); if (fit.length) C.inbox(S, 'The bag is open', 'The season is over and the robot is out of the bag. The parts that were still packed are on it now: ' + fit.join(', ') + '.', 'dev'); }
     if (C.pandemicDue(S)) { C.fireStories(S, 'recap'); C.startPandemic(S); return; } // 2020: the year in review, then there is no summer and no 2021 season
     C.fireStories(S, 'recap'); C.fireStories(S, 'off:0'); // the year in review, and what the summer brings
-    if (S.equip.kb) C.inbox(S, 'The Knowledge Base needs its yearly update', 'The rules have changed and the students who wrote half the wiki have graduated. A short project in the Design Office (' + D.KB_UPKEEP_HOURS + ' hours) brings the wiki and the CAD library up to date for the coming season. Left as it is, it will not slow the loss of know-how at the end of next season.', 'know');
+    if (S.equip.kb) C.inbox(S, 'The Knowledge Base needs its yearly update', 'The rules have changed and the students who wrote half the wiki have graduated. A short project in the Design Office (' + D.KB_UPKEEP_HOURS + ' hours) brings the wiki and the CAD library up to date for the coming season. Left as it is, it will not slow the loss of know-how at the end of next season.', 'know', { prio: true });
     C.inbox(S, 'Offseason begins', 'Use the summer and fall to research new mechanisms, attend offseason events with last season\'s robot, recruit, and line up sponsors. Research matters more than it used to: rule changes and new designs date part of what you know every offseason. Stock up on parts before Kickoff: in season they often sell out. The next game is revealed at Kickoff in January.', 'info');
     G.Parts.rollStock(S);
     G.Parts.teaser(S);
@@ -11645,9 +11680,10 @@ window.G = window.G || {};
   // Facilities are bought/upgraded through G.Shop (parts and game elements: G.Parts).
   C.buyEquip = (S, id, opts) => G.Shop.upgrade(S, id, opts);
   C.buyBatteries = (S, n) => G.Shop.buyBatteries(S, n);
-  // Spare parts cost more when bought at an event (rush delivery to the pits).
+  // Spare parts cost more when bought at an event (rush delivery to the pits); a print farm prints many of them in the pit
+  C.spareEventMult = S => (G.Shop.lvl(S, 'printer') >= 4 ? D.SPARES_EVENT_PRINT : D.SPARES_EVENT_MULT);
   C.spareUnitPrice = function (S, atEvent) {
-    return Math.round(D.SPARES_COST * (atEvent ? D.SPARES_EVENT_MULT : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
+    return Math.round(D.SPARES_COST * (atEvent ? C.spareEventMult(S) : 1) * G.Shop.spareMult(S) * (C.hasPerk(S, 'partsDiscount') ? 0.85 : 1));
   };
   // Auto-restock: buy up to n spares at shop prices. Before events it may use the in-season overdraft like any purchase;
   // the weekly top-up only spends cash on hand. Returns { bought, short }.
@@ -11778,7 +11814,7 @@ window.G = window.G || {};
     S.stemFund = { key, n: (S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0) + 1 };
     C.earn(S, f.amt, 'STEM support fund');
     S.rep = Math.max(0, S.rep - f.rep);
-    C.inbox(S, 'STEM support fund approved', U.money(f.amt) + ' has been granted to keep the team running. Word gets around that the team needed a bailout (reputation −' + f.rep + ').', 'money');
+    C.letter(S, 'The district STEM support fund', 'STEM support fund approved', 'Your application has been approved: ' + U.money(f.amt) + ' to keep the team running this season. We know how hard it is to run a program like yours, and we are glad to help.', 'Best of luck,\nThe STEM support fund committee', { note: 'Word gets around that the team needed a bailout: reputation −' + f.rep + '.' });
     return null;
   };
 })();
@@ -11803,8 +11839,14 @@ window.G = window.G || {};
   Shop.fx = function (S, id, key, lvl, eff) {
     const it = Shop.item(id), l = lvl == null ? Shop.lvl(S, id) : lvl;
     if (!l || !it.fx[key]) return 0;
-    return it.fx[key][l - 1] * (eff == null ? Shop.eff(S, id) : eff);
+    return it.fx[key][l - 1] * (eff == null ? Shop.eff(S, id) : eff) * Shop.eraFx(S, id, key);
   };
+  // (3.1.2) From September 2022 (the fast desktop printers, story 'printfarm') printing does more and machining a little
+  // less: every Prototyping Lab level saves 15% more hardware hours, and the reliability the Manual Machine Shop adds to
+  // new builds is 15% smaller, because more of the parts it made are printed now (its cheaper spares stay as they were).
+  Shop.ERA_FX = [{ id: 'printer', key: 'hours', k: 1.15 }, { id: 'lathe', key: 'rel', k: 0.85 }];
+  Shop.printEra = S => { if (!S) return false; if (!S.cal) return (S.year || 0) >= 2023; const cy = G.Parts.buyCy(S); return cy > 2023 || (cy === 2023 && !(S.phase === 'off' && S.month < 4)); };
+  Shop.eraFx = (S, id, key) => { const e = Shop.ERA_FX.find(x => x.id === id && x.key === key); return e && Shop.printEra(S) ? e.k : 1; };
   // Aggregate effects used by the rest of the game
   Shop.hwHoursMult = S => (1 - Shop.fx(S, 'printer', 'hours')) * (1 - Shop.fx(S, 'cnc', 'hours'));
   Shop.swHoursMult = S => 1 - Shop.fx(S, 'laptops', 'soft');
@@ -11875,8 +11917,9 @@ window.G = window.G || {};
   Shop.superPit = S => Shop.lvl(S, 'pitcart') >= 3;
   // "Finish now" cards: a top-level CNC Machining, Prototyping Lab and Manual Machine Shop each give one a season for a
   // hardware project at least half done; the Programming Station gives one for a software project from its third level
-  // and two from its fourth (the AI coding lab). No cost, no penalty. at: the levels that each give a card.
-  Shop.FINISH = [{ id: 'cnc', kind: 'fab', at: [2] }, { id: 'printer', kind: 'fab', at: [3] }, { id: 'lathe', kind: 'fab', at: [2] }, { id: 'laptops', kind: 'soft', at: [3, 4] }];
+  // and two from its fourth (the AI coding lab); the Prototyping Lab's fourth level (the print farm) gives a second one.
+  // No cost, no penalty. at: the levels that each give a card.
+  Shop.FINISH = [{ id: 'cnc', kind: 'fab', at: [2] }, { id: 'printer', kind: 'fab', at: [3, 4] }, { id: 'lathe', kind: 'fab', at: [2] }, { id: 'laptops', kind: 'soft', at: [3, 4] }];
   Shop.finishOf = (S, f) => f.at.filter(l => Shop.lvl(S, f.id) >= l).length; // cards a facility gives this season
   Shop.finishCards = function (S) {
     if (!S.finish || S.finish.si !== S.si) S.finish = { si: S.si, used: [] };
@@ -12012,7 +12055,7 @@ window.G = window.G || {};
     if (opts && opts.grant) {
       if (!(S.schoolGrant > 0)) return 'No school grant left';
       if (cost > D.BOARD.cap) return 'The school grant covers upgrades up to ' + U.money(D.BOARD.cap);
-      S.schoolGrant--; G.Career.inbox(S, 'School grant used: ' + it.levels[f.lvl].name, 'The school board paid for your new ' + it.levels[f.lvl].name + ' (' + U.money(cost) + ').', 'shop');
+      S.schoolGrant--; G.Career.letter(S, 'The ' + (S.team.school || 'school') + ' school board', 'School grant used: ' + it.levels[f.lvl].name, 'As promised, the board has paid for your new ' + it.levels[f.lvl].name + ' (' + U.money(cost) + '). We look forward to seeing it at the next open house.', 'With thanks,\nThe ' + (S.team.school || 'school') + ' school board');
     } else if (!(opts && opts.gift)) {
       const e = G.Career.afford(S, cost); if (e) return e;
       G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
@@ -12075,16 +12118,16 @@ window.G = window.G || {};
     if (e.wornUpkeep) { // the Parts Shelf: wear costs upkeep, not capacity
       const lvl = f.cond < 35 ? 2 : f.cond < 60 ? 1 : 0;
       { const p = Shop.shelfPay(S); if (p && p.pays && !f.payWarn) { f.payWarn = 1; (S.launchQueue = S.launchQueue || []).push({ kind: 'shelfPay' });
-        G.Career.inbox(S, 'Renovating the parts shelf pays off now', 'Its wear adds ' + U.money(p.extra) + ' to the upkeep at every Kickoff, and more as it wears further. Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is ' + U.money(p.save) + '; a renovation costs ' + U.money(p.reno) + ' today (Workshop).', 'shop'); } }
-      if (lvl > f.warned) { f.warned = lvl; G.Career.inbox(S, 'The parts shelf ' + (lvl > 1 ? 'is in bad shape' : 'needs attention'), 'Your ' + nm.toLowerCase() + ': condition is down to ' + Math.round(f.cond) + '%. Cracked bins and missing labels cost money to keep up with: its upkeep at Kickoff is now ' + U.money(Shop.upkeepOf(S, e)) + ' (' + U.money(e.upkeep * f.lvl) + ' in full condition). It still holds as many parts. A renovation costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop'); }
+        G.Career.inbox(S, 'Renovating the parts shelf pays off now', 'Its wear adds ' + U.money(p.extra) + ' to the upkeep at every Kickoff, and more as it wears further. Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is ' + U.money(p.save) + '; a renovation costs ' + U.money(p.reno) + ' today (Workshop).', 'shop', { prio: true }); } }
+      if (lvl > f.warned) { f.warned = lvl; G.Career.inbox(S, 'The parts shelf ' + (lvl > 1 ? 'is in bad shape' : 'needs attention'), 'Your ' + nm.toLowerCase() + ': condition is down to ' + Math.round(f.cond) + '%. Cracked bins and missing labels cost money to keep up with: its upkeep at Kickoff is now ' + U.money(Shop.upkeepOf(S, e)) + ' (' + U.money(e.upkeep * f.lvl) + ' in full condition). It still holds as many parts. A renovation costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop', { prio: true }); }
       return;
     }
     if (f.cond < 35 && f.warned < 2) {
       f.warned = 2;
-      G.Career.inbox(S, nm + ' is in bad shape', 'Condition is down to ' + Math.round(f.cond) + '%, so it now works at only ' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency. Students have started calling it "vintage". Renovate it in the Workshop for ' + U.money(Shop.renoCost(S, e.id)) + '.', 'shop');
+      G.Career.inbox(S, nm + ' is in bad shape', 'Condition is down to ' + Math.round(f.cond) + '%, so it now works at only ' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency. Students have started calling it "vintage". Renovate it in the Workshop for ' + U.money(Shop.renoCost(S, e.id)) + '.', 'shop', { prio: true });
     } else if (f.cond < 60 && f.warned < 1) {
       f.warned = 1;
-      G.Career.inbox(S, nm + ' needs attention', 'Condition has dropped to ' + Math.round(f.cond) + '% (' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency). A renovation now costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop');
+      G.Career.inbox(S, nm + ' needs attention', 'Condition has dropped to ' + Math.round(f.cond) + '% (' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency). A renovation now costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop', { prio: true });
     }
   }
   // kind: 'season' (per in-season week), 'off' (per offseason month), 'event' (per event attended)
@@ -12146,6 +12189,9 @@ window.G = window.G || {};
   // =====================================================================
   const own = id => S => Shop.lvl(S, id) > 0;
   const lvlOf = (S, id) => Math.max(1, Shop.lvl(S, id));
+  // the AI era (September 2024, by the calendar): every team leans on AI coding assistants
+  const aiEra = S => { if (!S.cal) return (S.year || 0) >= 2025; const cy = G.Parts.buyCy(S); return cy > 2025 || (cy === 2025 && !(S.phase === 'off' && S.month < 4)); };
+  Shop.aiEra = aiEra;
   const pickMentor = S => (S.mentors.length ? G.R.pick(S.mentors).name : 'Your lead mentor');
   const ALL = m => ({ fab: m, soft: m, research: m });
   Shop.INCIDENTS = [
@@ -12181,6 +12227,16 @@ window.G = window.G || {};
       opts: [
         { label: 'Roll back by hand', desc: 'Software −70% this week', mods: { soft: 0.3 } },
         { label: 'Pay IT to reimage them tonight', cost: () => 400, desc: 'Software −15% this week', mods: { soft: 0.85 } }
+      ] },
+    // (3.1.2) from September 2024 every team leans on AI coding assistants, with an AI coding lab or without one
+    { id: 'ai_outage', w: 3, req: S => aiEra(S), title: 'The AI coding assistant is down',
+      body: S => 'The AI coding assistant everyone uses went down this morning. The status page says "investigating"; the forums say the whole world is trying to write robot code at once. ' + (Shop.lvl(S, 'laptops') >= 4 ? 'Your AI coding lab is built around it, and the programmers are staring at empty editors.' : 'Your programmers had come to lean on it more than they would admit.'),
+      opts: [
+        { label: 'Give it an hour, it will be back', desc: '50% chance it is back by lunch (no loss); otherwise Software −70% this week',
+          risk: { p: 0.5, mods: { soft: 0.3 }, hit: 'It was not back by lunch, or by dinner. The status page still says "investigating".', miss: 'It came back before lunch. The programmers pretended they had been writing by hand the whole time.' } },
+        { label: 'Write it by hand until it is back', desc: 'Software −45% this week', mods: { soft: 0.55 } },
+        { label: 'Pay for a backup AI service this week', cost: S => 300 + 150 * Math.max(0, Shop.lvl(S, 'laptops') - 2), desc: 'Software −10% this week', mods: { soft: 0.9 } },
+        { label: 'Send the programmers to help the build crew', desc: 'Software −85%, Fabrication +15% this week', mods: { soft: 0.15, fab: 1.15 } }
       ] },
     { id: 'cad_licence', w: 2, req: own('cad'), title: 'The CAD licences ran out',
       body: () => 'Every CAD seat logged itself out on Monday: the school forgot to renew the licences. The design team is drawing on whiteboards.',
@@ -12270,7 +12326,8 @@ window.G = window.G || {};
     if (inc.opts) {
       S.incident = { id: inc.id, title: inc.title, body, opts: inc.opts.map(o => ({ label: o.label, desc: o.desc, cost: Shop.optCost(S, o) })) };
       if (inc.dmg) Object.keys(inc.dmg).forEach(k => Shop.damage(S, k, inc.dmg[k]));
-      G.Career.inbox(S, 'Shop incident: ' + inc.title, body + '\n\nA decision is needed before you continue.', 'incident');
+      G.Career.inbox(S, 'Shop incident: ' + inc.title, body + '\n\nA decision is needed before you continue.', 'incident', { prio: true });
+      if (inc.id === 'ai_outage') S.aiOutage = S.turnSeq || 0; // for the chatter afterwards
       return;
     }
     addMods(S, inc.mods, inc.title);
@@ -13201,7 +13258,7 @@ window.G = window.G || {};
     else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
     else { (S.vendSale = S.vendSale || {})[O.slot] = { pct: O.sale, up: S.upcoming }; text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
     (S.loyalLog = S.loyalLog || []).push({ slot: O.slot, brand: O.brand, lvl: O.lvl, pick, cy: P.buyCy(S) });
-    G.Career.inbox(S, 'Loyalty sponsorship: ' + V.name, text, 'money');
+    G.Career.letter(S, V.name + ' (team partnerships)', 'Loyalty sponsorship: ' + V.name, 'Thank you for building with ' + V.short + ' parts year after year. ' + text, 'See you at Kickoff,\nThe ' + V.name + ' partnerships team');
     S.loyalOffer = null;
     return null;
   };
@@ -13322,7 +13379,7 @@ window.G = window.G || {};
       const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
         '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
         '\n\nOn sale now in the Inventory tab.' + (olds.length ? ' ' + olds.join(' and ') + (olds.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (olds.length > 1 ? 'they are' : 'it is') + ' discontinued.' : '') + ' Parts you own keep working.';
-      G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
+      G.Career.inbox(S, L.title, text, 'dev', { launch: L.id, prio: true });
       (S.launchQueue = S.launchQueue || []).push(L);
     });
   };
@@ -13332,7 +13389,7 @@ window.G = window.G || {};
     if (!rs.length) return;
     const lines = ['A', 'B'].map(v => { const x = rs.filter(r => r.v === v && !(S.cal && PROD[ladId(r.cat, v, r.n)].quiet)); return x.length ? D.VENDORS[S.cal ? P.brand(PROD[ladId(x[0].cat, v, x[0].n)]) : v].name + ': launch event in ' + D.MONTHS[x[0].mo] + '. The rumor is new ' + x.map(r => CAT_WORD[r.cat]).join(' and ') + '.' : null; }).filter(Boolean);
     if (!lines.length) return;
-    G.Career.inbox(S, 'Vendor launch season', 'The control system vendors launch new products in the fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev');
+    G.Career.inbox(S, 'Vendor launch season', 'The control system vendors launch new products in the fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev', { plot: true, prio: true });
   };
   P.announce = P.teaser; // older callers
 
@@ -13500,6 +13557,10 @@ window.G = window.G || {};
   let named = [];
   const tn = t => { if (t && t.num) named.push(t.num); return t.num + ' ' + t.name; };
   const away = mi => (mi < 12 ? 'across town' : 'about ' + Math.max(15, Math.round(mi / 5) * 5) + ' miles away');
+  // (3.1.2) a request from outside the team as an email to the lead mentor: hi() opens it, asMail() adds the header to
+  // a NEWS item's extra (its reply stays) and an optional note on what it means in the game
+  const hi = S => { const l = G.Career.leadMentor(S); return 'Hi ' + (l ? first(l.name) : 'there') + ',\n\n'; };
+  const asMail = (S, from, subject, extra, note) => { const l = G.Career.leadMentor(S); return Object.assign(extra || {}, { mail: { from, to: (l ? l.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name, subject } }, note ? { note } : {}); };
   const near = (S, ok, mi) => G.Geo.localTeam(S, ok, mi) || { t: rivalT(S), mi: 0 };
   // your regional or district event this week, in competition season only (null in any other week)
   const evNow = S => { const e = S.phase === 'comp' ? G.Career.eventThisTurn(S) : null; return e && e.def && (e.def.kind === 'regional' || e.def.kind === 'dcmp') ? e.def : null; };
@@ -13689,17 +13750,18 @@ window.G = window.G || {};
     { id: 'repUp', w: 3, cd: 10, req: S => S.rep >= 70, run: S => ['People know your name', 'At the last outreach event, three people recognized the team shirt before you said anything. Your reputation is opening doors: expect more invitations.'] },
     { id: 'repLow', w: 2, cd: 12, req: S => S.rep < 35, run: S => ['"Underrated teams to watch"', 'A forum thread lists 40 underrated teams. ' + teamName(S) + ' is not on it. ' + student(S) + ' has made an account to fix that.'] },
     // ---- invitations and requests (reply)
+    // (3.1.2) invitations and requests from outside the team arrive as emails (asMail); the reply buttons stay
     { id: 'scrim', w: 5, cd: 4, req: S => S.robot && S.rep >= 50 && (S.phase === 'comp' || (S.phase === 'build' && S.week >= 3) || (off(S) && ['Jun', 'Jul', 'Sep', 'Oct', 'Nov'].includes(month(S)))),
-      run: S => { const x = near(S, t => t.str >= 40, 120), t = tn(x.t); return ['Scrimmage invitation from ' + t, 'Team ' + t + ', ' + away(x.mi) + ', is hosting a weekend scrimmage on their practice field and asked for you by name' + (S.rep >= 75 ? ' ("we need someone who will actually play defense")' : '') + '. Real matches are great practice, but the robot will take some hits.', replyMsg('scrimmage', { until: turnNo(S) + 1 })]; } },
-    { id: 'rook', w: 4, cd: 6, run: S => { const cy = G.Geo.cyOf(S), nw = G.Geo.localTeam(S, t => t.ry === cy, 80), x = nw || near(S, t => t.str < 40, 80), t = tn(x.t);
-      return ['A ' + (nw ? 'rookie' : 'young') + ' team asks for help', 'Team ' + t + ', ' + away(x.mi) + ', ' + (nw ? 'is in its first season' : 'has a new lead mentor and a team of freshmen') + '. Their lead mentor emailed: "We have a kit of parts and a lot of enthusiasm. Could anyone show us how to wire this?"', replyMsg('rookie', { until: turnNo(S) + 2 })]; } },
-    { id: 'press', w: 3, cd: 8, run: S => ['Interview request', 'The ' + R().pick(['local paper', 'school news channel', 'city radio station', 'regional STEM podcast']) + ' wants to interview the team about ' + (S.phase === 'comp' ? 'your season so far' : inSeason(S) ? 'build season' : 'what a robotics team does all year') + '.', replyMsg('interview', { until: turnNo(S) + 2 })] },
+      run: S => { const x = near(S, t => t.str >= 40, 120), t = tn(x.t), who = D.personName(R()); return ['Scrimmage invitation from ' + t, hi(S) + 'We are hosting a weekend scrimmage on our practice field and we would love to have ' + S.team.num + ' there' + (S.rep >= 75 ? '. Honestly, we need someone who will actually play defense' : '') + '. Real matches are good practice for both of us.\n\nLet me know this week,\n' + who + '\nLead mentor, Team ' + t, asMail(S, who + ' (lead mentor, Team ' + t + ', ' + away(x.mi) + ')', 'Scrimmage invitation', replyMsg('scrimmage', { until: turnNo(S) + 1 }), 'Real matches are great practice, but the robot will take some hits.')]; } },
+    { id: 'rook', w: 4, cd: 6, run: S => { const cy = G.Geo.cyOf(S), nw = G.Geo.localTeam(S, t => t.ry === cy, 80), x = nw || near(S, t => t.str < 40, 80), t = tn(x.t), who = D.personName(R());
+      return ['A ' + (nw ? 'rookie' : 'young') + ' team asks for help', hi(S) + 'I am the lead mentor of Team ' + t + ', ' + (nw ? 'a rookie team' : 'and this is my first season with a team of freshmen') + ' ' + away(x.mi) + '. We have a kit of parts and a lot of enthusiasm. Could anyone from your team show us how to wire this?\n\nThank you so much,\n' + who, asMail(S, who + ' (lead mentor, Team ' + t + ')', 'Could you help us?', replyMsg('rookie', { until: turnNo(S) + 2 }))]; } },
+    { id: 'press', w: 3, cd: 8, run: S => { const o = R().pick(['the local paper', 'the school news channel', 'the city radio station', 'a regional STEM podcast']), who = D.personName(R()); return ['Interview request', hi(S) + 'I work for ' + o + ' and I would love to interview the team about ' + (S.phase === 'comp' ? 'your season so far' : inSeason(S) ? 'build season' : 'what a robotics team does all year') + '. Half an hour with a few students and a mentor would be plenty.\n\nBest,\n' + who, asMail(S, who + ' (' + o.replace(/^the |^a /, '') + ')', 'Interview request', replyMsg('interview', { until: turnNo(S) + 2 }))]; } },
     { id: 'forum', w: 3, cd: 8, req: S => S.robot && (S.phase === 'build' || S.phase === 'comp'), run: S => ['Forum thread about your robot', 'A thread titled "What is ' + S.team.num + ' building?" has ' + R().int(40, 260) + ' replies, most of them guesses from a single blurry photo. ' + (S.rep >= 60 ? 'People are paying attention.' : 'It is mostly people asking who you are.'), replyMsg('forum', { until: turnNo(S) + 2 })] },
-    { id: 'board', w: 2, cd: 10, req: S => off(S) || S.phase === 'build', run: S => ['School board meeting', 'Robotics is on the agenda at next week\'s school board meeting' + (S.support < 45 ? ', right after the budget review. The tone has been tense.' : '. The superintendent asked for "a short update, with pictures".'), replyMsg('board', { until: turnNo(S) + 1 })] },
+    { id: 'board', w: 2, cd: 10, req: S => off(S) || S.phase === 'build', run: S => ['School board meeting', hi(S) + 'Robotics is on the agenda at next week\'s school board meeting' + (S.support < 45 ? ', right after the budget review. I will be honest: the tone has been tense.' : '. The superintendent has asked for "a short update, with pictures".') + ' Could someone from the team come and speak?\n\nRegards,\nThe Superintendent\'s Office', asMail(S, 'The ' + (S.team.school || 'school') + ' school board (Superintendent\'s Office)', 'Robotics on next week\'s agenda', replyMsg('board', { until: turnNo(S) + 1 }))] },
     { id: 'borrow', w: 3, cd: 5, req: S => !!evNow(S) && (!G.World.on(S) || eventMates(S).length > 0), run: S => ['Pit request from ' + (G.World.on(S) ? tn(R().pick(eventMates(S))) : rival(S)), 'They are at the ' + evNow(S).name + ' with you this week. Their drivetrain cracked a gearbox plate in the last match and the vendor booth is sold out. They are asking around the pits for a spare.', replyMsg('borrow', { until: turnNo(S) })] },
-    { id: 'parent', w: 2, cd: 12, run: S => ['A parent wants to help', 'The parent of ' + student(S) + ' offered to help the team "with anything that does not involve a soldering iron".', replyMsg('parent', { until: turnNo(S) + 2 })] },
-    { id: 'alumni', w: 2, cd: 12, req: S => off(S) || S.phase === 'build', run: S => ['An alum checks in', 'A former team captain is home from an engineering degree and offered to stop by the shop.', replyMsg('alumni', { until: turnNo(S) + 2 })] },
-    { id: 'restock', w: 0.01, cd: 4, req: S => (S.phase === 'build' || S.phase === 'comp') && !!stockAlert(S, true), run: S => { const a = stockAlert(S); return ['Stock alert: ' + a.prod.name, a.text, replyMsg('restock', { until: turnNo(S), data: { pid: a.prod.id, n: a.n } })]; } },
+    { id: 'parent', w: 2, cd: 12, run: S => { const st = student(S), who = D.personName(R()); return ['A parent wants to help', hi(S) + st + ' talks about the team at dinner every night, and I would like to help: with anything that does not involve a soldering iron. Driving, food, spreadsheets, a truck for the trailer, you name it.\n\nThanks,\n' + who + ' (' + st + '\'s parent)', asMail(S, who + ' (parent of ' + st + ')', 'Can I help?', replyMsg('parent', { until: turnNo(S) + 2 }))]; } },
+    { id: 'alumni', w: 2, cd: 12, req: S => off(S) || S.phase === 'build', run: S => { const who = D.personName(R()); return ['An alum checks in', hi(S) + 'I am home from my engineering degree for a few weeks. Could I stop by the shop? I would love to see the robot, and I promise not to tell the freshmen how we did it in my day. Well, maybe a little.\n\nCheers,\n' + who + ' (former team captain)', asMail(S, who + ' (former team captain)', 'Stopping by?', replyMsg('alumni', { until: turnNo(S) + 2 }))]; } },
+    { id: 'restock', w: 0.01, cd: 4, req: S => (S.phase === 'build' || S.phase === 'comp') && !!stockAlert(S, true), run: S => { const a = stockAlert(S); return ['Stock alert: ' + a.prod.name, a.text, Object.assign(replyMsg('restock', { until: turnNo(S), data: { pid: a.prod.id, n: a.n } }), { prio: true })]; } },
     { id: 'spPost', w: 3, cd: 6, req: S => S.sponsors.length > 0, run: S => { const sp = R().pick(S.sponsors); return [sp.name + ' posted about you', sp.name + ' shared a photo of your team on their company page: "Proud to support ' + teamName(S) + '!" It has more likes than anything else they have posted this year.', replyMsg('sponsorPost', { until: turnNo(S) + 2, reply: { key: 'sponsorPost', opts: REPLY.sponsorPost.map(o => o.text), data: { sp: sp.id } } })]; } },
     { id: 'tired', w: 3, cd: 8, req: S => S.mentors.some(m => (m.morale || 70) < 55), run: S => { const m = S.mentors.filter(x => (x.morale || 70) < 55).sort((a, b) => a.morale - b.morale)[0]; return [m.name + ' looks tired', m.name + ' has been in the shop every night this week and fell asleep in the car park. The students noticed.', { reply: { key: 'tired', opts: REPLY.tired.map(o => o.text), data: { m: m.id } }, until: turnNo(S) + 1 }]; } },
     { id: 'pepRally', w: 2, cd: 14, req: S => S.robot && (S.phase === 'comp' || (off(S) && ['Sep', 'Oct'].includes(month(S)))), run: S => ['Pep rally invitation', 'The principal asked if the robot could appear at the ' + (S.phase === 'comp' ? 'spring' : 'homecoming') + ' pep rally.', replyMsg('showcase', { until: turnNo(S) + 1 })] },
@@ -13856,6 +13918,7 @@ window.G = window.G || {};
   const cyN = S => G.Career.cyNext(S);   // the season the offseason leads to
   // a sortable "when": 2018 is the 2018 season, 2018.5 the offseason after it (no calendar: null)
   const yr = S => (cal(S) ? (off(S) ? (cyN(S) || cyS(S) + 1) - 0.5 : cyS(S)) : null);
+  const farmEra = S => { const cy = G.Parts.buyCy(S); return !!cy && (cy > 2023 || (cy === 2023 && !(S.phase === 'off' && S.month < 4))); }; // the print farm (Sep 2022)
   const between = (S, a, b) => { const y = yr(S); return y != null && y >= a && y <= b; };
   const game = (S, y) => S.year === y && (S.phase === 'build' || S.phase === 'comp');
   const playing = (S, y) => S.year === y && S.phase === 'comp';
@@ -13887,6 +13950,8 @@ window.G = window.G || {};
     { id: 'n9buddy', w: 3, cd: 60, req: S => S.phase === 'comp' && [2018, 2019, 2020].includes(S.year) && S.week >= 3, run: S => ['Trend: carry a partner', 'A climber that lifts a second robot is heavy, late and hard to make reliable. It is also two climbs from one mechanism, and alliance captains have started asking about it before they ask about anything else.'] },
     { id: 'n9wcd', w: 3, cd: 60, req: S => between(S, 2016, 2019.5) && (S.phase === 'build' || off(S)), run: S => ['Trend: six wheels and a drop centre', 'Look under the robots on any Einstein field and you find the same thing: six wheels, the middle pair a few millimetres lower, on a pair of drive sets from one of the two vendors. A West Coast drive is fast, pushes hard and stays where the driver puts it. The kit chassis is cheaper and mecanum turns on the spot, and neither of them wins a pushing match.'] },
     { id: 'n9mec', w: 3, cd: 60, req: S => S.phase === 'comp' && G.Rules[S.year] && G.Rules[S.year].defense && (G.Rules[S.year].defense.eff || 0) >= 1.5, run: S => ['Ref corner: the mecanum robot in the corner', 'A question from the stands: why does the robot on roller wheels keep ending up against the wall? Because mecanum rollers have almost no sideways grip. It strafes beautifully when nobody touches it. When a defender leans on it, it goes where the defender is going.'] },
+    // (3.1.2) the print farm era (September 2022): fast desktop printers that print carbon-fiber parts
+    { id: 'n12farm', w: 3, cd: 60, req: S => farmEra(S) && (off(S) || S.phase === 'build'), run: S => ['Trend: the print farm', 'Walk into a top team\'s shop this season and the loudest thing in it is a shelf of fast desktop printers, running all night. Gussets, swerve covers, intake rollers and camera mounts in carbon-fiber nylon, printed while everyone sleeps. ' + (G.Shop.lvl(S, 'printer') >= 4 ? 'Ours included.' : 'The Prototyping Lab can have one too (Workshop).')] },
     { id: 'n9grid', w: 3, cd: 60, req: S => between(S, 2021.5, 2030) && (S.phase === 'build' || off(S)), run: S => ['Trend: robots out of a box', 'Half the robots in this year\'s reveal videos share the same pre-drilled tube and the same boxed mechanisms. Purists say they all look alike. The teams without a mill say they have a robot in week three for the first time, and that the difference shows in driver practice.'] },
     { id: 'n9deep', w: 3, cd: 40, req: S => off(S) && S.history.length && D.AREAS.some(a => G.Robot.know(S, a.id) >= 4), run: S => ['Forum watch: the experts\' problem', 'Somebody asked why the teams that knew the most about last year\'s way of doing things seem to struggle most when it changes. The top answer: "When you know one way perfectly, you have also learned a hundred habits that only work that way." The deepest know-how dates fastest, and no mentor can stop it.'] },
     { id: 'n9kb', w: 2, cd: 40, req: S => off(S) && S.equip.kb && !G.Career.kbCurrent(S) && !S.projects.some(p => p.type === 'kb'), run: S => ['A wiki nobody trusts', 'A freshman followed the wiki\'s wiring guide to the letter and wired last year\'s robot. The page was a season old. ' + mentor(S) + ' has added "update the wiki" to the whiteboard, under three older items that say the same thing.'] },
@@ -13997,7 +14062,10 @@ window.G = window.G || {};
     // v3.0
     { id: 'c12pit', req: S => !!(S.season && S.season.pitTrained) && S.phase === 'comp', title: 'The stopwatch', body: S => 'The pit crew times every repair now. ' + student(S) + ' swapped an intake roller in two minutes ten and has been insufferable since.' },
     { id: 'c12bump', req: S => !!(S.season && S.season.bumperStd) && inSeason(S), title: 'Click', body: S => 'The new bumpers come off with two latches and go on with a click. ' + student(S) + ' changed them from red to blue and back eleven times "to test the latches".' },
+    { id: 'c12farm', req: S => lvl(S, 'printer') >= 4, title: 'The night shift', body: S => 'The print farm ran all night: ' + R().int(18, 60) + ' parts on the bench by morning. ' + student(S) + ' has named every printer. Only one, "Gerald", is trusted with carbon fiber.' },
+    { id: 'c12pitprint', req: S => lvl(S, 'printer') >= 4 && S.phase === 'comp', title: 'Printed in the pit', body: S => 'A bracket cracked in a qualification match. The replacement came off the pit printer ' + R().int(4, 8) + ' matches later, still warm. ' + student(S) + ' wants a printer on the cart for every event now.' },
     { id: 'c12ai', req: S => lvl(S, 'laptops') >= 4, title: 'Code review', body: S => 'The assistant wrote the new intake command in a minute. ' + mentor(S) + ' spent twenty asking ' + student(S) + ' to explain every line of it. That is the rule.' },
+    { id: 'c12aiback', cd: 40, req: S => S.aiOutage != null && (S.turnSeq || 0) - S.aiOutage >= 1 && (S.turnSeq || 0) - S.aiOutage <= 4, title: 'Written by hand', body: S => student(S) + ' wrote a whole command by hand during the AI outage. It worked the first time. Nobody believes it, and ' + student2(S, '') + ' has asked to see the commit history twice.' },
     { id: 'c12cad', req: S => lvl(S, 'cad') > 0 && S.phase === 'build', title: 'The part library', body: S => student(S) + ' found last year\'s gearbox plate in the CAD library, changed one hole and sent it to be cut. It fitted first time. Nobody believes it.' },
     { id: 'c12shelf', req: S => lvl(S, 'shelf') >= 2, title: 'Bin 47', body: S => 'Every bin on the parts shelf has a label and a number. ' + student(S) + ' keeps the list, and knows without looking that the spare encoders are in bin 47.' },
     { id: 'c12lounge', req: S => lvl(S, 'lounge') > 0 && inSeason(S), title: 'The couch', body: S => 'The break room couch has a rota now. ' + student(S) + ' fell asleep on it during build week and woke up with a zip tie bracelet.' },
@@ -14115,7 +14183,7 @@ window.G = window.G || {};
     if (!res) return false;
     seen(S)[e.id] = turnNo(S);
     if (res[2] && res[2].reply) res[2].until = turnNo(S); // replies are open for this turn only (a week in season, a month in the offseason)
-    post(S, res[0], res[1], 'news', Object.assign({}, res[2] || {}, named.length ? { teams: [...new Set(named)] } : {}, bg && !named.length && !(res[2] && res[2].reply) ? { bg: true } : {}));
+    post(S, res[0], res[1], res[2] && res[2].mail ? 'mail' : 'news', Object.assign({}, res[2] || {}, named.length ? { teams: [...new Set(named)] } : {}, bg && !named.length && !(res[2] && res[2].reply) ? { bg: true } : {}));
     return true;
   }
   // Called once per turn
@@ -16747,8 +16815,8 @@ window.G = window.G || {};
   // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
   // (projects done, knowledge levels), team chatter and general news about the FRC world. A message that names a team,
   // shows a robot, takes a reply or changes something is never background. The Inbox toggle hides them (S.settings.hideBg).
-  // (S given) a general-news offer whose reply lapsed unanswered is background too
-  UI.isBg = (m, S) => G.Career.msgBg(m) || (!!S && !!m.reply && m.replied == null && m.kind === 'news' && !(m.teams && m.teams.length) && !G.News.replyOptions(S, m).length);
+  // (S given) a general-news offer or outside request whose reply lapsed unanswered is background too (even one naming a team)
+  UI.isBg = (m, S) => G.Career.msgBg(m) || (!!S && !!m.reply && m.replied == null && !m.prio && (m.kind === 'news' || m.kind === 'mail') && !G.News.replyOptions(S, m).length);
   UI.hideBg = S => !!(S.settings && S.settings.hideBg);
   UI.inboxShown = S => (UI.hideBg(S) ? S.inbox.filter(m => !UI.isBg(m, S)) : S.inbox);
   UI.A.hideBg = () => { const S = G.S; S.settings = S.settings || {}; S.settings.hideBg = !S.settings.hideBg; G.Save.write('auto'); UI.render(); };
@@ -16764,7 +16832,8 @@ window.G = window.G || {};
     const kt = m => KIND[m.kind] ? UI.tag(KIND[m.kind][0], KIND[m.kind][1]) + ' ' : '';
     // messages can carry optional replies with small effects: shown inline when the message is open, never as a popup
     let openReplies = 0;
-    const shown = UI.inboxShown(S), nBg = S.inbox.length - shown.length;
+    const shown = UI.inboxShown(S), nBg = S.inbox.length - shown.length, cur = S.turnSeq || 0;
+    let divDone = false;
     const list = shown.map(m => {
       const opts = G.News.replyOptions(S, m), open = UI.st.openMsg === m.id;
       if (opts.length) openReplies++;
@@ -16773,7 +16842,8 @@ window.G = window.G || {};
       if (open) {
         body = (m.robot && m.robot.look ? '<div class="mb revpic">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 480, 270) + '</div>' : '') + // a reveal: the robot's picture (at most 480 px wide, so it stays sharp)
           (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div><div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '') + // an email: its header
-          '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>';
+          '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>' +
+          (m.note ? '<div class="xs muted mb msgnote">' + UI.icon('info', 12) + ' ' + h(m.note) + '</div>' : ''); // what a letter means in the game
         if (m.series && UI.festSeriesBox) body += UI.festSeriesBox(m.series, m.seriesTag); // the Festival's result, as in the pop-up
         // the teams it names, on the World map (a convenience: it does not make the message one that waits for you)
         { const ts = UI.msgTeams(S, m); if (ts.length) body += '<div class="row wrap gap4 mb">' + ts.map(n => '<button class="btn sm" data-act="mapTeam" data-arg="' + n + '">' + UI.icon('map', 13) + ' ' + (ts.length > 1 ? 'Show ' + n + ' on the map' : 'Show this team on the map') + '</button>').join('') + '</div>'; }
@@ -16781,10 +16851,13 @@ window.G = window.G || {};
         else if (m.reply && m.replied == null) body += '<div class="xs muted mt">No reply was sent; the offer lapsed at the end of its ' + (S.phase === 'off' ? 'month' : 'week') + '.</div>';
         if (m.outcome) body += '<div class="mb good">↳ ' + h(m.outcome) + '</div>';
       }
-      return '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
+      // this turn's messages first, then a divider before the older ones (m.tq: the turn a message arrived in)
+      const now = (m.tq || 0) === cur, div = !now && !divDone ? (divDone = true, '<div class="inbox-div"><span>Earlier</span></div>') : '';
+      return div + '<div class="msg ' + (m.read ? '' : 'unread') + (m.prio ? ' prio' : '') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + (m.prio ? '<span class="tag bad prio-tag" title="High priority: it can change what you do this turn or soon">! High priority</span> ' : '') + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
     }).join('');
+    const nNew = shown.filter(m => (m.tq || 0) === cur).length, top = '<div class="inbox-div top" title="Messages that arrived since you last pressed Continue"><span>' + (nNew ? 'This turn · ' + nNew + ' new' : 'Nothing new this turn') + '</span></div>';
     const due = G.Career.dueActivities(S);
-    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + '<button class="btn sm' + (UI.hideBg(S) ? ' sel' : '') + '" data-act="hideBg" title="Background messages: development reports (projects done, knowledge levels), team chatter and general FRC news. Anything that names a team, shows a robot, takes a reply or changes something always stays.">' + (UI.hideBg(S) ? 'Background hidden (' + nBg + ')' : 'Hide background') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
+    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + '<button class="btn sm' + (UI.hideBg(S) ? ' sel' : '') + '" data-act="hideBg" title="Background messages: development reports (projects done, knowledge levels), team chatter and general FRC news. Anything that names a team, shows a robot, takes a reply or changes something always stays.">' + (UI.hideBg(S) ? 'Background hidden (' + nBg + ')' : 'Hide background') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list ? top + list : '<p class="muted">Empty.</p>');
   } };
   UI.A.badgeAct = () => { const S = G.S; S.settings = S.settings || {}; S.settings.badgeAct = !S.settings.badgeAct; G.Save.write('auto'); UI.render(); };
   UI.A.readMsg = id => { const m = G.S.inbox.find(x => x.id === id); if (m) m.read = true; UI.st.openMsg = UI.st.openMsg === id ? null : id; UI.render(); };
@@ -16862,10 +16935,11 @@ window.G = window.G || {};
         const dd = R.design.drive, opts = (dd && dd.ver ? [null] : []).concat(D.CHASSIS_CONCEPTS.filter(cid => !(dd && dd.ver && dd.concept === cid)));
         const spec = cid => (cid ? { type: 'copy', sub: 'drive', concept: cid, bot: bi } : { type: 'copy', sub: 'drive', bot: bi });
         const btns = opts.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid || dd.concept); if (!c) return ''; const q = G.Robot.quote(S, spec(cid)); return '<button class="btn sm' + (cid || q.err ? '' : ' primary') + '" data-act="startChassis" data-arg="' + (cid || '') + '|' + bi + '"' + (q.err ? ' disabled title="' + h(q.err) + '"' : '') + '>' + (cid ? 'Basic ' + h(c.name) : 'Copy of your ' + h(c.name) + ' v' + dd.ver) + ' · ' + q.hours + ' h · ' + U.money(q.cost) + '</button>'; }).join('');
-        const err = opts.map(cid => { const e = G.Robot.quote(S, spec(cid)).err; return e ? (cid ? 'Basic ' + G.Seasons.concept(R.year, 'drive', cid).name : 'Copy of your ' + G.Seasons.concept(R.year, 'drive', dd.concept).name) + ': ' + e : null; }).find(Boolean);
+        // (3.1.2 fix) a basic chassis this game has no concept for (2016 has no mecanum) is skipped here too, as in the buttons
+        const err = opts.map(cid => { const c = G.Seasons.concept(R.year, 'drive', cid || dd.concept); if (!c) return null; const e = G.Robot.quote(S, spec(cid)).err; return e ? (cid ? 'Basic ' : 'Copy of your ') + c.name + ': ' + e : null; }).find(Boolean);
         o += '<div class="copyrow mt"><div class="sp"><b class="sm">Test chassis</b><div class="xs muted">A drivetrain for ' + h(b.name) + ': a shortcut for Build copy (Design Office), no project slot. ' +
           (G.Shop.lvl(S, 'pfield') ? 'Half a second robot on your Practice Field. ' : D.CHASSIS_TEST_HOURS + ' testing hours a week even without a Practice Field. ') + UI.q('garage', 'Test chassis') + '</div><div class="row wrap gap4 mt">' + btns + '</div>' +
-          (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f).map(k => G.Seasons.concept(R.year, 'drive', k).name); return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '%. ' + UI.q('garage', 'Second robot drills') + '</div>'; })() +
+          (function () { const cd = G.Robot.compDrive(S); if (!cd) return '<div class="xs muted mt">Pick the same drive family as the competition robot (tank: Kitbot, West Coast; holonomic: Mecanum, Swerve) and auto routines develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster.</div>'; const f = D.DRIVE_FAMILY[cd], ok = D.CHASSIS_CONCEPTS.filter(k => D.DRIVE_FAMILY[k] === f && G.Seasons.concept(R.year, 'drive', k)).map(k => G.Seasons.concept(R.year, 'drive', k).name); if (!ok.length) return ''; return '<div class="xs muted mt">Your competition drivetrain is ' + f + ': a <b>' + h(ok.join(' or ')) + '</b> chassis also speeds up auto routines by ' + Math.round(D.CHASSIS_PATH * 100) + '%. ' + UI.q('garage', 'Second robot drills') + '</div>'; })() +
           (err ? '<div class="xs warn mt">' + h(err) + '</div>' : '') + '</div></div>';
       }
       const fc = G.Robot.fullCopyPlan(S);
@@ -18092,7 +18166,7 @@ window.G = window.G || {};
       '<div class="grid g2"><div>' + (conds || '<p class="muted">Nothing built yet.</p>') + '</div><div class="col">' +
       '<div class="sm muted">Before each match the pit crew repairs the robot. One spare part restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. With no spares left, repairs stop at 60%.</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySparesEvent" data-arg="' + n + '">Buy ' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
-      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
+      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (' + (G.Shop.lvl(S, 'printer') >= 4 ? 'your print farm prints many of them in the pit' : 'rush delivery to the pits') + '). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
   }
   UI.A.buySparesEvent = function (n) {
     if (UI.err(G.Career.buySpares(G.S, Number(n), true))) return;
@@ -19400,6 +19474,15 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1.2', title: 'Letters, priorities and a print farm', notes: [
+      'The finalists\' email after a World Championship tells the finals as they were played: how many games, the scores, which ones were close, a game they won or a tie. It used to call every three-game final close and every two-game one one-sided.',
+      'Letters from outside the team come in as emails: the school board (your workshop, an overdraft, a grant used), sponsors (a bonus, a donation), a vendor\'s loyalty reward, the Festival of Champions and Woodie Flowers Award invitations, the support fund, and requests from other teams, the press, the school board, parents and alumni (their reply buttons stay). What a letter means in the game is in a short note under it.',
+      'High priority: a tag on messages that can change what you do soon: the vendors\' launch dates and new products, stock alerts, registration and deadlines, an upgrade ready at an event, facilities that need attention, a decision a shop incident needs. Hide background never hides them; before, it hid the vendors\' launch dates. An offer that lapsed unanswered now counts as background.',
+      'The Inbox puts this turn\'s messages first, with a divider before the older ones.',
+      'September 2022: a new story about the fast desktop printers that print carbon-fiber parts (on sale since January, and in every top team\'s shop after one season), and the Prototyping Lab gets a fourth level, the print farm: fewer hardware hours, a second Finish now card a season, and spares bought at an event cost little more than at home. Its second level is now Printer bench + laser cutter. From then on every Prototyping Lab level saves 15% more hardware hours, and the reliability the Manual Machine Shop adds to new builds is 15% smaller, since more parts are printed (its cheaper spares stay).',
+      'From the autumn of 2024 the AI coding assistant can go down, for any team: a new shop incident with four ways to handle it.',
+      'Fixed: the Garage would not open during a season played with the 2016 game (FIRST STRONGHOLD has no mecanum chassis) while the second robot had no drivetrain yet. The test chassis row now skips a chassis the game does not have.'
+    ] },
     { v: '3.1.1', title: 'FTC beside you, emails, and an Inbox you can quiet', notes: [
       'Alliance selection: a team that declines an invitation is marked "declined" on the board, in your scouting list and under your pick list, and nobody can pick it again (it can still captain an alliance). Watching, you see each decline and the captain picking again ("picks … instead").',
       'Invited and thinking of saying no? The invitation says what declining leaves you: sure to captain an alliance later in the first round, a captain only if enough teams ranked above you are picked first, or out of the playoffs (the second round, or ranked too low). Declining into a seat on the sidelines asks once more.',
@@ -20584,7 +20667,7 @@ window.G = window.G || {};
     { id: 'basics', icon: 'hq', name: 'Basics', desc: 'Turns, goals and the season loop', secs: [
       { icon: 'play', t: 'The loop', d: flow([['calendar', 'Offseason (months)'], ['bolt', 'Kickoff'], ['design', 'Build weeks 1–7'], ['event', 'Competition weeks 1–7'], ['trophy', 'Championship'], ['history', 'Review']]), li: ['Each <b>Continue</b> is one week in season, one month in the offseason.', 'Build week 7 is <b>Week 0</b> (scrimmage week). Competition week 7 has no regionals: a rest week before the Championship (for district teams it is District Championship week).', 'A career runs from the year you start in to 2026, one game a year. What changes from year to year is in <b>The decade</b> guide.'] },
       { icon: 'trophy', t: 'Goals and Program Support', li: ['At Kickoff the school sets three goals (minimum, target, stretch). The higher your reputation, the more they ask for: the list gets harder at 35, 55 and 75.', 'Meeting them raises <b>Program Support</b>; missing them lowers it. At 0 the program is cut, unless <b>No-fail mode</b> is on (New Career page, or Settings during a career).', 'A district team gets district goals: reach the District Championship, finish in the district\'s top ten.', 'Qualifying for the Championship comes before winning an event: a win qualifies you, and so can an award or a wildcard. In a district with ten or more Championship places, qualifying also comes before the top ten. Sponsors pay more for a win than for qualifying.', 'Program Support also decides how much workshop space the school gives you, and a season in which it rises brings free renovations or an upgrade grant (Workshop guide).', '<b>Reputation</b> brings sponsors, recruits and scrimmage invitations. It is earned slowly: a gain counts for less the higher it already is, and losses count in full.'] },
-      { icon: 'inbox', t: 'Inbox', li: ['At least one news item and one to three chatter posts every turn.', '<b>Hide background</b> hides the messages you can skip: development reports (projects done, knowledge levels), team chatter and general news. Anything that names a team, shows a robot, takes a reply or changes something stays, and so do emails. The unread count and Headquarters follow it.', 'The Inbox keeps 220 messages. The newest 60 always stay; past that, chatter and lapsed replies go first, then the oldest of the rest.', '<b>Emails</b> (From, To, Subject) come from people outside the team: the finalists after a World Championship, FIRST when you join the Hall of Fame, and your own mentor after a Woodie Flowers award.', 'Some messages take a <b>reply</b> (optional): small effects like reputation, spare parts or extra practice. Reply in the turn it arrives (a week in season, a month in the offseason) or the offer lapses.', '<b>Not everything gets a pop-up.</b> What the vendors, the rule makers and the second-hand market are about to do is usually talked about here first, as an ordinary message among the news and the chatter. Nothing marks those messages out: it pays to read the Inbox.', 'In season a <b>stock alert</b> warns that a part will be out of stock next week. Order it from the message that turn, or do without it for a week.'] }
+      { icon: 'inbox', t: 'Inbox', li: ['At least one news item and one to three chatter posts every turn.', '<b>Hide background</b> hides the messages you can skip: development reports (projects done, knowledge levels), team chatter and general news. Anything that names a team, shows a robot, takes a reply or changes something stays, and so do emails. The unread count and Headquarters follow it.', 'The Inbox keeps 220 messages. The newest 60 always stay; past that, chatter and lapsed replies go first, then the oldest of the rest.', '<b>Emails</b> (From, To, Subject) are letters from outside the team: the school board, sponsors and vendors, invitations and requests from other teams, the press, parents and alumni, the finalists after a World Championship, FIRST when you join the Hall of Fame, and your own mentor after a Woodie Flowers award. What a letter means in the game is in a short note under it.', '<b>High priority</b> marks messages that can change what you do this turn or soon: the vendors\' launch dates and new products, stock alerts, registration and deadlines, an upgrade ready to fit at an event, facilities that need attention, a decision a shop incident needs. Rumours are never high priority, and Hide background never hides these.', 'The messages that arrived since you last pressed Continue come first (This turn), then a divider (Earlier) before the older ones.', 'Some messages take a <b>reply</b> (optional): small effects like reputation, spare parts or extra practice. Reply in the turn it arrives (a week in season, a month in the offseason) or the offer lapses.', '<b>Not everything gets a pop-up.</b> What the vendors, the rule makers and the second-hand market are about to do is usually talked about here first, as an ordinary message among the news and the chatter. Nothing marks those messages out: it pays to read the Inbox.', 'In season a <b>stock alert</b> warns that a part will be out of stock next week. Order it from the message that turn, or do without it for a week.'] }
     ] },
     { id: 'decade', icon: 'history', name: 'The decade', desc: '2016 to 2026: eras, the lost season, districts', secs: [
       { icon: 'calendar', t: 'Ten seasons', li: ['A career starts in the year you pick and ends after the 2026 season: ten seasons from 2016. There is no 2021 season.',
@@ -20636,7 +20719,7 @@ window.G = window.G || {};
         'Only the strongest teams in the world field them, so you meet them at the Championship more than anywhere else.'] },
       { icon: 'garage', t: 'Copies and fabrication', d: flow([['design', 'Design + prototype'], ['bolt', 'Build copy'], ['garage', 'Robot 2 or a spare']]), li: ['<b>Build copy</b> makes another unit of a finished design: about a quarter of the first build\'s hours and 60% of its materials, plus its own control system parts and kits.', 'Copies go to the robot that lacks the latest version (the second robot first), otherwise to storage as a spare.', 'Copies are <b>fabrication</b>: they use team hours but no project slot. The Garage\'s <b>test chassis</b> and <b>full copy</b> are shortcuts that start copies, nothing else.', 'A copy that cannot go on its robot for want of parts waits in storage, and the Inbox says which parts and how many (what each robot uses, what is on the shelf). Optional parts (planetary gearboxes, a network switch, an ML accelerator) never stop a copy.'] },
       { icon: 'spare', t: 'Pit crew training and bumper standards', li: ['Two program projects for the season (Design Office): they take no project slot, and each is done once a season.', '<b>Pit crew training</b>: timed repair drills, so repairs between matches at events go about 30% faster for the rest of the season (extra hours add a little).', '<b>Bumper standards</b>: quick-latch bumpers for this year\'s frame. No bumper incidents at events this season, however tired the pit crew is.'] },
-      { icon: 'bolt', t: 'Finish now cards', li: ['Top-level facilities give <b>Finish now</b> cards every season: CNC Machining, the Prototyping Lab and the Manual Machine Shop one each for a hardware project; the Programming Station one for a software project (code, autos, vision) from its third level, and two once it has an AI coding lab (its fourth level, from the autumn of 2024).', 'A card finishes a project that is at least half done at once, extra hours included, at no cost and with no penalty. The button is on the project\'s row in the Design Office, and Active projects shows the cards left this season (e.g. hardware 2/3 · software 1/1).'] },
+      { icon: 'bolt', t: 'Finish now cards', li: ['Top-level facilities give <b>Finish now</b> cards every season: CNC Machining, the Prototyping Lab (from its third level) and the Manual Machine Shop one each for a hardware project, and the Prototyping Lab a second one once it has a print farm (its fourth level, from the autumn of 2022); the Programming Station one for a software project (code, autos, vision) from its third level, and two once it has an AI coding lab (its fourth level, from the autumn of 2024).', 'A card finishes a project that is at least half done at once, extra hours included, at no cost and with no penalty. The button is on the project\'s row in the Design Office, and Active projects shows the cards left this season (e.g. hardware 2/3 · software 1/1).'] },
       { icon: 'clock', t: 'Extra hours', d: flow([['clock', 'Planned hours'], ['bolt', '+ extra hours'], ['check', 'Better result']]), li: ['Set <b>extra hours</b> (in steps of 1 h) on any project: they use hours that would sit idle.', '<b>Auto-fill extra hours</b> does it for you: it puts the turn\'s idle hours into extra hours on the projects already running, and starts no project. In season it fills the week to 90% and leaves the idle tenth that holds fatigue steady, a little more with a Break Room (a week already that full is left alone); in the offseason it fills the whole month. Tick <b>every turn</b> to have it done when you press Continue.', 'Quality rises with diminishing returns: doubling a project gets about 80% of the maximum bonus.', 'Builds start with better stats, upgrades gain more and add less weight, hardening goes further. You can\'t lighten anything below 40% of its design weight.'] },
       { icon: 'fatigue', t: 'Fatigue (in season)', li: ['Fatigue settles around <b>30</b>. Leaving about <b>10% of the week\'s hours idle</b> holds it there.', 'Busier weeks, <b>overtime</b> (+10) and <b>competition weeks</b> (+9) raise it; idle time and team nights lower it. The offseason resets it.', 'It only matters at events: tired teams have more <b>incidents</b> and less reliable <b>scouting</b>.'] },
       { icon: 'pfield', t: 'Testing hours', li: ['Testing hours come from a <b>test chassis or second robot</b> (Garage) and from a <b>Practice Field</b> (Workshop). A test chassis alone gives ' + D.CHASSIS_TEST_HOURS + ' h a week in the shop or parking lot. A Practice Field gives ' + D.EQUIP.find(e => e.id === 'pfield').fx.test.join(', ') + ' h by level, and a second robot adds up to ' + D.TEST_BOT_HOURS + ' more (a bare test chassis half of that).',
@@ -20678,11 +20761,11 @@ window.G = window.G || {};
     { id: 'workshop', icon: 'workshop', name: 'Workshop', desc: 'Facilities, the trailer, incidents', secs: [
       { icon: 'workshop', t: 'Workshop space', li: ['The Workshop has two pages: <b>Technical</b> (the shop machines, Programming Station, CAD, Parts Shelf, pit and test facilities) and <b>Team &amp; program</b> (meeting room, Break Room, Honors Wall, FTC space, trailer).', 'Every facility level takes floor space in square feet; the trailer parks outside. The bar at the top of the Workshop shows what is used, what is free and what the school has not given you yet.', 'Three levels: the robotics classroom (' + G.Shop.spaceOfTier(0).toLocaleString('en-US') + ' sq ft), the technology wing (' + G.Shop.spaceOfTier(1).toLocaleString('en-US') + ') and a robotics center (' + G.Shop.spaceOfTier(2).toLocaleString('en-US') + ', which fits every facility at its top level). A rookie starts in the classroom, established and powerhouse teams in the technology wing. At a season review the school moves you up when Program Support has reached 80 (wing) or 90 (center). Room is never taken back.', 'When support rises by 6 or more in a season, the board renovates your worn facilities for free; at +12 (and support 60+) it adds a grant for one upgrade of your choice up to ' + U.money(D.BOARD.cap) + '. When nothing in the workshop can be upgraded with it (every facility at its top level, too dear or out of room), the grant comes as ' + U.money(D.BOARD.cash) + ' in cash instead.', 'A satisfied sponsor may donate a facility level that fits its business, if you have the room: the higher its satisfaction above 60, the likelier. With every sponsor slot filled and no sponsor activity skipped, expect about one donation a year.'] },
       { icon: 'ebench', t: 'Electronics, welding, meeting room and FTC space', li: ['<b>Electronics Workbench</b>: fewer brownouts and comms dropouts in matches; motors and electronics wear more slowly.', '<b>Welding Station</b>: hardening and lightweighting take fewer hours and do more; new builds are more reliable.', '<b>Team Meeting Room</b>: outreach counts for more and adds to your Impact presentation score.', '<b>FTC Team Space</b>: run one to three FTC teams of your own (Team page, Feeder programs). Each takes a program slot, costs $300 a year and counts 1.8× for recruit quality.'] },
-      { icon: 'cnc', t: 'Facilities', li: ['The Prototyping Lab (3D printers, and a laser cutter from level 2), CNC Machining (a router, then a CNC mill and lathe), the Manual Machine Shop (mill, lathe, drill press, band saw) and the Programming Station cut hours and can add project slots; they also give <b>Finish now</b> cards (Design & hours guide). CAD Workstations cut the hours on new mechanisms and upgrades. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.',
+      { icon: 'cnc', t: 'Facilities', li: ['The Prototyping Lab (3D printers, and a laser cutter from level 2; from the autumn of 2022 a fourth level, the print farm: fast desktop printers that print carbon-fiber parts, and spares bought at an event cost little more than at home because the pit prints many of them; from then on every Prototyping Lab level saves a little more hours, and the Manual Machine Shop adds a little less reliability), CNC Machining (a router, then a CNC mill and lathe), the Manual Machine Shop (mill, lathe, drill press, band saw) and the Programming Station cut hours and can add project slots; they also give <b>Finish now</b> cards (Design & hours guide). CAD Workstations cut the hours on new mechanisms and upgrades. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.',
         'The <b>Parts Shelf</b> decides how many of each bulky part you can keep: half the most without one, two robots\' worth at its top level (control hubs, cameras and actuator kits always fit). The <b>Break Room</b> takes a little fatigue off every week in season. The <b>Honors Wall</b> puts banners and trophies on display in History (the banner wall shows this season\'s and last season\'s; level 2, with the trophy shelf, shows everything), lifts team morale a little and adds a little reputation at every season review.', 'They wear down, mostly in the build and competition weeks (a whole offseason month costs about half of what one build week does), and a worn facility works at 40–100% of its effect. Below 35% condition it also loses its project slot until renovated. <b>Renovate all</b> (top of the Workshop) brings every worn facility back to 100% for one bill. Upkeep is charged per level at Kickoff.', 'The Parts Shelf holds as many parts at any condition, but its upkeep rises as it wears, slowly at first and faster the more worn it is: up to five times at 0% (cracked bins and lost labels cost money). When a renovation would cost less than the extra upkeep over the Kickoffs left in your career, a pop-up says so, with a Renovate button.', 'Some unlock new outreach and fundraising activities.', '<b>Downgrade</b> (or Remove, at level 1) gives a level back to make room (not the Parts Shelf: the parts on it have nowhere else to go). Half that level\'s price comes back at full condition, less as it wears, and nothing for a level that was donated or paid by a grant. Buying it again costs the full price.'] },
       { icon: 'pitcart', t: 'Super pit', li: ['The top level of Pit Setup, from the 2018 season (on sale from the autumn of 2017): the whole pit in road cases. It takes no more room than a full pit setup.', 'Before any match the crew fully repairs <b>one subsystem of your choice</b> (pre-match page), with spare parts as usual. When you simulate the qualification matches it repairs whichever subsystem is in the worst shape, before every match.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.'] },
       { icon: 'trailer', t: 'Team trailer', li: ['Far events become a long drive instead of a flight: 15% cheaper and no air-freight damage.', 'Robot demos for sponsors wear the robot less; robot outreach counts 20% more; unlocks the Trailer roadshow.'] },
-      { icon: 'incident', t: 'Shop incidents', li: ['Now and then something breaks or goes wrong in the shop: pick how to handle it.'] }
+      { icon: 'incident', t: 'Shop incidents', li: ['Now and then something breaks or goes wrong in the shop: pick how to handle it.', 'From the autumn of 2024 every team leans on AI coding assistants, with an AI coding lab or without one, and now and then the assistant goes down: wait and hope, write code by hand, pay for a backup service, or send the programmers to help the build crew.'] }
     ] },
     { id: 'team', icon: 'team', name: 'Team & outreach', desc: 'Drive team, mentors, activities, Impact', secs: [
       { icon: 'team', t: 'Students and the drive team', li: ['The drive team has five seats: driver, operator, human player, coach and an optional technician. Each uses different skills (see Drive team roles below); they improve with matches and practice.', 'Seniors graduate in June; new students join in September, more of them with reputation, outreach and feeder programs. A team is full at ' + D.STUDENT_CAP + ' students: further applicants go on a waiting list.'] },
@@ -20813,7 +20896,7 @@ window.G = window.G || {};
         '<b>Reputation</b>: what the wider community thinks of the team. It brings sponsors, recruits and invitations, and raises the school\'s expectations.',
         '<b>Morale</b>: how the students feel. <b>Legacy</b>: the career score on the History page.',
         '<b>Sponsor satisfaction</b>: decides renewals and donations. <b>Loyalty level</b>: your standing with a parts vendor.',
-        '<b>Feeder program</b>: an FLL or FTC team, camp or club that sends you recruits; outside ones are capped by your outreach mentor and reputation. <b>FTC</b>: the FIRST Tech Challenge, smaller robots playing two against two; your own FTC teams play its season beside yours. <b>Background message</b>: one the Inbox can hide (development reports, chatter, general news). <b>Impact rating</b>: your chance at the Impact Award, built from several seasons of outreach.',
+        '<b>Feeder program</b>: an FLL or FTC team, camp or club that sends you recruits; outside ones are capped by your outreach mentor and reputation. <b>FTC</b>: the FIRST Tech Challenge, smaller robots playing two against two; your own FTC teams play its season beside yours. <b>Background message</b>: one the Inbox can hide (development reports, chatter, general news). <b>High priority</b>: a message that can change what you do soon (launch dates, stock alerts, deadlines). <b>Print farm</b>: a shelf of fast desktop printers (the top level of the Prototyping Lab, from the autumn of 2022). <b>Impact rating</b>: your chance at the Impact Award, built from several seasons of outreach.',
         '<b>STEM support fund</b>: emergency money for a nearly broke team, at a cost in reputation.',
         '<b>Facility</b>: a workshop machine or room. Facilities speed projects up, wear down, and take floor space. <b>Super pit</b>: the top level of Pit Setup, a pit in road cases.'] }
     ] }

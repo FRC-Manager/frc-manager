@@ -16,8 +16,14 @@
   Shop.fx = function (S, id, key, lvl, eff) {
     const it = Shop.item(id), l = lvl == null ? Shop.lvl(S, id) : lvl;
     if (!l || !it.fx[key]) return 0;
-    return it.fx[key][l - 1] * (eff == null ? Shop.eff(S, id) : eff);
+    return it.fx[key][l - 1] * (eff == null ? Shop.eff(S, id) : eff) * Shop.eraFx(S, id, key);
   };
+  // (3.1.2) From September 2022 (the fast desktop printers, story 'printfarm') printing does more and machining a little
+  // less: every Prototyping Lab level saves 15% more hardware hours, and the reliability the Manual Machine Shop adds to
+  // new builds is 15% smaller, because more of the parts it made are printed now (its cheaper spares stay as they were).
+  Shop.ERA_FX = [{ id: 'printer', key: 'hours', k: 1.15 }, { id: 'lathe', key: 'rel', k: 0.85 }];
+  Shop.printEra = S => { if (!S) return false; if (!S.cal) return (S.year || 0) >= 2023; const cy = G.Parts.buyCy(S); return cy > 2023 || (cy === 2023 && !(S.phase === 'off' && S.month < 4)); };
+  Shop.eraFx = (S, id, key) => { const e = Shop.ERA_FX.find(x => x.id === id && x.key === key); return e && Shop.printEra(S) ? e.k : 1; };
   // Aggregate effects used by the rest of the game
   Shop.hwHoursMult = S => (1 - Shop.fx(S, 'printer', 'hours')) * (1 - Shop.fx(S, 'cnc', 'hours'));
   Shop.swHoursMult = S => 1 - Shop.fx(S, 'laptops', 'soft');
@@ -88,8 +94,9 @@
   Shop.superPit = S => Shop.lvl(S, 'pitcart') >= 3;
   // "Finish now" cards: a top-level CNC Machining, Prototyping Lab and Manual Machine Shop each give one a season for a
   // hardware project at least half done; the Programming Station gives one for a software project from its third level
-  // and two from its fourth (the AI coding lab). No cost, no penalty. at: the levels that each give a card.
-  Shop.FINISH = [{ id: 'cnc', kind: 'fab', at: [2] }, { id: 'printer', kind: 'fab', at: [3] }, { id: 'lathe', kind: 'fab', at: [2] }, { id: 'laptops', kind: 'soft', at: [3, 4] }];
+  // and two from its fourth (the AI coding lab); the Prototyping Lab's fourth level (the print farm) gives a second one.
+  // No cost, no penalty. at: the levels that each give a card.
+  Shop.FINISH = [{ id: 'cnc', kind: 'fab', at: [2] }, { id: 'printer', kind: 'fab', at: [3, 4] }, { id: 'lathe', kind: 'fab', at: [2] }, { id: 'laptops', kind: 'soft', at: [3, 4] }];
   Shop.finishOf = (S, f) => f.at.filter(l => Shop.lvl(S, f.id) >= l).length; // cards a facility gives this season
   Shop.finishCards = function (S) {
     if (!S.finish || S.finish.si !== S.si) S.finish = { si: S.si, used: [] };
@@ -225,7 +232,7 @@
     if (opts && opts.grant) {
       if (!(S.schoolGrant > 0)) return 'No school grant left';
       if (cost > D.BOARD.cap) return 'The school grant covers upgrades up to ' + U.money(D.BOARD.cap);
-      S.schoolGrant--; G.Career.inbox(S, 'School grant used: ' + it.levels[f.lvl].name, 'The school board paid for your new ' + it.levels[f.lvl].name + ' (' + U.money(cost) + ').', 'shop');
+      S.schoolGrant--; G.Career.letter(S, 'The ' + (S.team.school || 'school') + ' school board', 'School grant used: ' + it.levels[f.lvl].name, 'As promised, the board has paid for your new ' + it.levels[f.lvl].name + ' (' + U.money(cost) + '). We look forward to seeing it at the next open house.', 'With thanks,\nThe ' + (S.team.school || 'school') + ' school board');
     } else if (!(opts && opts.gift)) {
       const e = G.Career.afford(S, cost); if (e) return e;
       G.Career.spend(S, cost, (f.lvl ? 'Upgrade: ' : 'Buy: ') + it.levels[f.lvl].name);
@@ -288,16 +295,16 @@
     if (e.wornUpkeep) { // the Parts Shelf: wear costs upkeep, not capacity
       const lvl = f.cond < 35 ? 2 : f.cond < 60 ? 1 : 0;
       { const p = Shop.shelfPay(S); if (p && p.pays && !f.payWarn) { f.payWarn = 1; (S.launchQueue = S.launchQueue || []).push({ kind: 'shelfPay' });
-        G.Career.inbox(S, 'Renovating the parts shelf pays off now', 'Its wear adds ' + U.money(p.extra) + ' to the upkeep at every Kickoff, and more as it wears further. Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is ' + U.money(p.save) + '; a renovation costs ' + U.money(p.reno) + ' today (Workshop).', 'shop'); } }
-      if (lvl > f.warned) { f.warned = lvl; G.Career.inbox(S, 'The parts shelf ' + (lvl > 1 ? 'is in bad shape' : 'needs attention'), 'Your ' + nm.toLowerCase() + ': condition is down to ' + Math.round(f.cond) + '%. Cracked bins and missing labels cost money to keep up with: its upkeep at Kickoff is now ' + U.money(Shop.upkeepOf(S, e)) + ' (' + U.money(e.upkeep * f.lvl) + ' in full condition). It still holds as many parts. A renovation costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop'); }
+        G.Career.inbox(S, 'Renovating the parts shelf pays off now', 'Its wear adds ' + U.money(p.extra) + ' to the upkeep at every Kickoff, and more as it wears further. Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is ' + U.money(p.save) + '; a renovation costs ' + U.money(p.reno) + ' today (Workshop).', 'shop', { prio: true }); } }
+      if (lvl > f.warned) { f.warned = lvl; G.Career.inbox(S, 'The parts shelf ' + (lvl > 1 ? 'is in bad shape' : 'needs attention'), 'Your ' + nm.toLowerCase() + ': condition is down to ' + Math.round(f.cond) + '%. Cracked bins and missing labels cost money to keep up with: its upkeep at Kickoff is now ' + U.money(Shop.upkeepOf(S, e)) + ' (' + U.money(e.upkeep * f.lvl) + ' in full condition). It still holds as many parts. A renovation costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop', { prio: true }); }
       return;
     }
     if (f.cond < 35 && f.warned < 2) {
       f.warned = 2;
-      G.Career.inbox(S, nm + ' is in bad shape', 'Condition is down to ' + Math.round(f.cond) + '%, so it now works at only ' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency. Students have started calling it "vintage". Renovate it in the Workshop for ' + U.money(Shop.renoCost(S, e.id)) + '.', 'shop');
+      G.Career.inbox(S, nm + ' is in bad shape', 'Condition is down to ' + Math.round(f.cond) + '%, so it now works at only ' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency. Students have started calling it "vintage". Renovate it in the Workshop for ' + U.money(Shop.renoCost(S, e.id)) + '.', 'shop', { prio: true });
     } else if (f.cond < 60 && f.warned < 1) {
       f.warned = 1;
-      G.Career.inbox(S, nm + ' needs attention', 'Condition has dropped to ' + Math.round(f.cond) + '% (' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency). A renovation now costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop');
+      G.Career.inbox(S, nm + ' needs attention', 'Condition has dropped to ' + Math.round(f.cond) + '% (' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency). A renovation now costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop', { prio: true });
     }
   }
   // kind: 'season' (per in-season week), 'off' (per offseason month), 'event' (per event attended)
@@ -359,6 +366,9 @@
   // =====================================================================
   const own = id => S => Shop.lvl(S, id) > 0;
   const lvlOf = (S, id) => Math.max(1, Shop.lvl(S, id));
+  // the AI era (September 2024, by the calendar): every team leans on AI coding assistants
+  const aiEra = S => { if (!S.cal) return (S.year || 0) >= 2025; const cy = G.Parts.buyCy(S); return cy > 2025 || (cy === 2025 && !(S.phase === 'off' && S.month < 4)); };
+  Shop.aiEra = aiEra;
   const pickMentor = S => (S.mentors.length ? G.R.pick(S.mentors).name : 'Your lead mentor');
   const ALL = m => ({ fab: m, soft: m, research: m });
   Shop.INCIDENTS = [
@@ -394,6 +404,16 @@
       opts: [
         { label: 'Roll back by hand', desc: 'Software −70% this week', mods: { soft: 0.3 } },
         { label: 'Pay IT to reimage them tonight', cost: () => 400, desc: 'Software −15% this week', mods: { soft: 0.85 } }
+      ] },
+    // (3.1.2) from September 2024 every team leans on AI coding assistants, with an AI coding lab or without one
+    { id: 'ai_outage', w: 3, req: S => aiEra(S), title: 'The AI coding assistant is down',
+      body: S => 'The AI coding assistant everyone uses went down this morning. The status page says "investigating"; the forums say the whole world is trying to write robot code at once. ' + (Shop.lvl(S, 'laptops') >= 4 ? 'Your AI coding lab is built around it, and the programmers are staring at empty editors.' : 'Your programmers had come to lean on it more than they would admit.'),
+      opts: [
+        { label: 'Give it an hour, it will be back', desc: '50% chance it is back by lunch (no loss); otherwise Software −70% this week',
+          risk: { p: 0.5, mods: { soft: 0.3 }, hit: 'It was not back by lunch, or by dinner. The status page still says "investigating".', miss: 'It came back before lunch. The programmers pretended they had been writing by hand the whole time.' } },
+        { label: 'Write it by hand until it is back', desc: 'Software −45% this week', mods: { soft: 0.55 } },
+        { label: 'Pay for a backup AI service this week', cost: S => 300 + 150 * Math.max(0, Shop.lvl(S, 'laptops') - 2), desc: 'Software −10% this week', mods: { soft: 0.9 } },
+        { label: 'Send the programmers to help the build crew', desc: 'Software −85%, Fabrication +15% this week', mods: { soft: 0.15, fab: 1.15 } }
       ] },
     { id: 'cad_licence', w: 2, req: own('cad'), title: 'The CAD licences ran out',
       body: () => 'Every CAD seat logged itself out on Monday: the school forgot to renew the licences. The design team is drawing on whiteboards.',
@@ -483,7 +503,8 @@
     if (inc.opts) {
       S.incident = { id: inc.id, title: inc.title, body, opts: inc.opts.map(o => ({ label: o.label, desc: o.desc, cost: Shop.optCost(S, o) })) };
       if (inc.dmg) Object.keys(inc.dmg).forEach(k => Shop.damage(S, k, inc.dmg[k]));
-      G.Career.inbox(S, 'Shop incident: ' + inc.title, body + '\n\nA decision is needed before you continue.', 'incident');
+      G.Career.inbox(S, 'Shop incident: ' + inc.title, body + '\n\nA decision is needed before you continue.', 'incident', { prio: true });
+      if (inc.id === 'ai_outage') S.aiOutage = S.turnSeq || 0; // for the chatter afterwards
       return;
     }
     addMods(S, inc.mods, inc.title);

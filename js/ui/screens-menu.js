@@ -135,6 +135,15 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1.2', title: 'Letters, priorities and a print farm', notes: [
+      'The finalists\' email after a World Championship tells the finals as they were played: how many games, the scores, which ones were close, a game they won or a tie. It used to call every three-game final close and every two-game one one-sided.',
+      'Letters from outside the team come in as emails: the school board (your workshop, an overdraft, a grant used), sponsors (a bonus, a donation), a vendor\'s loyalty reward, the Festival of Champions and Woodie Flowers Award invitations, the support fund, and requests from other teams, the press, the school board, parents and alumni (their reply buttons stay). What a letter means in the game is in a short note under it.',
+      'High priority: a tag on messages that can change what you do soon: the vendors\' launch dates and new products, stock alerts, registration and deadlines, an upgrade ready at an event, facilities that need attention, a decision a shop incident needs. Hide background never hides them; before, it hid the vendors\' launch dates. An offer that lapsed unanswered now counts as background.',
+      'The Inbox puts this turn\'s messages first, with a divider before the older ones.',
+      'September 2022: a new story about the fast desktop printers that print carbon-fiber parts (on sale since January, and in every top team\'s shop after one season), and the Prototyping Lab gets a fourth level, the print farm: fewer hardware hours, a second Finish now card a season, and spares bought at an event cost little more than at home. Its second level is now Printer bench + laser cutter. From then on every Prototyping Lab level saves 15% more hardware hours, and the reliability the Manual Machine Shop adds to new builds is 15% smaller, since more parts are printed (its cheaper spares stay).',
+      'From the autumn of 2024 the AI coding assistant can go down, for any team: a new shop incident with four ways to handle it.',
+      'Fixed: the Garage would not open during a season played with the 2016 game (FIRST STRONGHOLD has no mecanum chassis) while the second robot had no drivetrain yet. The test chassis row now skips a chassis the game does not have.'
+    ] },
     { v: '3.1.1', title: 'FTC beside you, emails, and an Inbox you can quiet', notes: [
       'Alliance selection: a team that declines an invitation is marked "declined" on the board, in your scouting list and under your pick list, and nobody can pick it again (it can still captain an alliance). Watching, you see each decline and the captain picking again ("picks … instead").',
       'Invited and thinking of saying no? The invitation says what declining leaves you: sure to captain an alliance later in the first round, a captain only if enough teams ranked above you are picked first, or out of the playoffs (the second round, or ranked too low). Declining into a seat on the sidelines asks once more.',

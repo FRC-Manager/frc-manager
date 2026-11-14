@@ -95,6 +95,7 @@
   // Parts, vendors and game elements live in js/data/parts.js
   D.BATTERY_COST = 150; D.SPARES_COST = 120; // per spare unit
   D.SPARES_EVENT_MULT = 2;    // spare parts bought at an event cost double
+  D.SPARES_EVENT_PRINT = 1.15; // with a print farm (Prototyping Lab level 4) the pit prints many of them: a little more than at home
   D.SPARE_COND_PER_UNIT = 30; // condition points one spare part restores
 
   // ---------- Workshop facilities ----------
@@ -103,8 +104,8 @@
   // fx values are per level. wear = condition lost per in-season week / offseason month / event attended.
   D.EQUIP = [
     { id: 'printer', name: 'Prototyping Lab', upkeep: 250, wear: { season: 2.5, off: 1.2, event: 0 },
-      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm + laser cutter', cost: 4500 }, { name: 'Industrial printer + laser cutter', cost: 10000 }],
-      fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: '3D printers, and from level 2 a laser cutter for plates and gussets: faster prototypes and custom parts, fewer hours on hardware projects.' },
+      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Printer bench + laser cutter', cost: 4500 }, { name: 'Industrial printer + laser cutter', cost: 10000 }, { name: 'Print farm + laser cutter', cost: 7500, from: 2023, fromMonth: 4 }],
+      fx: { hours: [0.08, 0.15, 0.2, 0.25], slot: [0, 1, 1, 1] }, desc: '3D printers, and from level 2 a laser cutter for plates and gussets: faster prototypes and custom parts, fewer hours on hardware projects. The print farm (from the autumn of 2022) is a shelf of fast desktop printers that print carbon-fiber parts overnight, and in the pit between matches.' },
     { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 1.2, event: 0 },
       levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC mill and CNC lathe', cost: 20000 }],
       fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Computer-controlled machines (a router, then a CNC mill and a CNC lathe): precise parts, fewer hardware hours, stronger upgrades, more reliable new builds.' },
@@ -159,7 +160,7 @@
   // Floor space per facility level in square feet: rough real-world footprints including working room. The trailer parks outside.
   // the Workshop's second tab: the facilities that serve the team and the program rather than the robot
   D.EQUIP_TEAM = ['meeting', 'lounge', 'honors', 'ftc', 'trailer'];
-  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], shelf: [40, 80, 120], laptops: [80, 140, 200, 220], cad: [60, 120, 180], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
+  D.EQUIP_SIZE = { printer: [40, 100, 180, 200], cnc: [160, 280], lathe: [150, 240], shelf: [40, 80, 120], laptops: [80, 140, 200, 220], cad: [60, 120, 180], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
     pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], lounge: [80, 150, 250], honors: [20, 40], ftc: [300, 500, 720] };
   // The biggest room holds every facility at its top level
   D.SPACE_MAX = Math.ceil(D.EQUIP.reduce((s, e) => s + (D.EQUIP_SIZE[e.id] || [0])[(D.EQUIP_SIZE[e.id] || [0]).length - 1], 0) / 100) * 100;

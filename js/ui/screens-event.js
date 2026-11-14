@@ -120,7 +120,7 @@
       '<div class="grid g2"><div>' + (conds || '<p class="muted">Nothing built yet.</p>') + '</div><div class="col">' +
       '<div class="sm muted">Before each match the pit crew repairs the robot. One spare part restores about ' + D.SPARE_COND_PER_UNIT + ' condition points. With no spares left, repairs stop at 60%.</div>' +
       '<div class="row wrap gap4">' + [2, 5, 10].map(n => '<button class="btn sm" data-act="buySparesEvent" data-arg="' + n + '">Buy ' + n + ' · ' + U.money(n * up) + '</button>').join('') + '</div>' +
-      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (rush delivery to the pits). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
+      '<div class="xs muted">Event price ' + U.money(up) + ' per spare (' + (G.Shop.lvl(S, 'printer') >= 4 ? 'your print farm prints many of them in the pit' : 'rush delivery to the pits') + '). Between events they cost ' + U.money(home) + ' in the Inventory tab.</div></div></div></div>';
   }
   UI.A.buySparesEvent = function (n) {
     if (UI.err(G.Career.buySpares(G.S, Number(n), true))) return;

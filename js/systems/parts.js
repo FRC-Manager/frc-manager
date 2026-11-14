@@ -824,7 +824,7 @@
     else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
     else { (S.vendSale = S.vendSale || {})[O.slot] = { pct: O.sale, up: S.upcoming }; text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
     (S.loyalLog = S.loyalLog || []).push({ slot: O.slot, brand: O.brand, lvl: O.lvl, pick, cy: P.buyCy(S) });
-    G.Career.inbox(S, 'Loyalty sponsorship: ' + V.name, text, 'money');
+    G.Career.letter(S, V.name + ' (team partnerships)', 'Loyalty sponsorship: ' + V.name, 'Thank you for building with ' + V.short + ' parts year after year. ' + text, 'See you at Kickoff,\nThe ' + V.name + ' partnerships team');
     S.loyalOffer = null;
     return null;
   };
@@ -945,7 +945,7 @@
       const text = L.intro + '\n\n' + prods.map(p => p.name + ' — performance ' + (p.oldPerf ? Math.round(p.oldPerf * 100) + ' → ' : '') + Math.round(p.perf * 100) + ', ' + U.money(p.price) + ' each. ' + p.tag).join('\n') +
         '\n\nWhat people are saying:\n' + talk.map(([t, w]) => '“' + t + '” — ' + w).join('\n') + '\n\n' + take +
         '\n\nOn sale now in the Inventory tab.' + (olds.length ? ' ' + olds.join(' and ') + (olds.length > 1 ? ' stay' : ' stays') + ' on sale through the ' + year + ' season, then ' + (olds.length > 1 ? 'they are' : 'it is') + ' discontinued.' : '') + ' Parts you own keep working.';
-      G.Career.inbox(S, L.title, text, 'dev', { launch: L.id });
+      G.Career.inbox(S, L.title, text, 'dev', { launch: L.id, prio: true });
       (S.launchQueue = S.launchQueue || []).push(L);
     });
   };
@@ -955,7 +955,7 @@
     if (!rs.length) return;
     const lines = ['A', 'B'].map(v => { const x = rs.filter(r => r.v === v && !(S.cal && PROD[ladId(r.cat, v, r.n)].quiet)); return x.length ? D.VENDORS[S.cal ? P.brand(PROD[ladId(x[0].cat, v, x[0].n)]) : v].name + ': launch event in ' + D.MONTHS[x[0].mo] + '. The rumor is new ' + x.map(r => CAT_WORD[r.cat]).join(' and ') + '.' : null; }).filter(Boolean);
     if (!lines.length) return;
-    G.Career.inbox(S, 'Vendor launch season', 'The control system vendors launch new products in the fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev');
+    G.Career.inbox(S, 'Vendor launch season', 'The control system vendors launch new products in the fall, 1–4 months before Kickoff.\n\n' + lines.join('\n') + '\n\nIf you are about to stock up on those parts, it may be worth waiting. New products cost a little more; the older ones stay on sale through next season.', 'dev', { plot: true, prio: true });
   };
   P.announce = P.teaser; // older callers
 

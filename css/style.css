@@ -590,3 +590,10 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 .msg .mb.mailbody { color: var(--text, inherit); font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 4px 2px; }
 .msg .revpic { max-width: 480px; }
 .msg .revpic canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+/* 3.1.2: this turn's messages and older ones, high priority, a letter's note */
+.inbox-div { display: flex; align-items: center; gap: 10px; margin: 14px 2px 10px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.inbox-div::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.inbox-div.top { margin-top: 2px; color: var(--accent); }
+.msg.prio { border-color: rgba(229, 72, 77, 0.55); }
+.tag.prio-tag { font-weight: 700; }
+.msg .msgnote { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(127, 127, 127, 0.08); white-space: normal; }
