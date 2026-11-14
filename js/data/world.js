@@ -101,18 +101,26 @@
   // Effects scale with level and with efficiency (40% at 0 condition → 100% at full condition).
   // fx values are per level. wear = condition lost per in-season week / offseason month / event attended.
   D.EQUIP = [
-    { id: 'printer', name: '3D Printing', upkeep: 250, wear: { season: 2.5, off: 1.2, event: 0 },
-      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm', cost: 4500 }, { name: 'Industrial printer', cost: 10000 }],
-      fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: 'Faster prototypes and custom parts: fewer hours on hardware projects.' },
+    { id: 'printer', name: 'Prototyping Lab', upkeep: 250, wear: { season: 2.5, off: 1.2, event: 0 },
+      levels: [{ name: 'Desktop 3D printer', cost: 1000 }, { name: 'Print farm + laser cutter', cost: 4500 }, { name: 'Industrial printer + laser cutter', cost: 10000 }],
+      fx: { hours: [0.08, 0.15, 0.2], slot: [0, 1, 1] }, desc: '3D printers, and from level 2 a laser cutter for plates and gussets: faster prototypes and custom parts, fewer hours on hardware projects.' },
     { id: 'cnc', name: 'CNC Machining', upkeep: 700, wear: { season: 2.5, off: 1.2, event: 0 },
-      levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC router + vertical mill', cost: 20000 }],
-      fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Precise parts: fewer hardware hours, stronger upgrades, more reliable new builds.' },
-    { id: 'lathe', name: 'Machine Shop', upkeep: 450, wear: { season: 2, off: 0.8, event: 0 },
-      levels: [{ name: 'Lathe & mill', cost: 7500 }, { name: 'CNC lathe', cost: 15000 }],
-      fx: { spare: [0.3, 0.45], rel: [3, 5], slot: [0, 1] }, desc: 'Make your own spare parts (cheaper spares) and more reliable new builds.' },
+      levels: [{ name: 'CNC router', cost: 11000 }, { name: 'CNC mill and CNC lathe', cost: 20000 }],
+      fx: { hours: [0.15, 0.22], gain: [0.1, 0.16], rel: [5, 8], stat: [2, 3], slot: [1, 1] }, desc: 'Computer-controlled machines (a router, then a CNC mill and a CNC lathe): precise parts, fewer hardware hours, stronger upgrades, more reliable new builds.' },
+    { id: 'lathe', name: 'Manual Machine Shop', upkeep: 450, wear: { season: 2, off: 0.8, event: 0 },
+      levels: [{ name: 'Manual mill & lathe', cost: 7500 }, { name: 'Full machine shop', cost: 15000 }],
+      fx: { spare: [0.3, 0.45], rel: [3, 5], slot: [0, 1] }, desc: 'A manual mill and lathe, then a drill press, a band saw and the rest of a real shop: make your own spare parts (cheaper spares) and more reliable new builds.' },
+    // a parts room: without one the shop holds about one robot's worth of each part
+    { id: 'shelf', name: 'Parts Shelf', upkeep: 50, wear: { season: 1, off: 0.4, event: 0 },
+      levels: [{ name: 'Shelving units', cost: 600 }, { name: 'Parts room with labelled bins', cost: 1800 }, { name: 'Parts store + inventory system', cost: 4000 }],
+      fx: { shelf: [0.67, 0.83, 1] }, desc: 'Somewhere for motors, encoders, gearboxes and kits to live. Without one the shop holds about one robot\'s worth of each (half the most); the top level holds two robots\' worth.' },
     { id: 'laptops', name: 'Programming Station', upkeep: 250, wear: { season: 1.5, off: 0.8, event: 0 },
-      levels: [{ name: 'Laptops + sim software', cost: 2000 }, { name: 'Dev workstations', cost: 6000 }, { name: 'Hardware-in-the-loop bench', cost: 11000 }],
-      fx: { soft: [0.2, 0.3, 0.38], slot: [0, 1, 1] }, desc: 'Fewer hours on software, auto and vision projects.' },
+      levels: [{ name: 'Laptops + sim software', cost: 2000 }, { name: 'Dev workstations', cost: 6000 }, { name: 'Hardware-in-the-loop bench', cost: 11000 }, { name: 'AI coding lab', cost: 15000, from: 2025, fromMonth: 4 }],
+      fx: { soft: [0.2, 0.3, 0.38, 0.46], slot: [0, 1, 1, 1] }, desc: 'Fewer hours on software, auto and vision projects. The AI coding lab (from the autumn of 2024) pairs every programmer with an AI assistant.' },
+    // a CAD room: every part drawn and checked before anything is cut
+    { id: 'cad', name: 'CAD Workstations', upkeep: 200, wear: { season: 1.5, off: 0.6, event: 0 },
+      levels: [{ name: 'CAD laptops', cost: 1500 }, { name: 'CAD workstations + part library', cost: 4500 }, { name: 'Simulation workstations + PDM server', cost: 9000 }],
+      fx: { design: [0.05, 0.1, 0.14] }, desc: 'Every part drawn and checked before it is cut, from a shared library of parts that worked: new mechanisms and upgrades take fewer hours.' },
     { id: 'charger', name: 'Battery Station', upkeep: 100, wear: { season: 0.5, off: 0.2, event: 4 },
       levels: [{ name: 'Charger cart', cost: 500 }, { name: 'Smart charging station', cost: 1800 }],
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
@@ -134,14 +142,24 @@
     { id: 'meeting', name: 'Team Meeting Room', upkeep: 100, wear: { season: 1, off: 0.4, event: 0 },
       levels: [{ name: 'Meeting corner', cost: 600 }, { name: 'Team classroom', cost: 2500 }, { name: 'Presentation room', cost: 6000 }],
       fx: { outreach: [0.1, 0.18, 0.25], pitch: [6, 10, 14] }, desc: 'A place to plan, rehearse and host visitors: outreach activities count for more, and your Impact Award presenters practice here.' },
+    // somewhere to stop for ten minutes: the team can work a little more of the week without wearing out
+    { id: 'lounge', name: 'Break Room', upkeep: 150, wear: { season: 1.5, off: 0.6, event: 0 },
+      levels: [{ name: 'Break corner (couch and a fridge)', cost: 500 }, { name: 'Break room', cost: 1800 }, { name: 'Student lounge', cost: 4500 }],
+      fx: { rest: [0.02, 0.035, 0.05] }, desc: 'Somewhere to eat, sit down and stop for ten minutes: fatigue drops a little every week in season, so the same hours wear the team out less (and auto-filled extra hours can use a little more of the week).' },
+    // the wall the banners hang on and the trophy shelf, where every visitor sees them
+    { id: 'honors', name: 'Honors Wall', upkeep: 50, wear: { season: 0.5, off: 0.2, event: 0 },
+      levels: [{ name: 'Banner wall', cost: 400 }, { name: 'Honors wall + trophy shelf', cost: 2000 }],
+      fx: { honors: [1, 2], pride: [2, 4], rep: [2, 4] }, desc: 'Blue banners, trophies and plaques where every visitor sees them (History shows them): the program\'s reputation grows a little every year. The banner wall shows this season\'s and last season\'s; the trophy shelf shows everything.' },
     { id: 'ftc', name: 'FTC Team Space', upkeep: 200, wear: { season: 1.5, off: 0.6, event: 0 },
       levels: [{ name: 'One FTC field', cost: 2500 }, { name: 'Two FTC fields', cost: 5000 }, { name: 'FTC lab with three fields', cost: 8000 }],
       fx: { ftc: [1, 2, 3] }, desc: 'Run your own FTC teams in the building. Each one takes a feeder program slot, costs far less than an outside program and sends you much stronger recruits.' }
   ];
   // ---------- Workshop space ----------
   // Floor space per facility level in square feet: rough real-world footprints including working room. The trailer parks outside.
-  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], laptops: [80, 140, 200], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
-    pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], ftc: [300, 500, 720] };
+  // the Workshop's second tab: the facilities that serve the team and the program rather than the robot
+  D.EQUIP_TEAM = ['meeting', 'lounge', 'honors', 'ftc', 'trailer'];
+  D.EQUIP_SIZE = { printer: [40, 100, 180], cnc: [160, 280], lathe: [150, 240], shelf: [40, 80, 120], laptops: [80, 140, 200, 220], cad: [60, 120, 180], charger: [20, 40], pitcart: [40, 80, 80], trailer: [0],
+    pfield: [600, 1200, 2200], ebench: [50, 100, 170], weld: [120, 220], meeting: [250, 450, 700], lounge: [80, 150, 250], honors: [20, 40], ftc: [300, 500, 720] };
   // The biggest room holds every facility at its top level
   D.SPACE_MAX = Math.ceil(D.EQUIP.reduce((s, e) => s + (D.EQUIP_SIZE[e.id] || [0])[(D.EQUIP_SIZE[e.id] || [0]).length - 1], 0) / 100) * 100;
   // The school gives the team more room as Program Support rises. Checked once a year at the season review; room is never taken back.
@@ -150,6 +168,7 @@
     { pct: 0.75, sup: 80, title: 'Technology wing', name: 'the technology wing' },
     { pct: 1, sup: 90, title: 'Robotics center', name: 'your own robotics center' }];
   D.SPACE_START = { rookie: 0, established: 1, powerhouse: 1 }; // a rookie starts in the classroom, an existing program in the technology wing
+  D.SHELF_START = { rookie: 0, established: 1, powerhouse: 2 }; // Parts Shelf level a program starts with
   // School board gifts at the season review, when Program Support went up: a free full renovation, and after a strong year one upgrade of your choice
   D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000, cash: 3000 }; // cash: when no upgrade fits, in 2026 dollars (shown in the year's dollars)
   // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
@@ -160,7 +179,7 @@
   // (measured over 60 automated careers: 1.0 a year overall, about 0.45 in the first year while the partnerships are new,
   // 1.0 to 1.4 from the third year; lower for teams whose sponsors expect wins they do not get).
   D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 },
-    types: { tech: ['laptops', 'ebench', 'printer'], eng: ['cnc', 'printer', 'ebench'], mfg: ['cnc', 'lathe', 'weld'], soft: ['laptops', 'ebench'], uni: ['meeting', 'pfield', 'laptops'], local: ['pitcart', 'charger', 'meeting'], found: ['ftc', 'meeting'] },
+    types: { tech: ['laptops', 'ebench', 'printer', 'cad'], eng: ['cnc', 'printer', 'ebench', 'cad'], mfg: ['cnc', 'lathe', 'weld', 'shelf'], soft: ['laptops', 'ebench', 'cad'], uni: ['meeting', 'pfield', 'laptops', 'cad'], local: ['pitcart', 'charger', 'meeting', 'lounge', 'shelf', 'honors'], found: ['ftc', 'meeting', 'lounge'] },
     intro: ['A truck backed up to the shop door this morning. Nobody had ordered anything.', 'The email subject was "Clearing out a lab. Interested?" It took the team four seconds to answer.', 'Their engineers visited last month, looked around the shop and went very quiet. Now we know why.', 'It arrived on a pallet with a bow on it. An actual bow.'],
     talk: [['We upgraded ours and could not stand the thought of it sitting in a warehouse.', '{s}'], ['Consider it an investment. We hire from teams like yours.', 'a manager at {s}'], ['Do we need to write a thank-you card? We are writing forty.', 'your team captain'],
       ['Somebody measure the door. Twice.', 'your lead mentor'], ['I have already put the logo on it. Larger than last year.', 'your business lead'], ['It still has the plastic film on the screen. Nobody is allowed to peel it without a ceremony.', 'a student']] };
@@ -224,10 +243,10 @@
     { id: 'demo', name: 'Community robot demo', icon: 'garage', kind: 'outreach', cost: 100, impact: 6, rep: 2, robot: true, desc: 'Show the robot at a library or fair.' },
     { id: 'camp', name: 'STEM summer camp', icon: 'team', kind: 'outreach', cost: 300, impact: 14, rep: 4, recruits: 1, req: S => !G.Career.inSeason(S), reqText: 'Offseason only: a summer camp needs the summer.', desc: 'Run a week-long camp for middle schoolers.' },
     { id: 'fll', name: 'Mentor a junior robotics team', icon: 'mentors', kind: 'outreach', cost: 200, impact: 10, rep: 3, recruits: 1, desc: 'Coach a local junior team for a season.' },
-    { id: 'openhouse', name: 'Weekend shop open house', icon: 'lathe', kind: 'outreach', cost: 150, impact: 9, rep: 2, recruits: 1, money: [150, 450], req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Families tour the machine shop; a donation box by the door.' },
-    { id: 'workshop', name: 'Machining workshop for local teams', icon: 'cnc', kind: 'outreach', cost: 200, impact: 11, rep: 3, req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Machine Shop or CNC', desc: 'Teach other teams to make their own parts.' },
+    { id: 'openhouse', name: 'Weekend shop open house', icon: 'lathe', kind: 'outreach', cost: 150, impact: 9, rep: 2, recruits: 1, money: [150, 450], req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Manual Machine Shop or CNC Machining', desc: 'Families tour the machine shop; a donation box by the door.' },
+    { id: 'workshop', name: 'Machining workshop for local teams', icon: 'cnc', kind: 'outreach', cost: 200, impact: 11, rep: 3, req: S => lvl(S, 'lathe') > 0 || lvl(S, 'cnc') > 0, reqText: 'Needs a Manual Machine Shop or CNC Machining', desc: 'Teach other teams to make their own parts.' },
     { id: 'cadclass', name: 'CAD & coding night', icon: 'laptops', kind: 'outreach', cost: 80, impact: 7, rep: 2, req: S => lvl(S, 'laptops') > 0, reqText: 'Needs a Programming Station', desc: 'Open lab night on the team\'s workstations.' },
-    { id: 'printkits', name: '3D-printed kits for schools', icon: 'printer', kind: 'outreach', cost: 150, impact: 8, rep: 2, req: S => lvl(S, 'printer') >= 2, reqText: 'Needs a Print farm (3D Printing level 2)', desc: 'Print simple robot kits for elementary classrooms.' },
+    { id: 'printkits', name: '3D-printed kits for schools', icon: 'printer', kind: 'outreach', cost: 150, impact: 8, rep: 2, req: S => lvl(S, 'printer') >= 2, reqText: 'Needs a Prototyping Lab at level 2', desc: 'Print simple robot kits for elementary classrooms.' },
     { id: 'fieldday', name: 'Practice-field scrimmage day', icon: 'pfield', kind: 'outreach', cost: 250, impact: 10, rep: 3, money: [300, 800], robot: true, req: S => lvl(S, 'pfield') >= 2, reqText: 'Needs a half or full practice field', desc: 'Host local teams on your field; small entry fees.' },
     { id: 'roadshow', name: 'Trailer roadshow', icon: 'trailer', kind: 'outreach', cost: 300, impact: 13, rep: 3, robot: true, req: S => lvl(S, 'trailer') > 0, reqText: 'Needs the Team Trailer', desc: 'Take the robot on tour to schools across the region.' },
     { id: 'industry', name: 'Industry night with a mentor', icon: 'mentors', kind: 'outreach', cost: 0, impact: 6, rep: 2, req: S => S.mentors.some(m => m.role === 'biz' || m.role === 'design'), reqText: 'Needs a Business or Design mentor', desc: 'A mentor hosts a careers talk.' },
@@ -238,7 +257,7 @@
     { id: 'grant', name: 'Write a grant application', icon: 'design', kind: 'fund', cost: 0, money: [1500, 4000], grant: true, get desc() { return 'Roughly 35% chance of a ' + G.U.money(1500) + '–' + G.U.money(4000) + ' grant (better with strong outreach).'; } },
     { id: 'showcase', name: 'Sponsor showcase night', icon: 'sponsor', kind: 'fund', cost: 200, money: [600, 1600], sponsorSat: 4, req: S => S.sponsors.length >= 2, reqText: 'Needs two or more sponsors', desc: 'Show sponsors the robot; satisfaction +4 for every sponsor.' },
     { id: 'gala', name: 'Alumni fundraising dinner', icon: 'trophy', kind: 'fund', cost: 400, money: [1500, 3800], req: S => S.history.length > 0 || S.profile !== 'rookie', reqText: 'Rookie teams have no alumni yet: after your first season', desc: 'Former members and parents, one big night.' },
-    { id: 'parts', name: 'Sell old parts and stock', icon: 'parts', kind: 'fund', cost: 0, money: [300, 900], req: S => lvl(S, 'lathe') > 0, reqText: 'Needs a Machine Shop', desc: 'Machine and sell spare stock to rookie teams.' }
+    { id: 'parts', name: 'Sell old parts and stock', icon: 'parts', kind: 'fund', cost: 0, money: [300, 900], req: S => lvl(S, 'lathe') > 0, reqText: 'Needs a Manual Machine Shop', desc: 'Machine and sell spare stock to rookie teams.' }
   ];
 
   // ---------- Mentors ----------
@@ -352,6 +371,13 @@
   D.TECH_RULE_PCT = 0.25; D.TECH_DESIGN_PCT = 0.15; D.TECH_CAP = 1.25; D.TECH_RULES_N = 2; D.TECH_DESIGNS_N = 3;
   D.TECH_DEEP = 1.5; D.TECH_DEEP_LVL = 4;
   D.KB_UPKEEP_HOURS = 25; // the Knowledge Base's yearly update (the first build takes 60 hours)
+  // In-season program projects (once a season, no project slot): pit crew training makes repairs between matches at events
+  // faster (×fast, plus up to polish with extra hours); bumper standards rules out the bumper incident at events
+  D.PIT_TRAIN = { hours: 40, cost: 120, fast: 1.3, polish: 0.15 };
+  D.BUMPER_STD = { hours: 30, cost: 280 };
+  D.REF_AI = { anyFloor: 0.2, bpShare: 0.35, bpBoost: 0.04 }; // AI teams copy too: the weakest that would fall below the floor build the Anybot (quality raised to it); a share of the lower middle build the Blueprint (its concepts, +0.04 quality)
+  D.REF_STEP = 0.25; // a copied published design starts as a version 2: its stats this share of the way from a first build to the ceiling
+  D.REF_FIT0 = 0.3; // copying part of a published design: the drivers' familiarity and the reliability bonus scale from this share (one subsystem of many) up to the whole (every subsystem in it)
   D.TECH_RULES = [
     { id: 'wiring', area: 'elec', tag: 'Robot rules', title: 'New wiring rules', body: 'Next season\'s robot rules rewrite the electrical section: new wire-gauge tables, every branch circuit protected on its own, and the main breaker has to sit where a referee can reach it. Half of your wiring standard is now a history lesson.',
       talk: [['Our inspection checklist just became a collector\'s item.', 'an electrical mentor'], ['So the zip-tie budget goes up. Again.', 'a team treasurer']] },
@@ -487,7 +513,7 @@
       desc: 'Brand-new team. Small budget, no experience and a single robotics classroom — but eligible for rookie awards.' },
     established: { name: 'Established', money: 45000, students: 25, mentors: [[2, 3], [2, 3], [2, 3], [2, 2]], know: 1, equip: ['printer'], parts: {}, rep: 45, support: 60, school: 14000,
       desc: 'A solid program with some experience, a 3D printer and room in the technology wing.' },
-    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield'], parts: {}, rep: 85, support: 72, school: 22000,
+    powerhouse: { name: 'Powerhouse', money: 90000, students: 40, mentors: [[3, 4], [3, 4], [3, 4], [3, 4], [3, 3], [3, 3], [3, 3]], know: 2, equip: ['printer', 'cnc', 'field', 'pfield', 'cad', 'honors'], parts: {}, rep: 85, support: 72, school: 22000,
       desc: 'A perennial contender with deep knowledge, a high reputation, a CNC router, a practice area and the premium vendor\'s parts — and a school and sponsors who expect wins.' }
   };
 

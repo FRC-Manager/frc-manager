@@ -333,7 +333,7 @@
     if (f <= D.INCIDENT_FREE && n >= 1) return;
     const perMatch = Ev.incidentRate(f) / (ev.kind === 'einstein' ? 4 : ev.kind === 'offseason' ? 8 : 12) * G.Career.techCheck(S); // a Technician runs the pre-match checklist
     if (!G.R.chance(perMatch)) return;
-    const inc = G.R.wpick(INCIDENTS.filter(x => !x.req || x.req(S, ev)), x => x.w);
+    const inc = G.R.wpick(INCIDENTS.filter(x => (!x.req || x.req(S, ev)) && !(x.id === 'bumper' && S.season && S.season.bumperStd)), x => x.w); // quick-latch bumpers (Bumper standards) do not come loose
     inc.apply(ev, S);
     const at = ev.stage === 'playoffs' ? 'Playoffs' : 'Qual ' + ((ev.quals[ev.qi] || {}).n || '');
     ev.incidents.push({ at, title: inc.title, text: inc.text, f: Math.round(f) });

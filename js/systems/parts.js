@@ -47,13 +47,15 @@
         if (y > first && idx < 0) return; // after the career ends
         // one launch event per vendor per season; story launches are in September, a career's first autumn starts in October
         const key = (L.brand || v) + ':' + idx;
+        // a product with a launch month of its own (the CAN FD hubs, June 2022) has a launch event of its own
+        if (L.mo != null) { S.vendorPlan.push({ idx, cat, v, n: i + 1, mo: idx < 0 ? 0 : L.mo }); return; }
         if (L.fix) months[key] = 4;
         else if (months[key] == null) months[key] = idx === 0 ? rng.pick([6, 7]) : rng.pick(P.LAUNCH_MONTHS);
         S.vendorPlan.push({ idx, cat, v, n: i + 1, mo: idx < 0 ? 0 : months[key] });
       });
     }));
     // every product of one vendor in one season shares the launch month (a fixed one wins)
-    S.vendorPlan.forEach(r => { if (r.idx >= 0) r.mo = months[P.brand(PROD[ladId(r.cat, r.v, r.n)]) + ':' + r.idx]; });
+    S.vendorPlan.forEach(r => { const p = PROD[ladId(r.cat, r.v, r.n)]; if (r.idx >= 0 && p.mo == null) r.mo = months[P.brand(p) + ':' + r.idx]; });
     S.vendorPlan.sort((a, b) => a.idx - b.idx || a.mo - b.mo);
   }
   P.era = S => !!(S && S.cal);
@@ -209,7 +211,7 @@
   P.buyRoom = function (S, prodId) {
     const prod = PROD[prodId]; if (!prod) return 0;
     const nv = prod.perf * 0.65 + 0.35;
-    return D.PART_CAT[prod.cat].max - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9).length;
+    return G.Shop.partMax(S, prod.cat) - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9).length;
   };
 
   // ======================= inventory =======================
@@ -220,13 +222,49 @@
   P.add = function (S, cat, prodId, n, h) {
     const list = S.inv[cat] = S.inv[cat] || [];
     for (let i = 0; i < n; i++) list.push({ id: U.uid('q'), p: prodId, h: h == null ? 1 : h });
-    const max = D.PART_CAT[cat].max;
+    const max = G.Shop.partMax(S, cat);
     S.wearTick = (S.wearTick || 0) + 1;
     if (list.length <= max) return 0;
     list.sort((a, b) => value(b) - value(a));
     const drop = list.length - max;
     list.length = max;
     return drop;
+  };
+  // ======================= vendor booths at events =======================
+  // On practice day at a regional or a district event (not the Championship, an offseason event or a Week 0 scrimmage) two
+  // vendors have a booth: a control system vendor and a vision / COTS one. They bring what sells out in season (sold-out
+  // parts first, then the most wanted), at the shop price less shipping, a few of each per team.
+  D.BOOTH = { off: 0.9, items: 4, limit: { motor: 8, enc: 8, pgear: 8 }, limit1: 2, kit: 4 };
+  P.boothOpen = ev => !!ev && (ev.kind === 'regional' || ev.kind === 'dcmp') && (ev.stage === 'practice' || !!ev.pracReview) && !!G.S.cal;
+  P.booths = function (S, ev) {
+    if (!P.boothOpen(ev)) return [];
+    const sale = P.forSale(S).filter(x => !x.ending && !x.kop && !x.clear), rng = G.makeRng((ev.seed || 1) + 97);
+    const rank = x => (P.inStock(S, x.prod.id) ? 0 : 1) + P.demand(S, x);
+    const pick = list => list.sort((a, b) => rank(b) - rank(a)).slice(0, D.BOOTH.items).map(x => x.prod);
+    const out = [];
+    // the control system vendor: Apex or Lumen (Sterling or Lumen before 2020), whichever is at this event
+    const vs = ['A', 'B'].filter(v => sale.some(x => x.prod.v === v && ['motor', 'enc', 'ctrl', 'pgear', 'canfd'].includes(x.prod.cat)));
+    if (vs.length) { const v = vs[rng.int(0, vs.length - 1)], items = pick(sale.filter(x => x.prod.v === v && ['motor', 'enc', 'ctrl', 'pgear', 'canfd'].includes(x.prod.cat))), b = P.brand(items[0]);
+      out.push({ id: 'ctl', name: D.VENDORS[b].name, color: D.VENDORS[b].color, items }); }
+    const cots = pick(sale.filter(x => x.prod.v === 'L' || x.prod.v === 'C'));
+    if (cots.length) { const lw = cots.some(p => p.v === 'L'); out.push({ id: 'cots', name: lw ? 'Lanternworks and COTS parts' : 'COTS parts', color: D.VENDORS[lw ? 'L' : 'C'].color, items: cots }); }
+    return out;
+  };
+  P.boothLimit = (S, ev, prod) => { const c = D.PART_CAT[prod.cat]; const lim = D.BOOTH.limit[prod.cat] || (c.kit ? D.BOOTH.kit : D.BOOTH.limit1); return Math.max(0, lim - ((ev.booth && ev.booth[prod.id]) || 0)); };
+  P.boothPrice = (S, prod) => Math.round(P.price(S, prod) * D.BOOTH.off);
+  P.boothBuy = function (S, ev, prodId, n) {
+    const prod = PROD[prodId];
+    if (!prod || !P.booths(S, ev).some(b => b.items.includes(prod))) return 'Not at this booth';
+    n = Math.min(n || 1, P.boothLimit(S, ev, prod));
+    if (n <= 0) return 'That is all the booth can sell your team';
+    { const room = P.buyRoom(S, prodId); if (room <= 0) return 'No room on your parts shelf for another one'; n = Math.min(n, room); }
+    const cost = n * P.boothPrice(S, prod);
+    { const e = G.Career.afford(S, cost); if (e) return e; }
+    G.Career.spend(S, cost, n + '× ' + prod.name + ' (event booth)');
+    if (P.loyalOn(S) && (prod.v === 'A' || prod.v === 'B')) { const vb = S.vendBought = S.vendBought || { A: 0, B: 0 }; vb[prod.v] += cost; }
+    ev.booth = ev.booth || {}; ev.booth[prodId] = (ev.booth[prodId] || 0) + n; S.boothT = S.newsTurn || 0;
+    P.add(S, prod.cat, prodId, n, 1);
+    return { bought: n, cost };
   };
   P.buy = function (S, prodId, n) {
     const prod = PROD[prodId];
@@ -236,7 +274,7 @@
     const cat = D.PART_CAT[prod.cat];
     // a full shelf only takes parts better than its worst ones (worn or older): those are sold if they still can be, else recycled
     { const room = P.buyRoom(S, prodId);
-      if (room <= 0) return 'No room: all ' + cat.max + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
+      if (room <= 0) return 'No room: all ' + G.Shop.partMax(S, prod.cat) + ' slots for ' + cat.short.toLowerCase() + ' hold parts at least as good as this one. Sell some first.';
       n = Math.min(n, room); }
     // KOP mechanism vouchers (from Kickoff) each pay for one Kit of Parts subsystem kit
     const kv = D.KOP_KITS.includes(prod.cat) ? Math.min(n, P.kopVch(S)) : 0;
@@ -423,6 +461,7 @@
       if (comp.ctrl) comp.nswitch = 1;
       if (prac.ctrl) prac.nswitch = 1;
       if (R.visionLvl) comp.accel = 1;
+      if (comp.ctrl && G.Era.of(S).canBus) comp.canfd = 1; // a CAN FD hub: the competition robot only (it is matches where the bus overloads)
     }
     return { comp, prac, sub: resolveDrive(S, comp, prac) };
   };
@@ -459,7 +498,7 @@
   // one line for the concept list: what this drive can run on, and what yours would run on today
   P.driveNote = function (S, cid) {
     // swerve: bought modules once someone sells them (2020), a machined set before that
-    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? 'Nobody sells swerve modules yet: the team machines its own (needs a CNC Router or a Lathe, takes more hours and is less reliable).' : 'Runs on 4 swerve modules from the Inventory (Control system tab), with their motors and encoders.';
+    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? 'Nobody sells swerve modules yet: the team machines its own (needs CNC Machining or a Manual Machine Shop, takes more hours and is less reliable).' : 'Runs on 4 swerve modules from the Inventory (Control system tab), with their motors and encoders.';
     if (!S || !S.cal) return '';
     const west = cid === 'wcd' || cid === 'wcd8', d = P.driveQ(S, cid), f = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v));
     if (west) return 'Runs on 2 vendor drive sets (best), or on 2 COTS Drive gearboxes when there are no sets for it (slower and weaker). ' + (d.on === 'wcd' ? 'Yours would run on drive sets' : d.on === 'gearbox' ? 'Yours would run on Drive gearboxes' : 'You have neither on the shelf') + (d.on ? ': Speed ' + f(d.speed) + ', Pushing ' + f(d.push) + ' (counted in the ceilings above).' : '.');
@@ -490,7 +529,7 @@
       const c = D.PART_CAT[m.cat], s = c.short.toLowerCase(), word = m.n > 1 ? s : s.replace(/s$/, '');
       if (m.need == null) return m.n + ' more ' + word;
       const use = [m.comp ? nm('comp') + ' uses ' + m.comp : '', m.prac ? nm('prac') + (m.comp ? ' would use ' : ' uses ') + m.prac : ''].filter(Boolean).join(', ');
-      return m.n + ' more ' + word + ' (' + use + (m.comp && m.prac ? ': ' + m.need + ' in all' : '') + ', ' + m.have + ' on the shelf' + (m.need > c.max ? '; the shelf holds ' + c.max + ' at most' : '') + ')';
+      return m.n + ' more ' + word + ' (' + use + (m.comp && m.prac ? ': ' + m.need + ' in all' : '') + ', ' + m.have + ' on the shelf' + (m.need > G.Shop.partMax(G.S, m.cat) ? '; the shelf holds ' + G.Shop.partMax(G.S, m.cat) + ' at most (Parts Shelf: Workshop)' : '') + ')';
     }).join(', ') + ' (Inventory)';
   };
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
@@ -573,8 +612,16 @@
       if (cams.length) out.cam = cams.reduce((s, it) => { const p = PROD[it.p]; return s + p.perf * (p.id === 'cameraL1' && G.Era.of(S).vision.tags ? D.CAM_OLD_TAGS : 1); }, 0) / cams.length;
       out.nsw = (lists.nswitch || []).length ? (lists.nswitch[0].h > 0.5 ? 1 : 0.6) : 0;
       out.accel = (lists.accel || []).length ? 1 : 0; }
+    // the CAN bus (competition robot, from 2023): motors and encoders against what the bus carries, with a CAN FD hub or without
+    { const base = side === 'comp' ? G.Era.of(S).canBus : 0;
+      if (base) {
+        const hub = (lists.canfd || [])[0], dev = (need.motor || 0) + (need.enc || 0), cap = hub ? PROD[hub.p].bus || base : base;
+        out.can = { dev, cap, hub: hub ? PROD[hub.p].name : null, over: Math.max(0, dev - cap) / 8 }; // every 8 devices over the limit: one more unit of overload
+      } }
     return out;
   }
+  // the competition robot's CAN bus: { dev, cap, hub, over } (null before 2023, in old careers or without a robot)
+  P.canBus = S => (S.robot && S.cal ? P.profile(S).can || null : null);
   P.devMult = S => { if (!S.robot) return 1; const pp = P.profile(S); return pp.mixed ? D.MIX_HOURS : pp.kopMix ? D.KOP_MIX_HOURS : 1; };
 
   // ======================= wear =======================
@@ -782,7 +829,7 @@
 
   // ======================= product launch events =======================
   // ======================= product launch events =======================
-  const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules', wcd: 'West Coast drive sets' };
+  const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules', wcd: 'West Coast drive sets', pgear: 'planetary gearboxes', canfd: 'CAN FD hubs' };
   const LAUNCH_INTRO = {
     T: [
       'Sterling Motion announced it the way it always has: a printed catalogue in the mail, a full-page advertisement, and a booth with carpet at the trade show.',
@@ -1000,8 +1047,20 @@
     (S.inv.camera || []).forEach(it => { if (it.p === 'cameraC') it.p = 'cameraL1'; });
     S.wearTick = (S.wearTick || 0) + 1;
   }
+  // v3.0: CAN FD hubs. A calendar career planned before they existed gets their launch (June 2022, or already on sale)
+  function migrate300(S) {
+    if (!S.cal || !S.vendorPlan || S.vendorPlan.some(r => r.cat === 'canfd')) return;
+    const cal = S.cal, first = cal[0];
+    ['A', 'B'].forEach(v => D.LADDER.canfd[v].forEach((L, i) => {
+      const idx = L.y <= first ? -1 : cal.findIndex(c => c >= L.y);
+      if (L.y > first && idx < 0) return;
+      S.vendorPlan.push({ idx, cat: 'canfd', v, n: i + 1, mo: idx < 0 ? 0 : L.mo });
+    }));
+    S.vendorPlan.sort((a, b) => a.idx - b.idx || a.mo - b.mo);
+    S.wearTick = (S.wearTick || 0) + 1;
+  }
   P.migrate = function (S) {
-    if (S && S.inv) { fixElemSizes(S); migrateLaunches(S); migrate293(S); migrateKitDrive(S); migrate297(S); return; }
+    if (S && S.inv) { fixElemSizes(S); migrateLaunches(S); migrate293(S); migrateKitDrive(S); migrate297(S); migrate300(S); return; }
     if (!S || S.inv) return;
     const rng = G.makeRng((S.seed || 1) * 31 + 7), old = S.parts || {};
     S.inv = {}; D.PART_CATS.forEach(c => S.inv[c.id] = []);

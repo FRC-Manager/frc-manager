@@ -166,7 +166,7 @@
       if (!fin(S.parts.spares) || S.parts.spares < 0) bad('spares ' + S.parts.spares);
       G.Data.PART_CATS.forEach(c => {
         const n = G.Parts.count(S, c.id);
-        if (n > c.max) bad(c.id + ' over max: ' + n);
+        if (n > G.Shop.partMax(S, c.id)) bad(c.id + ' over max: ' + n);
         G.Parts.items(S, c.id).forEach(it => { if (!fin(it.h) || it.h < 0 || it.h > 1) bad(c.id + ' health ' + it.h); if (!G.Parts.prod(it.p)) bad('unknown product ' + it.p); });
         if (c.kit && G.Parts.kitsUsed(S, c.id) > n) bad(c.id + ' kits used ' + G.Parts.kitsUsed(S, c.id) + ' > owned ' + n);
       });
@@ -241,9 +241,20 @@
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
       // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player
       if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, wcd: 2, gearbox: 4 }, opts.vendor || 'B');
+      // opts.copy ('any' or 'bp'): wait for that published design, copy it in Build Week 1, then build the rest
+      const refCopy = opts.copy && S.cal ? D.REFBOTS.find(r => r.id === opts.copy && C.cy(S) >= r.from && r.picks[S.year]) : null;
+      if (S.phase === 'build' && S.week === 1 && refCopy && !(log.copied = log.copied || {})[S.year]) {
+        const r = G.Robot.buildRef(S, refCopy.id); log.copied[S.year] = r.started.length;
+        log.push('  copied the ' + refCopy.name + ' ' + C.cy(S) + ': ' + r.started.join(', ') + (r.skipped.length ? ' (skipped ' + r.skipped.join('; ') + ')' : ''));
+        G.Seasons[S.year].subs.forEach(sd => {
+          if (sd.id === 'soft' || sd.optional || (S.robot.design[sd.id] && S.robot.design[sd.id].ver) || S.projects.some(p => p.sub === sd.id)) return;
+          const cs = sd.concepts.filter(c => c.id !== 'none' && !G.Robot.reqOk(S, c)), c = cs[Math.min(cs.length - 1, 2)] || cs[0];
+          G.Robot.startProject(S, { type: 'build', sub: sd.id, concept: c.id, effort: 'std' });
+        });
+      }
       if (S.phase === 'kickoff') {
         G.Seasons[S.year].subs.forEach(sd => {
-          if (sd.id === 'soft' || sd.optional) return;
+          if (sd.id === 'soft' || sd.optional || refCopy) return;
           const cs = sd.concepts.filter(c => c.id !== 'none' && !G.Robot.reqOk(S, c));
           const c = cs[Math.min(cs.length - 1, 2)] || cs[0];
           const e = G.Robot.startProject(S, { type: 'build', sub: sd.id, concept: c.id, effort: 'std' });

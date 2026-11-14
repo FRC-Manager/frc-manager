@@ -744,6 +744,7 @@
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
   // in contact this tick: being defended, or pinned against the robot it is defending
   const inContact = r => !!r.defBy || (r.st === 'defend' && r.defT && dist(r, r.defT) < 1.5);
+  const CAN_HZ = 0.006; // CAN bus overloads a second per unit of overload (one in every 1.1 matches with twice the devices the bus carries)
   function faultRoll(m, r) {
     const c = r.cap, P = PACE[r.plan.pace], FP = m.R.faults || {};
     const h = 0.0002 * (1 + (100 - c.rel) / 25) * (1 + (100 - r.cond) / 40) * (1 + r.hidden * 0.8) * m.diff * P.wear;
@@ -758,6 +759,9 @@
     if (!r.fault) {
       const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff * (1 - r.elecK) * (1 - (1 - G.Data.VISION_HW.swDrop) * (c.netSw || 0)); // a network switch: fewer dropouts
       if (m.rng.next() < hc * DT) { triggerFault(m, r, 'comms'); return; }
+      // an overloaded CAN bus (more motors and encoders than it carries, no CAN FD hub): now and then the frames stop
+      // getting through and the robot freezes until the bus recovers
+      if (c.canOver && m.rng.next() < CAN_HZ * c.canOver * DT) { triggerFault(m, r, 'can'); return; }
     }
     // tall robots tip on their own now and then (high reach, fast turns), more in tip-heavy seasons
     const tall = c.lowCG ? 0 : (c.tall || 0) + (FP.tipAll || 0); // tipAll: risk every robot shares this season (e.g. 2023 Charge Station); a low centre of gravity never tips
@@ -785,6 +789,7 @@
         break;
       }
       case 'tip': r.dead = true; r.tipped = true; r.st = 'dead'; msg = 'TIPPED OVER'; break;
+      case 'can': r.fault = { stall: true, until: m.t + rng.range(2, 4.5), label: 'CAN BUS' }; msg = 'CAN bus overload'; break;
     }
     r.stats.faults.push(msg);
     log(m, r.a, r.team + ': ' + msg, 'fault');

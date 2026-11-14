@@ -10,9 +10,10 @@
 
   // ---------- Technology by calendar year (each row changes what it names, from that season on) ----------
   // swerve: cots = modules are sold; else team-built: hours x, reliability +rel, stat ceilings x ceil, extra materials,
-  //         and it needs a CNC Router or a Lathe.
+  //         and it needs CNC Machining or a Manual Machine Shop.
   // vision: cam = a vision camera is sold and needed; max level; hours x; ceiling of the Vision stat; tags = AprilTags
   //         (vision also helps autonomous). pneu: share of intake/manipulator build hours a pneumatics kit saves.
+  // canBus: from 2023, how many motors and encoders a robot's CAN bus carries without a CAN FD hub (more: it overloads in matches).
   // aiSwerve: share of the strong AI teams whose archetype allows swerve that actually run it. aiMotor: what the motors
   //         of the day do to AI drive speed and scoring speed (x9 and x7, like the player's parts). bag: Stop Build Day.
   D.ERA = [
@@ -21,8 +22,46 @@
     { y: 2019, aiSwerve: 0.1, aiMotor: -0.2 },
     { y: 2020, swerve: { cots: true, hours: 1, rel: 0, ceil: 1, mat: 0 }, pneu: 0.2, aiSwerve: 0.3, aiMotor: -0.09, bag: false },
     { y: 2022, aiSwerve: 0.5, aiMotor: 0 },
-    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, pneu: 0.1, servo: 0.15, aiSwerve: 0.65 },
+    { y: 2023, vision: { cam: true, max: 2, hours: 1, ceil: 92, tags: true }, pneu: 0.1, servo: 0.15, aiSwerve: 0.65, canBus: 14 },
     { y: 2024, pneu: 0.05, servo: 0.2, aiSwerve: 0.75 }
+  ];
+
+  // ---------- Published robot designs (calendar careers) ----------
+  // Each season, in Build Week 1, a design for that year's game is published in full: the Anybot (a veteran team's simple
+  // robot on the kit chassis, from the 2018 season) and the Apex Blueprint (a competitive design on swerve, from 2022; any
+  // vendor's parts fit). Copying one saves on the FIRST build of each subsystem only (k.hours, k.cost), skips the first-
+  // build penalty, starts it as version 2 with reliability +k.rel, gives the drivers k.fam familiarity with it, and
+  // teaches k.xp of the know-how. Upgrades afterwards are the team's own work at the usual cost. picks: game → subsystem
+  // → concept (a subsystem left out is not part of the design). STRONGHOLD has none: it is only ever played in 2016 or 2017.
+  D.REFBOTS = [
+    { id: 'any', name: 'Anybot', by: 'the Gearwrights', tag: 'GW', from: 2018, color: '#3ecf8e', story: 'anybot',
+      blurb: 'A simple robot on the kit chassis that plays the game: built with hand tools, easy to fix.',
+      k: { hours: 0.5, cost: 0.8, rel: 6, fam: 0.6, xp: 0.5 },
+      picks: {
+        2017: { drive: 'kit', scorer: 'active', endgame: 'winch' },
+        2018: { drive: 'kit', scorer: 'low', effector: 'roller' },
+        2019: { drive: 'kit', scorer: 'low', effector: 'combo' },
+        2020: { drive: 'kit', frame: 'std', intake: 'bay', scorer: 'dump', endgame: 'hook' },
+        2022: { drive: 'kit', intake: 'over', scorer: 'dump', endgame: 'mid' },
+        2023: { drive: 'kit', scorer: 'sja', effector: 'roller' },
+        2024: { drive: 'kit', intake: 'otb', scorer: 'sub', amp: 'ampbar', endgame: 'chain' },
+        2025: { drive: 'kit', scorer: 'arm', effector: 'roller', algae: 'proc' },
+        2026: { drive: 'kit', frame: 'std', intake: 'ground', hopper: 'med', scorer: 'fixed', endgame: 'l1' }
+      } },
+    { id: 'bp', name: 'Apex Blueprint', by: 'Apex Motion', tag: 'APEX', from: 2022, color: '#ff9f43', story: 'blueprint',
+      blurb: 'A competitive design on swerve, the robot most good teams would build. Any vendor\'s parts fit.',
+      k: { hours: 0.65, cost: 0.9, rel: 4, fam: 0.55, xp: 0.5 },
+      picks: {
+        2017: { drive: 'swerve', scorer: 'floor', endgame: 'fast' },
+        2018: { drive: 'swerve', intake: 'wheeled', scorer: 'elev', effector: 'roller', endgame: 'hook' },
+        2019: { drive: 'swerve', intake: 'ground', scorer: 'elev', effector: 'active', endgame: 'l3' },
+        2020: { drive: 'swerve', frame: 'low', intake: 'over', scorer: 'hood', panel: 'spin', endgame: 'hook' },
+        2022: { drive: 'swerve', intake: 'over', scorer: 'hood', endgame: 'high' },
+        2023: { drive: 'swerve', intake: 'gcube', scorer: 'elevw', effector: 'roller' },
+        2024: { drive: 'swerve', intake: 'utb', scorer: 'pivot', endgame: 'chain' },
+        2025: { drive: 'swerve', scorer: 'elevw', effector: 'pivot', algae: 'proc', endgame: 'deep' },
+        2026: { drive: 'swerve', frame: 'std', intake: 'wide', hopper: 'large', scorer: 'hood', endgame: 'l1' }
+      } }
   ];
 
   const Era = G.Era = {};
@@ -139,7 +178,7 @@
     { id: 'planetary', cy: 2017, at: 'off:4', tag: 'VENDOR NEWS · STERLING & LUMEN', color: VC.B, title: 'Gearboxes in a can', btn: 'parts',
       body: ['Ask any pit crew about the 2016 season and they will tell you about gearboxes. Most mechanisms ran on gear plates the students had cut and drilled themselves, and a lot of them came apart under load: stripped teeth, walked shafts, bearings that fell out mid-match.',
         'This autumn both vendors have the same answer, a month apart. Sterling\'s Orbital and Lumen\'s Sunwheel are sealed planetary gearboxes that bolt straight onto a motor: pick a ratio, add a motor, done. And the Kit of Parts adds its own low-profile planetary for the kit motor, in every kit from this Kickoff.'],
-      means: ['Planetary gearboxes are on sale in the Inventory (Control system tab): one per motor on a mechanism (not the drivetrain).', 'They are optional. The more of a robot\'s mechanism motors have one, the fewer breakdowns, and better gearboxes help more.', 'They are not part of the control system: Sterling and Lumen gearboxes mix freely with either vendor\'s motors.', 'The KOP low-profile gearbox only fits KOP motors. Two come in every Kickoff kit (four in a rookie kit).'],
+      means: ['Planetary gearboxes are on sale in the Inventory (Control system tab): one per motor on a mechanism (not the drivetrain).', 'They are optional. The more of a robot\'s mechanism motors have one, the fewer breakdowns, and better gearboxes help more.', 'They are not part of the control system: Sterling and Lumen gearboxes mix freely with either vendor\'s motors.', 'The Kit low-profile gearbox only fits kit motors. Two come in every Kickoff kit (four in a rookie kit).'],
       talk: [['We cut forty gear plates last season. I am not cutting forty gear plates this season.', 'a fabrication mentor'], ['Same motor, same mount, and it does not explode. Revolutionary.', 'a student on Team {t}'], ['The kit one is tiny. I want to put it on a keychain.', 'a rookie on Team {t}']] },
     // the summer of 2017: the pit in road cases (the Super pit, Pit Setup level 3)
     { id: 'superpit', cy: 2018, at: 'off:3', tag: 'SPOTTED AT THE CHAMPIONSHIP', color: 'var(--info)', title: 'The pit that rolls in', btn: 'workshop',
@@ -173,8 +212,9 @@
     // ---- 2018 ----
     { id: 'recap2018', cy: 2018, at: 'recap', tag: 'SEASON RECAP · 2018', color: 'var(--accent)', title: 'Swerve\'s first light',
       body: ['The story of 2018 was not on the scoreboard. A handful of teams arrived with swerve drives they had machined themselves: every wheel steering on its own, the robot sliding sideways around defenders as if the carpet were ice.',
-        'Most of them broke at least once. A few of them were still playing on the last day of the Championship. It is a gamble: a hundred hours at the mill, and modules that can shed a gear at the worst moment. But the videos are everywhere, and every drive team spent the summer asking the same question.'],
-      means: ['Team-built swerve is competitive now, for teams with a CNC Router or a Lathe and the hours to spare.', 'A few more strong teams will try it next season.', 'Nobody sells a swerve module. Yet.'],
+        'Most of them broke at least once. A few of them were still playing on the last day of the Championship. It is a gamble: a hundred hours at the mill, and modules that can shed a gear at the worst moment. But the videos are everywhere, and every drive team spent the summer asking the same question.',
+        'At the other end of the standings, the first Anybot did what the Gearwrights promised: rookie teams that would have spent the season pushing a kit chassis around were scoring in Week 1.'],
+      means: ['Team-built swerve is competitive now, for teams with CNC Machining or a Manual Machine Shop and the hours to spare.', 'A few more strong teams will try it next season.', 'Nobody sells a swerve module. Yet.', 'The Anybot comes back every January, for every game.'],
       talk: [['Could we build one?', 'every driver, to every mentor, all summer'], ['It strafes. It STRAFES.', 'a student on Team {t}'], ['We lost a module in a semifinal and still nearly won on three wheels.', 'a mentor on Team {t}'], ['Tank drive is fine. Tank drive has always been fine.', 'a drive coach, unconvinced']] },
     { id: 'brushless', cy: 2019, at: 'off:4', tag: 'VENDOR NEWS · LUMEN ROBOTICS', color: VC.B, title: 'The motor nobody saw coming', btn: 'parts', hit: { area: 'elec', pct: 0.2 },
       body: ['Lumen Robotics was three people in a rented unit when it started, selling replacement gearbox parts at prices that made the big catalogue look silly. Two years ago its founder stopped taking a salary and put everything into one project: a brushless motor made for these robots, with its controller designed alongside it.',
@@ -184,7 +224,7 @@
     // ---- 2019 ----
     { id: 'recap2019', cy: 2019, at: 'recap', tag: 'SEASON RECAP · 2019', color: 'var(--accent)', title: 'The brushless year',
       body: ['In January the Ion was a curiosity. By the Championship most of the robots on the last field ran them, and the teams that did not could hear the difference from the stands.',
-        'Swerve kept spreading among the teams that could machine it, and defense got faster and meaner because the drivetrains did. The old premium catalogue sold fewer motors every week.'],
+        'Swerve kept spreading among the teams that could machine it, and defense got faster and meaner because the drivetrains did. The old premium catalogue sold fewer motors every week. The Anybot came back for its second year, and some veteran teams built one too, as a practice robot.'],
       means: ['Brushless is the standard from here on. Brushed motors are for the kit and the museum.', 'Something is about to give in the vendor market.'],
       talk: [['We changed motors mid-season. Same robot, a second faster per cycle.', 'a mentor on Team {t}'], ['My pit smells less like burnt brushes. I miss it a little.', 'an electrical lead'], ['Every fast robot this year had the same blue motors.', 'a scout on Team {t}']] },
     { id: 'sterling', cy: 2020, at: 'off:0', tag: 'VENDOR NEWS · STERLING MOTION', color: VC.T, title: 'Sterling Motion closes its doors', btn: 'parts',
@@ -219,16 +259,23 @@
         'Brushless motors are now so strong and so cheap that a small motor on a gearbox does what a big cylinder used to do, without a compressor, a tank, forty fittings and the leak that nobody can find. The small cylinders are going too: latches, flaps and little flippers now run on servos and linear actuators, and the COTS suppliers sell them as a kit. Teams that swore by pneumatics for a decade are leaving the whole system in the cupboard.'],
       means: ['Servo actuator kits are on sale in the Inventory (Subsystem COTS). Like a pneumatics kit, a servo kit speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds, and from the 2023 season it saves more: 15%, then 20% from 2024.', 'From the 2023 season a pneumatics kit saves 10% instead of 20%, and 5% from 2024. With both kits, the better one counts.', 'A used pneumatics kit is worth less every year.'],
       talk: [['I can finally hear myself think in the pit.', 'a mentor on Team {t}'], ['Found the leak. It only took four seasons. We are removing the system on Monday.', 'a student on Team {t}'], ['A cylinder is still the fastest way to move something two inches. Fight me.', 'a forum regular']] },
+    // June 2022, a month after the pneumatics story: the CAN bus fills up, and both vendors sell a second, faster one
+    { id: 'canfd', cy: 2023, at: 'off:1', tag: 'VENDOR NEWS · APEX AND LUMEN', color: 'var(--info)', title: 'The bus is full', btn: 'parts',
+      body: ['A brushless motor controller does not just spin a motor. It reports its position, speed, current and temperature, hundreds of times a second, and so does every encoder. Put twenty of them on one robot and the CAN bus that carries all that talk is full. And swerve is everywhere now: every module brings two motors and an encoder, so a drivetrain alone is twelve devices before the robot has an intake.',
+        'Teams found out at the worst moments: a robot that froze for three seconds in the middle of a cycle, then carried on as if nothing had happened. The logs showed the same thing every time. Within the same week both vendors put a fix on sale: a hub that gives the robot a second bus, CAN FD, several times as fast.'],
+      means: ['CAN FD hubs are on sale in the Inventory (Control system): the Apex FD Bridge carries 48 motors and encoders, the Lumen BusFD 40. Optional, one for the competition robot.', 'From the 2023 season, a competition robot with more than 14 motors and encoders and no hub overloads its bus now and then: it freezes for a few seconds in a match, and it is a little less reliable. The more devices over the limit, the more often.', 'The Inventory and the Garage show how full the bus is.'],
+      talk: [['Our robot paused mid-match like it was thinking. It was not thinking.', 'a driver on Team {t}'], ['The logs were all red. Not the robot code. The bus.', 'a programmer on Team {t}'], ['Apex and Lumen announced the same product on the same Tuesday. I am sure that is a coincidence.', 'a forum regular']] },
     // the last recap before everything stops: told first, then the pandemic window follows it
     { id: 'recap2020', cy: 2020, at: 'recap', tag: 'SEASON RECAP · 2020', color: 'var(--accent)', title: 'No bag, and swerve in a box',
-      body: ['The first season without Stop Build Day changed the rhythm of everything. Teams worked on their robots until the night before load-in, and the robots at the last events barely resembled the ones that had played the first.',
+      body: ['The first season without Stop Build Day changed the rhythm of everything. Teams worked on their robots until the night before load-in, and the robots at the last events barely resembled the ones that had played the first. Even the Anybots kept changing: without the bag, the teams that built one in two weeks spent the rest of the season improving it.',
         'Apex\'s Vector module did the rest. Teams that had never owned a mill drove sideways in Week 1, and the old six-wheel drive began to look like a choice that needed explaining. The season ended the way it always does: two Championships, two winning alliances, and a room full of people making plans for the summer.'],
       means: ['Bought swerve is the standard among the strong teams now, and it spreads further every season.', 'Without the bag, upgrades go straight onto the robot: the teams that keep developing pull away in the late weeks.'],
       talk: [['We never stopped building. I am not sure that is better. I am sure it is faster.', 'a lead mentor'], ['Four modules, a weekend, and we had a swerve drive. Two years ago that was a whole season.', 'a mentor on Team {t}'], ['See you at the offseason events.', 'everyone, in April']] },
     { id: 'recap2022', cy: 2022, at: 'recap', tag: 'SEASON RECAP · 2022', color: 'var(--accent)', title: 'Back, and sideways',
       body: ['The first full season after the lost year. Teams were smaller, the students who joined in 2020 were suddenly captains, and a fifth of the old names were missing from the schedule.',
-        'On the field the change was just as plain. At the top, nearly every robot drove on swerve modules that came out of a box, and the tank drives on the last day could be counted on one hand. There was one Championship again.'],
-      means: ['Swerve is the standard at the top. Most strong teams run it from now on.', 'Two big changes are announced for next season: a new playoff format and a new kind of vision target.'],
+        'On the field the change was just as plain. At the top, nearly every robot drove on swerve modules that came out of a box, and the tank drives on the last day could be counted on one hand. There was one Championship again.',
+        'The first Apex Blueprint came out the same week as the Anybot, and by Week 2 whole divisions had the same intake. The teams that did well with it were the ones that kept changing it.'],
+      means: ['Swerve is the standard at the top. Most strong teams run it from now on.', 'Two published robots now come out in Build Week 1 every season: the Anybot and the Apex Blueprint.', 'Two big changes are announced for next season: a new playoff format and a new kind of vision target.'],
       talk: [['Half my team had never been to an event. By April they were running the pit.', 'a lead mentor'], ['We were the only tank drive in our division. People took photos.', 'Team {t}'], ['It was loud, it was crowded, and I have never been so glad to be tired.', 'a volunteer']] },
     { id: 'doubleelim', cy: 2023, at: 'off:2', tag: 'RULE CHANGE', color: 'var(--warn)', title: 'Two losses and you are out',
       body: ['For as long as anyone can remember, playoffs meant quarterfinals, semifinals and finals, each a best-of-three series. Lose one series on a bad afternoon and the event was over. Win one and you might play the same alliance three times in an hour.',
@@ -248,23 +295,41 @@
     // ---- 2023 to 2025 ----
     { id: 'recap2023', cy: 2023, at: 'recap', tag: 'SEASON RECAP · 2023', color: 'var(--accent)', title: 'A new bracket and a talking field',
       body: ['Double elimination arrived and the playoffs changed character overnight: fewer rematches, more comebacks, and lower-bracket runs that people will talk about for years.',
-        'The paper tags changed the robots just as much. The best ones lined themselves up before the driver had finished the thought, and autonomous routines stopped missing.'],
+        'The paper tags changed the robots just as much. The best ones lined themselves up before the driver had finished the thought, and autonomous routines stopped missing. Off the field, copying a published robot stopped being something teams apologised for: the arguments now are about what to change after Week 2.'],
       means: ['Both changes are here to stay.', 'The next motor generation is expected within a year or two.'],
       talk: [['We lost our first playoff match and won the event. I have watched the video nine times.', 'Team {t}'], ['Auto-align is cheating. We are adding it Tuesday.', 'a drive coach'], ['Seven matches in the lower bracket. My voice is gone.', 'a human player']] },
     { id: 'recap2024', cy: 2024, at: 'recap', tag: 'SEASON RECAP · 2024', color: 'var(--accent)', title: 'Faster than the eye',
       body: ['A cycle that would have won a Championship five years ago lost quarterfinals this year. New motors, mature swerve and robots that aim themselves have pushed the pace past what a casual spectator can follow.',
-        'The teams at the top now separate themselves in software and in practice hours, because everybody can buy the same hardware.'],
+        'The teams at the top now separate themselves in software and in practice hours, because everybody can buy the same hardware and copy the same Blueprint.'],
       means: ['Hardware alone no longer wins: testing hours, driver practice and code matter more every season.', 'More teams are registering than at any time since 2020.'],
       talk: [['I blinked and they had scored twice.', 'a referee'], ['Same parts as the champions. Not the same practice field.', 'a mentor on Team {t}'], ['Our rookies think this speed is normal.', 'a lead mentor']] },
+    // December 2017, before the 2018 Kickoff: a veteran team promises a simple robot anyone can build, every year
+    { id: 'anybot', cy: 2018, at: 'off:7', tag: 'COMMUNITY', color: '#3ecf8e', title: 'A robot anyone can build',
+      body: ['The Gearwrights have been around long enough to remember their own rookie year, and they still mentor half the new teams in their state. Every January they watch the same thing happen: a team with eight students and a kit chassis spends six weeks on a robot that cannot score, and does not come back.',
+        'So they made a promise. A week after every Kickoff they will publish a complete robot for that year\'s game: the CAD, the parts list, step-by-step build videos, practice drills, and a model of the robot for the driving simulators, so the drive team can practise while the real one is still being built. It runs on the kit chassis, it is built with hand tools, it plays the game, and anyone can fix it in the queue. They call it the Anybot.'],
+      means: ['From the 2018 season the Anybot for each year\'s game comes out in Build Week 1. The Design Office shows it, and you can copy any of its subsystems or the whole robot.', 'Copying saves on the first build only: half the hours, a fifth less material, no first-build penalty, a version 2 to start with, more reliable (+6), and drivers who already know it (60% familiarity, from the simulator and the drills; less if you copy only part of it). Upgrades after that are your own work, at the usual cost.', 'Copying teaches less: the team gets half the know-how from the build.'],
+      talk: [['We built last year\'s robot in five weeks. This one drove on day four.', 'a rookie mentor'], ['Their build videos have a better soundtrack than most films.', 'a student on Team {t}'], ['If every team on the field can score, the whole event is better. That is the point.', 'a Gearwrights mentor']] },
+    // December 2021, before the 2022 Kickoff: Apex publishes a competitive robot every year
+    { id: 'blueprint', cy: 2022, at: 'off:7', tag: 'VENDOR NEWS · APEX MOTION', color: '#ff9f43', title: 'Apex publishes a robot',
+      body: ['The Anybot showed that a published design could get a rookie team onto the field. Apex Motion wants to do the same for the middle of the pack: teams that can build well but lose January to concepts that do not work.',
+        'From this season, a week after Kickoff, Apex will publish the Apex Blueprint: a complete competitive robot on swerve for that year\'s game, with every drawing and every part listed, build videos, practice drills and a simulator model for the drivers. "Buy the parts from whoever you like," said the founder at the announcement. "We just want better robots on the field."'],
+      means: ['From the 2022 season the Apex Blueprint comes out in Build Week 1, next to the Anybot (Design Office).', 'Copying saves on the first build only: a third fewer hours, 10% less material, no first-build penalty, a version 2 to start with, more reliable (+4), and drivers at 55% familiarity (from the simulator model; less if you copy only part of it). Upgrades after that are your own work.', 'Any vendor\'s parts fit. Copying teaches half the know-how of designing it yourself.'],
+      talk: [['Apex gave away a robot. I have read the license twice. It really is free.', 'a forum regular'], ['Half our division will have the same intake. At least we will know how to fix each other\'s.', 'a pit crew lead on Team {t}'], ['The Blueprint is where you start. It is not where you stop.', 'a design mentor']] },
+    // the autumn of 2024: AI coding assistants reach the robot code
+    { id: 'aicode', cy: 2025, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'The code writes back', btn: 'workshop',
+      body: ['Over the summer the AI coding assistants got good enough that nobody could pretend not to use them. A student describes what the intake should do when the beam break trips; the assistant writes the command, the test and a comment explaining both, and a mentor reads every line before it goes on the robot.',
+        'The best teams did not hand their code to a machine. They paired every programmer with an assistant and kept the review: twice the code in a week, and the students still have to understand all of it.'],
+      means: ['A fourth Programming Station level is on sale in the Workshop: the AI coding lab. Software, auto and vision projects take fewer hours again.', 'An AI coding lab gives two Finish now cards a season for software projects instead of one.', 'The assistant writes fast and confidently, including the bugs: the review stays a person\'s job.'],
+      talk: [['It wrote my whole autonomous routine. Then it wrote a second one to fix the first.', 'a programmer on Team {t}'], ['Every line still gets read by a human. That is the rule, and I am the human.', 'a programming mentor'], ['The robot drove into the wall exactly as the comment said it would.', 'a student on Team {t}']] },
     { id: 'recap2025', cy: 2025, at: 'recap', tag: 'SEASON RECAP · 2025', color: 'var(--accent)', title: 'Nearly everyone is back',
-      body: ['Four seasons after the lost year, the number of teams has almost returned to where it was. Many of the teams that folded in 2021 never came back; the new ones are led by people who learned the game on swerve and paper tags and have never bagged a robot.',
+      body: ['Four seasons after the lost year, the number of teams has almost returned to where it was. Many of the teams that folded in 2021 never came back; the new ones are led by people who learned the game on swerve and paper tags and have never bagged a robot. For most of them, the first robot was an Anybot.',
         'The biggest change is off the field. More than half of all teams will soon play in districts instead of regionals.'],
       means: ['Next season is the last of this career.', 'Districts keep growing: another one forms next season.'],
       talk: [['Our first-year mentor asked what a bag was. I felt old.', 'a lead mentor'], ['Two events, a district championship and Worlds. My calendar has no weekends.', 'a district team captain'], ['Every year I say it cannot get bigger.', 'a volunteer coordinator']] },
     // the last season of every calendar career: told before the career summary
     { id: 'recap2026', cy: 2026, at: 'recap', tag: 'SEASON RECAP · 2026', color: 'var(--accent)', title: 'What a decade did',
-      body: ['Set a robot from 2016 beside one from this spring. One skids around on six wheels, runs on brushed motors and finds the goal because a student is pointing at it. The other slides in any direction on modules that came in a box, knows where it is from paper tags on the wall, and was largely bolted together from kits.',
-        'The game changed every January and the sport changed with it: one Championship became two and then one again, the bag came and went, a vendor closed and another was founded in its warehouse, a whole season was lost, and most of the country now plays in districts. Through all of it, the teams that lasted were the ones that kept teaching the next class.'],
+      body: ['Set a robot from 2016 beside one from this spring. One skids around on six wheels, runs on brushed motors and finds the goal because a student is pointing at it. The other slides in any direction on modules that came in a box, knows where it is from paper tags on the wall, was largely bolted together from kits, and for a lot of teams started as somebody else\'s published robot.',
+        'The game changed every January and the sport changed with it: one Championship became two and then one again, the bag came and went, a vendor closed and another was founded in its warehouse, a veteran team started giving a robot away every January and a vendor followed, a whole season was lost, and most of the country now plays in districts. Through all of it, the teams that lasted were the ones that kept teaching the next class.'],
       means: ['This was the last season of your career.', 'Your career summary is next: the banners, the records and the legacy score.'],
       talk: [['My first drive coach is a judge now. My first driver is my lead mentor.', 'a student on Team {t}'], ['Ten years ago we were three kids and a kit chassis. Look at this pit.', 'a mentor on Team {t}'], ['Same time next January?', 'everyone']] }
   ];

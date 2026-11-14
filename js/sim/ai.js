@@ -65,6 +65,8 @@
       if (vl && pp.cam != null) { cap.accuracy += Math.round(VH.camAcc * (pp.cam - 0.6) * vl); cap.vision += Math.round(VH.camVision * (pp.cam - 0.6)); }
       if (pp.nsw) { cap.netSw = pp.nsw; if (vl) { cap.vision += VH.swVision; cap.accuracy += VH.swAcc; } }
       if (pp.accel && vl) { cap.vision += VH.accVision; cap.intake += VH.accIntake; cap.auto += VH.accAuto; }
+      // more motors and encoders than the CAN bus carries (from 2023, without a CAN FD hub): it overloads now and then
+      if (pp.can && pp.can.over > 0) { cap.canOver = Math.min(1.5, pp.can.over); cap.rel = U.clamp(cap.rel - Math.round(8 * Math.min(1, pp.can.over)), 5, 99); }
     }
     cap.weight = Math.round(weight);
     if (cap.endLevel && !cap.endgame) cap.endgame = 40;
@@ -143,7 +145,14 @@
   // Generate this season's robot design for an AI team (stored on the team)
   AI.seasonRobot = function (team, year, rng) {
     const S = G.Seasons[year], arch = pickArchetype(rng, S, team.str);
-    const q = U.clamp(Math.pow(team.str / 100, 1.3) + rng.norm(0, 0.07), 0.03, 0.97);
+    let q = U.clamp(Math.pow(team.str / 100, 1.3) + rng.norm(0, 0.07), 0.03, 0.97);
+    // published designs (calendar careers): the weakest teams that could not build a scoring robot of their own build the
+    // Anybot (from 2018), so fewer robots cannot play the game; some of the lower middle build the Apex Blueprint (from
+    // 2022) and come out better. A copy builds the design's concepts and is tagged (rb.ref) for the season recaps and news.
+    let ref = null;
+    { const cyN = G.S && G.S.cal ? G.Era.cy(G.S) : 0, has = id => { const r = D.REFBOTS.find(x => x.id === id); return r && cyN >= r.from && r.picks[year] ? r : null; };
+      if (has('any') && team.str < 36 && q < D.REF_AI.anyFloor) { q = D.REF_AI.anyFloor; ref = has('any'); }
+      else if (has('bp') && team.str >= 36 && team.str < 62 && rng.chance(D.REF_AI.bpShare)) { q = Math.min(0.97, q + D.REF_AI.bpBoost); ref = has('bp'); } }
     const choice = {};
     S.subs.forEach(sd => {
       let p = arch.pick[sd.id];
@@ -157,10 +166,11 @@
     const era = G.Era.of(G.S), dopt = arch.pick.drive, canSw = Array.isArray(dopt) ? dopt.includes('swerve') : dopt === 'swerve';
     if (era.aiSwerve != null && canSw) choice.drive = rng.chance(era.aiSwerve) ? 'swerve' : ((Array.isArray(dopt) && dopt.find(x => x !== 'swerve')) || 'wcd');
     if (choice.drive === 'swerve' && team.str < 45 && rng.chance(0.6)) choice.drive = 'wcd';
+    if (ref) Object.keys(ref.picks[year]).forEach(k => { if (S.subs.some(sd => sd.id === k && sd.concepts.some(c => c.id === ref.picks[year][k]))) choice[k] = ref.picks[year][k]; });
     const jit = {};
     S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.08, 0.08); });
     team.rb = {
-      year, arch: arch.name, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
+      year, arch: arch.name, ref: ref ? ref.id : null, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
       autoTier: U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
       drv: Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97))
     };

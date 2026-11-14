@@ -37,7 +37,9 @@
         (pr.mixed ? '<div class="warnbox mt">Mixed control systems: hardware and software projects take 10% longer, and the robot loses a little reliability and speed.</div>' : pr.kopMix ? '<div class="warnbox mt">Kit of Parts control system parts next to vendor ones: hardware and software projects take 5% longer, and the robot loses a little reliability and speed.</div>' : '<div class="xs good mt">' + UI.icon('check', 13) + ' One control system</div>') + '</div>' +
         '<div class="card flat"><div class="ct">' + UI.it('motor', 'Performance') + '</div>' + UI.stat('Motors', pr.motor * 100) + UI.stat('Sensors', pr.enc * 100) + (a.need.comp.swerve ? UI.stat('Swerve', pr.swerve * 100) : '') + (a.need.comp.wcd ? UI.stat('Drive sets', pr.wcd * 100) : '') + (a.need.comp.pgear ? UI.stat('Planetary gearboxes', pr.pgear * 100) + '<div class="xs muted">' + (pr.pgearN || 0) + ' of ' + pr.pgearM + ' mechanism motors have one: mechanisms break down less.</div>' : '') + (pr.cam != null ? UI.stat('Vision camera', pr.cam * 100) : '') + (S.cal && a.need.comp.nswitch ? '<div class="xs ' + (pr.nsw ? 'good' : 'muted') + '">' + UI.icon(pr.nsw ? 'check' : 'info', 12) + ' Network switch: ' + (pr.nsw ? 'fitted (fewer comms dropouts)' : 'none') + '</div>' : '') + (a.need.comp.accel ? '<div class="xs ' + (pr.accel ? 'good' : 'muted') + '">' + UI.icon(pr.accel ? 'check' : 'info', 12) + ' ML accelerator: ' + (pr.accel ? 'fitted (sees game pieces)' : 'none') + '</div>' : '') + '</div>' +
         '<div class="card flat"><div class="ct">' + UI.it('spare', 'Wear') + '</div>' + UI.stat('Average health', pr.health * 100, null, UI.colorFor(pr.health * 100)) + '<div class="xs muted">Worn parts barely slow the robot, but they fail more often. New parts automatically go on the competition robot.</div></div></div>';
-      if (pr.short) o += '<div class="warnbox mb">The competition robot is short of ' + pr.short + ' part' + (pr.short > 1 ? 's' : '') + ' (kit parts fill in at low performance). Buy them in the Control system tab.</div>';
+      if (pr.can && pr.can.over > 0) o += '<div class="warnbox mb">' + UI.icon('chip', 14) + ' <b>CAN bus overloaded:</b> the competition robot has ' + pr.can.dev + ' motors and encoders and its bus carries ' + pr.can.cap + '. It will freeze now and then in matches and is a little less reliable. ' + (pr.can.hub ? 'A better CAN FD hub carries more.' : 'A CAN FD hub (Control system tab) gives it a second, faster bus.') + '</div>';
+      else if (pr.can) o += '<div class="xs muted mb">' + UI.icon('chip', 12) + ' CAN bus: ' + pr.can.dev + ' of ' + pr.can.cap + ' motors and encoders' + (pr.can.hub ? ' (' + h(pr.can.hub) + ')' : '') + '.</div>';
+      if (pr.short) o += '<div class="warnbox mb">The competition robot is short of' + pr.short + ' part' + (pr.short > 1 ? 's' : '') + ' (kit parts fill in at low performance). Buy them in the Control system tab.</div>';
     } else o += '<div class="hint mb">No robot this season yet. At Kickoff you get the Kit of Parts; everything else comes from here. Every build needs motors (and more), so stock up now: in season, parts often sell out.</div>';
     // preferred control system
     o += '<div class="row wrap mb"><span class="sm muted">Competition robot uses:</span>' + [[null, 'Best parts (may mix)'], ['A', S.cal ? 'Premium first' : 'Apex first'], ['B', 'Lumen first']].map(x => '<button class="btn sm ' + ((S.vendorPref || null) === x[0] ? 'sel' : '') + '" data-act="vendorPref" data-arg="' + (x[0] || '') + '">' + h(x[1]) + '</button>').join('') + '</div>';
@@ -48,7 +50,7 @@
       const hAvg = list.length ? U.avg(list.map(x => x.h)) : 1;
       const mix = {}; list.forEach(x => { const p = P().prod(x.p); const k = p.v === 'C' ? p.name : p.name; mix[k] = (mix[k] || 0) + 1; });
       const short = !c.kit && !c.opt && nc > list.length;
-      return '<tr><td>' + UI.it(c.icon, h(c.short)) + '</td><td class="num">' + list.length + '<span class="dim">/' + c.max + '</span></td><td class="num ' + (short ? 'bad' : '') + '">' + (c.kit ? (nc ? nc + ' built in' : '—') : nc || '—') + '</td>' + (pb ? '<td class="num">' + (np || '—') + '</td>' : '') +
+      return '<tr><td>' + UI.it(c.icon, h(c.short)) + '</td><td class="num">' + list.length + '<span class="dim">/' + G.Shop.partMax(S, c.id) + '</span></td><td class="num ' + (short ? 'bad' : '') + '">' + (c.kit ? (nc ? nc + ' built in' : '—') : nc || '—') + '</td>' + (pb ? '<td class="num">' + (np || '—') + '</td>' : '') +
         '<td>' + (list.length ? healthBar(hAvg) + ' <span class="xs muted">' + pct(hAvg) + '</span>' : '') + '</td><td class="xs muted">' + Object.keys(mix).map(k => mix[k] + '× ' + h(k)).join(', ') + '</td></tr>';
     }).join('') + '</table>';
     // per-subsystem bill of materials
@@ -136,21 +138,31 @@
     // one column per vendor (Apex | Lumen | Kit of Parts), lined up under the vendor cards; newest version first
     D.ELEC_CATS.filter(cat => !(S.cal && D.PART_CAT[cat].group === 'drive')).forEach(cat => {
       const c = D.PART_CAT[cat];
-      o += '<h2 class="sect">' + UI.it(c.icon, h(c.name)) + ' <span class="xs muted">' + h(c.desc) + ' · you have ' + P().count(S, cat) + '/' + c.max + '</span></h2>';
+      o += '<h2 class="sect">' + UI.it(c.icon, h(c.name)) + ' <span class="xs muted">' + h(c.desc) + ' · you have ' + P().count(S, cat) + '/' + G.Shop.partMax(S, cat) + '</span></h2>';
       o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
         const list = sale.filter(x => x.prod.cat === cat && x.prod.v === v).sort((a, b) => (a.ending ? 1 : 0) - (b.ending ? 1 : 0));
-        const none = cat === 'swerve' && v !== 'K' && S.cal && !sale.some(x => x.prod.cat === 'swerve') ? (v === 'A' ? 'Nobody sells swerve modules yet. A swerve drive means machining your own: a CNC Router or a Lathe, extra hours, and less reliability.' : '') : v === 'A' && closed ? 'Sterling Motion has closed.' : 'No ' + h(D.VENDORS[slotV(v)].name) + ' version of this part' + (S.cal && v !== 'K' ? ' yet.' : '.');
+        const none = cat === 'swerve' && v !== 'K' && S.cal && !sale.some(x => x.prod.cat === 'swerve') ? (v === 'A' ? 'Nobody sells swerve modules yet. A swerve drive means machining your own: CNC Machining or a Manual Machine Shop, extra hours, and less reliability.' : '') : v === 'A' && closed ? 'Sterling Motion has closed.' : 'No ' + h(D.VENDORS[slotV(v)].name) + ' version of this part' + (S.cal && v !== 'K' ? ' yet.' : '.');
         return '<div class="col">' + (list.length ? list.map(x => prodCard(S, x)).join('') : none ? '<div class="pcard empty xs muted">' + none + '</div>' : '') + '</div>';
       }).join('') + '</div>';
     });
-    // Planetary gearboxes for mechanisms: both vendors from the 2017 season (Apex from 2020), the KOP low-profile one too
+    // Planetary gearboxes for mechanisms: both vendors from the 2017 season (Apex from 2020), the Kit low-profile one too
     if (S.cal) {
       const c = D.PART_CAT.pgear, any = sale.some(x => x.prod.cat === 'pgear');
-      o += '<h2 class="sect">' + UI.it('gear', h(c.short)) + ' <span class="xs muted">one per mechanism motor, optional: mechanisms break down less · not part of the control system, so brands mix freely · you have ' + P().count(S, 'pgear') + '/' + c.max + '</span></h2>';
+      o += '<h2 class="sect">' + UI.it('gear', h(c.short)) + ' <span class="xs muted">one per mechanism motor, optional: mechanisms break down less · not part of the control system, so brands mix freely · you have ' + P().count(S, 'pgear') + '/' + G.Shop.partMax(S, c.id) + '</span></h2>';
       o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
         const list = sale.filter(x => x.prod.cat === 'pgear' && x.prod.v === v).sort((a, b) => (a.ending ? 1 : 0) - (b.ending ? 1 : 0));
         const note = !any ? (v === 'A' ? 'Nobody sells a planetary gearbox yet: mechanisms run on the gearboxes teams make themselves.' : '') : v === 'K' ? '' : v === 'A' && closed ? 'Sterling Motion has closed.' : list.length ? '' : 'No ' + h(D.VENDORS[slotV(v)].name) + ' gearbox.';
         return '<div class="col">' + list.map(x => prodCard(S, x)).join('') + (v === 'K' && list.length ? '<div class="pcard empty xs muted">Fits KOP motors only.</div>' : '') + (note ? '<div class="pcard empty xs muted">' + note + '</div>' : '') + '</div>';
+      }).join('') + '</div>';
+    }
+    // CAN FD hubs (from June 2022): a second, faster CAN bus for the competition robot
+    if (S.cal && G.Era.at(P().buyCy(S)).canBus) {
+      const c = D.PART_CAT.canfd, any = sale.some(x => x.prod.cat === 'canfd'), bus = P().canBus(S);
+      o += '<h2 class="sect">' + UI.it(c.icon, h(c.short)) + ' <span class="xs muted">optional, one for the competition robot · ' + (bus ? 'its bus: ' + bus.dev + ' motors and encoders, carries ' + bus.cap : 'without one the bus carries ' + G.Era.at(P().buyCy(S)).canBus + ' motors and encoders') + ' · you have ' + P().count(S, 'canfd') + '/' + G.Shop.partMax(S, 'canfd') + '</span></h2>';
+      o += '<div class="grid g3 vcols">' + ['A', 'B', 'K'].map(v => {
+        const list = sale.filter(x => x.prod.cat === 'canfd' && x.prod.v === v);
+        const note = v === 'K' ? '' : !any ? (v === 'A' ? 'Nobody sells a CAN FD hub yet.' : '') : list.length ? '' : 'No ' + h(D.VENDORS[slotV(v)].name) + ' hub.';
+        return '<div class="col">' + list.map(x => prodCard(S, x) + '<div class="xs muted mb">Carries ' + x.prod.bus + ' motors and encoders.</div>').join('') + (note ? '<div class="pcard empty xs muted">' + note + '</div>' : '') + '</div>';
       }).join('') + '</div>';
     }
     // Drivetrain: what the vendors sell to drive on. West Coast drive sets first (the standard before swerve), then
@@ -163,7 +175,7 @@
         const notes = [];
         if (v === 'K') notes.push('Kit chassis only, and the slowest way to drive. COTS Drive gearboxes are the step up.');
         else {
-          if (!swOut && v === 'A') notes.push('Nobody sells swerve modules yet. A swerve drive means machining your own: a CNC Router or a Lathe, extra hours, and less reliability.');
+          if (!swOut && v === 'A') notes.push('Nobody sells swerve modules yet. A swerve drive means machining your own: CNC Machining or a Manual Machine Shop, extra hours, and less reliability.');
           if (v === 'A' && closed) notes.push('Sterling Motion has closed.');
           else if (v === 'A' && prem === 'A') notes.push('Apex Motion makes no West Coast drive set: its drivetrain is the swerve module.');
           if (swOut && v === 'B' && !list.some(x => x.prod.cat === 'swerve')) notes.push('No Lumen swerve module yet.');
@@ -191,9 +203,9 @@
       if (!onSale.some(x => x.prod.id === cat + 'C') && D.COTS_FROM[cat]) return ''; // the kits of 2021 are not on the shelf before they exist
       if (!onSale.some(x => x.prod.id === cat + 'C')) return '<div class="pcard empty" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(D.PART_CAT[cat].icon, 18) + '<b>' + h(D.PART_CAT[cat].name) + '</b><span class="sp"></span>' + UI.tag('not sold yet') + '</div><div class="xs muted">' + 'Nobody sells one yet. Vision is home-made for now: Vision Level 1 needs no camera but takes twice the hours, and Level 2 is out of reach.' + '</div></div>';
       const c = D.PART_CAT[cat], p = P().prod(cat + 'C'), price = P().price(S, p), have = P().count(S, cat), ok = P().inStock(S, p.id) || !P().inSeason(S);
-      const free = c.kit ? P().kitsFree(S, cat) : null, room = P().buyRoom(S, p.id), full = room <= 0, swap = !full && have >= c.max;
+      const free = c.kit ? P().kitsFree(S, cat) : null, room = P().buyRoom(S, p.id), full = room <= 0, swap = !full && have >= G.Shop.partMax(S, c.id);
       return '<div class="pcard" style="--vc:' + D.VENDORS.C.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + stockTag(S, p.id) + '</div><div class="xs muted">' + h(c.desc) + (c.kit && Object.keys(D.KIT_FOR_AREA).some(k => D.KIT_FOR_AREA[k] === cat) ? ' Helps ' + h(Object.keys(D.KIT_FOR_AREA).filter(k => D.KIT_FOR_AREA[k] === cat).map(k => D.AREA[k].name.toLowerCase()).join(' and ')) + ' builds.' : '') + '</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button>' + (cat === 'kFrame' && !full && !swap ? '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|6" ' + (ok ? '' : 'disabled') + '>+6 · ' + U.money(6 * price) + '</button>' : '') + '</div></div>';
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + G.Shop.partMax(S, c.id) + (c.kit ? ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') : '') + '</span><span class="sp"></span><button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|1" ' + (ok && !full ? '' : 'disabled') + (swap ? ' title="The shelf is full: the most worn one is sold (or recycled if too worn) to make room"' : '') + '>' + (full ? 'Full' : swap ? 'Replace worn' : 'Buy') + '</button>' + (cat === 'kFrame' && !full && !swap ? '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|6" ' + (ok ? '' : 'disabled') + '>+6 · ' + U.money(6 * price) + '</button>' : '') + '</div></div>';
     }).join('') + '</div>';
     // Lanternworks: the vision company (calendar careers), its own catalogue
     if (S.cal) {
@@ -208,7 +220,7 @@
     const kopKit = x => {
       const p = x.prod, c = D.PART_CAT[p.cat], price = P().price(S, p), have = P().count(S, p.cat), free = P().kitsFree(S, p.cat), full = P().buyRoom(S, p.id) <= 0;
       return '<div class="pcard" style="--vc:' + D.VENDORS.K.color + '"><div class="row">' + UI.icon(c.icon, 18) + '<b>' + h(c.name) + '</b><span class="sp"></span>' + UI.tag('always in stock', 'good') + '</div><div class="xs muted">' + h(c.desc) + ' Helps ' + h(c.helps) + ': ' + Math.round(D.KOP_KIT_HOURS * 100) + '% fewer hours, ' + Math.round(D.KOP_KIT_COST * 100) + '% less material.</div>' +
-        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + c.max + ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') + '</span><span class="sp"></span><button class="btn sm' + (vch && !full ? ' primary' : '') + '" data-act="buyProd" data-arg="' + p.id + '|1" ' + (full ? 'disabled' : '') + '>' + (full ? 'Full' : vch ? 'Get it free (voucher)' : 'Buy') + '</button></div></div>';
+        '<div class="row sm mt"><span class="b">' + U.money(price) + '</span><span class="muted">owned ' + have + '/' + G.Shop.partMax(S, c.id) + ' · ' + free + ' free' + (have - free > 0 ? ' · ' + (have - free) + ' in subsystems' : '') + '</span><span class="sp"></span><button class="btn sm' + (vch && !full ? ' primary' : '') + '" data-act="buyProd" data-arg="' + p.id + '|1" ' + (full ? 'disabled' : '') + '>' + (full ? 'Full' : vch ? 'Get it free (voucher)' : 'Buy') + '</button></div></div>';
     };
     const kops = P().forSale(S).filter(x => x.prod.v === 'K' && !D.PART_CAT[x.prod.cat].elec);
     o += '<h2 class="mt">' + UI.it('box', 'Kit of Parts') + (vch ? ' ' + UI.tag(vch + ' KOP voucher' + (vch > 1 ? 's' : '') + ' to use', 'good') : '') + ' <span class="xs muted">basic subsystem kits: cheap, always in stock, and only for the simplest concept of a subsystem (a build that uses a COTS kit does not need one)</span></h2><div class="grid g3">' +

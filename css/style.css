@@ -157,6 +157,11 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 .banner .aw { font-weight: 900; text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; line-height: 1.15; }
 .banner .yr { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .banner .ev { font-size: 11px; line-height: 1.25; opacity: .92; }
+.trophies { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 12px; }
+.trophy { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.18)); border: 1px solid var(--line); }
+.trophy .tr-i { color: #c9d1d9; flex: none; margin-top: 1px; } .trophy.win .tr-i { color: #f5c542; } .trophy.fin .tr-i { color: #c0c8d0; } .trophy.award .tr-i { color: var(--info); }
+.trophy.world { border-color: rgba(245,197,66,.45); }
+.trophy .tr-n { font-weight: 700; font-size: 12.5px; line-height: 1.2; } .trophy .tr-e { font-size: 11px; color: var(--muted); line-height: 1.25; }
 .banner.gold { border-top: 0; background: linear-gradient(180deg, #0a74c7 0%, #0066b3 60%, #00539a 100%); }
 .banner.gold .emb { border-color: #f5c542; color: #f5c542; }
 .banner.gold .aw { color: #ffe08a; }

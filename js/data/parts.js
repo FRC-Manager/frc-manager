@@ -24,8 +24,9 @@
     { id: 'swerve', name: 'Swerve module', short: 'Swerve modules', icon: 'swerve', elec: true, group: 'drive', max: 10, desc: 'Four per swerve drivetrain (motors not included).' },
     { id: 'kdrive', name: 'Kit drivetrain', short: 'Kit drivetrain sets', icon: 'gear', max: 6, desc: 'One side of the kit chassis: gearbox, wheels and frame rails. A kitbot tank drive uses 2, and nothing else can use them. Two come free at every Kickoff. The slowest way to drive.' },
     { id: 'gearbox', name: 'Drive gearbox', short: 'Drive gearboxes', icon: 'gear', max: 10, desc: 'A sturdy two-stage gearbox with its wheel shafts, for any drive but swerve. Mecanum uses 4. Two of them also drive a kit chassis (faster and stronger than the kit drivetrain) or a West Coast drive (slower and weaker than a vendor drive set).' },
-    { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 32, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The KOP low-profile gearbox only fits KOP motors.' },
+    { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 32, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The Kit low-profile gearbox only fits kit motors.' },
     { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'Vision Level 1 needs one, Level 2 needs two.' },
+    { id: 'canfd', name: 'CAN FD hub', short: 'CAN FD hubs', icon: 'chip', vend: true, opt: true, max: 3, desc: 'A second, much faster CAN bus for the motors and encoders. Optional, one per robot: from the 2023 season a robot with more of them than its bus can carry freezes now and then in matches.' },
     { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
     { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },
     { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
@@ -71,7 +72,7 @@
   const ELEC_PERF = { A: 0.72, B: 0.5 };
   D.ROMAN = ['', '', ' II', ' III', ' IV'];
   D.makeProduct = function (cat, v, gen) {
-    if (v === 'K') return { id: cat + 'K', cat, v, gen: 0, name: { motor: 'Kit brushed motor + controller', enc: 'Kit low-profile encoder', ctrl: 'Kit control hub', kdrive: 'Kit drivetrain', gearbox: 'Kitbot gearbox', pgear: 'KOP low-profile gearbox' }[cat] || (D.PART_CAT[cat] && D.PART_CAT[cat].kop ? D.PART_CAT[cat].name : 'Kit part'), price: D.KOP_PRICE[cat] || 0, perf: D.KOP_PERF[cat] || 0.05, kop: true };
+    if (v === 'K') return { id: cat + 'K', cat, v, gen: 0, name: { motor: 'Kit brushed motor + controller', enc: 'Kit low-profile encoder', ctrl: 'Kit control hub', kdrive: 'Kit drivetrain', gearbox: 'Kitbot gearbox', pgear: 'Kit low-profile gearbox' }[cat] || (D.PART_CAT[cat] && D.PART_CAT[cat].kop ? D.PART_CAT[cat].name : 'Kit part'), price: D.KOP_PRICE[cat] || 0, perf: D.KOP_PERF[cat] || 0.05, kop: true };
     if (v === 'C') {
       const c = D.PART_CAT[cat];
       return { id: cat + 'C', cat, v, gen: 1, name: c.name, price: D.COTS_PRICE[cat], perf: 0.6 };
@@ -122,6 +123,13 @@
         { y: 2024, brand: 'A', name: 'Apex Orbital II planetary', perf: 0.86, price: 104 }],
       B: [{ y: 2017, name: 'Lumen Sunwheel planetary', perf: 0.45, price: 62, fix: 1, story: 'planetary' }, { y: 2022, name: 'Lumen Sunwheel II planetary', perf: 0.6, price: 64 }]
     },
+    // CAN FD hubs: a second, faster bus for the motors and encoders, launched by both vendors in June 2022 (story `canfd`,
+    // a month after the pneumatics story). mo: a fixed launch month (D.MONTHS index). bus: the devices the robot can
+    // carry with one (D.CAN_BUS.base without).
+    canfd: {
+      A: [{ y: 2023, brand: 'A', name: 'Apex FD Bridge', perf: 0.8, price: 240, fix: 1, mo: 1, story: 'canfd', bus: 48 }],
+      B: [{ y: 2023, name: 'Lumen BusFD', perf: 0.6, price: 150, fix: 1, mo: 1, story: 'canfd', bus: 40 }]
+    },
     swerve: {
       A: [{ y: 2020, brand: 'A', name: 'Apex Vector module', perf: 0.64, price: 460, fix: 1, quiet: 1 }, { y: 2023, brand: 'A', name: 'Apex Vector II module', perf: 0.78, price: 490 }, { y: 2025, brand: 'A', name: 'Apex Vector III module', perf: 0.92, price: 550 }],
       B: [{ y: 2022, name: 'Lumen Pivot module', perf: 0.5, price: 330, fix: 1, story: 'pivot' }, { y: 2024, name: 'Lumen Pivot II module', perf: 0.65, price: 370 }, { y: 2026, name: 'Lumen Pivot III module', perf: 0.8, price: 410 }]
@@ -130,7 +138,7 @@
   Object.keys(D.LADDER).forEach(c => ['A', 'B'].forEach(v => D.LADDER[c][v].forEach(L => { if (!L.brand) L.brand = v; })));
   D.COTS_PRICE = { gearbox: 120, camera: 260, pneu: 500, servo: 380, kElev: 480, kArm: 320, kShoot: 420, kTurret: 650, kIntake: 260, kIndex: 220, kClimb: 210, kGrip: 190, kFrame: 70 };
   D.ELEC_CATS = ['motor', 'enc', 'ctrl', 'swerve'];
-  D.VEND_CATS = ['motor', 'enc', 'ctrl', 'wcd', 'swerve', 'pgear']; // everything the two vendors sell (calendar careers): control system, drivetrain parts, planetary gearboxes
+  D.VEND_CATS = ['motor', 'enc', 'ctrl', 'wcd', 'swerve', 'pgear', 'canfd']; // everything the two vendors sell (calendar careers): control system, drivetrain parts, planetary gearboxes
   D.DRIVE_CATS = ['wcd', 'swerve'];
   // What a drive runs on (calendar careers), from the lowest performance to the best:
   //  - the kit drivetrain (Kit of Parts): the kit chassis only;
@@ -177,7 +185,7 @@
   D.KOP_PERF = { motor: 0.08, enc: 0.15, ctrl: 0.2, kdrive: 0.3, gearbox: 0.3, pgear: 0.35 };
   D.KOP_KITS = ['kopGrip', 'kopIntake', 'kopShoot', 'kopLift'];
   D.KOP_CATS = ['motor', 'enc', 'ctrl', 'kdrive', 'pgear'].concat(D.KOP_KITS);
-  D.KOP_FROM = { pgear: 2017 }; // the KOP low-profile gearbox: sold and in the kit from the 2017 season (calendar careers only)
+  D.KOP_FROM = { pgear: 2017 }; // the Kit low-profile gearbox: sold and in the kit from the 2017 season (calendar careers only)
   // A Kit of Parts subsystem kit helps the simplest concept of a subsystem only (complexity 1, or the first concept on
   // the list when that is complexity 2): KOP_KIT_HOURS fewer hours and KOP_KIT_COST less material. A build that uses a
   // COTS mechanism kit does not take one as well.
@@ -227,7 +235,8 @@
     // takes the best ones), plus leftovers from earlier kits
     established: [['motor', 'B', 10, 0.75], ['motor', 'B', 4, 0.55], ['motor', 'B', 2, 0.4], ['enc', 'B', 3, 0.75], ['enc', 'B', 2, 0.5],
       ['ctrl', 'B', 1, 0.8], ['gearbox', 'C', 2, 0.8], ['gearbox', 'C', 2, 0.55], ['wcd', 'B', 2, 0.75], ['camera', 'C', 1, 0.85],
-      ['ctrl', 'K', 1, 0.7], ['motor', 'K', 4, 0.6], ['kdrive', 'K', 2, 0.7]],
+      ['ctrl', 'K', 1, 0.7], ['motor', 'K', 4, 0.6], ['kdrive', 'K', 2, 0.7],
+      ['pgear', 'B', 4, 0.65], ['pgear', 'K', 4, 0.6]], // planetary gearboxes from earlier robots (once they are sold: the 2017 season)
     powerhouse: [['motor', 'A', 20, 0.8], ['enc', 'A', 6, 0.8], ['ctrl', 'A', 2, 0.85], ['swerve', 'A', 4, 0.8], ['wcd', 'A', 2, 0.8], ['gearbox', 'C', 2, 0.8], ['camera', 'C', 2, 0.85], ['kShoot', 'C', 1, 0.85], ['kIntake', 'C', 1, 0.85],
       ['ctrl', 'K', 1, 0.7], ['motor', 'K', 4, 0.6]]
   };

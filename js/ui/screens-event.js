@@ -150,8 +150,21 @@
       (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
       '<div class="sm mt">' + UI.icon('fatigue', 14) + ' Fatigue ' + UI.fatigueBar(ev.fatigue == null ? 30 : ev.fatigue) + ' <b>' + Math.round(ev.fatigue == null ? 30 : ev.fatigue) + '</b> (' + G.Career.fatigueLabel(ev.fatigue == null ? 30 : ev.fatigue) + ') · ' + UI.icon('scout', 14) + ' scouting credibility <b>' + Math.round((ev.scoutCred || 1) * 100) + '%</b></div>' + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
       (ev.log.length ? '<div class="hr"></div>' + ev.log.slice(-6).map(l => '<div class="sm">• ' + h(l) + '</div>').join('') : '') + '</div></div>';
-    return o;
+    return o + boothCard(ev);
   }
+  // two vendor booths on practice day (regionals and district events): parts that sell out in season, less shipping, a few each
+  function boothCard(ev) {
+    const S = G.S, P = G.Parts, bs = P.booths(S, ev);
+    if (!bs.length) return '';
+    return '<div class="card mt"><div class="ct">' + UI.icon('box', 16) + ' Vendor booths<span class="sp"></span><span class="xs muted">practice day only · no shipping (−' + Math.round((1 - G.Data.BOOTH.off) * 100) + '%) · a few of each per team</span></div><div class="grid g2">' +
+      bs.map(b => '<div><div class="b mb" style="color:' + b.color + '">' + h(b.name) + '</div>' + b.items.map(p => {
+        const left = P.boothLimit(S, ev, p), room = P.buyRoom(S, p.id), price = P.boothPrice(S, p), out = !P.inStock(S, p.id);
+        return '<div class="row sm mb"><div class="sp"><b>' + h(p.name) + '</b>' + (out ? ' ' + UI.tag('sold out at the shop', 'warn') : '') + '<div class="xs muted">' + U.money(price) + ' <s class="dim">' + U.money(P.price(S, p)) + '</s> · you have ' + P.count(S, p.cat) + '/' + G.Shop.partMax(S, p.cat) + ' · ' + left + ' left for you</div></div>' +
+          '<div class="row gap4">' + (left >= 4 && room >= 4 ? '<button class="btn sm" data-act="boothBuy" data-arg="' + p.id + '|4">Buy 4 · ' + U.money(4 * price) + '</button>' : '') +
+          '<button class="btn sm" data-act="boothBuy" data-arg="' + p.id + '|1" ' + (left > 0 && room > 0 ? '' : 'disabled title="' + (left > 0 ? 'No room on your parts shelf' : 'That is all the booth sells to one team') + '"') + '>Buy 1</button></div></div>';
+      }).join('') + '</div>').join('') + '</div></div>';
+  }
+  UI.A.boothBuy = arg => { const [id, n] = String(arg).split('|'), r = G.Parts.boothBuy(G.S, Ev(), id, Number(n) || 1); if (typeof r === 'string') return UI.err(r); UI.toast('Bought at the booth: ' + (r.bought > 1 ? r.bought + '× ' : '') + G.Parts.prod(id).name + ' (' + U.money(r.cost) + ')', 'good'); UI.render(); };
   UI.A.practice = function (p) { const ev = Ev(); if (ev.stage !== 'practice') return; const out = G.Ev.doPractice(ev, p); out.forEach(x => ev.log.push(x)); (ev.pracLog = ev.pracLog || []).push({ p, out }); if (ev.stage !== 'practice') ev.pracReview = true; UI.toast(out.join(' '), 'good'); G.Save.write('auto'); UI.render(); };
   UI.A.skipPractice = function () {
     const ev = Ev(); if (ev.stage !== 'practice') return;

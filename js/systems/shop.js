@@ -51,34 +51,61 @@
     pitch: v => '+' + Math.round(v) + ' Impact presentation',
     ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's'),
     superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts)' : ''),
-    scout: v => (v >= 0.5 ? 'sharper scouting at events' : '')
+    scout: v => (v >= 0.5 ? 'sharper scouting at events' : ''),
+    design: v => '−' + Math.round(v * 100) + '% hours on new mechanisms and upgrades',
+    shelf: v => 'shelves hold ' + Math.round(v * 100) + '% of the most parts (50% without)',
+    rest: v => '−' + (v * D.FATIGUE_SLOPE).toFixed(1) + ' fatigue a week in season',
+    honors: v => (v >= 2 ? 'every banner and trophy on display' : 'this season\'s and last season\'s banners and trophies on display'),
+    pride: v => 'team morale settles ' + Math.round(v) + ' higher',
+    rep: v => '+' + Math.round(v) + ' reputation at each season review'
   };
   Shop.effectText = function (S, id, lvl, eff) {
     const it = Shop.item(id);
-    return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, k === 'ftc' ? 1 : eff))).filter(Boolean).join(' · ');
+    return Object.keys(it.fx).map(k => k === 'slot' ? FX_TEXT.slot(lvl == null && eff == null ? Shop.slotOf(S, id) : Shop.fx(S, id, k, lvl, 1)) : FX_TEXT[k](Shop.fx(S, id, k, lvl, k === 'ftc' || k === 'honors' || k === 'shelf' ? 1 : eff))).filter(Boolean).join(' · ');
   };
   // a level that does not exist yet in this calendar year (the Super pit: from the 2018 season, on sale from the autumn of 2017)
   Shop.levelBlock = function (S, id) {
     const it = Shop.item(id), l = Shop.lvl(S, id), L = it.levels[l];
     if (!L || !L.from || !S || !S.cal) return null;
     const cy = G.Parts.buyCy(S);
-    return cy < L.from ? 'The ' + L.name + ' does not exist yet: top teams first build one for the ' + L.from + ' season.' : null;
+    if (cy < L.from) return 'The ' + L.name + ' does not exist yet: top teams first build one for the ' + L.from + ' season.';
+    // on sale from a month of the offseason before that season (the AI coding lab: September 2024)
+    if (L.fromMonth != null && cy === L.from && S.phase === 'off' && S.month < L.fromMonth) return 'The ' + L.name + ' is not on sale yet: it arrives in ' + D.MONTHS[L.fromMonth] + '.';
+    return null;
   };
   Shop.superPit = S => Shop.lvl(S, 'pitcart') >= 3;
-  // "Finish now" cards: each top-level CNC Machining, 3D Printing and Machine Shop gives one a season for a hardware project
-  // at least half done, a top-level Programming Station one for a software project. No cost, no penalty.
-  Shop.FINISH = [{ id: 'cnc', kind: 'fab' }, { id: 'printer', kind: 'fab' }, { id: 'lathe', kind: 'fab' }, { id: 'laptops', kind: 'soft' }];
+  // "Finish now" cards: a top-level CNC Machining, Prototyping Lab and Manual Machine Shop each give one a season for a
+  // hardware project at least half done; the Programming Station gives one for a software project from its third level
+  // and two from its fourth (the AI coding lab). No cost, no penalty. at: the levels that each give a card.
+  Shop.FINISH = [{ id: 'cnc', kind: 'fab', at: [2] }, { id: 'printer', kind: 'fab', at: [3] }, { id: 'lathe', kind: 'fab', at: [2] }, { id: 'laptops', kind: 'soft', at: [3, 4] }];
+  Shop.finishOf = (S, f) => f.at.filter(l => Shop.lvl(S, f.id) >= l).length; // cards a facility gives this season
   Shop.finishCards = function (S) {
     if (!S.finish || S.finish.si !== S.si) S.finish = { si: S.si, used: [] };
-    return Shop.FINISH.filter(f => Shop.lvl(S, f.id) >= Shop.item(f.id).levels.length && !S.finish.used.includes(f.id));
+    const out = [];
+    Shop.FINISH.forEach(f => { const n = Shop.finishOf(S, f) - S.finish.used.filter(x => x === f.id).length; for (let i = 0; i < n; i++) out.push(f); });
+    return out;
   };
   Shop.finishFor = (S, p) => (p.done / Math.max(1, p.need) >= 0.5 ? Shop.finishCards(S).find(f => f.kind === G.Robot.cat(p)) || null : null);
   // cards left and cards earned this season, by kind: { fab: [left, total], soft: [left, total] }
   Shop.finishCount = function (S) {
     const left = Shop.finishCards(S), out = { fab: [0, 0], soft: [0, 0] };
-    Shop.FINISH.forEach(f => { if (Shop.lvl(S, f.id) >= Shop.item(f.id).levels.length) { out[f.kind][1]++; if (left.includes(f)) out[f.kind][0]++; } });
+    Shop.FINISH.forEach(f => { out[f.kind][1] += Shop.finishOf(S, f); out[f.kind][0] += left.filter(x => x === f).length; });
     return out;
   };
+  // Parts Shelf: the share of the most of each bulky part the shop can hold (half without one; the top level holds two
+  // robots' worth). Small items (control hubs, cameras, switches, accelerators, actuator kits) always fit.
+  Shop.SHELF_FREE = ['ctrl', 'canfd', 'camera', 'nswitch', 'accel', 'pneu', 'servo'];
+  Shop.shelfK = S => (S && S.shop ? (Shop.lvl(S, 'shelf') ? Shop.item('shelf').fx.shelf[Shop.lvl(S, 'shelf') - 1] : 0.5) : 1);
+  Shop.partMax = (S, cat) => { const c = D.PART_CAT[cat]; return Shop.SHELF_FREE.includes(cat) ? c.max : Math.max(1, Math.round(c.max * Shop.shelfK(S))); };
+  // the lowest shelf level that holds everything the team owns (for saves from before the Parts Shelf)
+  Shop.shelfFor = function (S) {
+    const need = D.PART_CATS.reduce((k, c) => (Shop.SHELF_FREE.includes(c.id) ? k : Math.max(k, ((S.inv && S.inv[c.id]) || []).length / c.max)), 0);
+    if (need <= 0.5) return 0;
+    const fx = Shop.item('shelf').fx.shelf, l = fx.findIndex(v => need <= v + 1e-9);
+    return l < 0 ? fx.length : l + 1;
+  };
+  // CAD Workstations: hours on new mechanisms and upgrades
+  Shop.designMult = S => 1 - Shop.fx(S, 'cad', 'design');
   // Project slots from facilities: whole slots, lost while a facility is below SLOT_COND condition (renovate to get it back)
   Shop.SLOT_COND = 35;
   Shop.slotOf = (S, id) => Shop.lvl(S, id) && Shop.cond(S, id) >= Shop.SLOT_COND ? Shop.fx(S, id, 'slot', null, 1) : 0;
@@ -110,7 +137,9 @@
         delete S.equip[e.id];
       });
     }
-    D.EQUIP.forEach(e => { if (!S.shop[e.id]) S.shop[e.id] = { lvl: 0, cond: 100, warned: 0 }; });
+    // facilities added after the save was made start at 0, except the Parts Shelf: a save from before it gets the level
+    // that holds everything it owns (at least what its profile starts with), so no part is lost
+    D.EQUIP.forEach(e => { if (!S.shop[e.id]) S.shop[e.id] = { lvl: e.id === 'shelf' ? Math.max(Shop.shelfFor(S), D.SHELF_START[S.profile] || 0) : 0, cond: 100, warned: 0 }; });
     if (S.spaceV !== 2) { // workshop space: classroom, technology wing, robotics center. By profile, and never less than what is built or was granted
       let t = D.SPACE_START[S.profile] || 0;
       if (S.spaceTier != null) t = Math.max(t, [0, 1, 1, 2, 2][S.spaceTier] || 0); // saves from the first v2.5 build had five steps
@@ -324,15 +353,39 @@
     { id: 'lathe_chatter', w: 2, req: own('lathe'), title: 'Lathe chuck is out of true',
       body: () => 'Shafts are coming off the lathe slightly oval. The machine shop is "fine, probably".',
       opts: [
-        { label: 'Live with it', desc: '35% chance it gets worse: Fabrication −40%, Machine Shop condition −20',
+        { label: 'Live with it', desc: '35% chance it gets worse: Fabrication −40%, Manual Machine Shop condition −20',
           risk: { p: 0.35, mods: { fab: 0.6 }, dmg: { lathe: 20 }, hit: 'A chewed-up hex shaft finally convinced everyone. The lathe was tagged out while parts were re-made.', miss: 'Turns out "slightly oval" was within tolerance. Barely.' } },
-        { label: 'Have the chuck rebuilt', cost: S => 300 + 200 * lvlOf(S, 'lathe'), desc: 'No delay, Machine Shop condition +10', fix: { lathe: 10 } }
+        { label: 'Have the chuck rebuilt', cost: S => 300 + 200 * lvlOf(S, 'lathe'), desc: 'No delay, Manual Machine Shop condition +10', fix: { lathe: 10 } }
       ] },
     { id: 'laptop_update', w: 3, req: own('laptops'), title: 'Bad update hit the programming laptops',
       body: () => 'An automatic update broke the robot code build tools on every programming laptop.',
       opts: [
         { label: 'Roll back by hand', desc: 'Software −70% this week', mods: { soft: 0.3 } },
         { label: 'Pay IT to reimage them tonight', cost: () => 400, desc: 'Software −15% this week', mods: { soft: 0.85 } }
+      ] },
+    { id: 'cad_licence', w: 2, req: own('cad'), title: 'The CAD licences ran out',
+      body: () => 'Every CAD seat logged itself out on Monday: the school forgot to renew the licences. The design team is drawing on whiteboards.',
+      opts: [
+        { label: 'Wait for the school to renew them', desc: 'Fabrication −20% this week', mods: { fab: 0.8 } },
+        { label: 'Pay for a month of licences yourselves', cost: S => 200 + 120 * lvlOf(S, 'cad'), desc: 'No delay, CAD Workstations condition +5', fix: { cad: 5 } }
+      ] },
+    { id: 'shelf_mess', w: 2, req: own('shelf'), title: 'Nobody can find anything on the parts shelf',
+      body: () => 'Half the bins are labelled for parts that are somewhere else. Somebody spent forty minutes looking for an encoder that was in their pocket.',
+      opts: [
+        { label: 'Hunt for parts as needed', desc: 'Fabrication −15% this week', mods: { fab: 0.85 } },
+        { label: 'Stop everything for a sorting night', desc: 'Fabrication −5% this week, Parts Shelf condition +15', mods: { fab: 0.95 }, fix: { shelf: 15 } }
+      ] },
+    { id: 'lounge_fridge', w: 1, req: own('lounge'), title: 'The break room fridge died',
+      body: () => 'The fridge in the break room gave up over the weekend, with everybody\'s lunches inside. The smell reached the CNC.',
+      opts: [
+        { label: 'Clean up and do without it', desc: 'Fabrication and software −5% this week', mods: { fab: 0.95, soft: 0.95 } },
+        { label: 'Buy a new fridge', cost: () => 350, desc: 'No delay, Break Room condition +10', fix: { lounge: 10 } }
+      ] },
+    { id: 'honors_banner', w: 1, req: own('honors'), title: 'A banner came off the wall',
+      body: () => 'A banner slid off its hook during a robot test and landed on the drive base. The robot was fine. The banner has a tread mark.',
+      opts: [
+        { label: 'Hang it back up yourselves', desc: 'Fabrication −5% this week', mods: { fab: 0.95 } },
+        { label: 'Have the wall rail fitted properly', cost: () => 180, desc: 'No delay, Honors Wall condition +15', fix: { honors: 15 } }
       ] },
     { id: 'charger_smell', w: 2, req: own('charger'), title: 'Burning smell from the battery charger',
       body: () => 'Something on the charger smells like a warm electronics store. The fan is not spinning.',

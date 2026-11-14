@@ -202,16 +202,25 @@
     const r = G.makeRng(((num * 2246822519) ^ (gy * 3266489917)) >>> 0 || 3);
     return [Math.exp(r.norm(0, 0.3) - 0.045), Math.exp(r.norm(0, 0.75) - 0.28)];
   };
+  // The most endgame points one robot can earn in each game (its best climb, with its share of an alliance bonus where
+  // the endgame has one, or what a buddy climber adds by lifting a partner)
+  Sc.END_MAX = { 2016: 15, 2017: 50, 2018: 36, 2019: 15, 2020: 30, 2022: 15, 2023: 12, 2024: 11, 2025: 12, 2026: 30 };
   // the scouting numbers of a simulated event (its own random numbers: the world simulation's results stay as they were)
   Sc.simStats = function (S, e, teams, st) {
     const cal = Sc.curve(S), out = {}; if (!cal) return out;
     const rng = G.makeRng(hashStr(e.id + ':' + (S.wseason.cy || 0)));
     const wm = e.kind === 'dcmp' ? 1.03 : 0.85 + 0.03 * ((e.week || 1) - 1), dm = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1, k = Math.pow(wm * dm, 1 / 1.3);
+    const capE = Sc.END_MAX[cal.gy] || 30;
     teams.forEach(t => {
       const p = Sc.at(cal, st[t] * k).map(v => v * Sc.MIX), f = Sc.style(t, cal.gy);
-      // the team's own style moves points between the periods; its total stays what its strength gives
-      const a0 = p[0] * f[0], e0 = p[2] * f[1], t0 = Math.max(p[1] * 0.3, p[0] + p[1] + p[2] - a0 - e0);
-      const au = Math.max(0, a0 * (1 + rng.norm(0, 0.15))), te = Math.max(0, t0 * (1 + rng.norm(0, 0.1))), en = Math.max(0, e0 * (1 + rng.norm(0, 0.2)));
+      // the team's own style moves points between the periods; its total stays what its strength gives. A robot never
+      // scores more in the endgame than one robot can there, and what auto and the endgame gain comes out of teleop
+      // (at most 40% of it)
+      let a0 = p[0] * f[0], e0 = Math.min(p[2] * f[1], Math.max(p[2], capE));
+      const gain = Math.max(0, a0 - p[0]) + Math.max(0, e0 - p[2]), room = 0.4 * p[1];
+      if (gain > room) { const q = room / gain; if (a0 > p[0]) a0 = p[0] + (a0 - p[0]) * q; if (e0 > p[2]) e0 = p[2] + (e0 - p[2]) * q; }
+      const t0 = p[0] + p[1] + p[2] - a0 - e0;
+      const au = Math.max(0, a0 * (1 + rng.norm(0, 0.15))), te = Math.max(0, t0 * (1 + rng.norm(0, 0.1))), en = U.clamp(e0 * (1 + rng.norm(0, 0.2)), 0, Math.max(e0, capE * 1.05));
       out[t] = [r1(au + te + en), r1(au), r1(te), r1(en)];
     });
     return out;

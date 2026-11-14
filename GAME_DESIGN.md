@@ -466,11 +466,15 @@ It affects build hours (×0.8–1.1), student growth, recruitment, mentor retent
 | Item | Cost | Upkeep / season | Effect |
 |---|---|---|---|
 | Hand tools & drill press | start | — | Baseline |
-| 3D Printer → Print Farm | $800 → $3,000 | $200 | −8% / −15% project hours, faster prototypes |
-| CNC Router | $7,500 | $500 | +10% upgrade gain, +5 reliability, −15% fabrication hours |
-| Lathe & Mill | $5,000 | $300 | Spare parts −30% cost, +3 reliability |
+| Prototyping Lab: 3D printer → print farm + laser cutter | $800 → $3,000 | $200 | −8% / −15% project hours, faster prototypes |
+| CNC Machining: router → CNC mill and lathe | $7,500 | $500 | +10% upgrade gain, +5 reliability, −15% fabrication hours |
+| Manual Machine Shop: mill, lathe, drill press, band saw | $5,000 | $300 | Spare parts −30% cost, +3 reliability |
 | Practice Field Elements | $2,500 *each season* (new game = new elements) | — | Weekly Driver Practice, +20% starting Tuning at events, auto validation |
-| Programming laptops + sim software | $1,500 | $200 | −20% software project hours |
+| Programming Station: laptops → AI coding lab (from autumn 2024) | $1,500 → $15,000 | $200 | −20% to −46% software project hours |
+| CAD Workstations | $1,500 → $9,000 | $200 | −5% to −14% hours on new mechanisms and upgrades |
+| Parts Shelf | $600 → $4,000 | $50 | Holds 67% → 100% of the most of each bulky part (50% without) |
+| Break Room | $500 → $4,500 | $150 | Less fatigue every week in season |
+| Honors Wall | $400 → $2,000 | $50 | Banners and trophies on display, morale, reputation every year |
 | Battery charger cart | $400 | — | Batteries charge faster between matches |
 | Pit cart & tool kit | $800 | — | +25% pit repair speed |
 | Team trailer | $12,000 | $800 | −30% travel cost to drive-distance events |
