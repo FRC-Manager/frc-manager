@@ -544,6 +544,9 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 /* ---- World map and season scouting (v2.9.6) ---- */
 .fsel { width: auto; padding: 4px 8px; font-size: 12px; }
 .wm-f { gap: 8px; align-items: center; }
+/* a team shown from a message or the scouting list (3.1) */
+.wm-mark-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent2); }
+.btn.icon-btn { padding: 3px 6px; line-height: 0; }
 .segs { display: inline-flex; } .segs .btn { border-radius: 0; margin-left: -1px; } .segs .btn:first-child { border-radius: 7px 0 0 7px; margin-left: 0; } .segs .btn:last-child { border-radius: 0 7px 7px 0; }
 .wmap { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0b141c; }
 .wm-svg { display: block; width: 100%; height: auto; max-height: 72vh; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
@@ -558,6 +561,9 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .wm-keys .k-ev { background: #9085e9; transform: rotate(45deg); }
 .wm-keys .k-myev { background: #9085e9; transform: rotate(45deg); box-shadow: 0 0 0 2px #0b141c, 0 0 0 3.5px #f5b800; }
 .wm-keys .k-me { color: #f5b800; width: auto; height: auto; font-size: 13px; line-height: 1; }
+.wm-keys .k-elite { background: #ff4f8b; border: 1.5px solid #fff; border-radius: 50%; }
+/* an elite team (3.1) */
+.etag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 0 5px; border-radius: 4px; line-height: 16px; color: #fff; background: #d6336c; vertical-align: 1px; }
 .wm-keys .k-cmp { border: 2px solid #f5c542; border-radius: 50%; background: #2a2410; }
 .wm-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
 .wm-zoom .btn { width: 34px; padding: 4px 0; font-size: 16px; font-weight: 700; justify-content: center; }

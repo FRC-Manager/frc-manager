@@ -638,10 +638,15 @@
     const rng = G.R;
     const myAll = div.alliance.slice();
     const exclude = new Set(div.teams);
-    const strong = Object.values(S.teams).filter(t => !exclude.has(t.num)).sort((a, b) => b.str - a.str).slice(0, 60);
-    rng.shuffle(strong);
+    // the other division champions: each led by its division's elite teams (world simulation), with strong partners
+    const other = (S.wseason && S.wseason.cmp && S.wseason.cmp.divs) || [], used = new Set(exclude);
+    const strong = rng.shuffle(Object.values(S.teams).filter(t => !exclude.has(t.num) && !t.elite).sort((a, b) => b.str - a.str).slice(0, 60));
     const alliances = [myAll];
-    for (let i = 0; i < (S.cal ? CH.divs : 8) - 1; i++) alliances.push(strong.slice(i * 3, i * 3 + 3).map(t => t.num));
+    for (let i = 0; i < (S.cal ? CH.divs : 8) - 1; i++) {
+      const al = (other[i] || []).filter(n => S.teams[n] && !used.has(n)).sort((a, b) => S.teams[b].str - S.teams[a].str).slice(0, G.World.eliteCfg(S).ein);
+      while (al.length < 3 && strong.length) { const t = strong.shift(); if (!used.has(t.num)) al.push(t.num); }
+      al.forEach(n => used.add(n)); alliances.push(al);
+    }
     rng.shuffle(alliances);
     ev.teams = [].concat(...alliances);
     ev.teams.forEach(n => {
@@ -883,8 +888,8 @@
     S.actHours = 0;
     switch (S.phase) {
       case 'off': processWork(S, hours, th); offMonthEnd(S); break;
-      case 'kickoff': { const r = processWork(S, hours, th); fatigueWeek(S, hours, r.spare, false); S.phase = 'build'; S.week = 1; C.refRelease(S); break; }
-      case 'build': processWeek(S, hours, th); if (S.week >= 7) { S.phase = 'comp'; S.week = 1; C.bagDay(S); } else S.week++; break;
+      case 'kickoff': { const r = processWork(S, hours, th); fatigueWeek(S, hours, r.spare, false); S.phase = 'build'; S.week = 1; G.News.refTalk(S, 'wait'); break; } // the team argues: wait for the published designs?
+      case 'build': processWeek(S, hours, th); if (S.week >= 7) { S.phase = 'comp'; S.week = 1; C.bagDay(S); } else { S.week++; if (S.week === D.REF_WEEK) C.refRelease(S); if (S.week === D.REF_WEEK + 1) G.News.refTalk(S, 'after'); } break;
       case 'comp': processWeek(S, hours, th); if (G.World.on(S)) G.World.weekDone(S, S.week); if (S.week >= 7) C.toChamps(S); else S.week++; break;
       case 'champs': C.toReview(S); break;
       case 'review': C.endReview(S); break;
@@ -1066,6 +1071,10 @@
         (wl.formed.length ? ' New this year: the ' + wl.formed.map(id => D.DISTRICT[id].name).join(' and the ') + '.' : '') +
         (d ? ' Your district, the ' + d.name + ', has ' + G.World.sizeOf(d, su.cy) + ' teams; the top ' + d.dcmp + ' reach its District Championship and about ' + G.World.slots(S, d) + ' go on to the Championship.' : '') +
         ' The ' + (d ? 'District' : 'World') + ' page follows every event.', 'info');
+      // the top tier: who fell out of it (a local powerhouse now) and who joined it
+      { const nm = n => { const t = S.teams[n]; return t ? n + ' ' + t.name + ' (' + (t.home ? D.DISTRICT[t.home].short : t.region) + ')' : String(n); }, f = wl.faded || [], r = wl.rose || [];
+        if (f.length || r.length) C.inbox(S, 'Elite watch', (r.length ? r.map(nm).join(' and ') + (r.length > 1 ? ' join' : ' joins') + ' the elite teams after years near the top: the forum has added ' + (r.length > 1 ? 'them' : 'it') + ' to every prediction list. ' : '') +
+          (f.length ? f.map(nm).join(' and ') + (f.length > 1 ? ' are' : ' is') + ' no longer counted among the elite. Still a local powerhouse, but the mentors who built ' + (f.length > 1 ? 'those programs' : 'that program') + ' have moved on, and the rest of the world has noticed.' : ''), 'news', { teams: r.concat(f).filter(n => S.teams[n]) }); }
     }
     else if (!first) G.AI.addRookies(S.teams, rng, S.year, 10, S.team.num, S.cal ? C.cy(S) : null);
     Object.values(S.teams).forEach(t => t.rb = null);
@@ -1110,9 +1119,14 @@
     let ids;
     if (S.mode === 'single' || r < 35) ids = ['finish', 'playoffs1', 'award'];
     else if (r < 55) ids = dist ? ['playoffs1', 'award', 'dcmp'] : ['playoffs1', 'award', 'winEvent'];
-    // a district team's ladder: the District Championship, the district's top ten, a district event win, the Championship
-    else if (r < 75) ids = dist ? ['dcmp', 'dTop10', 'champs'] : ['playoffs1', 'winEvent', 'champs'];
-    else ids = dist ? ['dTop10', 'winEvent', 'champs'] : ['playoffs2', 'winEvent', 'champs'];
+    // qualifying for the Championship comes before winning an event: an event win qualifies a regional team, and a
+    // regional team can also qualify on an award or a wildcard. A district team qualifies on points: a district with ten or
+    // more Championship places sends its top ten, so the Championship comes before the top ten there.
+    else {
+      const d = dist ? G.World.myDistrict(S) : null, many = d ? G.World.slots(S, d) >= 10 : false;
+      if (r < 75) ids = dist ? (many ? ['dcmp', 'champs', 'dTop10'] : ['dcmp', 'dTop10', 'champs']) : ['playoffs1', 'champs', 'winEvent'];
+      else ids = dist ? (many ? ['champs', 'dTop10', 'winEvent'] : ['dTop10', 'champs', 'winEvent']) : ['playoffs2', 'champs', 'winEvent'];
+    }
     return ids.map((id, i) => ({ id, tier: ['Minimum', 'Target', 'Stretch'][i], met: false }));
   };
 
@@ -1437,6 +1451,8 @@
       if (ev.dist) { const mine = (S.wseason.rec[S.team.num] || []).find(x => x.e === ev.id); r.dist = ev.dist; r.dp = mine ? mine.dp : 0; r.dpx = mine ? G.World.points(mine, ev.fmt === 'se' ? 'se' : 'de') : null; r.counts = ev.kind === 'dcmp' || S.season.events.filter(e => e.dist && e.kind === 'regional').length < 2; }
     }
     if (S.cal && C.cy(S) >= 2018 && ev.year === S.year) r.refs = C.refCount(S, ev.teams); // copies of the published designs there (the recap, news)
+    { const j = S.season.joke, t = j && !j.paid && (ev.teams || []).includes(j.num) ? S.teams[j.num] : null; // the team too good for the published robot, with one
+      if (t && t.rb && t.rb.year === S.year && t.rb.ref) { j.paid = 1; G.News.refJoke(S, t, ev); } }
     S.season.events.push(r);
     r.awards.forEach(a => S.season.awards.push(a));
     if (ev.kind === 'champs') {
@@ -2085,7 +2101,7 @@
     if (cy >= 2017) lines.push('Gearboxes: both vendors sell planetary gearboxes for mechanism motors (optional, fewer breakdowns), and a low-profile one comes in every Kit of Parts.');
     lines.push('Pneumatics: a kit saves ' + Math.round(era.pneu * 100) + '% of the hours on intake, manipulator, end effector, climber and adjustable-hood shooter builds' + (era.servo ? '; a servo actuator kit saves ' + Math.round(era.servo * 100) + '% (the better of the two counts).' : '.'));
     if (cy >= 2018) lines.push('Pits: the top teams roll in a Super pit in road cases (the top level of Pit Setup): a full repair of one subsystem before every match.');
-    if (cy >= 2018) lines.push('Published designs: in Build Week 1 the Gearwrights publish the Anybot, a simple robot for the year\'s game' + (cy >= 2022 ? ', and Apex Motion the Apex Blueprint, a competitive one on swerve' : '') + '. Copy one in the Design Office: the first build is cheaper, and the drivers practise on its simulator model while it is built.');
+    if (cy >= 2018) lines.push('Published designs: at the start of Build Week 2 the Gearwrights publish the Anybot, a simple robot for the year\'s game' + (cy >= 2022 ? ', and Apex Motion the Apex Blueprint, a competitive one on swerve (its drivetrain needs 4 swerve modules from the Inventory)' : '') + '. Copy one in the Design Office: the first build is cheaper, and the drivers practise on its simulator model while it is built. Until it is out, design your own or wait for it.');
     if (cy >= 2023) lines.push('CAN bus: modern motors and encoders talk so much that a robot with more than 14 of them needs a CAN FD hub (Inventory), or it freezes now and then in matches.');
     if (cy >= 2025) lines.push('Code: AI coding assistants write much of the robot code now, with every line reviewed by a person (the AI coding lab, the top level of the Programming Station: two Finish now cards a season).');
     lines.push(G.Era.playoffs(cy) === 'se' ? 'Playoffs: single elimination, every series best of three' + (cy <= 2022 ? ' (double elimination arrives in 2023).' : '.') : 'Playoffs: double elimination, finals best of three.');
@@ -2183,15 +2199,17 @@
     if (S.season && S.season.year && S.season.events && !S.history.some(h => h.year === S.season.year)) add(S.season.year, S.season.events, S.season);
     return out;
   };
-  // Build Week 1: this season's published designs are out (the Anybot from 2018, the Apex Blueprint from 2022): a message
-  // for each, and a window with both robots
+  // The start of Build Week 2: this season's published designs are out (the Anybot from 2018, the Apex Blueprint from
+  // 2022): a message for each, and a window with both robots (once: a save from before 3.1 may have had them in Week 1)
   C.refRelease = function (S) {
     const rs = G.Robot.refs(S); if (!rs.length) return;
     const year = S.year, cy = C.cy(S);
+    if (rs.every(r => (S.inbox || []).some(m => m.title === 'Published: the ' + cy + ' ' + r.name))) return;
     rs.forEach(r => {
       const picks = r.picks[year], list = Object.keys(picks).map(k => G.Seasons.sub(year, k).name + ': ' + G.Seasons.concept(year, k, picks[k]).name).join('; ');
       C.inbox(S, 'Published: the ' + cy + ' ' + r.name, (r.id === 'any' ? r.by.charAt(0).toUpperCase() + r.by.slice(1) : r.by) + ' published the ' + r.name + ' for ' + G.Seasons[year].name + ': ' + list + '. ' + r.blurb + ' It comes with build videos, practice drills and a model for the driving simulators, so your drivers can practise on it while it is being built.\n\nCopy any of it, or the whole robot, in the Design Office: the first build of each copied subsystem takes ' + Math.round((1 - r.k.hours) * 100) + '% fewer hours and starts as a version 2. Upgrades are your own work.', 'dev');
     });
+    G.News.refTalk(S, 'out'); // the team's first look
     (S.launchQueue = S.launchQueue || []).push({ kind: 'refbot' });
   };
   // Trophies and plaques for the Honors Wall: finalist places, judges' awards (every award but the Impact Award, which is a
@@ -2563,6 +2581,7 @@
   };
   // older saves: a feeder count becomes that many established, balanced programs
   C.migrate = function (S) {
+    if (G.World.on(S) && S.teams && !G.World.elites(S).length && S.wseason) G.World.eliteSetup(S, G.R, S.wseason.cy); // 3.1: elite teams in a world from before
     if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {
       const n = U.clamp(S.feeders || 0, 0, D.FEEDER_MAX);

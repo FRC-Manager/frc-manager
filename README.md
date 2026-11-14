@@ -2,7 +2,7 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-**▶ [Play FRC Manager 3.0 in your browser](https://frc-manager.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
+**▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
 
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1® or Frontier Developments. Sponsors, regionals, offseason events and opponent teams are fictional or randomly generated.
 
@@ -12,7 +12,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.0**. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.1**. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -43,6 +43,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 - **Two robots.** A second robot, or just a test chassis, gives testing hours, driver practice and spares at events. Build it a copy at a time, or with one shortcut.
 - **Parts are real.** Control system parts (motors, encoders, hubs), drivetrain parts and kits come from the Inventory, wear out, and sell out in season. What everybody wants sells out first. Stock up before Kickoff. A vision company, planetary gearboxes and servo kits arrive over the decade.
 - **Elite designs.** Seven games offer mechanisms only the best teams build: a little better than the next best, and much harder.
+- **Elite teams.** A few programs at the top of the sport, in every area and most of all in California, close to maxed out and there for years. Every Championship division has them; a world title takes a robot and drive team at their level.
 - **Published robots.** From 2018 a veteran team publishes a simple robot for every game, and from 2022 a vendor publishes a competitive one. Copy one for a quicker first build and drivers who know it from the simulator, then make it your own.
 
 **Matches**

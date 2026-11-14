@@ -111,7 +111,7 @@
       levels: [{ name: 'Manual mill & lathe', cost: 7500 }, { name: 'Full machine shop', cost: 15000 }],
       fx: { spare: [0.3, 0.45], rel: [3, 5], slot: [0, 1] }, desc: 'A manual mill and lathe, then a drill press, a band saw and the rest of a real shop: make your own spare parts (cheaper spares) and more reliable new builds.' },
     // a parts room: without one the shop holds about one robot's worth of each part
-    { id: 'shelf', name: 'Parts Shelf', upkeep: 50, wear: { season: 1, off: 0.4, event: 0 },
+    { id: 'shelf', name: 'Parts Shelf', upkeep: 50, wornUpkeep: 4, noDown: true, wear: { season: 1, off: 0.4, event: 0 },
       levels: [{ name: 'Shelving units', cost: 600 }, { name: 'Parts room with labelled bins', cost: 1800 }, { name: 'Parts store + inventory system', cost: 4000 }],
       fx: { shelf: [0.67, 0.83, 1] }, desc: 'Somewhere for motors, encoders, gearboxes and kits to live. Without one the shop holds about one robot\'s worth of each (half the most); the top level holds two robots\' worth.' },
     { id: 'laptops', name: 'Programming Station', upkeep: 250, wear: { season: 1.5, off: 0.8, event: 0 },
@@ -375,6 +375,25 @@
   // faster (×fast, plus up to polish with extra hours); bumper standards rules out the bumper incident at events
   D.PIT_TRAIN = { hours: 40, cost: 120, fast: 1.3, polish: 0.15 };
   D.BUMPER_STD = { hours: 30, cost: 280 };
+  // Elite teams (world simulation, 3.1): the programs at the very top of the sport, close to maxed out in robot, drive team
+  // and strategy. They are placed where the real ones are, by the cities teams come from (G.Geo.HUBS): a zone is a
+  // district's cities (even before the district forms) or an area's cities outside its districts. California has the most.
+  // They last: strength drifts a point or two a year (b), a few fade (fade, never the dynasties), and an established team
+  // (minAge seasons in the world, strength promoteAt or more) can rise to fill its zone. Every area keeps at least one.
+  D.ELITE_ZONES = [
+    { z: 'sierra', n: 5, name: 'California' }, { z: 'lakeshore', n: 3, name: 'Michigan' }, { z: 'mesa', n: 2, name: 'Texas' },
+    { z: 'harbor', n: 2, name: 'New England' }, { z: 'evergreen', n: 2, name: 'the Pacific Northwest' }, { z: 'Canada', n: 2, name: 'Canada' },
+    { z: 'Midwest', n: 2, name: 'the Midwest' }, { z: 'Northeast', n: 2, name: 'the Northeast' }, { z: 'Southeast', n: 2, name: 'the Southeast' },
+    { z: 'Southwest', n: 1, name: 'the Southwest' }, { z: 'West', n: 1, name: 'the Mountain West' }
+  ];
+  D.ELITE = { b: [92, 97], fresh: [90, 93], lo: 89, hi: 98, fade: 0.03, dyn: 0.45, minAge: 5, promoteAt: 82, q: [0.95, 0.99], bonus: 6, drv: [93, 98], div: 1, ein: 2 }; // off: tests only (no elite teams)
+  // by difficulty: how many (n: share of each zone's count, at least one per area always), how good, how many your
+  // Championship division is sure to have (div) and how many lead each of the other alliances on Einstein (ein)
+  D.ELITE_DIFF = {
+    easy: { n: 0.5, b: [89, 93], fresh: [88, 91], q: [0.9, 0.95], bonus: 0, drv: [88, 93], div: 0, ein: 1 },
+    normal: {},
+    hard: { n: 1.5, b: [93, 98], fresh: [91, 94], q: [0.97, 0.99], bonus: 9, drv: [95, 99], div: 2, ein: 2 }
+  };
   D.REF_AI = { anyFloor: 0.2, bpShare: 0.35, bpBoost: 0.04 }; // AI teams copy too: the weakest that would fall below the floor build the Anybot (quality raised to it); a share of the lower middle build the Blueprint (its concepts, +0.04 quality)
   D.REF_STEP = 0.25; // a copied published design starts as a version 2: its stats this share of the way from a first build to the ceiling
   D.REF_FIT0 = 0.3; // copying part of a published design: the drivers' familiarity and the reliability bonus scale from this share (one subsystem of many) up to the whole (every subsystem in it)
@@ -472,8 +491,8 @@
   D.GOALS = {
     playoffs1: { text: 'Reach playoffs at an event', bonus: 2000 },
     playoffs2: { text: 'Reach playoffs at 2 events', bonus: 3000 },
-    win: { text: 'Win a regional', bonus: 5000 },
-    champs: { text: 'Qualify for Championship', bonus: 6000 },
+    win: { text: 'Win a regional', bonus: 6000 },
+    champs: { text: 'Qualify for Championship', bonus: 5000 }, // easier than a win: an event win qualifies, and so do awards and wildcards
     award: { text: 'Win any award', bonus: 1500 },
     techAward: { text: 'Win a technical award', bonus: 2000 },
     quality: { text: 'Win the Quality or Excellence in Engineering award', bonus: 2500 },

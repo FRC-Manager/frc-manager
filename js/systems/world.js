@@ -103,13 +103,15 @@
       t.rookie = S.order[0]; t.ry = cy; t.str = Math.round(U.clamp(rng.norm(26, 10), 5, 60)); t.traj = 1;
       const n = freeNum(S, rng, cy); delete S.teams[t.num]; t.num = n; S.teams[n] = t;
     });
+    W.eliteSetup(S, rng);
     W.plan(S, rng);
   };
   const count = (S, f) => Object.values(S.teams).filter(f).length;
   // a district that forms in season cy takes over part of its area's regional teams
   function form(S, rng, cy) {
     D.DISTRICTS.filter(d => d.from === cy && !count(S, t => t.home === d.id)).forEach(d => {
-      const want = W.sizeOf(d, cy) - (S.team.home === d.id ? 1 : 0), cand = rng.shuffle(Object.values(S.teams).filter(t => !t.home && t.region === d.region));
+      // the teams from the district's own cities join it first (California's teams form the Sierra District)
+      const want = W.sizeOf(d, cy) - (S.team.home === d.id ? 1 : 0), cand = rng.shuffle(Object.values(S.teams).filter(t => !t.home && t.region === d.region)).sort((p, q) => (W.zoneOf(q, cy - 1) === d.id) - (W.zoneOf(p, cy - 1) === d.id));
       cand.slice(0, want).forEach(t => { t.home = d.id; });
     });
   }
@@ -126,7 +128,7 @@
     if (!first) {
       // about 4% of the teams fold every year (weaker programs first)
       const all = Object.values(S.teams), nFold = Math.round(all.length * 0.04), pool = all.map(t => ({ t, w: 1.7 - t.str / 100 }));
-      for (let i = 0; i < nFold && pool.length; i++) { const x = rng.wpick(pool, p => p.w); delete S.teams[x.t.num]; pool.splice(pool.indexOf(x), 1); log.folded++; }
+      for (let i = 0; i < nFold && pool.length; i++) { const x = rng.wpick(pool, p => (p.t.elite || p.t.wasElite ? 0 : p.w)); if (x.t.elite || x.t.wasElite) break; delete S.teams[x.t.num]; pool.splice(pool.indexOf(x), 1); log.folded++; } // elite teams do not fold
       // a district that forms this season (normally done already, when the season was planned in October)
       form(S, rng, cy);
       log.formed = D.DISTRICTS.filter(d => d.from === cy).map(d => d.id);
@@ -139,6 +141,7 @@
       // the correction leaves the best teams alone when the level is rising, and the weakest when it is falling
       const mean = all.reduce((s, t) => s + t.str, 0) / Math.max(1, all.length), gap = U.clamp(D.WORLD_STR - mean, -2.5, 2.5);
       all.forEach(t => { const k = gap > 0 ? U.clamp((85 - t.str) / 30, 0, 1) : U.clamp((t.str - 15) / 30, 0, 1); t.str = Math.round(U.clamp(t.str + gap * k + rng.range(-0.5, 0.5), 5, 97)); });
+      W.eliteSeason(S, rng, cy, log); // the elite keep their level (a point or two either way)
     }
     // rookies bring every district and every area to this year's size
     W.districtsAt(cy).forEach(d => { const have = count(S, t => t.home === d.id) + (S.team.home === d.id ? 1 : 0), want = W.sizeOf(d, cy); for (let i = have; i < want; i++) { addTeam(S, rng, first ? { region: d.region, home: d.id } : { region: d.region, home: d.id, rookie: true, cy }); log.rookies++; } });
@@ -148,6 +151,62 @@
     if (!S.wseason || S.wseason.cy !== cy) W.plan(S, rng);
     W.schedule(S, rng);
     return log;
+  };
+
+  // ---------- elite teams (D.ELITE_ZONES, D.ELITE, by difficulty D.ELITE_DIFF) ----------
+  W.eliteCfg = S => Object.assign({ n: 1 }, D.ELITE, D.ELITE_DIFF[(S && S.diff) || 'normal'] || {});
+  const zoneN = (S, z) => Math.max(0, Math.round(z.n * W.eliteCfg(S).n));
+  // the zone a team comes from: its city's district (formed or not) or its area
+  W.zoneOf = function (t, cy) { const hb = G.Geo.hub(G.Geo.teamPos(t.num, t.region, t.home, cy).hub); return hb ? hb.d || hb.r : t.home || t.region; };
+  W.areaOf = t => t.home || t.region;
+  const ageOf = (S, t, cy) => (t.ry == null ? 99 : S.cal.indexOf(cy) - S.cal.indexOf(t.ry));
+  function makeElite(S, t, rng, cy, fresh) {
+    const E = W.eliteCfg(S), r = fresh ? E.fresh : E.b;
+    t.elite = { since: cy, b: rng.int(r[0], r[1]), dyn: !fresh && rng.chance(E.dyn) };
+    t.str = t.elite.b; t.traj = 0; t.impact = Math.max(t.impact || 0, 55);
+  }
+  // the best established team of a list (old programs a little ahead: team numbers follow the founding year)
+  const veteran = (S, t) => t.str + (t.num < D.numTop(S.cal[0]) * D.OLD_NUM ? 6 : 0);
+  // every area with teams in it has at least one elite team
+  function eliteFill(S, rng, cy) {
+    const areas = D.REGIONS.concat(W.districtsAt(cy).map(d => d.id)), all = Object.values(S.teams);
+    areas.forEach(a => {
+      const ts = all.filter(t => W.areaOf(t) === a); if (!ts.length || ts.some(t => t.elite)) return;
+      const c = ts.filter(t => ageOf(S, t, cy) >= D.ELITE.minAge && t.wasElite !== cy).sort((p, q) => veteran(S, q) - veteran(S, p))[0];
+      if (c) makeElite(S, c, rng, cy, true);
+    });
+  }
+  W.eliteSetup = function (S, rng, cy0) { // a new world, or a save from before 3.1 (cy0: its season)
+    if (D.ELITE.off) return;
+    const cy = cy0 || S.cal[0], all = Object.values(S.teams).filter(t => t.ry == null || ageOf(S, t, cy) >= D.ELITE.minAge);
+    D.ELITE_ZONES.forEach(z => all.filter(t => !t.elite && W.zoneOf(t, cy) === z.z).sort((p, q) => veteran(S, q) - veteran(S, p)).slice(0, zoneN(S, z)).forEach(t => makeElite(S, t, rng, cy)));
+    eliteFill(S, rng, cy);
+    Object.values(S.teams).forEach(t => { if (!t.elite && t.str > 90) t.str = 90 - rng.int(0, 2); }); // the very top of the strength scale is the elite's
+  };
+  // a new season: the elite drift a little, a few fade, and an established strong team may rise where a zone is short
+  W.eliteSeason = function (S, rng, cy, log) {
+    if (D.ELITE.off) return;
+    const E = W.eliteCfg(S), all = Object.values(S.teams);
+    all.filter(t => t.elite).forEach(t => {
+      // downgraded to a local powerhouse: still one of the best teams around, and it does not fold either
+      if (!t.elite.dyn && cy - t.elite.since >= 3 && rng.chance(E.fade)) { t.wasElite = cy; t.elite = null; t.str = rng.int(78, 86); t.traj = -1; (log.faded = log.faded || []).push(t.num); return; }
+      t.elite.b = U.clamp(t.elite.b + rng.norm(0, 0.8), E.lo, E.hi); t.str = Math.round(U.clamp(t.elite.b + rng.norm(0, 1.2), E.lo - 1, E.hi + 1));
+    });
+    D.ELITE_ZONES.forEach(z => {
+      const inZ = all.filter(t => W.zoneOf(t, cy) === z.z); if (inZ.filter(t => t.elite).length >= zoneN(S, z) || !rng.chance(0.5)) return;
+      const c = inZ.filter(t => !t.elite && t.wasElite !== cy && ageOf(S, t, cy) >= E.minAge && t.str >= E.promoteAt).sort((p, q) => q.str - p.str)[0];
+      if (c) { makeElite(S, c, rng, cy, true); (log.rose = log.rose || []).push(c.num); }
+    });
+    eliteFill(S, rng, cy);
+    all.forEach(t => { if (!t.elite && t.str > 90) t.str = 90 - rng.int(0, 2); }); // the very top of the strength scale is the elite's
+  };
+  W.elites = S => Object.values(S.teams || {}).filter(t => t.elite);
+  // what a home area looks like before the world exists (New Career page): its elite teams and average strength
+  W.preview = function (cy, region, home, diff) {
+    const formed = id => !!D.DISTRICT[id] && D.DISTRICT[id].from <= cy, area = home || region, d = home ? D.DISTRICT[home] : null;
+    const mult = W.eliteCfg({ diff: diff || 'normal' }).n;
+    const elite = D.ELITE_ZONES.reduce((s, z) => { const zd = D.DISTRICT[z.z], a = zd ? (formed(z.z) ? z.z : zd.region) : z.z; return s + (a === area ? Math.round(z.n * mult) : 0); }, 0);
+    return { elite: Math.max(1, elite), avg: Math.round(D.WORLD_STR + 1.5 + (d ? (d.str - 3) * 3 + 2 : 0)) };
   };
 
   // ---------- the season's events (planned in October, when registration opens) ----------
@@ -161,10 +220,13 @@
     const tot = D.REGIONS.reduce((s, r) => s + rt[r], 0), quota = {}; D.REGIONS.forEach(r => { quota[r] = Math.max(1, Math.min(6, Math.round(nReg * rt[r] / tot))); });
     const picked = names.filter(x => x.k < quota[x.region]); rng.shuffle(picked);
     picked.forEach((b, k) => ev.push({ id: 'r' + cy + '_' + k, name: b.name, kind: 'regional', region: b.region, week: 1 + (k % 6), size: rng.int(9, 16) * 4, str: rng.int(1, 5), local: rng.chance(0.5), full: false, year: gy, dist: null, teams: [], done: false }));
-    // district events: two plays per team at about 36 teams an event, weeks 1 to 5; the District Championship in week 7
+    // district events: two plays per team at events of about 32 (some smaller, some bigger), weeks 1 to 5, so a small
+    // district holds enough events that the same teams do not meet at every one; the District Championship in week 7.
+    // An event's strength is a guess from the district until the season's schedule names its teams (W.schedule).
     W.districtsAt(cy).forEach(d => {
-      const size = W.sizeOf(d, cy), n = Math.max(2, Math.round(size * 2 / 36)), towns = rng.shuffle(d.towns.slice());
-      for (let k = 0; k < n; k++) ev.push({ id: 'd' + cy + '_' + d.id + k, name: towns[k % towns.length] + ' District Event', kind: 'regional', region: d.region, week: 1 + (k % 5), size: Math.ceil(size * 2 / n), str: d.str, local: true, full: false, year: gy, dist: d.id, teams: [], done: false });
+      const size = W.sizeOf(d, cy), slots = size * 2, n = Math.max(3, Math.round(slots / 32)), towns = rng.shuffle(d.towns.slice());
+      const w = []; for (let k = 0; k < n; k++) w.push(rng.range(0.75, 1.25)); const ws0 = w.reduce((s, x) => s + x, 0), wk = rng.shuffle([1, 2, 3, 4, 5]);
+      for (let k = 0; k < n; k++) ev.push({ id: 'd' + cy + '_' + d.id + k, name: towns[k % towns.length] + ' District Event', kind: 'regional', region: d.region, week: wk[k % 5], size: Math.max(16, Math.round(slots * w[k] / ws0)), str: U.clamp(d.str + rng.int(-1, 1), 1, 5), local: true, full: false, year: gy, dist: d.id, teams: [], done: false });
       ev.push({ id: 'dcmp' + cy + '_' + d.id, name: d.short + ' District Championship', kind: 'dcmp', region: d.region, week: 7, size: d.dcmp, str: 5, local: false, full: false, year: gy, dist: d.id, teams: [], done: false });
     });
     S.wseason = { cy, gy, events: ev, rec: {}, dq: {}, q: {}, impactWon: {}, scheduled: false };
@@ -211,6 +273,13 @@
         .map(t => { const z = (t.str - (28 + e.str * 9)) / 24; return { t, w: (e.region === t.region ? 3 : (D.ADJ[t.region] || []).includes(e.region) ? 1.1 : 0.2) * (Math.exp(-z * z) + 0.15) / (1 + regs.filter(x => x.teams.includes(t.num)).length) }; });
       while (e.teams.length < want && cand.length) { const x = rng.wpick(cand, c => c.w); e.teams.push(x.t.num); cand.splice(cand.indexOf(x), 1); }
     });
+    // now that every event has its teams, its strength (★1–5) is its field's against the season's other events: the
+    // average team (the weakest sixth ★, the strongest tenth ★★★★★), one more when two or more elite teams are there.
+    // The District Championships and the Championship keep theirs.
+    { const es = ws.events.filter(e => e.kind === 'regional' && e.teams.length >= 6), val = e => U.avg(e.teams.map(n => (S.teams[n] ? S.teams[n].str : 40)));
+      const sorted = es.map(val).sort((a, b) => a - b), at = q => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+      es.forEach(e => { const v = val(e), el = e.teams.filter(n => S.teams[n] && S.teams[n].elite).length;
+        e.str = Math.min(5, (v < at(0.16) ? 1 : v < at(0.42) ? 2 : v < at(0.72) ? 3 : v < at(0.9) ? 4 : 5) + (el >= 2 ? 1 : 0)); }); }
     ws.scheduled = true;
   };
   // the AI teams at an event the player attends
@@ -424,13 +493,24 @@
   };
   // the player's division at the Championship: teams that really qualified (from the player's half of the world in
   // the two-Championship years), topped up with the strongest of the rest
+  // Your Championship division: the qualified elite teams are spread over the divisions (yours gets its share, and at least
+  // one), the rest drawn from the qualified teams. Decided once (ws.cmp): the other divisions' elite teams lead their
+  // alliances on Einstein.
   W.champsField = function (S, n) {
-    const ws = S.wseason, CH = G.Career.champs(S), side = t => G.Era.champsSide(t.region);
+    const ws = S.wseason, CH = G.Career.champs(S), side = t => G.Era.champsSide(t.region), rng = G.R;
+    if (ws.cmp && ws.cmp.n === n) return ws.cmp.list;
     let q = Object.keys(ws.q).map(Number).filter(x => S.teams[x] && x !== S.team.num && (CH.n < 2 || side(S.teams[x]) === CH.side));
-    { const pool = q.map(x => { const st = S.teams[x].str, z = (st - 73) / 14; return { x, w: (Math.exp(-z * z) + 0.08) * (st > 90 ? 0.5 : 1) }; }), out = [];
-      while (out.length < n && pool.length) { const p = G.R.wpick(pool, c => c.w); out.push(p.x); pool.splice(pool.indexOf(p), 1); }
+    const nd = Math.max(2, CH.divs || 6), el = rng.shuffle(q.filter(x => S.teams[x].elite)), divs = [];
+    for (let i = 0; i < nd; i++) divs.push([]);
+    el.forEach((x, i) => divs[i % nd].push(x));
+    // your division is sure to have its share (none sure on easy, at least one on normal, two on hard)
+    for (let k = el.length - 1; divs[0].length < W.eliteCfg(S).div && k >= 0; k--) if (!divs[0].includes(el[k])) divs[0].push(el[k]);
+    const mine = divs[0].slice();
+    { const pool = q.filter(x => !S.teams[x].elite).map(x => { const st = S.teams[x].str, z = (st - 73) / 14; return { x, w: (Math.exp(-z * z) + 0.08) * (st > 90 ? 0.5 : 1) }; }), out = mine.slice();
+      while (out.length < n && pool.length) { const p = rng.wpick(pool, c => c.w); out.push(p.x); pool.splice(pool.indexOf(p), 1); }
       q = out; }
-    if (q.length < n) { const rest = Object.values(S.teams).filter(t => !q.includes(t.num) && (CH.n < 2 || side(t) === CH.side)).sort((a, b) => b.str - a.str).slice(0, n - q.length).map(t => t.num); q = q.concat(rest); }
+    if (q.length < n) { const rest = Object.values(S.teams).filter(t => !q.includes(t.num) && !t.elite && (CH.n < 2 || side(t) === CH.side)).sort((a, b) => b.str - a.str).slice(0, n - q.length).map(t => t.num); q = q.concat(rest); }
+    if (S.phase === 'champs') ws.cmp = { n, list: q, divs: divs.slice(1).map(d => d.filter(x => !q.includes(x))) };
     return q;
   };
   W.qualifiedCount = S => (S.wseason ? Object.keys(S.wseason.q).length : 0);

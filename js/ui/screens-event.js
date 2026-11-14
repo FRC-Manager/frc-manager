@@ -41,7 +41,7 @@
     } else return '';
     return '<div class="nextbar' + (cur ? ' stack' : '') + '"><div class="nx-main">' + main + '</div><div class="nx-side">' + side + '</div><div class="nx-last">' + last + '</div></div>';
   }
-  const tlink = (n) => '<a href="#" data-act="scoutTeam" data-arg="' + n + '" class="' + (n === me() ? 'b' : '') + '" style="' + (n === me() ? 'color:var(--accent2)' : 'color:inherit') + '">' + n + '</a>';
+  const tlink = (n) => '<a href="#" data-act="scoutTeam" data-arg="' + n + '" class="' + (n === me() ? 'b' : '') + '" style="' + (n === me() ? 'color:var(--accent2)' : 'color:inherit') + '">' + n + '</a>' + (UI.isElite(n) ? ' ' + UI.eliteTag() : '');
 
   // =====================================================================
   // EVENT HUB
@@ -142,10 +142,12 @@
         '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="endPractice">Continue to ' + (ev.stage === 'playoffs' ? 'playoffs' : 'qualifications') + '</button></div></div>';
     } else {
     o += '<div class="col">' + (mustLighten ? '<button class="btn primary" data-act="practice" data-arg="lighten">Emergency lightening (required to pass inspection)</button>' :
-      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"' + (p.id === 'install' && !G.Ev.canInstall(S) ? ' disabled title="Nothing to install"' : '') + '><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + (S.robot.pending.length + G.Robot.held(S).length) + ' pending' + (G.Robot.held(S).length ? ': ' + h(G.Robot.heldNames(S).join(', ')) : '') + ')' : '') + '</span></button>').join('')) + '</div>';
+      G.Ev.PRACTICE.map(p => '<button class="btn" data-act="practice" data-arg="' + p.id + '" style="text-align:left;white-space:normal"' + (p.id === 'install' && !G.Ev.canInstall(S) ? ' disabled title="Nothing to install"' : '') + '><b>' + h(p.name) + '</b> <span class="xs muted">' + h(p.desc) + (p.id === 'install' ? ' (' + (S.robot.pending.length + G.Robot.held(S).length) + ' pending' + (G.Robot.held(S).length ? ': ' + h(G.Robot.heldNames(S).join(', ')) + '; one block fits ' + G.Robot.installPerBlock(S, ev.practice.blocks) + ' subsystem' + (G.Robot.installPerBlock(S, ev.practice.blocks) > 1 ? 's' : '') + ', the biggest gain first' : '') + ')' : '') + '</span></button>').join('')) + '</div>';
     o += '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="skipPractice">Auto-pick remaining blocks</button></div></div>';
     }
-    o += '<div class="card"><div class="ct">Readiness</div>' + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + (S.robot ? UI.stat('Auto success', G.Engine.autoChance(G.Robot.cap(S).auto, ev.tuneAuto) * 100, G.Engine.autoChance(G.Robot.cap(S).auto, 0.2) * 100) : '') +
+    // the robot's strength, and what it would be with everything packed fitted (bag years) or finished at the event
+    const pNow = S.robot ? G.Robot.powerNow(S) : 0, pAll = S.robot ? G.Robot.powerPacked(S) : null;
+    o += '<div class="card"><div class="ct">Readiness</div>' + (S.robot ? UI.stat('Robot strength', pNow, pAll != null && pAll > pNow ? pAll : null) + '<div class="xs muted mb">Expected points it adds to an alliance' + (pAll != null && pAll !== pNow ? '; <b>' + pAll + '</b> with everything packed fitted' : '') + '.</div>' : '') + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + (S.robot ? UI.stat('Auto success', G.Engine.autoChance(G.Robot.cap(S).auto, ev.tuneAuto) * 100, G.Engine.autoChance(G.Robot.cap(S).auto, 0.2) * 100) : '') +
       UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) +
       (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
       '<div class="sm mt">' + UI.icon('fatigue', 14) + ' Fatigue ' + UI.fatigueBar(ev.fatigue == null ? 30 : ev.fatigue) + ' <b>' + Math.round(ev.fatigue == null ? 30 : ev.fatigue) + '</b> (' + G.Career.fatigueLabel(ev.fatigue == null ? 30 : ev.fatigue) + ') · ' + UI.icon('scout', 14) + ' scouting credibility <b>' + Math.round((ev.scoutCred || 1) * 100) + '%</b></div>' + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
@@ -217,7 +219,7 @@
   function selectionView(ev) {
     const sel = ev.sel;
     let o = '<div class="grid ' + (sel.pending && sel.pending.type === 'pick' ? 'g12' : 'g2') + '"><div class="card"><div class="ct">Alliances</div><table class="t"><tr><th>#</th><th>Captain</th><th>1st pick</th><th>2nd pick</th></tr>';
-    for (let k = 0; k < 8; k++) { const a = sel.alliances[k] || []; o += '<tr class="' + (a.includes(me()) ? 'me' : '') + '"><td>' + (k + 1) + '</td><td>' + (a[0] ? tlink(a[0]) : '') + '</td><td>' + (a[1] ? tlink(a[1]) : '') + '</td><td>' + (a[2] ? tlink(a[2]) : '') + '</td></tr>'; }
+    for (let k = 0; k < 8; k++) { const a = sel.alliances[k] || [], clock = !sel.done && sel.k === k && (sel.watch || sel.pending); o += '<tr class="' + (a.includes(me()) ? 'me' : '') + '"><td>' + (k + 1) + (clock ? ' <span class="xs acc" title="On the clock">◀</span>' : '') + '</td><td>' + (a[0] ? tlink(a[0]) : '') + '</td><td>' + (a[1] ? tlink(a[1]) : '') + '</td><td>' + (a[2] ? tlink(a[2]) : '') + '</td></tr>'; }
     o += '</table>' + (sel.log.length ? '<div class="xs muted mt">' + sel.log.slice(-5).map(h).join('<br>') + '</div>' : '') + '</div><div class="card hl">';
     if (sel.pending && sel.pending.type === 'invite') {
       const p = sel.pending, rank = G.Ev.rankOf(ev, p.from);
@@ -225,11 +227,28 @@
         '<div class="row"><button class="btn primary" data-act="selRespond" data-arg="1">Accept</button><button class="btn bad" data-act="selRespond" data-arg="0">Decline</button></div>';
     } else if (sel.pending && sel.pending.type === 'pick') {
       o += '<div class="ct">Your pick — Alliance ' + (sel.pending.k + 1) + ' (' + (sel.round === 1 ? 'first' : 'second') + ' round)</div>' + (sel.pending.declinedMsg ? '<div class="warnbox mb">' + h(sel.pending.declinedMsg) + '</div>' : '') + pickTable(ev);
+    } else if (sel.watch) {
+      // watching: what just happened, the controls, and only your own scouting data (the pick list is yours on your turn)
+      const mine = sel.alliances.some(a => a && a.includes(me())), out = sel.declined.includes(me());
+      o += '<div class="ct">' + (sel.done ? 'Alliance selection complete' : 'Alliance selection · round ' + sel.round) + '</div><div class="lg b mb">' + h(sel.beat || '') + '</div>' +
+        '<div class="row wrap gap4">' + (sel.done ? '<button class="btn primary" data-act="selNext">Continue to the playoffs</button>' :
+          '<button class="btn primary" data-act="selNext">Next pick</button>' + (!mine && !out ? '<button class="btn" data-act="selSkip" data-arg="mine" title="Run the picks until it is your turn to pick or to answer an invitation (or to the end, if neither comes)">Skip to your turn</button>' : '') + '<button class="btn" data-act="selSkip" data-arg="end" title="Run the rest of the selection (it still stops for your own decisions)">Skip to the end</button>') + '</div>' +
+        '<div class="xs muted mt">' + (mine ? 'Your alliance is set. Watch who the others pick.' : out ? 'You declined an invitation: no other alliance can pick you now.' : 'Not picked yet. The other captains\' pick lists are their own: you see only your scouting data.') + '</div>';
+      o += '</div></div>' + watchScout(ev);
+      return o;
     } else if (sel.done) o += '<p>Alliance selection complete.</p>';
     else o += '<p class="muted">Waiting…</p>';
     o += '</div></div>';
     return o;
   }
+  // while others pick: your own scouting data on the teams still available (no pick values or recommendations)
+  function watchScout(ev) {
+    const sel = ev.sel, opr = G.Ev.opr(ev), avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t)) && !sel.declined.includes(t)).sort((a, b) => G.Ev.rankOf(ev, a) - G.Ev.rankOf(ev, b));
+    return '<div class="card mt"><div class="ct">Your scouting data · teams still available</div><div class="xs muted mb">What your scouts saw in qualifications (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%), by rank.</div><div style="max-height:360px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">Rank</th><th class="num">OPR</th>' + OBS_HEAD + '</tr>' +
+      avail.slice(0, 40).map(t => '<tr class="' + (t === me() ? 'me' : '') + '"><td class="nowrap">' + tlink(t) + '</td><td class="num">' + G.Ev.rankOf(ev, t) + '</td><td class="num">' + Math.round(opr[t] || 0) + '</td>' + obsCells(ev, t) + '</tr>').join('') + '</table></div></div>';
+  }
+  UI.A.selNext = function () { G.Ev.selNext(Ev()); G.Save.write('auto'); UI.render(); };
+  UI.A.selSkip = function (m) { G.Ev.selSkip(Ev(), m); G.Save.write('auto'); UI.render(); };
   // ---- scouting data cells (observed in this event's qualification matches) ----
   const pctTxt = v => v == null ? '<span class="dim">—</span>' : '<span style="color:' + UI.colorFor(v * 100) + '">' + Math.round(v * 100) + '%</span>';
   const OBS_HEAD = '<th class="num" title="Points this robot scored itself, per match">Pts/m</th><th class="num" title="Matches where its autonomous routine ran as planned">Auto</th><th title="Successful endgame climbs out of attempts, and the usual level">Climb</th><th class="num" title="Matches without a breakdown, brownout, jam or comms loss (✕ = times disabled)">Fault-free</th><th class="num" title="Fouls per match">Fouls</th><th class="num" title="Matches spent playing defense">Def</th>';
@@ -577,7 +596,7 @@
     const ev = Ev(); if (!ev) return;
     const sc = G.Ev.scout(ev, n), c = sc.cap, e = sc.est || c, T = G.S.teams[n];
     const look = Object.assign({}, sc.look);
-    UI.modal('<h2>' + n + ' ' + h(tname(n)) + '</h2><div class="sub">' + h(sc.arch || '') + (T ? ' · ' + h(T.region) : '') + (sc.noise ? ' · scouting error ±' + sc.noise : '') + '</div>' +
+    UI.modal('<h2>' + n + ' ' + h(tname(n)) + (UI.isElite(n) ? ' ' + UI.eliteTag() : '') + '</h2><div class="sub">' + h(sc.arch || '') + (T ? ' · ' + h(T.region) : '') + (sc.noise ? ' · scouting error ±' + sc.noise : '') + '</div>' +
       '<div class="row" style="align-items:flex-start"><div style="flex:1">' + UI.sideCanvas(look, 'red', n, 300, 180) + '</div><div style="flex:1">' +
       UI.stat('Speed', e.speed) + UI.stat('Intake', e.intake) + UI.stat('Scoring speed', e.scoreSpd) + UI.stat('Accuracy', e.accuracy) + UI.stat('Endgame', e.endgame || 0) + UI.stat('Auto', e.auto) + UI.stat('Reliability', e.rel) +
       '<div class="sm muted">Climb: ' + h(G.Seasons[ev.year].endNames[c.endLevel || 0] || '—') + ' · Auto: ' + h(G.Seasons[ev.year].autoTiers[c.autoTier || 0]) + ' · OPR ' + (G.Ev.opr(ev)[n] || 0) + '</div></div></div>' + obsBlock(ev, n), { wide: true });

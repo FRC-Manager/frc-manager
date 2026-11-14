@@ -21,8 +21,18 @@
     const pool = ts.length ? ts : others(S);
     return pool.length ? R().pick(pool) : { num: 254, name: 'Rival Robotics', str: 70 };
   };
-  const rival = S => { const t = rivalT(S); return t.num + ' ' + t.name; };
-  const rookie = S => { const ts = others(S).filter(t => t.str < 40); const t = ts.length ? R().pick(ts) : null; return t ? t.num + ' ' + t.name : (9000 + R().int(100, 999)) + ' the ' + R().pick(['Gearheads', 'Bolts', 'Circuit Breakers', 'Iron Owls', 'Robo Raptors']); };
+  const rival = S => tn(rivalT(S));
+  // local teams are local on the world map (G.Geo): a team within `mi` miles of yours, widening if there is none
+  // the teams a message names go with it (m.teams), for the Inbox's "Show this team on the map"
+  let named = [];
+  const tn = t => { if (t && t.num) named.push(t.num); return t.num + ' ' + t.name; };
+  const away = mi => (mi < 12 ? 'across town' : 'about ' + Math.max(15, Math.round(mi / 5) * 5) + ' miles away');
+  const near = (S, ok, mi) => G.Geo.localTeam(S, ok, mi) || { t: rivalT(S), mi: 0 };
+  // your regional or district event this week, in competition season only (null in any other week)
+  const evNow = S => { const e = S.phase === 'comp' ? G.Career.eventThisTurn(S) : null; return e && e.def && (e.def.kind === 'regional' || e.def.kind === 'dcmp') ? e.def : null; };
+  // the AI teams at it (none away from events)
+  const eventMates = S => { const e = evNow(S), l = e && G.World.on(S) ? e.teams || G.World.attendees(S, e) : null; return (l || []).map(n => S.teams[n]).filter(Boolean); };
+  const rookie = S => { const ts = others(S).filter(t => t.str < 40 && t.region === S.team.region); const t = ts.length ? R().pick(ts) : null; return t ? tn(t) : (9000 + R().int(100, 999)) + ' the ' + R().pick(['Gearheads', 'Bolts', 'Circuit Breakers', 'Iron Owls', 'Robo Raptors']); };
   const concept = (S, sub) => S.robot && S.robot.subs[sub] && S.robot.subs[sub].ver ? S.robot.subs[sub].concept : null;
   const inSeason = S => S.phase === 'build' || S.phase === 'comp' || S.phase === 'kickoff';
   const month = S => D.MONTHS[S.month];
@@ -170,7 +180,7 @@
     { id: 'rest', w: 2, req: S => G.Career.inSeason(S) && S.fatigue > 35, run: S => { S.fatigue = Math.max(5, S.fatigue - 6); return ['A quiet evening', 'The mentors sent everyone home early and nobody argued. Fatigue −6.']; } },
     { id: 'alum$', w: 2, run: S => { const g = R().int(300, 1200); G.Career.earn(S, g, 'Alumni donation'); return ['Alumni donation', 'A former team member who now works as an engineer donated ' + U.money(g) + '. The note said "buy good wire".']; } },
     { id: 'noise', w: 2, req: S => S.robot && inSeason(S), run: S => { const ks = Object.keys(S.robot.subs).filter(k => S.robot.subs[k].ver && k !== 'soft'); if (!ks.length) return null; const k = R().pick(ks); S.robot.subs[k].hidden++; return ['Something sounds off…', student(S) + ' reports a strange noise from the ' + G.Seasons.sub(S.robot.year, k).name + '. It might be nothing. (A Systems Shakedown or Hardening would find out.)']; } },
-    { id: 'gp', w: 2, run: S => { S.parts.spares += 2; return ['Gracious Professionalism', 'Team ' + rival(S) + ' heard you were short on parts and dropped off two spare gearbox kits. +2 spare parts.']; } },
+    { id: 'gp', w: 2, run: S => { S.parts.spares += 2; const x = near(S, null, 40); return ['Gracious Professionalism', 'Team ' + tn(x.t) + ', ' + away(x.mi) + ', heard you were short on parts and dropped off two spare gearbox kits. +2 spare parts.']; } },
     { id: 'hw$', w: 2, run: S => { const g = R().int(300, 800); G.Career.earn(S, g, 'Hardware store donation'); return ['Hardware store donation', 'The local hardware store donated fasteners and paint worth ' + U.money(g) + '. In return, the robot will wear their sticker.']; } },
     { id: 'mag', w: 2, run: S => { addRep(S, 2); return ['Magazine feature', 'A STEM education magazine featured your outreach program. Reputation +2.']; } },
     { id: 'leave', w: 1, req: S => S.studentsCount > 12, run: S => { S.studentsCount--; addMorale(S, -2); return ['A student left the team', 'A sophomore left to join the esports club. "The robots were too real." Team size −1, morale −2.']; } },
@@ -207,12 +217,13 @@
     { id: 'repLow', w: 2, cd: 12, req: S => S.rep < 35, run: S => ['"Underrated teams to watch"', 'A forum thread lists 40 underrated teams. ' + teamName(S) + ' is not on it. ' + student(S) + ' has made an account to fix that.'] },
     // ---- invitations and requests (reply)
     { id: 'scrim', w: 5, cd: 4, req: S => S.robot && S.rep >= 50 && (S.phase === 'comp' || (S.phase === 'build' && S.week >= 3) || (off(S) && ['Jun', 'Jul', 'Sep', 'Oct', 'Nov'].includes(month(S)))),
-      run: S => { const t = rival(S); return ['Scrimmage invitation from ' + t, 'Team ' + t + ' is hosting a weekend scrimmage on their practice field and asked for you by name' + (S.rep >= 75 ? ' ("we need someone who will actually play defense")' : '') + '. Real matches are great practice, but the robot will take some hits.', replyMsg('scrimmage', { until: turnNo(S) + 1 })]; } },
-    { id: 'rook', w: 4, cd: 6, run: S => { const t = rookie(S); return ['A rookie team asks for help', 'Team ' + t + ' is in its first season. Their lead mentor emailed: "We have a kit of parts and a lot of enthusiasm. Could anyone show us how to wire this?"', replyMsg('rookie', { until: turnNo(S) + 2 })]; } },
+      run: S => { const x = near(S, t => t.str >= 40, 120), t = tn(x.t); return ['Scrimmage invitation from ' + t, 'Team ' + t + ', ' + away(x.mi) + ', is hosting a weekend scrimmage on their practice field and asked for you by name' + (S.rep >= 75 ? ' ("we need someone who will actually play defense")' : '') + '. Real matches are great practice, but the robot will take some hits.', replyMsg('scrimmage', { until: turnNo(S) + 1 })]; } },
+    { id: 'rook', w: 4, cd: 6, run: S => { const cy = G.Geo.cyOf(S), nw = G.Geo.localTeam(S, t => t.ry === cy, 80), x = nw || near(S, t => t.str < 40, 80), t = tn(x.t);
+      return ['A ' + (nw ? 'rookie' : 'young') + ' team asks for help', 'Team ' + t + ', ' + away(x.mi) + ', ' + (nw ? 'is in its first season' : 'has a new lead mentor and a team of freshmen') + '. Their lead mentor emailed: "We have a kit of parts and a lot of enthusiasm. Could anyone show us how to wire this?"', replyMsg('rookie', { until: turnNo(S) + 2 })]; } },
     { id: 'press', w: 3, cd: 8, run: S => ['Interview request', 'The ' + R().pick(['local paper', 'school news channel', 'city radio station', 'regional STEM podcast']) + ' wants to interview the team about ' + (S.phase === 'comp' ? 'your season so far' : inSeason(S) ? 'build season' : 'what a robotics team does all year') + '.', replyMsg('interview', { until: turnNo(S) + 2 })] },
     { id: 'forum', w: 3, cd: 8, req: S => S.robot && (S.phase === 'build' || S.phase === 'comp'), run: S => ['Forum thread about your robot', 'A thread titled "What is ' + S.team.num + ' building?" has ' + R().int(40, 260) + ' replies, most of them guesses from a single blurry photo. ' + (S.rep >= 60 ? 'People are paying attention.' : 'It is mostly people asking who you are.'), replyMsg('forum', { until: turnNo(S) + 2 })] },
     { id: 'board', w: 2, cd: 10, req: S => off(S) || S.phase === 'build', run: S => ['School board meeting', 'Robotics is on the agenda at next week\'s school board meeting' + (S.support < 45 ? ', right after the budget review. The tone has been tense.' : '. The superintendent asked for "a short update, with pictures".'), replyMsg('board', { until: turnNo(S) + 1 })] },
-    { id: 'borrow', w: 3, cd: 5, req: S => S.phase === 'comp', run: S => ['Pit request from ' + rival(S), 'Their drivetrain cracked a gearbox plate in the last match and the vendor booth is sold out. They are asking around the pits for a spare.', replyMsg('borrow', { until: turnNo(S) })] },
+    { id: 'borrow', w: 3, cd: 5, req: S => !!evNow(S) && (!G.World.on(S) || eventMates(S).length > 0), run: S => ['Pit request from ' + (G.World.on(S) ? tn(R().pick(eventMates(S))) : rival(S)), 'They are at the ' + evNow(S).name + ' with you this week. Their drivetrain cracked a gearbox plate in the last match and the vendor booth is sold out. They are asking around the pits for a spare.', replyMsg('borrow', { until: turnNo(S) })] },
     { id: 'parent', w: 2, cd: 12, run: S => ['A parent wants to help', 'The parent of ' + student(S) + ' offered to help the team "with anything that does not involve a soldering iron".', replyMsg('parent', { until: turnNo(S) + 2 })] },
     { id: 'alumni', w: 2, cd: 12, req: S => off(S) || S.phase === 'build', run: S => ['An alum checks in', 'A former team captain is home from an engineering degree and offered to stop by the shop.', replyMsg('alumni', { until: turnNo(S) + 2 })] },
     { id: 'restock', w: 0.01, cd: 4, req: S => (S.phase === 'build' || S.phase === 'comp') && !!stockAlert(S, true), run: S => { const a = stockAlert(S); return ['Stock alert: ' + a.prod.name, a.text, replyMsg('restock', { until: turnNo(S), data: { pid: a.prod.id, n: a.n } })]; } },
@@ -233,7 +244,12 @@
     { id: 'tu', w: 3, cd: 3, req: S => S.phase === 'build' || S.phase === 'comp', run: S => ['Team Update posted', R().pick(TEAM_UPDATES[S.year] || seasonText(S, 'updates') || TEAM_UPDATES.any)] },
     { id: 'ri3d', w: 4, cd: 30, req: S => S.phase === 'build' && S.week <= 2, run: S => ['Robot in 3 Days', 'The build-in-three-days teams have posted their ' + GAME[S.year] + ' robots. ' + student(S) + ' has watched every video twice and now has "notes".'] },
     { id: 'oa', w: 3, cd: 20, req: S => S.phase === 'build', run: S => ['Open build threads', 'Dozens of teams are posting weekly build updates for everyone to learn from. One of them is designing almost exactly your robot, ' + R().int(2, 5) + ' days ahead of you.'] },
-    { id: 'wk', w: 4, cd: 2, req: S => S.phase === 'comp', run: S => { const t = rival(S); return ['Week ' + S.week + ' around the world', 'Highest scores this week came from ' + R().int(2, 5) + ' different regions. Locally, ' + t + ' ' + R().pick(['won their event', 'set a new regional high score', 'went undefeated in qualifications', 'won an Engineering award']) + '.']; } },
+    { id: 'wk', w: 4, cd: 2, req: S => S.phase === 'comp', run: S => {
+      // "locally": a winner of last week's events from within about 200 miles on the map, or else a strong team near you
+      const ws = S.wseason, Geo = G.Geo, me = Geo.myPos(S), cy = Geo.cyOf(S), mi = t => Math.round(Geo.miles(me, Geo.teamPos(t.num, t.region, t.home, cy).xy));
+      const wins = ws ? [].concat(...ws.events.filter(e => e.week === S.week - 1 && e.done && e.res && e.res.winners && !e.teams.includes(S.team.num)).map(e => e.res.winners.map(n => ({ e, t: S.teams[n] })))).filter(x => x.t).map(x => Object.assign(x, { mi: mi(x.t) })).filter(x => x.mi <= 200) : [];
+      const w = wins.length ? R().pick(wins) : null, x = w || near(S, t => t.str > 55, 200);
+      return ['Week ' + S.week + ' around the world', 'Highest scores this week came from ' + R().int(2, 5) + ' different regions. Locally, ' + tn(x.t) + ' (' + away(x.mi) + ') ' + (w ? 'won the ' + w.e.name : R().pick(['set a new high score at their event', 'went undefeated in qualifications', 'is the team everyone at the next event is scouting'])) + '.']; } },
     { id: 'meta', w: 3, cd: 6, req: S => S.phase === 'comp' && G.Seasons[S.year].meta, run: S => ['Strategy talk', 'The meta is settling: ' + G.Seasons[S.year].meta.note] },
     { id: 'champs', w: 3, cd: 20, req: S => S.phase === 'comp' && S.week >= 4, run: S => ['Championship countdown', S.season.champsQualified ? 'Your Championship spot is confirmed. ' + student(S) + ' has started a packing list. Item one: "the robot".' : (S.team.home && G.World.on(S) ? 'Championship spots are filling up. Your district decides its places after the District Championship. ' + (G.World.myLine(S) || '') : G.Career.wildEra(S) ? 'Championship spots are filling up, and every week more of the winners have already qualified: the finalists at the late regionals are collecting wildcards.' : 'Championship spots are filling up. The Regional Pool cut-off sits around ' + G.Career.poolThreshold(S) + ' points; you have ' + G.Career.poolTotal(S) + '.')] },
     { id: 'offev', w: 2, cd: 12, req: S => off(S) && ['Jun', 'Jul', 'Sep', 'Oct'].includes(month(S)), run: S => ['Offseason events', 'Offseason event registrations are open (Calendar). Lots of teams use them to train new drivers and try out new ideas.'] },
@@ -285,8 +301,7 @@
     { id: 'plush', title: 'New pit mascot', body: S => 'Someone brought a ' + R().pick(PLUSH) + ' plushie to the shop. It is now the official pit mascot and has its own badge.' },
     { id: 'parents', title: 'Parent group chat', body: () => 'The parent group chat has ' + R().int(120, 400) + ' unread messages. Most are about carpools. One is a lasagna recipe.' },
     { id: 'drive', req: S => S.robot && inSeason(S), title: 'Drive practice', body: S => 'Drive practice: ' + driver(S) + ' set a personal-best cycle time and took a victory lap around the shop. The lap was slower.' },
-    { id: 'revealR', req: S => inSeason(S), title: 'Rival reveal video', body: S => 'Team ' + rival(S) + ' posted their robot reveal. Your students have watched it ' + R().int(20, 90) + ' times and are "definitely not worried".' },
-    { id: 'reveal', req: S => S.robot && inSeason(S), title: 'Reveal video stats', body: S => 'Your robot reveal reached ' + R().int(2, 40) + ',' + R().int(100, 999) + ' views. Top comment: "' + R().pick(['how is it that fast', 'clean wiring, respect', 'the bumpers are perfect', 'my grandma could drive that (compliment)', 'is that legal??', 'need the CAD please']) + '"' },
+    { id: 'reveal', req: S => S.robot && revealWin(S), title: 'Reveal video stats', body: S => 'Your robot reveal reached ' + R().int(2, 40) + ',' + R().int(100, 999) + ' views. Top comment: "' + R().pick(['how is it that fast', 'clean wiring, respect', 'the bumpers are perfect', 'my grandma could drive that (compliment)', 'is that legal??', 'need the CAD please']) + '"' },
     { id: 'scale', req: S => S.robot && inSeason(S) && G.Robot.weight(S) >= 115, title: 'The scale', body: S => 'The robot weighs ' + G.Robot.weight(S) + ' lb. The team now refers to the scale as "the enemy".' },
     { id: 'swear', req: S => S.money < 5000, title: 'Swear jar', body: S => 'Treasurer ' + student(S) + ' started a swear jar. It is already the team\'s fourth-largest sponsor.' },
     { id: 'debt', req: S => S.money < 0, title: 'The red number', body: S => 'Someone wrote the team balance on the whiteboard in red marker. ' + student(S) + ' added "temporary!!" underneath. ' + mentor(S) + ' added a third exclamation mark.' },
@@ -431,7 +446,7 @@
     { id: 'n9ring', w: 3, cd: 60, req: S => between(S, 2018, 2022.5) && S.phase === 'comp', run: S => ['Trend: the green glow', 'Count the green ring lights on any qualification field: most of the strong robots carry one now. Drive coaches say a robot that lines up its own shot is worth a second per cycle. Spectators say the field looks like an aquarium.'] },
     { id: 'n9switch', w: 2, cd: 80, req: S => between(S, 2018, 2030) && S.phase === 'comp' && S.week >= 2, run: S => ['Ref corner: why robots stop', 'A field technician posted the season\'s comms losses so far. The top three causes: a loose radio cable, a loose camera cable, and a camera that floods the radio with video. Her advice: one network switch, labelled cables, and zip ties.'] },
     { id: 'v9spark', w: 3, cd: 80, req: S => between(S, 2022.5, 2030) && G.Parts.lanternOut(S, D.LANTERN[3]), run: S => ['Vendor watch: the stick that sees', 'The Lanternworks Spark is a USB stick that runs a neural network on the robot. The demo video shows a robot driving straight to a game piece that was thrown behind it. The comments are split between "witchcraft" and "my programmers will not sleep until April".'] },
-    { id: 'n9servo', w: 3, cd: 80, req: S => between(S, 2022, 2030) && S.phase === 'build', run: S => ['Trend: the servo drawer', 'Reveal videos this year show fewer air tanks and more small grey boxes: servos and linear actuators for the latches, hood flaps and little flippers. The big motions went to brushless motors years ago. The small ones are going now.'] },
+    { id: 'n9servo', w: 3, cd: 80, req: S => between(S, 2022, 2030) && revealWin(S), run: S => ['Trend: the servo drawer', 'Reveal videos this year show fewer air tanks and more small grey boxes: servos and linear actuators for the latches, hood flaps and little flippers. The big motions went to brushless motors years ago. The small ones are going now.'] },
     // v2.9.8: smarter drive teams
     { id: 'n10read', w: 3, cd: 80, req: S => S.phase === 'comp' && S.week >= 2, run: S => ['Drive coaches: reading the field', 'The best drive teams this season do not fight for a spot. A partner stopped in front of the peg means another peg; a crowd at the station means the other side; two robots on one plate work it side by side. Coaches call it reading the field, and it shows in the cycle counts.'] },
     { id: 'n10decline', w: 2, cd: 80, req: S => S.phase === 'comp' && S.week >= 2, run: S => ['Strategy corner: why captains say no', 'Declining an invitation is a bet: the team gives up the alliance it is offered to build its own when its turn comes. Nobody makes that bet against the best robot in the building. Against a weaker captain, a strong team with a good partner still on the board sometimes does.'] },
@@ -460,6 +475,9 @@
       return ['Event report: published robots at the ' + e.name, 'Of the ' + r.n + ' other robots there, ' + G.Career.refPhrase(r.any, r.bp) + '. ' + (r.any >= r.bp ? 'Nearly every one of them scored in every match, which is more than the kit chassis managed before the Anybot.' : 'In the playoffs some of them could be told apart only by their bumpers.')]; } },
     { id: 'n12refsum', w: 4, cd: 80, req: S => cal(S) && off(S) && month(S) === 'Jun' && lastSeason(S) && lastSeason(S).cy >= 2018, run: S => { const ls = lastSeason(S), k = ls.cy - 2018, n = 700 + 120 * k + R().int(0, 80), bp = ls.cy >= 2022 ? 500 + 90 * (ls.cy - 2022) + R().int(0, 60) : 0, mine = Object.values(ls.copied || {});
       return ['Community: the published robots in numbers', 'The Gearwrights say ' + n + ' teams built at least part of the ' + ls.cy + ' Anybot, about a third of them rookies.' + (bp ? ' Apex counts ' + bp + ' teams that started from the Blueprint.' : '') + (mine.length ? ' Your team is on ' + (new Set(mine).size > 1 ? 'both lists' : 'the list') + '.' : '') + ' Next January\'s robots are already being drawn.']; } },
+    // v3.1
+    { id: 'n13shelf', w: 3, cd: 80, req: S => (off(S) || inSeason(S)) && lvl(S, 'shelf') > 0 && G.Shop.cond(S, 'shelf') < 60, run: S => { const e = G.Shop.item('shelf');
+      return ['Shop talk: the shelf that eats money', 'A worn parts room still holds every part, but it costs more each season: cracked bins, new labels, a rack held up with zip ties. Yours will cost ' + U.money(G.Shop.upkeepOf(S, e)) + ' at the next Kickoff, against ' + U.money(e.upkeep * lvl(S, 'shelf')) + ' after a renovation (Workshop).']; } },
     { id: 'n12booth', w: 3, cd: 80, req: S => cal(S) && S.phase === 'comp' && S.week <= 4, run: S => ['Event tip: the vendor booths', 'At regionals and district events two vendors set up a booth on practice day, with the parts that are sold out online: a few each per team, and no shipping. Bring the budget, not just the robot.'] },
     { id: 'n11scout', w: 2, cd: 80, req: S => S.phase === 'comp' && S.week >= 2, run: S => ['Strategy corner: trust your sheets', 'A pick list is only as good as the scouting behind it. Tired scouts mix up team numbers, and a list built on a mixed-up sheet recommends the wrong robot with total confidence. The teams that pick well keep their scouts rested.'] },
     { id: 'n10broken', w: 2, cd: 80, req: S => S.phase === 'comp' && S.week >= 3, run: S => ['Strategy corner: when the intake breaks', 'A robot that loses its intake in a match is not out of it: it plays defense, and the partner that was defending goes back to scoring. The alliances that do it without being told are the ones still winning on Saturday.'] },
@@ -514,8 +532,14 @@
     { id: 'c12honors', req: S => lvl(S, 'honors') > 0, title: 'The wall', body: S => 'Visitors always stop at the honors wall. ' + student(S) + ' gives the tour, and knows which banner came from which match and who was driving.' },
     { id: 'c12can', req: S => G.Parts.count(S, 'canfd') > 0 && inSeason(S), title: 'Two buses', body: S => student(S) + ' drew the robot\'s two CAN buses on the whiteboard in two colours, every motor and encoder on one or the other. ' + mentor(S) + ' photographed it for the wiki before anyone could wipe it.' },
     { id: 'c12ref', req: S => S.phase === 'build' && S.projects.some(p => p.ref), title: 'Following the videos', body: S => { const a = student(S); return a + ' has the build video on the big screen and pauses it every thirty seconds. ' + student2(S, a) + ' reads out the part numbers. They are two steps ahead of the video now.'; }, },
+    { id: 'c13reno', req: S => S.renoAllTurn != null && (S.newsTurn || 0) - S.renoAllTurn <= 3, title: 'Renovation weekend', body: S => student(S) + ' spent the whole weekend with a paint roller. The shop smells of fresh paint, every bin has a label again and the drill press has stopped squeaking.' },
+    { id: 'c13shelf', req: S => lvl(S, 'shelf') > 0 && G.Shop.cond(S, 'shelf') < 50, title: 'Zip ties', body: S => 'The middle shelf of the parts rack came down during a meeting. ' + student(S) + ' had it back up in ten minutes with zip ties, and the zip ties went on the shopping list.' },
     { id: 'c12refq', req: S => S.phase === 'comp' && lastEv(S) && lastEv(S).refs && lastEv(S).refs.any >= 2, title: 'Spot the difference', body: S => 'There were ' + lastEv(S).refs.any + ' Anybots at the ' + lastEv(S).name + '. ' + student(S) + ' kept a list of how each team had changed theirs, and it ran to two pages.' },
     { id: 'c12refbp', req: S => S.phase === 'comp' && lastEv(S) && lastEv(S).refs && lastEv(S).refs.bp >= 2, title: 'Same intake, different team', body: S => student(S) + ' fixed a Blueprint team\'s intake in the queue with a spare from our cart. ' + (S.season.copied && Object.values(S.season.copied).includes('bp') ? 'It is the same part as ours.' : 'Theirs is the Apex design and ours is not, but the bolts are the same.') },
+    { id: 'c13elite', req: S => S.phase === 'comp' && eventMates(S).some(t => t.elite), title: 'Next to an elite pit', body: S => { const t = eventMates(S).find(x => x.elite); named.push(t.num); return student(S) + ' walked past ' + t.num + ' ' + t.name + '\'s pit three times this week. Every bin labelled, every battery logged, a spare for every part on the robot, and it is quieter than a library. ' + student2(S, '') + ' came back with a notebook full of ideas and a slightly smaller ego.'; } },
+    { id: 'c13wait', req: S => S.phase === 'build' && S.week < D.REF_WEEK && G.Robot.refsSoon(S).length && !S.projects.some(p => p.type === 'build'), title: 'Waiting for the published robot', body: S => student(S) + ' has refreshed the ' + G.Robot.refsSoon(S)[0].by.replace(/^the /, '') + ' page forty times today. Everyone else is wiring a test chassis, writing drive code or, for once, going home on time.' },
+    { id: 'c13own', req: S => S.phase === 'build' && S.week < D.REF_WEEK && G.Robot.refsSoon(S).length && S.projects.filter(p => p.type === 'build' && !p.ref).length >= 2, title: 'Not waiting', body: S => student(S) + ' says the team is not waiting a week for somebody else\'s robot. The intake CAD has been on the big screen since Saturday, and nobody has asked to go home.' },
+    { id: 'c13swerve', req: S => S.phase === 'build' && S.week <= 3 && G.Robot.refs(S).some(r => r.id === 'bp') && !(S.robot.design.drive && S.robot.design.drive.ver) && G.Parts.count(S, 'swerve') < 4, title: 'A Blueprint with no wheels', body: S => student(S) + ' printed the whole Apex Blueprint and pinned it to the wall. Then someone counted the swerve modules on the shelf: ' + G.Parts.count(S, 'swerve') + ' of 4. The drivetrain page is now pinned next to the Inventory order form.' },
     { id: 'c12ref3', req: S => S.phase === 'build' && S.projects.some(p => p.ref), title: 'Driving a robot that is not built yet', body: S => { const r = D.REFBOTS.find(x => S.projects.some(p => p.ref === x.id)); return 'The real ' + (r ? r.name : 'robot') + ' is still in pieces on the bench, but ' + student(S) + ' has driven its simulator model for three evenings straight and runs the drills with their eyes half shut.'; } },
     { id: 'c12ref2', req: S => inSeason(S) && S.robot && Object.keys(S.robot.design || {}).some(k => { const d = S.robot.design[k]; return d && d.ver >= 3 && D.REFBOTS.some(r => (r.picks[S.year] || {})[k] === d.concept); }), title: 'Not a copy any more', body: S => 'A visitor asked whether that was the published design. ' + student(S) + ' spent ten minutes explaining everything they changed. The visitor did not ask anything else.' },
     { id: 'c12booth', req: S => S.boothT != null && turnNo(S) - S.boothT <= 1, title: 'At the booth', body: S => 'The vendor booth had the parts nobody could get online. ' + student(S) + ' carried them back to the pit like a trophy.' },
@@ -608,14 +632,73 @@
   }
   function runNews(S, e) {
     if (!e) return false;
+    named = [];
     const res = e.run(S);
     if (!res) return false;
     seen(S)[e.id] = turnNo(S);
     if (res[2] && res[2].reply) res[2].until = turnNo(S); // replies are open for this turn only (a week in season, a month in the offseason)
-    post(S, res[0], res[1], 'news', res[2]);
+    post(S, res[0], res[1], 'news', named.length ? Object.assign({}, res[2] || {}, { teams: [...new Set(named)] }) : res[2]);
     return true;
   }
   // Called once per turn
+  // ---- Robot reveals (3.1): Build Week 5 to Competition Week 2, the two weeks either side of Week 0 ----
+  // Every elite team near you posts one (always in the Inbox), a few elite reveals from elsewhere come through because
+  // everyone watches them, and one local rival's. Each message carries a picture of the robot the team will play with.
+  const revealWin = S => (S.phase === 'build' && S.week >= 5) || (S.phase === 'comp' && S.week <= 2);
+  const winLeft = S => (S.phase === 'build' ? 10 - S.week : 3 - S.week); // turns left in the window, this one included
+  const mmss = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  // a team's reveal style stays the same from year to year
+  const styleOf = t => (t.elite && t.num % 11 === 0 ? 'none' : ['render', 'cinematic', 'teaser', 'full', 'stream'][(t.num * 7 + 3) % 5]);
+  const styleText = (t, a, b) => {
+    const st = styleOf(t);
+    if (st === 'render') { const n = t.num, len = n >= 100 && n < 1000 && n % 100 < 60 ? Math.floor(n / 100) + ':' + String(n % 100).padStart(2, '0') : mmss(n); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
+    if (st === 'cinematic') return 'Drone shots, slow motion and a soundtrack that sounds expensive. The robot is on screen for nine seconds in total, and those nine seconds have been looped a thousand times.';
+    if (st === 'teaser') return 'Twelve seconds: a wheel, a flash of bumper, a noise that might be a climber. The forum has a frame-by-frame thread and ' + b + ' has posted in it eleven times.';
+    if (st === 'full') return 'Eight minutes of uncut practice-field footage, cycle after cycle, no music, no edits. Somehow it is the most frightening one of all.';
+    if (st === 'stream') return 'They revealed it live on a stream with ' + R().int(3, 9) + ',' + R().int(100, 999) + ' viewers, then drove it for an hour and answered questions about everything except the intake.';
+    return 'No reveal, as every year: the first anyone sees of their robot will be on a practice field in Week 1. The picture is a blurry photo from a parent in the stands at their scrimmage.';
+  };
+  // what people notice in the picture
+  const featureTalk = (S, lk, el) => {
+    const c = [];
+    if (lk.manip === 'turretlift') c.push(el ? 'A turret on top of an elevator, from an elite team. Everyone is shocked; three teams have already started on one.' : 'A turret on top of an elevator. Nobody knew that was allowed, including, possibly, them.');
+    if (lk.shooter === 'turret' || lk.shooter === 'rotor') c.push('The turret keeps the shooter on target the whole time, even while the robot drives the other way.');
+    if (['triple', 'arms', 'hook2'].includes(lk.climber)) c.push('Top comment, with nine hundred likes: "I can\'t even tell how their climber works from the reveal."');
+    if (lk.drive === 'swerve' && !G.Era.of(S).swerve.cots) c.push('They machined their own swerve modules. ' + (el ? 'Again.' : 'Bold.'));
+    else if (lk.drive === 'swerve') c.push('Swerve, of course: the robot drifts sideways through traffic like it is on ice.');
+    if (lk.manip === 'elevwrist' || lk.manip === 'dja') c.push('The arm folds into a shape the frame rules never imagined.');
+    if (lk.manip === 'elevator' && !c.length) c.push('The elevator goes up in one smooth motion, which this season is a statement.');
+    if (lk.shooter === 'wide') c.push('The shooter is as wide as the robot and empties the hopper in about a second.');
+    return c;
+  };
+  const revealLook = (S, t) => {
+    const year = S.year; if (!t.rb || t.rb.year !== year) G.AI.seasonRobot(t, year, R());
+    const subs = {}; Object.keys(t.rb.choice).forEach(k => { subs[k] = { concept: t.rb.choice[k], ver: Math.min(9, 1 + Math.round(t.rb.q * 3) + (t.rb.elite ? 5 : 0)), stats: {} }; });
+    return G.Cap.look(year, subs, { visionLvl: t.rb.visionLvl });
+  };
+  function postReveal(S, t, kind, mi) {
+    const sv = S.season.rev, a = student(S), b = student2(S, a), el = !!t.elite, lk = revealLook(S, t), none = el && styleOf(t) === 'none';
+    sv.done[t.num] = 1;
+    const where = mi != null ? away(mi) : 'from ' + (t.home ? D.DISTRICT[t.home].name : t.region);
+    const ft = R().shuffle(featureTalk(S, lk, el)).slice(0, 2);
+    const react = el ? R().pick(['Every team in the world watched it before lunch. ' + a + ' says the gearbox is "just a gearbox" and has rewatched the gearbox eleven times.', 'By evening there were four "response" videos and a spreadsheet estimating their cycle time to a tenth of a second.', a + ' put it on the shop TV and the build session stopped for twenty minutes.', 'The reveal has more views than the game animation. ' + b + ' thinks that is fair.'])
+      : R().pick(['Your students have watched it ' + R().int(20, 90) + ' times and are "definitely not worried".', a + ' noticed they use the same bearings as you and is taking it as a compliment.', b + ' is already sketching the defense plan on the whiteboard.']);
+    const title = kind === 'local' ? 'Elite reveal: ' + t.num + ' ' + t.name : kind === 'far' ? 'Everyone is watching: ' + t.num + ' ' + t.name : 'Rival reveal: ' + t.num + ' ' + t.name;
+    const body = 'Team ' + t.num + ' ' + t.name + (el ? ', one of the elite teams' : '') + ' (' + where + ') ' + (none ? 'kept to its tradition.' : 'posted its reveal.') + ' ' + styleText(t, a, b) + (ft.length ? '\n\n' + ft.join(' ') : '') + '\n\n' + react;
+    post(S, title, body, el ? 'news' : 'fun', { teams: [t.num], robot: { look: lk, num: t.num } });
+  }
+  function reveals(S) {
+    if (!S.cal || !G.World.on(S) || !S.season || !revealWin(S)) return;
+    const sv = S.season.rev = S.season.rev || { done: {} }, left = winLeft(S), Geo = G.Geo, me = Geo.myPos(S), cy = Geo.cyOf(S), area = S.team.home || S.team.region;
+    const mi = t => Math.round(Geo.miles(me, Geo.teamPos(t.num, t.region, t.home, cy).xy));
+    const el = G.World.elites(S).filter(t => !sv.done[t.num]), local = el.filter(t => G.World.areaOf(t) === area || mi(t) <= 300);
+    local.forEach(t => { if (left <= 1 || R().chance(1 / left)) postReveal(S, t, 'local', mi(t)); }); // a local elite reveal always reaches you
+    const far = el.filter(t => !local.includes(t)), want = 3 - (sv.far || 0);
+    if (want > 0 && far.length && R().chance(Math.min(1, want / left))) { postReveal(S, R().pick(far), 'far'); sv.far = (sv.far || 0) + 1; }
+    if (!sv.rival && (left <= 1 || R().chance(1 / left))) { const x = G.Geo.localTeam(S, t => !t.elite && t.str > 55, 150); if (x) { postReveal(S, x.t, 'rival', x.mi); sv.rival = 1; } }
+  }
+  N.revealWin = revealWin;
+  N.item = id => EVENTS.concat(NEWS, CHAT).find(x => x.id === id) || null; // for the developer tools and tests
   N.turn = function (S) {
     S.newsTurn = turnNo(S) + 1;
     // at least one news item: now and then one with an effect, otherwise a story about the FRC world or your program
@@ -626,6 +709,7 @@
     seasonTalk(S); // this game's big argument, once a season
     // in season, about one week in four: a vendor warns that a part will be gone next week (its own roll, not the news lottery)
     if ((S.phase === 'build' || S.phase === 'comp') && R().chance(0.25) && !(seen(S).restock >= turnNo(S) - 1)) { const e = NEWS.find(x => x.id === 'restock'); if (e && e.req(S)) runNews(S, e); }
+    reveals(S);   // robot reveals around Week 0: every elite team near you, a few famous ones, a local rival
     rumours(S);   // what people have heard about the changes the calendar is about to bring
     usedNews(S);  // the second-hand market, the first time it marks a kind of part down
     // one to three chatter posts
@@ -634,13 +718,77 @@
       const c = pickT(S, CHAT, 16);
       if (!c) break;
       seen(S)[c.id] = turnNo(S);
-      post(S, c.title, c.body(S), 'fun');
+      named = []; const body = c.body(S);
+      post(S, c.title, body, 'fun', named.length ? { teams: [...new Set(named)] } : undefined);
     }
   };
   N.kickoff = function (S) {
     const mf = G.Seasons[S.year].meta;
     if (mf && mf.faults) G.Career.inbox(S, 'Scouting report: what breaks this year', mf.faults + ' Expect brief comms drops at every event; clean wiring and a reliable, well-maintained robot keep them rare and short.', 'info');
     post(S, 'Kickoff watch party', R().int(18, 45) + ' students, ' + R().int(4, 12) + ' boxes of donuts and one very loud reaction when the ' + G.Seasons[S.year].name + ' field appeared on screen. ' + student(S) + ' has already sketched three robots on a napkin.', 'fun');
+  };
+  // The published designs in the team's own words (calendar careers from 2018): the argument at the start of Build
+  // Week 1 (wait for them, or build our own?), a first look when they are out (Week 2), and a follow-up in Week 3 that
+  // depends on what the team did.
+  N.refTalk = function (S, stage) {
+    const Rb = G.Robot, C = G.Career, and = l => (l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0] || '');
+    const rs = stage === 'wait' ? Rb.refsSoon(S) : Rb.refs(S); if (!rs.length || !S.robot) return;
+    // three voices with different first names: two students and a mentor
+    const m = mentor(S), stu = S.students.filter(s => first(s.name) !== first(m)), pk = not => { const l = stu.filter(s => first(s.name) !== not); return l.length ? first(R().pick(l).name) : 'another student'; };
+    const year = S.year, R0 = S.robot, a = pk(null), b = pk(a), v = C.cy(S) % 2;
+    const subName = k => G.Seasons.sub(year, k).name.toLowerCase(), names = and(rs.map(r => 'the ' + r.name));
+    // the team's own mechanisms: built, or a build running (robot code does not count)
+    const own = [...new Set(S.projects.filter(p => p.type === 'build' && !p.ref).map(p => p.sub).concat(Object.keys(R0.design).filter(k => R0.design[k] && R0.design[k].ver)))].filter(k => k !== 'soft');
+    const wk = C.turnHours(S), sv = rs.map(r => ({ r, s: Rb.refSave(S, r).save })).sort((x, y) => y.s - x.s), top = sv[0];
+    if (stage === 'wait') {
+      if (!own.length) C.inbox(S, 'Wait for ' + names + ', or build our own?', 'The team spent the whole meeting arguing about ' + names + ', out at the start of Build Week 2.\n\n' +
+        a + ' wants to start now: "' + (v ? 'We know this game better than any video will. Every week we wait is a week we are not building, and a robot we designed is one we know how to fix.' : 'We did not join a robotics team to build somebody else\'s robot. If we start today, ours is half done by the time theirs is out.') + '"\n\n' +
+        b + ' wants to wait: "Copying the whole ' + top.r.name + ' saves about ' + top.s + ' hours, ' + (top.s >= 1.15 * wk ? 'more than a week of our time' : top.s >= 0.85 * wk ? 'about a week of our time' : top.s >= 0.5 * wk ? 'a good part of a week' : 'a few days of our time') + '. It starts as a version 2, and the drivers can practise on its simulator model while we build it."\n\n' +
+        m + ' had the last word: "It is your call. If we wait, this week goes to a test chassis, the drive code and the program projects, or we go home on time for once and push hard in Week 2. If we start, we start now. Decide by the end of the week." (Design Office)', 'staff');
+      else C.inbox(S, 'Should we have waited?', 'Not everyone is sure about starting at Kickoff. ' + a + ' asked at the meeting whether we should have waited for ' + names + ': "Copying the whole ' + top.r.name + ' saves about ' + top.s + ' hours. We could have spent those on upgrades."\n\n' +
+        b + ' disagrees: "Our ' + (own.length > 3 ? own.slice(0, 3).map(subName).join(', ') + ' and the rest' : and(own.map(subName))) + ' ' + (own.length > 1 ? 'are' : 'is') + ' already under way. By the time theirs is out, ours is half built, and it is ours."\n\n' +
+        m + ': "Both of you are right. We look at theirs next week and compare. If one of their subsystems is clearly better, we can still switch to it."', 'staff');
+      return;
+    }
+    if (stage === 'out') {
+      // the oldest joke in the sport: a good team recommends the simple published robot to everybody else
+      const jr = rs.find(x => x.id === 'any') || rs[0], jv = C.cy(S) % 3;
+      // a good (not great) team, one you will meet at an event if the schedule says so: the punchline needs them there
+      const meet = G.World.on(S) ? [].concat(...(S.registered || []).map(id => G.World.attendees(S, { id: id && id.id ? id.id : id }) || [])) : [];
+      const good = t => t.str >= 45 && t.str < 62, jm = meet.map(n => S.teams[n]).filter(t => t && good(t)), jp = others(S).filter(t => t.region === S.team.region && good(t));
+      const jt = jm.length ? R().pick(jm) : jp.length ? R().pick(jp) : rivalT(S);
+      const joke = jv === 0 ? 'Every team should take a close look at the ' + jr.name + ' this year. It is a fantastic robot and it always plays the game. Not for us, obviously. We are far too good for that.'
+        : jv === 1 ? 'Honestly, I would tell any team to start from the ' + jr.name + '. Smartest robot of the year. We will not, of course: we are much too good for it.'
+        : 'Great ' + jr.name + ' again this year. I recommend it to every team out there. Every other team, I mean. We are above all that.';
+      const jokeP = '\n\nThe top post on the forum this morning, from a mentor on Team ' + jt.num + ' ' + jt.name + ': "' + joke + '" ' + (jv === 0 ? b + ' has printed it and taped it to the shop door.' : jv === 1 ? 'It has 400 likes. ' + a + ' liked it twice.' : m + ' bets they post the same thing next year, and mean it just as much.');
+      if (S.season) S.season.joke = { num: jt.num, ref: jr.id };
+      if (own.length) {
+        // the design closest to ours (most subsystems on the same concept) is the one the team compares with
+        const conc = k => (R0.design[k] && R0.design[k].ver ? R0.design[k].concept : (S.projects.find(p => p.sub === k && p.type === 'build') || {}).concept);
+        const r = rs.map(x => ({ x, n: own.filter(k => x.picks[year][k] === conc(k)).length })).sort((p, q) => q.n - p.n)[0].x, picks = r.picks[year];
+        const same = own.filter(k => picks[k] && conc(k) === picks[k]), diff = own.filter(k => picks[k] && conc(k) !== picks[k]);
+        C.inbox(S, 'Theirs and ours', a + ' put the ' + r.name + '\'s CAD on the big screen next to ours. ' + (same.length ? 'Same idea on the ' + and(same.map(subName)) + ', which ' + b + ' calls proof that we got it right. ' : '') +
+          (diff.length ? 'Different on the ' + and(diff.map(subName)) + ': ' + (same.length ? a : b) + ' thinks ours is better, ' + m + ' wants to see both on the field first. ' : '') +
+          'Anything we have not started yet can still be copied, and a built subsystem can be switched to theirs for the cost of a switch (Design Office).' + jokeP, 'dev');
+      } else {
+        const short = rs.map(r => ({ r, pl: Rb.refPlan(S, r) })).filter(x => x.pl.miss.length);
+        C.inbox(S, 'First look at ' + names, 'The team watched the build videos in the shop over pizza. ' + a + ' printed the parts list and went straight to the shelf: ' + (short.length ? 'for the ' + short[0].r.name + ' we are short of ' + G.Parts.missList(short[0].pl.miss) + ' (Inventory).' : 'everything we need is there.') + ' ' + b + ' had the simulator model running before the second video ended.' +
+          (rs.length > 1 ? '\n\nThe argument now is which one. ' + b + ' wants the ' + rs[1].name + ': "It is what the good teams build." ' + a + ' wants the ' + rs[0].name + ': "We can finish it, and then make it ours." ' + m + ': "Whichever we pick, we pick it this week."' : '') +
+          '\n\nCopy a whole robot from the window, or single subsystems from the concept chooser (Design Office).' + jokeP, 'dev');
+      }
+      return;
+    }
+    // stage 'after' (Build Week 3)
+    const copied = Object.keys((S.season && S.season.copied) || {}).concat(S.projects.filter(p => p.ref).map(p => p.sub)), building = S.projects.some(p => p.type === 'build' && p.sub !== 'soft') || own.length > 0;
+    if (!building) C.inbox(S, 'Week 3, and nothing on the build list', m + ' put the calendar on the wall at the start of the meeting: Build Week 3, and not one subsystem is being built. "We waited for ' + names + ', and they are out. Copy one today or start our own, but start." (Design Office)', 'staff');
+    else if (copied.length) { const r = rs.find(x => S.projects.some(p => p.ref === x.id) || Object.values(S.season.copied || {}).includes(x.id)) || rs[0];
+      C.inbox(S, 'A week with the ' + r.name, a + ' says the build videos skip the step where the bolt turns out to be too short, and ' + b + ' has a list of them now. ' + driver(S) + ' has driven the simulator model every evening and claims to know the robot better than the people building it.\n\n' + m + ': "The easy part is nearly done. From here, every upgrade is our own work, and that is where we pull away from the other ' + r.name + 's."', 'dev'); }
+    else C.inbox(S, 'Our own robot', m + ' reminded everyone at the meeting that half the field will turn up with ' + names + '. "Ours is different, so it has to be better. Test it, break it, fix it." ' + a + ' has already written "NOT A COPY" on the frame in marker.', 'dev');
+  };
+  // ...and the punchline, the first time that team turns up at one of your events with a copied robot
+  N.refJoke = function (S, t, ev) {
+    const j = S.season.joke, was = (D.REFBOTS.find(x => x.id === j.ref) || {}).name || 'Anybot', is = (D.REFBOTS.find(x => x.id === t.rb.ref) || {}).name || was;
+    G.Career.inbox(S, 'Too good for it', 'Remember Team ' + t.num + ' ' + t.name + ', far too good for the ' + was + '? At the ' + ev.name + ' their robot was ' + (is === was ? 'the ' + was + ', bolt for bolt.' : 'the ' + is + ', bolt for bolt. Too good for the ' + was + ', maybe.') + ' ' + student(S) + ' took a photo. ' + mentor(S) + ' made everyone promise not to post it, and then laughed for a full minute.', 'fun');
   };
   N.afterEvent = function (S, r) {
     if (!r) return;

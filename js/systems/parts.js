@@ -222,8 +222,12 @@
   P.add = function (S, cat, prodId, n, h) {
     const list = S.inv[cat] = S.inv[cat] || [];
     for (let i = 0; i < n; i++) list.push({ id: U.uid('q'), p: prodId, h: h == null ? 1 : h });
-    const max = G.Shop.partMax(S, cat);
     S.wearTick = (S.wearTick || 0) + 1;
+    return P.trim(S, cat, G.Shop.partMax(S, cat));
+  };
+  // keep at most max parts of a category: the least valuable (oldest / most worn) are recycled. Returns how many went.
+  P.trim = function (S, cat, max) {
+    const list = S.inv[cat] || [];
     if (list.length <= max) return 0;
     list.sort((a, b) => value(b) - value(a));
     const drop = list.length - max;
@@ -498,7 +502,7 @@
   // one line for the concept list: what this drive can run on, and what yours would run on today
   P.driveNote = function (S, cid) {
     // swerve: bought modules once someone sells them (2020), a machined set before that
-    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? 'Nobody sells swerve modules yet: the team machines its own (needs CNC Machining or a Manual Machine Shop, takes more hours and is less reliable).' : 'Runs on 4 swerve modules from the Inventory (Control system tab), with their motors and encoders.';
+    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? (G.Era.of(S).swerve.cnc ? 'Nobody sells swerve modules yet: the team machines its own (needs CNC Machining, three times the hours, much more material; it tops out lower and breaks down often).' : 'Nobody sells swerve modules yet: the team machines its own (needs a Manual Machine Shop or CNC Machining, twice the hours; still fragile).') : 'Runs on 4 swerve modules from the Inventory (Control system tab), with their motors and encoders.';
     if (!S || !S.cal) return '';
     const west = cid === 'wcd' || cid === 'wcd8', d = P.driveQ(S, cid), f = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v));
     if (west) return 'Runs on 2 vendor drive sets (best), or on 2 COTS Drive gearboxes when there are no sets for it (slower and weaker). ' + (d.on === 'wcd' ? 'Yours would run on drive sets' : d.on === 'gearbox' ? 'Yours would run on Drive gearboxes' : 'You have neither on the shelf') + (d.on ? ': Speed ' + f(d.speed) + ', Pushing ' + f(d.push) + ' (counted in the ceilings above).' : '.');
@@ -532,6 +536,13 @@
       return m.n + ' more ' + word + ' (' + use + (m.comp && m.prac ? ': ' + m.need + ' in all' : '') + ', ' + m.have + ' on the shelf' + (m.need > G.Shop.partMax(G.S, m.cat) ? '; the shelf holds ' + G.Shop.partMax(G.S, m.cat) + ' at most (Parts Shelf: Workshop)' : '') + ')';
     }).join(', ') + ' (Inventory)';
   };
+  // the short form: "4 swerve modules and 2 motors"
+  P.missList = function (miss) {
+    const l = miss.map(m => { const s = D.PART_CAT[m.cat].short.toLowerCase(); return m.n + ' ' + (m.n > 1 ? s : s.replace(/s$/, '')); });
+    return l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0] || '';
+  };
+  // where a part is sold: the Inventory tab and the section to scroll to (UI ids inv-<cat>, inv-drive)
+  P.shopAt = (S, cat) => ({ tab: ['motor', 'enc', 'ctrl', 'swerve', 'wcd', 'kdrive', 'pgear', 'canfd'].includes(cat) ? 'elec' : 'cots', anchor: S && S.cal && ['swerve', 'wcd', 'kdrive'].includes(cat) ? 'inv-drive' : 'inv-' + cat });
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
   P.kitsUsed = function (S, cat) {
     let used = 0;

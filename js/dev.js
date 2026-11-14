@@ -195,6 +195,79 @@
     } catch (e) { bad('CRASH in check: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join(' / ')); }
   };
 
+  // ---- opts.max: the strongest player we can script, for balance tests: every advantage the game offers ----
+  // (no outreach, every fundraiser, feeder programs: the way strong players run the money)
+  // The concepts with the most expected points at their ceilings (within the weight limit), thorough builds, upgrades on
+  // every subsystem toward its biggest gap, hardening when nothing is left to gain, extra hours, overtime while the team
+  // is fresh, full auto and vision, pit crew and bumper projects, research and the Knowledge Base, the best mentors,
+  // facilities bought as fast as the money allows, spares kept stocked and as many events as the rules allow.
+  Dev.bestPicks = function (S) {
+    const year = S.year, R = G.Robot, sds = G.Seasons[year].subs.filter(sd => sd.id !== 'soft');
+    const ok = (sd, c) => c.id !== 'none' && !R.reqOk(S, c) && !(R.teamBuilt(S, sd.id, c) && G.Shop.lvl(S, 'cnc') < 1 && G.Shop.lvl(S, 'lathe') < 1);
+    const atCeil = (sd, c) => { const st = {}; Object.keys(c.ceil).forEach(k => { st[k] = R.ceil(S, year, sd.id, c, k); }); return st; };
+    const power = p => {
+      const subs = { soft: { concept: 'code', ver: 3, stats: {} } };
+      sds.forEach(sd => { const c = G.Seasons.concept(year, sd.id, p[sd.id]); subs[sd.id] = c && c.id !== 'none' ? { concept: c.id, ver: 3, stats: atCeil(sd, c), rel: 85, w: c.w } : { concept: 'none', ver: 0, stats: {} }; });
+      const cap = G.Cap.build(year, subs, { autoTier: 3, visionLvl: 2 });
+      return cap.weight > R.WEIGHT_LIMIT ? -1 : G.Cap.power(year, cap);
+    };
+    const pick = {}; sds.forEach(sd => { pick[sd.id] = (sd.concepts.find(c => ok(sd, c)) || sd.concepts[0]).id; });
+    const swOk = sds.some(sd => sd.id === 'drive' && sd.concepts.some(c => c.id === 'swerve' && ok(sd, c) && !R.teamBuilt(S, 'drive', c)));
+    for (let it = 0; it < 3; it++) sds.forEach(sd => {
+      let best = pick[sd.id], bp = power(pick);
+      sd.concepts.filter(c => ok(sd, c) || (c.id === 'none' && sd.optional)).forEach(c => { const v = power(Object.assign({}, pick, { [sd.id]: c.id })); if (v > bp) { bp = v; best = c.id; } });
+      pick[sd.id] = best;
+    });
+    if (swOk) pick.drive = 'swerve'; // bought modules: the drivetrain every strong team runs (the points estimate misses agility)
+    return pick;
+  };
+  // opts.ace (tests only): stands in for a skilled human on top of the max strategy. Before every event the robot's
+  // subsystems sit at their ceilings, reliability 92 or more, and the drive team is at 95 in everything.
+  Dev.ace = function (S) {
+    const R = S.robot; if (!R || R.year !== S.year || !R.bots) return;
+    const year = R.year, bot = R.bots[R.comp || 0];
+    Object.keys(bot.subs).forEach(k => { const u = bot.subs[k]; if (!u || !u.ver || k === 'soft') return; const c = G.Seasons.concept(year, k, u.concept); if (!c || !c.ceil) return; u.stats = u.stats || {}; Object.keys(c.ceil).forEach(st => { u.stats[st] = G.Robot.ceil(S, year, k, c, st); }); u.rel = Math.max(u.rel || 0, 92); u.cond = 100; });
+    R.autoTier = 3; R.visionLvl = Math.max(R.visionLvl || 0, G.Era.of(S).vision.max || 0);
+    const dt = G.Career.driveTeam(S); [dt.driver, dt.operator, dt.hp].forEach(s => { if (s && s.attr) Object.keys(s.attr).forEach(k => { s.attr[k] = Math.max(s.attr[k], 95); }); });
+  };
+  Dev.maxTurn = function (S, log, opts) {
+    const C = G.Career, R = G.Robot;
+    S.settings.autoExtra = true; S.autoSpares = true;
+    // opts.rich (tests only): a money floor every month, for an upper bound on what a player can do
+    if (opts.rich && S.money < opts.rich) S.money = opts.rich;
+    // money: every fundraiser the weekly or monthly limits allow, best pay first, and no outreach at all
+    if (S.phase !== 'review' && S.phase !== 'end') D.ACTIVITIES.filter(a => a.kind === 'fund').sort((a, b) => (b.money ? b.money[1] : 0) - (a.money ? a.money[1] : 0)).forEach(a => { for (let k = 0; k < 4; k++) C.doActivity(S, a.id); });
+    // feeder programs (students for later seasons): one more each offseason month the money allows, up to the most
+    if (S.phase === 'off' && (S.programs || []).length < D.FEEDER_MAX && S.money > opts.reserve * 0.6) C.setFeeders(S, (S.programs || []).length + 1);
+    // facilities in the offseason, cheapest first, keeping a reserve for the next season's registrations and travel
+    if (S.phase === 'off') { let g = 0; while (g++ < 20) {
+      const ups = D.EQUIP.map(e => ({ id: e.id, c: G.Shop.upgradeCost(S, e.id) })).filter(x => x.c != null && !G.Shop.spaceBlock(S, x.id) && S.money - x.c >= opts.reserve).sort((a, b) => a.c - b.c);
+      if (!ups.length) break; G.Shop.upgrade(S, ups[0].id); }
+      D.EQUIP.forEach(e => { if (G.Shop.lvl(S, e.id) && G.Shop.cond(S, e.id) < 50 && S.money > opts.reserve) G.Shop.renovate(S, e.id); }); }
+    // the best mentors the budget carries (up to six, with money to spare after their fee)
+    if (S.phase === 'off' && S.market && S.market.length && S.mentors.length < 6) S.market.filter(m => S.money - (m.cost || 0) >= 30000).sort((a, b) => (b.stars || 0) - (a.stars || 0)).slice(0, 1).forEach(m => C.hireMentor(S, m.id));
+    // the offseason: the Knowledge Base and research, two projects at a time
+    if (S.phase === 'off') { R.startProject(S, { type: 'kb' }); D.RESEARCH.filter(r => !S.projects.some(p => p.rid === r.id)).sort((a, b) => a.cost - b.cost).forEach(r => { if (S.projects.filter(p => p.type === 'research').length < 2 && S.money > 15000) R.startProject(S, { type: 'research', rid: r.id }); }); }
+    // Kickoff: the best concepts, built thoroughly (parts bought first)
+    if (S.phase === 'kickoff') {
+      G.Parts.stockUp(S, { motor: 24, enc: 10, ctrl: 2, swerve: 4, wcd: 2, gearbox: 4, camera: 2 }, opts.vendor || 'B');
+      const pk = Dev.bestPicks(S); log.picks = log.picks || {}; log.picks[S.year] = pk;
+      Object.keys(pk).forEach(k => { if (pk[k] === 'none') { R.setNone && R.setNone(S, k); return; } const e = R.startProject(S, { type: 'build', sub: k, concept: pk[k], effort: 'thorough' }); if (e) R.startProject(S, { type: 'build', sub: k, concept: pk[k], effort: 'std' }); });
+    }
+    if ((S.phase === 'build' || S.phase === 'comp') && S.robot && S.robot.year === S.year) {
+      const Rb = S.robot, year = Rb.year;
+      if (S.phase === 'build' && (S.fatigue == null ? 30 : S.fatigue) < 40) S.overtime = true;
+      if (Rb.autoTier < 3) R.startProject(S, { type: 'auto' });
+      R.startProject(S, { type: 'vision' });
+      if (S.phase === 'comp' || S.week >= 4) { R.startProject(S, { type: 'pit' }); R.startProject(S, { type: 'bumper' }); }
+      // upgrades toward each subsystem's biggest gap; hardening once there is little left to gain
+      const ks = G.Seasons[year].subs.map(sd => sd.id).filter(k => { const d = R.des(Rb, k); return d && d.ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'); });
+      ks.map(k => { const d = R.des(Rb, k), c = G.Seasons.concept(year, k, d.concept), g = Object.keys(c.ceil).map(st => ({ st, g: R.ceil(S, year, k, c, st) - (d.stats[st] || 0) })).sort((a, b) => b.g - a.g)[0]; return { k, c, d, g }; })
+        .sort((a, b) => (b.g ? b.g.g : 0) - (a.g ? a.g.g : 0))
+        .forEach(x => { if (x.g && x.g.g > 2) R.startProject(S, { type: 'upgrade', sub: x.k, focus: x.g.st, effort: 'thorough', forConcept: x.c.id }); else if (x.k !== 'soft' && (x.d.rel || 0) < 90) R.startProject(S, { type: 'harden', sub: x.k }); });
+    }
+  };
+
   // Plays a whole career automatically (no UI). Returns a log of key facts. G.Dev.autoplay({profile:'established'})
   Dev.autoplay = function (opts) {
     opts = opts || {};
@@ -202,11 +275,13 @@
     const C = G.Career, S0 = opts.resume ? G.S : C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: opts.region || 'Midwest', home: opts.home || null },
       profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, noWorld: opts.noWorld, settings: opts.settings });
     const S = G.S;
+    if (opts.max) { if (opts.reserve == null) opts.reserve = 25000; if (opts.robot2 == null) opts.robot2 = 3; if (opts.copies == null) opts.copies = true; }
     let guard = 0;
     log.probes = []; log.testSpend = 0;
     const playEvent = () => {
       const ev = S.event;
       if (opts.fuzz) Dev.fuzzEvent(S, log);
+      ev.watchSel = false; // the autoplay does not watch alliance selection
       G.Ev.skipPractice(ev);
       if (S.robot) { const f = G.Robot.famAvg(S.robot, S.robot.comp || 0); log.famSum = (log.famSum || 0) + (f || 0); log.famN = (log.famN || 0) + 1; }
       if (opts.probe && ev.kind === 'regional') { const p = Dev.probe(S, ev); log.probes.push(p); log.push('  probe ' + ev.name + ': alliance avg ' + p.toFixed(1) + ' · conf ' + ev.conf.toFixed(2) + ' tune ' + ev.tune.toFixed(2) + ' cond ' + Math.round(G.Robot.condAvg(S)) + ' arrival ' + (ev.arrival ? ev.arrival.cond : '-') + ' fam ' + Math.round(100 * (G.Robot.famAvg(S.robot, S.robot.comp || 0) || 0))); }
@@ -232,8 +307,9 @@
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
         S.offers.filter(o => o.slot === 'title').slice(0, 1).forEach(o => C.signSponsor(S, o.id, true));
         S.offers.filter(o => o.slot !== 'title').slice(0, 3).forEach(o => C.signSponsor(S, o.id, true));
-        const regs = S.regionals.filter(r => [2, 4].includes(r.week) && !r.full);
-        [2, 4].forEach(w => { const r = regs.find(x => x.week === w); if (r) C.register(S, r.id); });
+        if (opts.max) { const wk = []; S.regionals.filter(r => !r.full).sort((a, b) => a.week - b.week).forEach(r => { if (!wk.some(w => Math.abs(w - r.week) < 2) && !C.register(S, r.id)) wk.push(r.week); }); } // as many events as allowed, a week apart
+        else { const regs = S.regionals.filter(r => [2, 4].includes(r.week) && !r.full);
+        [2, 4].forEach(w => { const r = regs.find(x => x.week === w); if (r) C.register(S, r.id); }); }
         if (S.market.length && S.mentors.length < 6) C.hireMentor(S, S.market[0].id);
       }
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');
@@ -241,18 +317,20 @@
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
       // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player
       if ((S.phase === 'off' && D.MONTHS[S.month] === 'Dec') || S.phase === 'kickoff') G.Parts.stockUp(S, opts.stock || { motor: 16, enc: 6, ctrl: 1, swerve: 4, wcd: 2, gearbox: 4 }, opts.vendor || 'B');
-      // opts.copy ('any' or 'bp'): wait for that published design, copy it in Build Week 1, then build the rest
+      // opts.copy ('any' or 'bp'): wait for that published design, copy it from Build Week 2 (when it is out; what waits for
+      // a project slot or parts is tried again every week), and build the subsystems it leaves out
       const refCopy = opts.copy && S.cal ? D.REFBOTS.find(r => r.id === opts.copy && C.cy(S) >= r.from && r.picks[S.year]) : null;
-      if (S.phase === 'build' && S.week === 1 && refCopy && !(log.copied = log.copied || {})[S.year]) {
-        const r = G.Robot.buildRef(S, refCopy.id); log.copied[S.year] = r.started.length;
-        log.push('  copied the ' + refCopy.name + ' ' + C.cy(S) + ': ' + r.started.join(', ') + (r.skipped.length ? ' (skipped ' + r.skipped.join('; ') + ')' : ''));
+      if (S.phase === 'build' && S.week >= D.REF_WEEK && refCopy) {
+        const picks = refCopy.picks[S.year], left = Object.keys(picks).filter(k => !(S.robot.design[k] && S.robot.design[k].ver) && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
+        if (left.length) { const r = G.Robot.buildRef(S, refCopy.id); log.copied = log.copied || {}; log.copied[S.year] = (log.copied[S.year] || 0) + r.started.length;
+          if (r.started.length || S.week === D.REF_WEEK) log.push('  copied the ' + refCopy.name + ' ' + C.cy(S) + ' (week ' + S.week + '): ' + r.started.join(', ') + (r.skipped.length ? ' (skipped ' + r.skipped.join('; ') + ')' : '')); }
         G.Seasons[S.year].subs.forEach(sd => {
-          if (sd.id === 'soft' || sd.optional || (S.robot.design[sd.id] && S.robot.design[sd.id].ver) || S.projects.some(p => p.sub === sd.id)) return;
+          if (picks[sd.id] || sd.id === 'soft' || sd.optional || (S.robot.design[sd.id] && S.robot.design[sd.id].ver) || S.projects.some(p => p.sub === sd.id)) return;
           const cs = sd.concepts.filter(c => c.id !== 'none' && !G.Robot.reqOk(S, c)), c = cs[Math.min(cs.length - 1, 2)] || cs[0];
           G.Robot.startProject(S, { type: 'build', sub: sd.id, concept: c.id, effort: 'std' });
         });
       }
-      if (S.phase === 'kickoff') {
+      if (S.phase === 'kickoff' && !opts.max) {
         G.Seasons[S.year].subs.forEach(sd => {
           if (sd.id === 'soft' || sd.optional || refCopy) return;
           const cs = sd.concepts.filter(c => c.id !== 'none' && !G.Robot.reqOk(S, c));
@@ -264,7 +342,7 @@
       if (S.phase === 'build' && S.week === 1 && C.wfaPick && G.World.on(S) && !(S.season && S.season.wfa) && !S.projects.some(p => p.type === 'wfa')) G.Robot.startProject(S, { type: 'wfa' }); // the Woodie Flowers essay, for the strongest nomination
       if ((S.phase === 'build' || S.phase === 'comp') && S.robot) {
         const R = S.robot, subs = G.Seasons[R.year].subs.filter(sd => !sd.minor).map(sd => sd.id).filter(k => G.Robot.des(R, k) && G.Robot.des(R, k).ver && !S.projects.some(p => p.sub === k && p.type !== 'copy'));
-        subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
+        if (!opts.max) subs.slice(0, 2).forEach(k => { const c = G.Seasons.concept(R.year, k, G.Robot.des(R, k).concept); G.Robot.startProject(S, { type: 'upgrade', sub: k, focus: Object.keys(c.ceil)[0], effort: 'std', forConcept: c.id }); });
         // chassis: build a test chassis ('kit', 'mec' or 'wcd') on the second robot in build week 1-2 (log.chassis records when)
         if (opts.chassis && S.phase === 'build' && S.week <= 3 && !S.projects.some(p => p.type === 'copy' && p.sub === 'drive')) {
           const o = G.Robot.other(R), d2 = R.bots[o].subs.drive;
@@ -292,7 +370,7 @@
         log.push(S.year + ' review: money ' + S.money + ', facility levels ' + lv + '/' + mx + ', impact rating ' + Math.round(C.impactRating(S).score));
       }
       // grind: a player who maxes outreach, fundraising and facility spending every turn (economy / Impact tests)
-      if (opts.grind && S.phase !== 'review' && S.phase !== 'end') {
+      if ((opts.grind === true || (opts.grind === 'off' && S.phase === 'off')) && S.phase !== 'review' && S.phase !== 'end') { // 'off': fundraising and facilities in the offseason only
         D.ACTIVITIES.slice().sort((a, b) => (b.kind === 'outreach') - (a.kind === 'outreach')).forEach(a => { for (let k = 0; k < 4; k++) if (a.kind === 'outreach' || C.fundFatigue(S, a.id) > 0.3) C.doActivity(S, a.id); });
         if (!S.season.impactDone && !S.projects.some(p => p.type === 'impact')) G.Robot.startProject(S, { type: 'impact' });
         if (S.feeders < 3 && S.money > 5000) C.setFeeders(S, 3);
@@ -313,12 +391,14 @@
         S.testSplit = opts.split;
         if (S.parts.spares < 4 && S.money > 2000) C.buySpares(S, 4);
       }
+      if (opts.max) Dev.maxTurn(S, log, opts);
       G.Career.dueActivities(S).forEach(a => C.resolveActivity(S, a.id, 'hours'));
       if (S.incident) { if (G.Shop.resolve(S, G.R.int(0, S.incident.opts.length - 1))) G.Shop.resolve(S, 0); }
       const ev = C.eventThisTurn(S);
       if (ev && ev.def) {
         if (ev.def.kind === 'champs') C.registerChamps(S);
         if (ev.def.kind === 'regional') { const ir = C.impactRating(S); log.push('  impact rating ' + Math.round(ir.score) + (ir.submitted ? '' : ' (no submission)') + ', odds ' + Math.round(100 * C.impactOdds(S, ev.def, ir)) + '%'); }
+        if (opts.ace) Dev.ace(S);
         C.startEvent(S, ev.def); playEvent(); continue;
       }
       const before = C.dateLabel(S);

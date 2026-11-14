@@ -339,8 +339,16 @@
   // A stored unit worth packing for the bagged robot: the newest version of the design, or one identical to the unit in
   // the bag (a fresher spare). Older units stay in storage, where they can be taken apart.
   Robot.packable = (R, u) => { const t = R.subs[u.sub]; return Robot.isLatest(R, u.sub, u) || !!(t && t.ver && t.concept === u.concept && t.ver === u.ver); };
-  Robot.installHeld = function (S) {
+  // maxSubs (practice day, bag years): only what is packed for that many subsystems goes on, the biggest gain in robot
+  // strength first; the rest stays in the crate for the next block
+  Robot.installHeld = function (S, maxSubs) {
     const R = S.robot; if (!R || !Robot.held(S).length) return [];
+    let keep = [];
+    if (maxSubs != null) {
+      const gain = Robot.heldGains(S), ks = Object.keys(gain);
+      const pick = ks.sort((a, b) => gain[b] - gain[a]).slice(0, Math.max(1, maxSubs));
+      keep = R.held.filter(h => !pick.includes(h.k)); R.held = R.held.filter(h => pick.includes(h.k));
+    }
     const ci = R.comp || 0, names = Robot.heldNames(S), done = [];
     // whole units: one per subsystem goes on, the newest (then the freshest); the rest go to storage. An identical unit
     // only goes on if it is in better shape than the one in the bag.
@@ -366,8 +374,32 @@
       t.cond = 100; // new parts: the subsystem comes out of the pits as good as new
       done.push(names[i]);
     });
-    R.held = []; S.wearTick = (S.wearTick || 0) + 1; trimStore(S);
+    R.held = keep; S.wearTick = (S.wearTick || 0) + 1; trimStore(S);
     return done;
+  };
+  // how many subsystems' packed parts one practice block can fit: a full practice day fits everything the game can need
+  Robot.installPerBlock = (S, blocks) => Math.max(1, Math.ceil(G.Seasons[S.robot.year].subs.filter(sd => sd.id !== 'soft').length / Math.max(1, blocks || 3)));
+  // what fitting each subsystem's packed parts alone adds to the robot's strength: { sub: gain }, tried on a copy (new
+  // units and upgrades break ties ahead of hardening and lightweighting)
+  Robot.heldGains = function (S) {
+    const R0 = S.robot, wt = S.wearTick || 0, out = {}, base = Robot.powerNow(S); let w2 = wt;
+    const ks = []; Robot.held(S).forEach(h => { if (!ks.includes(h.k)) ks.push(h.k); });
+    ks.forEach(k => {
+      S.robot = JSON.parse(JSON.stringify(R0)); S.robot.held = S.robot.held.filter(h => h.k === k);
+      try { Robot.installHeld(S); out[k] = G.Cap.power(S.robot.year, Robot.cap(S)) - base + R0.held.filter(h => h.k === k).reduce((s, h) => s + (h.u ? 0.03 : h.set ? 0.02 : 0.01), 0); }
+      finally { w2 = Math.max(w2, S.wearTick || 0); S.robot = R0; }
+    });
+    S.wearTick = w2 + 1; // a fresh tick: nothing the trials cached is reused
+    return out;
+  };
+  // the competition robot's strength (expected points) now, and with everything packed and pending fitted
+  Robot.powerNow = S => (S.robot ? G.Cap.power(S.robot.year, Robot.cap(S)) : 0);
+  Robot.powerPacked = function (S) {
+    if (!S.robot || (!Robot.held(S).length && !(S.robot.pending || []).length)) return null;
+    const R0 = S.robot, wt = S.wearTick || 0;
+    S.robot = JSON.parse(JSON.stringify(R0));
+    try { Robot.installHeld(S); Robot.installPending(S); return G.Cap.power(S.robot.year, Robot.cap(S)); }
+    finally { const w2 = S.wearTick || 0; S.robot = R0; S.wearTick = Math.max(wt, w2) + 1; } // a fresh tick: nothing the trial cached is reused
   };
   // take a packed unit out of the crate again (back to storage)
   Robot.unpack = function (S, i) {
@@ -615,11 +647,12 @@
         err = Robot.buildShort(S, spec.sub, c);
         const tb = Robot.teamBuilt(S, spec.sub, c);
         if (tb && !err && G.Shop.lvl(S, 'cnc') < 1 && G.Shop.lvl(S, 'lathe') < 1) err = 'Nobody sells swerve modules yet: machining your own needs CNC Machining or a Manual Machine Shop (Workshop)';
+        if (tb && !err && tb.cnc && G.Shop.lvl(S, 'cnc') < 1) err = 'Nobody sells swerve modules yet, and this early nobody has a proven design to copy: machining your own to that tolerance needs CNC Machining (Workshop)';
         // subsystem COTS kits (as many as are free on the shelf) speed the build and soften first-build penalties
         // copying a published design (spec.ref): fewer hours and less material on this first build, no first-build penalty
-        const ref = spec.ref ? Robot.refById(S, spec.ref) : null;
+        const ref = spec.ref ? (spec.early ? D.REFBOTS.find(x => x.id === spec.ref) || null : Robot.refById(S, spec.ref)) : null; // early: a quote before it is out
         if (spec.ref && (!ref || ref.picks[year][spec.sub] !== spec.concept)) err = err || 'Not part of a design published this season';
-        const kq = Robot.kitQuote(S, year, spec.sub, c), first = !ref && Robot.firstTime(S, c);
+        const kq = Robot.kitQuote(S, year, spec.sub, c, spec.held), first = !ref && Robot.firstTime(S, c); // held: kits earlier builds in a plan take
         hours = c.hours * ef.h * (1 - 0.06 * Robot.lvl(S, c)) * (first ? 1 + 0.2 * (1 - kq.cov) : 1) * kq.hours * hwMult(S, spec.sub, c) * (tb ? tb.hours : 1) * G.Shop.designMult(S) * (ref ? ref.k.hours : 1); // CAD Workstations: drawn before it is cut
         cost = ((0.55 * c.cost + 150 * c.cx) * ef.cost * kq.cost * D.PROTO_COST + (tb ? tb.mat : 0)) * (ref ? ref.k.cost : 1); // materials (a prototype); motors, electronics and kits come from the inventory
         fields = { kits: kq.use, kitCov: kq.cov, frameWant: kq.frameWant, frame: kq.frame, kop: kq.kop, kopUse: kq.kopUse };
@@ -716,8 +749,20 @@
     return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
   };
   // ---- published designs (D.REFBOTS: the Anybot from 2018, the Apex Blueprint from 2022) ----
-  // out from Build Week 1 of each season, for this season's robot (calendar careers)
-  Robot.refs = S => (S && S.cal && S.robot && S.robot.year === S.year && ['build', 'comp', 'champs'].includes(S.phase) ? D.REFBOTS.filter(r => G.Career.cy(S) >= r.from && r.picks[S.year]) : []);
+  // out from the start of Build Week D.REF_WEEK (2) of each season, for this season's robot (calendar careers)
+  const refSeason = S => !!(S && S.cal && S.robot && S.robot.year === S.year), refYear = S => D.REFBOTS.filter(r => G.Career.cy(S) >= r.from && r.picks[S.year]);
+  Robot.refs = S => (refSeason(S) && ((S.phase === 'build' && S.week >= D.REF_WEEK) || S.phase === 'comp' || S.phase === 'champs') ? refYear(S) : []);
+  // the designs still to come this season (the Kickoff turn and Build Week 1): the Design Office announces them
+  Robot.refsSoon = S => (refSeason(S) && (S.phase === 'kickoff' || (S.phase === 'build' && S.week < D.REF_WEEK)) ? refYear(S) : []);
+  // the build hours copying a whole design saves against designing the same subsystems yourself (those not built yet)
+  Robot.refSave = function (S, r) {
+    const picks = r.picks[S.year] || {}, R = S.robot, ho = {}, hc = {}, add = (a, b) => Object.keys(b || {}).forEach(k => { a[k] = (a[k] || 0) + b[k]; });
+    let own = 0, copy = 0;
+    Object.keys(picks).forEach(sub => { if (R.design[sub] && R.design[sub].ver) return;
+      const o = Robot.quote(S, { type: 'build', sub, concept: picks[sub], effort: 'std', held: Object.assign({}, ho) }), c = Robot.quote(S, { type: 'build', sub, concept: picks[sub], effort: 'std', ref: r.id, early: true, held: Object.assign({}, hc) });
+      own += o.hours; copy += c.hours; add(ho, o.kits); add(hc, c.kits); });
+    return { own, copy, save: own - copy };
+  };
   Robot.refById = (S, id) => Robot.refs(S).find(r => r.id === id) || null;
   // the published designs this season that use a concept for a subsystem
   Robot.refsFor = (S, sub, concept) => Robot.refs(S).filter(r => r.picks[S.year][sub] === concept);
@@ -730,10 +775,39 @@
     const share = ks.length ? ks.filter(same).length / ks.length : 1;
     return { share, fit: D.REF_FIT0 + (1 - D.REF_FIT0) * share, fam: r.k.fam * (D.REF_FIT0 + (1 - D.REF_FIT0) * share) };
   };
+  // What copying a whole design would do today, subsystem by subsystem in the order the copy starts them. Each row's
+  // state: 'built', 'run' (a project is on it), 'ok' (starts), 'short' (the shelf runs out of parts, counting the
+  // subsystems started before it), 'slot' (no project slot left), 'money' or 'err'. Also the parts the whole copy is short
+  // of together (miss), what starts (ok, hours, cost) and the whole copy's hours, own-design hours and cost (todo rows).
+  Robot.refPlan = function (S, r) {
+    const R = S.robot, year = R.year, picks = r.picks[S.year], ci = R.comp || 0, add = (a, b) => { Object.keys(b).forEach(k => { a[k] = (a[k] || 0) + b[k]; }); return a; };
+    const out = { rows: [], todo: 0, ok: 0, hours: 0, cost: 0, own: 0, okHours: 0, okCost: 0, miss: [] };
+    let acc = {}, slots = Robot.slots(S) - Robot.slotUsed(S), money = 0;
+    const held = {}, heldO = {}; // mechanism kits and GridTube the subsystems before it take (the copy, and an own design of it)
+    const all = {};
+    Object.keys(picks).forEach(sub => {
+      const c = G.Seasons.concept(year, sub, picks[sub]), d = R.design[sub], row = { sub, c, state: 'ok' };
+      out.rows.push(row);
+      if (d && d.ver) { row.state = 'built'; return; }
+      if (S.projects.some(p => p.sub === sub && p.type !== 'copy')) { row.state = 'run'; return; }
+      const q = Robot.quote(S, { type: 'build', sub, concept: picks[sub], effort: 'std', ref: r.id, held: Object.assign({}, held) }), x = extraFor(S, ci, sub, c);
+      const o = Robot.quote(S, { type: 'build', sub, concept: picks[sub], effort: 'std', held: Object.assign({}, heldO) }); add(heldO, o.kits || {});
+      row.q = q; row.own = o.hours;
+      out.todo++; out.hours += q.hours; out.cost += q.cost; out.own += row.own; add(all, x);
+      const miss = G.Parts.shortage(S, add(Object.assign({}, acc), x), 'comp');
+      if (miss.length) { row.state = 'short'; row.miss = miss; row.why = G.Parts.shortText(miss); return; }
+      if (q.err) { row.state = 'err'; row.why = q.err; return; }
+      if (slots <= 0) { row.state = 'slot'; row.why = 'Waits for a free project slot'; return; }
+      const e = G.Career.afford(S, money + q.cost); if (e) { row.state = 'money'; row.why = e; return; }
+      add(acc, x); add(held, q.kits || {}); slots--; money += q.cost; out.ok++; out.okHours += q.hours; out.okCost += q.cost;
+    });
+    out.miss = G.Parts.shortage(S, all, 'comp');
+    return out;
+  };
   // copy a whole design: a copied build for every subsystem in it that is not built or being built yet (as many as the
-  // project slots allow). Returns { started: [names], skipped: [why] }.
+  // project slots and the shelf allow). Returns { started: [names], skipped: [why], short: [names the parts ran out for] }.
   Robot.buildRef = function (S, id) {
-    const r = Robot.refById(S, id), out = { started: [], skipped: [] };
+    const r = Robot.refById(S, id), out = { started: [], skipped: [], short: [] };
     if (!r) { out.skipped.push('Not published this season'); return out; }
     const R = S.robot, picks = r.picks[S.year];
     Object.keys(picks).forEach(sub => {
@@ -741,7 +815,7 @@
       if (d && d.ver) return out.skipped.push(sd.name + ': already built');
       if (S.projects.some(p => p.sub === sub && p.type !== 'copy')) return out.skipped.push(sd.name + ': a project is running');
       const e = Robot.startProject(S, { type: 'build', sub, concept: picks[sub], effort: 'std', ref: r.id });
-      if (e) out.skipped.push(sd.name + ': ' + e); else out.started.push(sd.name);
+      if (e) { out.skipped.push(sd.name + ': ' + e); if (/^Needs /.test(e)) out.short.push(sd.name); } else out.started.push(sd.name);
     });
     return out;
   };

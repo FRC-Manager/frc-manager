@@ -28,7 +28,19 @@
   Shop.chargeRate = S => 0.35 + Shop.fx(S, 'charger', 'charge');
   Shop.repairMult = S => 1 + Shop.fx(S, 'pitcart', 'repair');
   Shop.travelMult = S => 1 - Shop.fx(S, 'trailer', 'travel');
-  Shop.upkeep = S => D.EQUIP.reduce((s, e) => s + e.upkeep * Shop.lvl(S, e.id), 0);
+  // upkeep per level; a facility with wornUpkeep (the Parts Shelf: what it holds does not change with wear) costs more
+  // to keep going as it wears, and faster the more worn it is: x(1 + wornUpkeep x the share worn squared), five times at
+  // 0% condition. (Squared, so there is a point where a renovation pays for itself: Shop.shelfPay.)
+  Shop.upkeepOf = (S, e) => { const l = Shop.lvl(S, e.id), w = 1 - U.clamp(Shop.cond(S, e.id), 0, 100) / 100; return l ? e.upkeep * l * (1 + (e.wornUpkeep || 0) * w * w) : 0; };
+  // Does renovating the Parts Shelf pay off now? The extra upkeep its wear adds to every Kickoff, over the Kickoffs left in
+  // the career, against what a renovation costs today. { left, extra, save, reno, pays }
+  Shop.shelfPay = function (S) {
+    const e = Shop.item('shelf'), l = Shop.lvl(S, 'shelf');
+    if (!l || !S.order || S.mode !== 'career') return null;
+    const left = Math.max(0, S.order.length - (S.upcoming || 0)), extra = Shop.upkeepOf(S, e) - e.upkeep * l, reno = Shop.renoCost(S, 'shelf') || 0;
+    return { left, extra, save: extra * left, reno, pays: left > 0 && reno > 0 && extra * left >= reno };
+  };
+  Shop.upkeep = S => Math.round(D.EQUIP.reduce((s, e) => s + Shop.upkeepOf(S, e), 0) / 10) * 10;
 
   const FX_TEXT = {
     hours: v => '−' + Math.round(v * 100) + '% hardware project hours',
@@ -228,7 +240,7 @@
   Shop.SELL_RATE = 0.5;
   Shop.downInfo = function (S, id) {
     const it = Shop.item(id), f = Shop.get(S, id), l = f.lvl || 0;
-    if (!it || !l) return null;
+    if (!it || !l || it.noDown) return null; // noDown: the Parts Shelf is never given back (it would strand the parts on it)
     const gift = !!(f.gift && f.gift[l]);
     const refund = gift ? 0 : Math.round(it.levels[l - 1].cost * Shop.SELL_RATE * U.clamp(f.cond, 0, 100) / 100 / 50) * 50;
     let block = null, note = '';
@@ -238,6 +250,7 @@
     return { lvl: l - 1, name: it.levels[l - 1].name, refund, gift, cond: Math.round(f.cond), sqft: Shop.sizeOf(id, l) - Shop.sizeOf(id, l - 1), block, note };
   };
   Shop.downgrade = function (S, id) {
+    if ((Shop.item(id) || {}).noDown) return 'The ' + Shop.item(id).name + ' cannot be downgraded';
     const d = Shop.downInfo(S, id), f = S.shop[id];
     if (!d || !f) return 'You don\'t own this';
     if (d.block) return d.block;
@@ -254,12 +267,31 @@
     if (cost === 0) return 'Already in perfect condition';
     { const e = G.Career.afford(S, cost); if (e) return e; }
     G.Career.spend(S, cost, 'Renovate: ' + it.levels[f.lvl - 1].name);
-    f.cond = 100; f.warned = 0;
+    f.cond = 100; f.warned = 0; f.payWarn = 0;
     S.morale = Math.min(100, S.morale + 1);
+    return null;
+  };
+  // Renovate all: every owned facility below full condition in one go (one bill, one morale point)
+  Shop.renoAllInfo = S => { const ids = D.EQUIP.filter(e => (Shop.renoCost(S, e.id) || 0) > 0).map(e => e.id); return { ids, cost: ids.reduce((s, id) => s + Shop.renoCost(S, id), 0) }; };
+  Shop.renovateAll = function (S) {
+    const r = Shop.renoAllInfo(S);
+    if (!r.ids.length) return 'Every facility is in full condition';
+    { const e = G.Career.afford(S, r.cost); if (e) return e; }
+    G.Career.spend(S, r.cost, 'Renovate all: ' + r.ids.length + ' facilit' + (r.ids.length === 1 ? 'y' : 'ies'));
+    r.ids.forEach(id => { const f = S.shop[id]; f.cond = 100; f.warned = 0; f.payWarn = 0; });
+    S.morale = Math.min(100, S.morale + 1);
+    S.renoAllTurn = S.newsTurn || 0; // for the chatter
     return null;
   };
   function warn(S, e, f) {
     const nm = e.levels[f.lvl - 1].name;
+    if (e.wornUpkeep) { // the Parts Shelf: wear costs upkeep, not capacity
+      const lvl = f.cond < 35 ? 2 : f.cond < 60 ? 1 : 0;
+      { const p = Shop.shelfPay(S); if (p && p.pays && !f.payWarn) { f.payWarn = 1; (S.launchQueue = S.launchQueue || []).push({ kind: 'shelfPay' });
+        G.Career.inbox(S, 'Renovating the parts shelf pays off now', 'Its wear adds ' + U.money(p.extra) + ' to the upkeep at every Kickoff, and more as it wears further. Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is ' + U.money(p.save) + '; a renovation costs ' + U.money(p.reno) + ' today (Workshop).', 'shop'); } }
+      if (lvl > f.warned) { f.warned = lvl; G.Career.inbox(S, 'The parts shelf ' + (lvl > 1 ? 'is in bad shape' : 'needs attention'), 'Your ' + nm.toLowerCase() + ': condition is down to ' + Math.round(f.cond) + '%. Cracked bins and missing labels cost money to keep up with: its upkeep at Kickoff is now ' + U.money(Shop.upkeepOf(S, e)) + ' (' + U.money(e.upkeep * f.lvl) + ' in full condition). It still holds as many parts. A renovation costs ' + U.money(Shop.renoCost(S, e.id)) + ' in the Workshop.', 'shop'); }
+      return;
+    }
     if (f.cond < 35 && f.warned < 2) {
       f.warned = 2;
       G.Career.inbox(S, nm + ' is in bad shape', 'Condition is down to ' + Math.round(f.cond) + '%, so it now works at only ' + Math.round(Shop.eff(S, e.id) * 100) + '% efficiency. Students have started calling it "vintage". Renovate it in the Workshop for ' + U.money(Shop.renoCost(S, e.id)) + '.', 'shop');

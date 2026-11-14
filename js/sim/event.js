@@ -121,9 +121,10 @@
       case 'scout': { ev.scoutBonus = (ev.scoutBonus || 0) + 1; ev.scoutCred = Math.min(0.99, ev.scoutCred + 0.03); out.push('Scouting data sharpened (strategy mentor ' + Math.round(strat) + '). Scouting credibility ' + Math.round(ev.scoutCred * 100) + '%.'); break; }
       case 'install': {
         // parts made while the robot was in the bag come out of the crate; then anything that was finished during the event
-        const fit = G.Robot.installHeld(S), n = G.Robot.installPending(S);
+        // one block fits the packed parts of a few subsystems (a full practice day fits them all)
+        const per = G.Robot.installPerBlock(S, ev.practice.blocks), p0 = G.Robot.powerNow(S), fit = G.Robot.installHeld(S, per), n = G.Robot.installPending(S), left = G.Robot.held(S).length;
         if (fit.length) {
-          out.push('Fitted in the pits: ' + fit.join(', ') + '.');
+          out.push('Fitted in the pits: ' + fit.join(', ') + '. Robot strength ' + p0 + ' → ' + G.Robot.powerNow(S) + '.' + (left ? ' Still in the crate: ' + G.Robot.heldNames(S).join(', ') + ' (another Install Upgrade block).' : ''));
           ev.inspection = G.Robot.inspect(S, ev);
           if (!ev.inspection.ok) out.push('With the new parts the robot weighs ' + ev.inspection.weight + ' lb. ' + G.Robot.emergencyLighten(S));
         }
@@ -481,12 +482,18 @@
   // ------------------------------------------------------------------
   // Alliance selection
   // ------------------------------------------------------------------
+  // Watching (3.1, on unless ev.watchSel is false): the selection moves one decision at a time (sel.beat holds the last
+  // one), so every team can follow it to the end; Ev.selNext steps, Ev.selSkip runs to your next decision ('mine') or to
+  // the end ('end'). Your own decisions always wait for you. When it is over the board stays up until Ev.finishSelection.
   Ev.initSelection = function (ev) {
     const order = Ev.rankings(ev);
-    ev.sel = { round: 1, k: 0, alliances: [], pool: order.slice(), declined: [], pending: null, done: false, log: [] };
+    ev.sel = { round: 1, k: 0, alliances: [], pool: order.slice(), declined: [], pending: null, done: false, log: [], watch: ev.watchSel !== false, beat: null, fast: null };
+    if (ev.sel.watch) ev.sel.beat = 'The top eight teams come forward as captains. Alliance 1 picks first.';
     ev.stage = 'selection';
     Ev.selStep(ev);
   };
+  Ev.selNext = function (ev) { const sel = ev.sel; if (!sel || sel.pending) return; if (sel.done) return Ev.finishSelection(ev); sel.beat = null; Ev.selStep(ev); };
+  Ev.selSkip = function (ev, mode) { const sel = ev.sel; if (!sel || sel.pending) return; sel.fast = mode || 'end'; sel.beat = null; Ev.selStep(ev); };
   function inAlliance(ev, t) { return ev.sel.alliances.some(a => a.includes(t)); }
   function pickValue(ev, captainAlliance, cand, rng) {
     return Ev.pickScore(ev, captainAlliance, cand) + rng.norm(0, 3);
@@ -506,15 +513,17 @@
       const captain = al[0];
       const avail = sel.pool.filter(t => !inAlliance(ev, t) && !sel.declined.includes(t));
       if (!avail.length) { sel.done = true; break; }
-      if (captain === me) { sel.pending = { type: 'pick', k }; break; }
+      if (captain === me) { if (sel.fast === 'mine') sel.fast = null; sel.pending = { type: 'pick', k }; break; }
       let best = null, bv = -1e9;
       avail.forEach(t => { const v = pickValue(ev, al, t, rng); if (v > bv) { bv = v; best = t; } });
-      if (best === me) { sel.pending = { type: 'invite', k, from: captain }; break; }
+      if (best === me) { if (sel.fast === 'mine') sel.fast = null; sel.pending = { type: 'invite', k, from: captain }; break; }
+      if (sel.watch && !sel.fast && sel.beat) break; // watching: the next decision waits for Next
       // an AI invitee that would captain an alliance itself may decline, if it can do better that way
-      if (rng.chance(Ev.declineChance(ev, k, best).p)) { sel.declined.push(best); sel.log.push(best + ' declined alliance ' + (k + 1)); continue; }
+      if (rng.chance(Ev.declineChance(ev, k, best).p)) { sel.declined.push(best); sel.log.push(best + ' declined alliance ' + (k + 1)); if (sel.watch) sel.beat = sel.log[sel.log.length - 1]; continue; }
       Ev.selAccept(ev, k, best);
+      if (sel.watch) sel.beat = sel.log[sel.log.length - 1];
     }
-    if (sel.done) Ev.finishSelection(ev);
+    if (sel.done) { if (sel.watch && !sel.fast) { sel.beat = 'Alliance selection is complete.'; return; } Ev.finishSelection(ev); }
   };
   // How likely a team is to turn an invitation down: { p, why }. Only a team that would captain an alliance itself later in
   // the first round can (anyone else who declines sits the playoffs out). It weighs the alliance it is offered (the
@@ -559,6 +568,7 @@
       return false;
     }
     Ev.selAccept(ev, k, team);
+    if (sel.watch) sel.beat = sel.log[sel.log.length - 1];
     Ev.selStep(ev);
     return true;
   };
@@ -567,6 +577,7 @@
     sel.pending = null;
     if (accept) Ev.selAccept(ev, p.k, me);
     else { sel.declined.push(me); sel.log.push(me + ' declined alliance ' + (p.k + 1)); }
+    if (sel.watch) sel.beat = sel.log[sel.log.length - 1];
     Ev.selStep(ev);
   };
   Ev.finishSelection = function (ev) {

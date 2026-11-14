@@ -133,8 +133,9 @@
     });
   };
 
-  function pickArchetype(rng, S, str) {
+  function pickArchetype(rng, S, str, elite) {
     const elig = S.archetypes.filter(a => !a.defense && !a.feed && str >= a.min).sort((p, q) => q.min - p.min);
+    if (elite) return elig[0]; // an elite team builds the best robot the game allows
     const spec = S.archetypes.filter(a => (a.defense || a.feed) && str >= a.min);
     if (spec.length && rng.chance(0.08)) return rng.pick(spec);
     const x = rng.next();
@@ -144,14 +145,15 @@
   }
   // Generate this season's robot design for an AI team (stored on the team)
   AI.seasonRobot = function (team, year, rng) {
-    const S = G.Seasons[year], arch = pickArchetype(rng, S, team.str);
-    let q = U.clamp(Math.pow(team.str / 100, 1.3) + rng.norm(0, 0.07), 0.03, 0.97);
+    const S = G.Seasons[year], E = G.World && G.World.eliteCfg ? G.World.eliteCfg(G.S) : D.ELITE, el = !!team.elite, arch = pickArchetype(rng, S, team.str, el);
+    let q = el ? rng.range(E.q[0], E.q[1]) : U.clamp(Math.pow(team.str / 100, 1.3) + rng.norm(0, 0.07), 0.03, 0.97);
     // published designs (calendar careers): the weakest teams that could not build a scoring robot of their own build the
     // Anybot (from 2018), so fewer robots cannot play the game; some of the lower middle build the Apex Blueprint (from
     // 2022) and come out better. A copy builds the design's concepts and is tagged (rb.ref) for the season recaps and news.
     let ref = null;
     { const cyN = G.S && G.S.cal ? G.Era.cy(G.S) : 0, has = id => { const r = D.REFBOTS.find(x => x.id === id); return r && cyN >= r.from && r.picks[year] ? r : null; };
-      if (has('any') && team.str < 36 && q < D.REF_AI.anyFloor) { q = D.REF_AI.anyFloor; ref = has('any'); }
+      if (el) {} // elite teams design their own
+      else if (has('any') && team.str < 36 && q < D.REF_AI.anyFloor) { q = D.REF_AI.anyFloor; ref = has('any'); }
       else if (has('bp') && team.str >= 36 && team.str < 62 && rng.chance(D.REF_AI.bpShare)) { q = Math.min(0.97, q + D.REF_AI.bpBoost); ref = has('bp'); } }
     const choice = {};
     S.subs.forEach(sd => {
@@ -164,16 +166,19 @@
     // the calendar year decides how many of the teams that could run swerve do: a few machined their own before modules
     // were sold (2020), most strong teams run it from 2022
     const era = G.Era.of(G.S), dopt = arch.pick.drive, canSw = Array.isArray(dopt) ? dopt.includes('swerve') : dopt === 'swerve';
-    if (era.aiSwerve != null && canSw) choice.drive = rng.chance(era.aiSwerve) ? 'swerve' : ((Array.isArray(dopt) && dopt.find(x => x !== 'swerve')) || 'wcd');
+    if (era.aiSwerve != null && canSw) choice.drive = rng.chance(el ? Math.min(1, era.aiSwerve * 2.5 + 0.05) : era.aiSwerve) ? 'swerve' : ((Array.isArray(dopt) && dopt.find(x => x !== 'swerve')) || 'wcd'); // elite teams machined their own earlier than most
+    if (el && canSw && era.aiSwerve == null) choice.drive = 'swerve';
     if (choice.drive === 'swerve' && team.str < 45 && rng.chance(0.6)) choice.drive = 'wcd';
     if (ref) Object.keys(ref.picks[year]).forEach(k => { if (S.subs.some(sd => sd.id === k && sd.concepts.some(c => c.id === ref.picks[year][k]))) choice[k] = ref.picks[year][k]; });
     const jit = {};
     S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.08, 0.08); });
     team.rb = {
       year, arch: arch.name, ref: ref ? ref.id : null, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
-      autoTier: U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
-      drv: Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97))
+      autoTier: el ? 3 : U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
+      drv: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97)),
+      elite: el, ebonus: el ? E.bonus : 0
     };
+    if (el) S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.02, 0.02); }); // no weak spot
     return team.rb;
   };
   // Event-time capability for an AI team; weekMult models in-season improvement
@@ -191,18 +196,20 @@
       const qq = U.clamp(qe + rb.jit[sd.id], 0.02, 0.99);
       const stats = {};
       Object.keys(c.ceil).forEach(k => { stats[k] = Math.round(c.base[k] + (c.ceil[k] - c.base[k]) * qq); });
+      if (rb.elite) Object.keys(stats).forEach(k => { stats[k] = Math.min(99, stats[k] + (rb.ebonus == null ? D.ELITE.bonus : rb.ebonus)); }); // years of know-how: past the plain concept's ceiling, like a maxed-out team
       if (era.aiMotor) { if (sd.id === 'drive' && stats.speed != null) stats.speed = Math.max(5, Math.round(stats.speed + 9 * era.aiMotor)); if (stats.scoreSpd != null) stats.scoreSpd = Math.max(5, Math.round(stats.scoreSpd + 7 * era.aiMotor)); }
       const tbRel = sd.id === 'drive' && cid === 'swerve' && !era.swerve.cots ? era.swerve.rel : 0;
-      subs[sd.id] = { concept: cid, ver: 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel, 30, 97)), w: c.w };
+      subs[sd.id] = { concept: cid, ver: rb.elite ? 6 + Math.floor(qq * 3) : 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel + (rb.elite ? 5 : 0), 30, 97)), w: c.w };
     });
     const extra = { autoTier: rb.autoTier, visionLvl: rb.visionLvl, parts: { motors: qe > 0.6 ? 2 : qe > 0.35 ? 1 : 0, sensors: qe > 0.5 ? 1 : 0 } };
+    const elite = !!rb.elite;
     const cap = G.Cap.build(year, subs, extra);
     const look = G.Cap.look(year, subs, extra);
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,
-      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: d },
-      plan: { role: rb.role }, tune: U.clamp(0.4 + qe * 0.5, 0, 1), conf: U.clamp(0.4 + qe * 0.5, 0, 1), cond: 100, batt: 1, hidden: 0,
+      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: elite ? Math.max(90, d - 3) : Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: elite ? Math.min(99, d + 2) : d },
+      plan: { role: rb.role }, tune: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), conf: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), cond: 100, batt: 1, hidden: 0, elite,
       arch: rb.arch, power: G.Cap.power(year, cap)
     };
   };

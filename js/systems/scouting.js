@@ -110,6 +110,7 @@
     ['San Francisco Bay', 'West', 'sierra', -122.1, 37.55, 4], ['San Jose', 'West', 'sierra', -121.9, 37.3, 1.5], ['Sacramento', 'West', 'sierra', -121.45, 38.6, 1.2], ['Fresno', 'West', 'sierra', -119.8, 36.75, 0.8],
     ['Santa Barbara', 'West', 'sierra', -119.7, 34.45, 0.5], ['Bakersfield', 'West', 'sierra', -119.0, 35.37, 0.4]
   ].map(a => ({ n: a[0], r: a[1], d: a[2], lon: a[3], lat: a[4], w: a[5] }));
+  { const by = {}; Geo.HUBS.forEach(x => { by[x.n] = x; }); Geo.hub = n => by[n] || null; }
 
   const formed = (d, cy) => !!D.DISTRICT[d] && D.DISTRICT[d].from <= cy;
   // the cities a team of this area can come from (a district that has not formed yet is still regional country)
@@ -150,6 +151,27 @@
     return { xy: [xy[0] + lap * 7, xy[1] - lap * 5], hub: hb.n };
   };
   Geo.areaName = (region, dist) => (dist ? D.DISTRICT[dist].name : region + ' (regional)');
+  // distances on the map: back to longitude and latitude, then miles along the globe
+  Geo.lonLat = xy => [xy[0] / KX + LON0, LAT0 - xy[1] / KY];
+  Geo.miles = function (a, b) {
+    const p = Geo.lonLat(a), q = Geo.lonLat(b), rad = Math.PI / 180, dLat = (q[1] - p[1]) * rad, dLon = (q[0] - p[0]) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(p[1] * rad) * Math.cos(q[1] * rad) * Math.sin(dLon / 2) ** 2;
+    return 3959 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+  };
+  // the season the map is drawn for (districts that have formed move teams)
+  Geo.cyOf = S => (S.wseason && S.wseason.cy) || (S.cal && G.Career.cy ? G.Career.cy(S) : 2026);
+  Geo.myPos = S => Geo.teamPos(S.team.num, S.team.region, S.team.home, Geo.cyOf(S)).xy;
+  // every other team by distance from yours on the world map, nearest first: [{ t, mi }]
+  Geo.nearTeams = function (S) {
+    const cy = Geo.cyOf(S), me = Geo.myPos(S);
+    return Object.values(S.teams || {}).filter(t => t.num !== S.team.num).map(t => ({ t, mi: Math.round(Geo.miles(me, Geo.teamPos(t.num, t.region, t.home, cy).xy)) })).sort((a, b) => a.mi - b.mi);
+  };
+  // a team near yours (that passes `ok`), within `mi` miles if there is one, else the nearest few: { t, mi } or null
+  Geo.localTeam = function (S, ok, mi) {
+    const l = Geo.nearTeams(S).filter(x => !ok || ok(x.t)), rng = G.R;
+    for (const r of [mi || 100, (mi || 100) * 2, (mi || 100) * 4]) { const n = l.filter(x => x.mi <= r); if (n.length) return rng.pick(n); }
+    return l.length ? rng.pick(l.slice(0, 3)) : null;
+  };
 
   // ---------- season scouting ----------
   // How many points a robot adds in auto, teleop and endgame, by team strength, in this season's game: measured once a
@@ -238,7 +260,7 @@
     const ws = S.wseason, me = S.team.num, cy = ws.cy, rows = [];
     const add = (num, region, dist, rookie, str) => {
       const recs = ws.rec[num] || [], sr = recs.filter(r => r.s), n = sr.length;
-      const row = { num, me: num === me, region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
+      const row = { num, me: num === me, elite: !!(S.teams[num] && S.teams[num].elite), region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
         w: 0, l: 0, t: 0, wp: null, rs: null, opr: null, au: null, te: null, en: null, best: 9, bestTxt: '', wins: 0, aw: 0 };
       recs.forEach(r => {
         const f = Sc.FIN[r.f] || (r.a ? 7 : 9); if (f < row.best) { row.best = f; row.bestTxt = r.f || (r.a ? 'Alliance ' + r.a : ''); }

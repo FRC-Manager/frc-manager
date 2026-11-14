@@ -90,6 +90,9 @@
   UI.trophyShelf = list => '<div class="trophies">' + list.map(t => '<div class="trophy ' + t.kind + (t.world ? ' world' : '') + '"><span class="tr-i">' + UI.icon(t.kind === 'award' ? 'star' : 'trophy', 16) + '</span><div><div class="tr-n">' + h(t.name) + '</div><div class="tr-e">' + t.cy + ' · ' + h(t.event) + '</div></div></div>').join('') + '</div>';
   UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
+  // an elite team (world simulation): a small rose tag wherever the team shows up
+  UI.isElite = n => !!(G.S && G.S.teams && G.S.teams[n] && G.S.teams[n].elite);
+  UI.eliteTag = () => '<span class="etag" title="Elite team: one of the best programs in the world, close to maxed out in robot, drive team and strategy">Elite</span>';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
     UI.job(() => { const c = document.getElementById(id); if (c) G.Render.robotSide(c.getContext('2d'), c.width, c.height, look, a, team); });
@@ -201,7 +204,8 @@
     if (L.kind === 'festLive') return UI.festLiveModal(); // the Festival of Champions is streamed this month
     if (L.kind === 'bagPick') return UI.bagPickModal(); // Stop Build Day: which robot goes in the bag
     if (L.kind === 'preorder') { S.launchQueue.shift(); return UI.preorderModal(); } // November: field elements for next season
-    if (L.kind === 'refbot') { S.launchQueue.shift(); return UI.refbotModal(); } // Build Week 1: this year's published designs
+    if (L.kind === 'refbot') { S.launchQueue.shift(); return UI.refbotModal(); } // Build Week 2: this year's published designs
+    if (L.kind === 'shelfPay') { S.launchQueue.shift(); return UI.shelfPayModal(); } // a worn Parts Shelf: renovating pays off now
     if (L.kind) return UI.techModal(L, S.launchQueue.length - 1);
     const V = D.VENDORS[L.v], more = S.launchQueue.length - 1;
     const prod = p => '<div class="card flat mb" style="border-left:3px solid ' + V.color + '"><div class="row"><b>' + h(p.name) + '</b> ' + UI.tag('NEW', 'acc') + '<span class="sp"></span><b>' + U.money(p.price) + '</b><span class="xs muted">each</span></div>' +
@@ -283,7 +287,7 @@
   // A story: one of the calendar's big changes (a vendor rises or falls, a rule changes, the year in review)
   UI.storyModal = function (L, more) {
     const col = L.color || 'var(--accent)', hit = L.hit;
-    const go = L.btn === 'parts' ? '<button class="btn primary" data-act="launchShop">Open the Inventory</button>' : L.btn === 'workshop' ? '<button class="btn primary" data-act="launchWorkshop">Open the Workshop</button>' : L.btn === 'know' || hit ? '<button class="btn primary" data-act="launchKnow">Tech Knowledge</button>' : '';
+    const go = L.btn === 'parts' ? '<button class="btn primary" data-act="launchShop">Open the Inventory</button>' : L.btn === 'workshop' ? '<button class="btn primary" data-act="launchWorkshop">Open the Workshop</button>' : L.btn === 'swerve' ? '<button class="btn primary" data-act="launchBuy" data-arg="swerve">Buy swerve modules</button>' : L.btn === 'know' || hit ? '<button class="btn primary" data-act="launchKnow">Tech Knowledge</button>' : '';
     UI.modal('<div class="xs b" style="color:' + col + ';letter-spacing:.08em">' + h(L.tag) + (L.month ? ' · ' + h(String(L.month).toUpperCase()) : '') + '</div><h2>' + h(L.title) + '</h2>' +
       L.body.map(p => '<p class="story-p">' + h(p) + '</p>').join('') +
       (L.series && UI.festSeriesBox ? UI.festSeriesBox(L.series, L.mineTag, col) : L.mine ? '<div class="card flat mb" style="border-left:3px solid ' + col + '"><div class="xs muted b">' + h(L.mineTag || 'YOUR SEASON') + '</div><div class="sm mt">' + h(L.mine) + '</div></div>' : '') +
@@ -524,8 +528,8 @@
     }
     const tips = {
       off: S.preseason ? 'Pre-season: sign sponsors (Finance), hire mentors, stock up on parts (Inventory), register for events (Calendar), start research (Design Office).' : 'Offseason: research, offseason events (Calendar), outreach (Team), sponsors in October, parts before Kickoff. Rule changes arrive in May and new designs in summer: both date your tech knowledge.',
-      kickoff: 'Kickoff! Choose a concept for every subsystem in the Design Office, then press Continue.',
-      build: S.week === 7 ? 'Week 0 — last week before competitions start.' : 'Build season: keep project slots busy. Consider overtime in the Design Office' + (S.week <= 3 ? ', and a test chassis in the Garage for early testing hours.' : '.'),
+      kickoff: G.Robot.refsSoon(S).length ? 'Kickoff! Choose a concept for every subsystem in the Design Office, or wait for this year\'s published designs (start of Build Week 2). Then press Continue.' : 'Kickoff! Choose a concept for every subsystem in the Design Office, then press Continue.',
+      build: S.week === 7 ? 'Week 0 — last week before competitions start.' : G.Robot.refsSoon(S).length ? 'Build Week 1: design your own robot, or wait for this year\'s published designs next week. A test chassis, code, program projects or a rest week fill the wait (Design Office).' : 'Build season: keep project slots busy. Consider overtime in the Design Office' + (S.week <= 3 ? ', and a test chassis in the Garage for early testing hours.' : '.'),
       comp: S.week === 7 ? (S.team.home && G.World.on(S) ? 'Week 7 — District Championship week. The district\'s Championship places are settled when it ends.' : 'Week 7 — no regionals. Lighten the load and let the team recover before the Championship.') : 'Competition season — no event this week. Keep upgrading between events.',
       champs: 'The season is wrapping up.'
     };
@@ -535,6 +539,12 @@
   // =====================================================================
   // INBOX
   // =====================================================================
+  // the other teams a message is about: the ones it was written with (m.teams), or "Team 1234" in its text (older messages)
+  UI.msgTeams = function (S, m) {
+    if (!G.World.on(S) || !S.wseason) return [];
+    const l = (m.teams || []).concat(((m.title + ' ' + m.body).match(/\bTeam (\d{1,5})\b/g) || []).map(x => Number(x.slice(5))));
+    return [...new Set(l)].filter(n => n !== S.team.num && S.teams[n]).slice(0, 3);
+  };
   UI.S.inbox = { html() {
     const S = G.S;
     const KIND = { boost: ['Opportunity', 'good'], incident: ['Shop incident', 'warn'], shop: ['Facilities', 'warn'], fun: ['Team chatter', 'info'], news: ['News', ''], money: ['Finance', 'good'], event: ['Event', 'acc'], dev: ['Development', ''], know: ['Knowledge', ''], staff: ['Team', ''], kickoff: ['Kickoff', 'acc'], goal: ['Goals', ''] };
@@ -547,8 +557,10 @@
       const rt = opts.length ? ' ' + UI.tag('reply', 'acc') : m.replied != null ? ' ' + UI.tag('replied', 'good') : m.reply ? ' ' + UI.tag('expired') : '';
       let body = '';
       if (open) {
-        body = '<div class="mb">' + h(m.body) + '</div>';
+        body = (m.robot && m.robot.look ? '<div class="mb">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 320, 180) + '</div>' : '') + '<div class="mb">' + h(m.body) + '</div>'; // a reveal: the robot's picture
         if (m.series && UI.festSeriesBox) body += UI.festSeriesBox(m.series, m.seriesTag); // the Festival's result, as in the pop-up
+        // the teams it names, on the World map (a convenience: it does not make the message one that waits for you)
+        { const ts = UI.msgTeams(S, m); if (ts.length) body += '<div class="row wrap gap4 mb">' + ts.map(n => '<button class="btn sm" data-act="mapTeam" data-arg="' + n + '">' + UI.icon('map', 13) + ' ' + (ts.length > 1 ? 'Show ' + n + ' on the map' : 'Show this team on the map') + '</button>').join('') + '</div>'; }
         if (opts.length) body += '<div class="row wrap gap4 mt">' + opts.map(o => '<button class="btn sm' + (o.i === 0 ? ' primary' : '') + '" data-act="replyMsg" data-arg="' + m.id + '|' + o.i + '"' + (o.ok ? '' : ' disabled') + '>' + h(o.text) + '</button>').join('') + '</div><div class="xs muted mt">Optional. Reply this ' + (S.phase === 'off' ? 'month' : 'week') + ' or ignore it: the offer lapses when you press Continue.</div>';
         else if (m.reply && m.replied == null) body += '<div class="xs muted mt">No reply was sent; the offer lapsed at the end of its ' + (S.phase === 'off' ? 'month' : 'week') + '.</div>';
         if (m.outcome) body += '<div class="mb good">↳ ' + h(m.outcome) + '</div>';
@@ -708,7 +720,9 @@
     o += '<div class="mt">' + UI.card('Testing hours ' + (function () { const th = C.testHours(S), pf = G.Shop.lvl(S, 'pfield') > 0, r2 = G.Robot.secondRuns(S); return th.unlocked ? UI.tag('from ' + [pf ? 'the practice field' : '', r2 ? (G.Robot.secondShare(S) > 0 ? 'the second robot' : 'the test chassis') : ''].filter(Boolean).join(' and '), 'info') : UI.tag('from a test or second robot and a practice field'); })(), UI.testPanel(S)) + '</div>';
     // weekly suggestion
     const sg = G.Robot.suggest(S);
-    // this season's published designs (from Build Week 1): copy a whole robot, or single subsystems in the concept chooser
+    // before they are out (the Kickoff turn and Build Week 1): design your own now, or wait for them and use the week otherwise
+    o += UI.refSoonCard(S);
+    // this season's published designs (from Build Week 2): copy a whole robot, or single subsystems in the concept chooser
     { const rs = G.Robot.refs(S); if (rs.length) o += '<div class="card mt"><div class="ct">' + UI.icon('design', 16) + ' Published designs this season<span class="sp"></span><button class="btn sm" data-act="refShow">Show the robots</button></div><div class="row wrap gap4">' + rs.map(r => '<span class="tag" style="border-color:' + r.color + '">' + h(r.name) + ' · ' + h(r.by) + '</span>').join('') + '<span class="xs muted">Copy a whole robot, or single subsystems from the concept chooser ("Copy the …"): cheaper first builds that start as version 2. Upgrades are your own work.</span></div></div>'; }
     if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row mt"><button class="btn sm primary" data-act="startSuggest">Start it</button></div></div>';
     // active projects
@@ -897,7 +911,9 @@
     if (idle > 10) {
       const free = G.Robot.slots(S) - G.Robot.slotUsed(S);
       const inSeason = ['kickoff', 'build', 'comp'].includes(S.phase), share = total ? idle / total : 0;
-      o += '<div class="' + (inSeason && share <= 0.2 ? 'hint' : 'warnbox') + ' mt">' + Math.round(idle) + ' h idle this ' + unit + '. ' + (inSeason && share <= 0.2 ? 'Some idle time is good: about 10% keeps the team\'s fatigue steady. ' : '') + (free > 0 ? 'Start another project (' + free + ' free slot' + (free > 1 ? 's' : '') + ')' : 'All slots are busy') + ', or give a project <b>extra hours</b> to raise its quality.</div>';
+      const rest = inSeason && share > 0.2 && G.Robot.refsSoon(S).length > 0; // waiting for the published designs: a rest week is a fair choice
+      o += '<div class="' + (inSeason && share <= 0.2 || rest ? 'hint' : 'warnbox') + ' mt">' + Math.round(idle) + ' h idle this ' + unit + '. ' + (rest ? 'Waiting for the published designs? Idle hours let the team rest: fatigue drops. Otherwise ' + (free > 0 ? 'start a project (' + free + ' free slot' + (free > 1 ? 's' : '') + ') or ' : '') + 'give a project <b>extra hours</b>.</div>' :
+        (inSeason && share <= 0.2 ? 'Some idle time is good: about 10% keeps the team\'s fatigue steady. ' : '') + (free > 0 ? 'Start another project (' + free + ' free slot' + (free > 1 ? 's' : '') + ')' : 'All slots are busy') + ', or give a project <b>extra hours</b> to raise its quality.</div>');
     }
     return o;
   };
@@ -977,23 +993,62 @@
   UI.refLook = (S, r) => { const subs = {}, p = r.picks[S.year]; Object.keys(p).forEach(k => { subs[k] = { concept: p[k], ver: 2, stats: {} }; }); return G.Cap.look(S.year, subs, {}); };
   // one design: picture, what is in it, how much of it you still need, and the whole-robot button
   function refCard(S, r, wide) {
-    const year = S.year, picks = r.picks[year], R = S.robot;
-    let left = 0, own = 0, cost = 0, todo = 0;
-    const rows = Object.keys(picks).map(k => {
-      const c = G.Seasons.concept(year, k, picks[k]), d = R.design[k], run = S.projects.some(p => p.sub === k && p.type !== 'copy');
+    const year = S.year, R = S.robot, Pt = G.Parts, pl = G.Robot.refPlan(S, r);
+    const rows = pl.rows.map(x => {
+      const k = x.sub, d = R.design[k];
       let st;
-      if (d && d.ver) st = d.concept === picks[k] ? '<span class="good">built</span>' : 'yours: ' + h((G.Seasons.concept(year, k, d.concept) || {}).name || '');
-      else if (run) st = '<span class="info">in progress</span>';
-      else { const q = G.Robot.quote(S, { type: 'build', sub: k, concept: picks[k], effort: 'std', ref: r.id }), o = G.Robot.quote(S, { type: 'build', sub: k, concept: picks[k], effort: 'std' }); left += q.hours; own += o.hours; cost += q.cost; todo++; st = q.hours + ' h <span class="dim">(own design ' + o.hours + ' h)</span>'; }
-      return '<tr><td>' + h(G.Seasons.sub(year, k).name) + '</td><td><b>' + h(c.name) + '</b></td><td class="xs">' + st + '</td></tr>';
+      if (x.state === 'built') st = d.concept === x.c.id ? '<span class="good">built</span>' : 'yours: ' + h((G.Seasons.concept(year, k, d.concept) || {}).name || '');
+      else if (x.state === 'run') st = '<span class="info">in progress</span>';
+      else if (x.state === 'ok') st = x.q.hours + ' h <span class="dim">(own design ' + x.own + ' h)</span>';
+      else if (x.state === 'short') st = '<span class="bad" title="' + h(x.why) + '">short of ' + h(Pt.missList(x.miss)) + '</span>';
+      else st = '<span class="warn" title="' + h(x.why) + '">' + (x.state === 'slot' ? 'waits for a project slot' : x.state === 'money' ? 'not enough money' : h(x.why)) + '</span>';
+      return '<tr><td>' + h(G.Seasons.sub(year, k).name) + '</td><td><b>' + h(x.c.name) + '</b></td><td class="xs">' + st + '</td></tr>';
     }).join('');
+    // a swerve drivetrain runs on bought modules: say how many it takes and how many are on the shelf
+    const sw = pl.rows.find(x => x.sub === 'drive' && x.c.id === 'swerve' && !['built', 'run'].includes(x.state)), swN = sw ? Pt.bom(year, 'drive', sw.c).swerve || 4 : 0, swHave = Pt.count(S, 'swerve');
+    const swLine = sw ? '<div class="xs mt">' + UI.icon('swerve', 12) + ' Its drivetrain runs on ' + swN + ' swerve modules from the Inventory: you have ' + swHave + '.' + '</div>' : '';
+    const shortRows = pl.rows.filter(x => x.state === 'short').map(x => G.Seasons.sub(year, x.sub).name), and = l => (l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0] || '');
+    const warn = pl.miss.length ? '<div class="sm mt" style="border-left:3px solid var(--bad);padding-left:8px"><b class="bad">Not enough parts:</b> short of ' + h(Pt.missList(pl.miss)) + (shortRows.length ? ', so the ' + h(and(shortRows)) + (shortRows.length > 1 ? ' don\'t' : ' doesn\'t') + ' start.' : '.') +
+      '<div class="row wrap mt">' + pl.miss.slice(0, 3).map(m => '<button class="btn sm" data-act="buyParts" data-arg="' + m.cat + '">Buy ' + h(D.PART_CAT[m.cat].short.toLowerCase()) + '</button>').join('') + '</div></div>' : '';
+    const label = pl.ok && pl.ok < pl.todo ? 'Build ' + pl.ok + ' of ' + pl.todo + ' subsystems' : 'Build the ' + h(r.name), first = pl.rows.find(x => x.why);
     return '<div class="card flat" style="border-top:3px solid ' + r.color + '">' + UI.sideCanvas(UI.refLook(S, r), 'blue', r.tag, wide ? 380 : 300, wide ? 200 : 160) +
       '<div class="row mt"><b class="lg" style="color:' + r.color + '">' + h(r.name) + '</b><span class="sp"></span><span class="xs muted">by ' + h(r.by) + '</span></div><div class="xs muted mb">' + h(r.blurb) + '</div>' +
-      '<table class="t tight">' + rows + '</table>' +
-      '<div class="xs muted mt">First build: −' + Math.round((1 - r.k.hours) * 100) + '% hours, −' + Math.round((1 - r.k.cost) * 100) + '% materials, starts as v2, reliability +' + r.k.rel + ' and drivers at ' + Math.round(r.k.fam * 100) + '% from its simulator and drills (whole robot; less for part of it), half the know-how. Upgrades are your own work.' + UI.q('design', 'Published designs') + '</div>' +
-      '<div class="row mt"><span class="sm">' + (todo ? '<b>' + left + ' h</b> · ' + U.money(cost) + ' for the rest <span class="dim">(own designs ' + own + ' h)</span>' : 'Nothing left to copy') + '</span><span class="sp"></span><button class="btn sm primary" data-act="buildRef" data-arg="' + r.id + '" ' + (todo ? '' : 'disabled') + '>Build the ' + h(r.name) + '</button></div></div>';
+      '<table class="t tight">' + rows + '</table>' + swLine +
+      '<div class="xs muted mt">First build: −' + Math.round((1 - r.k.hours) * 100) + '% hours, −' + Math.round((1 - r.k.cost) * 100) + '% materials, starts as v2, reliability +' + r.k.rel + ' and drivers at ' + Math.round(r.k.fam * 100) + '% from its simulator and drills (whole robot; less for part of it), half the know-how. Upgrades are your own work.' + UI.q('design', 'Published designs') + '</div>' + warn +
+      '<div class="row mt"><span class="sm">' + (pl.todo ? '<b>' + pl.hours + ' h</b> · ' + U.money(pl.cost) + ' for the rest <span class="dim">(own designs ' + pl.own + ' h)</span>' : 'Nothing left to copy') + '</span><span class="sp"></span><button class="btn sm primary" data-act="buildRef" data-arg="' + r.id + '" ' + (pl.ok ? '' : 'disabled' + (pl.todo && first ? ' title="' + h(first.why) + '"' : '')) + '>' + label + '</button></div></div>';
   }
-  // Build Week 1: the window with this year's published robots
+  // the Inventory tab and section that sell a part (from a published design's card or a story)
+  UI.A.buyParts = cat => {
+    const S = G.S, at = G.Parts.shopAt(S, cat);
+    UI.closeModal(); UI.st.partsTab = at.tab; UI.go('parts');
+    const el = document.getElementById(at.anchor); if (el) el.scrollIntoView({ block: 'start' });
+    if (S.launchQueue && S.launchQueue.length) UI.launchModal();
+  };
+  UI.A.launchBuy = cat => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.A.buyParts(cat); };
+  // the Kickoff turn and Build Week 1: this season's published designs are coming. Start your own design now, or wait:
+  // a test chassis, code, program projects or a rest week (idle hours lower fatigue, so Week 2 can be an overtime week).
+  // What copying would save is set against a week of the team's hours: the smaller the team, the more waiting pays.
+  UI.refSoonCard = function (S) {
+    const rs = G.Robot.refsSoon(S); if (!rs.length) return '';
+    const wk = G.Career.turnHours(S), sv = rs.map(r => ({ r, s: G.Robot.refSave(S, r).save })), and = l => (l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0]);
+    const k = Math.max.apply(null, sv.map(x => x.s)) / Math.max(1, wk), nm = and(rs.map(r => 'the ' + r.name));
+    return '<div class="card mt" style="border-left:3px solid var(--accent)"><div class="ct">' + UI.icon('design', 16) + ' Published designs: out at the start of Build Week 2' + UI.q('design', 'Published designs') + '</div>' +
+      '<div class="sm">' + h(nm.charAt(0).toUpperCase() + nm.slice(1)) + (rs.length > 1 ? ' come' : ' comes') + ' out ' + (S.phase === 'kickoff' ? 'after Build Week 1' : 'after this week') + '. Start your own design now, or wait: build a test chassis (<a href="#" data-act="nav" data-arg="garage">Garage</a>), run program projects, write code, or rest so fatigue drops and Week 2 can be an overtime week.</div>' +
+      '<div class="xs muted mt">Copying the whole ' + h(sv[0].r.name) + ' saves about ' + sv[0].s + ' h of build work' + (sv[1] ? ' (the ' + h(sv[1].r.name) + ' about ' + sv[1].s + ' h)' : '') + ': ' + (k >= 1.15 ? 'more than a week' : k >= 0.85 ? 'about a week' : 'about ' + Math.round(k * 100) + '% of a week') + ' of your team\'s hours (' + wk + ' h), and it starts as a version 2 with drivers who know it. ' + (k >= 0.5 ? 'For a team your size, waiting pays.' : 'A team this size could design its own in the week it waits.') + '</div></div>';
+  };
+  // Build Week 2: the window with this year's published robots
+  // the worn Parts Shelf has reached the point where a renovation costs less than the extra upkeep it would save
+  UI.shelfPayModal = function () {
+    const S = G.S, Sh = G.Shop, p = Sh.shelfPay(S);
+    if (!p || !p.pays) return UI.launchModal();
+    const nm = Sh.item('shelf').levels[Sh.lvl(S, 'shelf') - 1].name, cond = Math.round(Sh.cond(S, 'shelf'));
+    UI.modal('<div class="xs b" style="letter-spacing:.08em;color:var(--warn)">WORKSHOP · PARTS SHELF</div><h2>Renovating the parts shelf pays off now</h2>' +
+      '<p>Your parts shelf (' + h(nm.toLowerCase()) + ') is at ' + cond + '% condition. Its wear adds <b>' + U.money(p.extra) + '</b> to the upkeep at every Kickoff, and more as it wears further.</p>' +
+      '<p>Over the ' + p.left + ' Kickoff' + (p.left === 1 ? '' : 's') + ' left in your career that is <b>' + U.money(p.save) + '</b>. A renovation costs <b>' + U.money(p.reno) + '</b> today.</p>' +
+      '<div class="row mt"><span class="sp"></span><button class="btn" data-act="shelfPayLater">Later</button><button class="btn primary" data-act="shelfPayReno">Renovate · ' + U.money(p.reno) + '</button></div>');
+  };
+  UI.A.shelfPayLater = () => { UI.closeModal(); if (G.S.launchQueue && G.S.launchQueue.length) UI.launchModal(); };
+  UI.A.shelfPayReno = () => { const S = G.S, cost = G.Shop.renoCost(S, 'shelf'); if (UI.err(G.Shop.renovate(S, 'shelf'))) return; UI.toast('Parts shelf renovated for ' + U.money(cost) + ': back to 100%', 'good'); UI.closeModal(); UI.render(); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
   UI.refbotModal = function () {
     const S = G.S, rs = G.Robot.refs(S);
     if (!rs.length) return UI.launchModal();
@@ -1008,8 +1063,12 @@
   UI.A.buildRef = id => {
     const S = G.S, r = G.Robot.buildRef(S, id), nm = (D.REFBOTS.find(x => x.id === id) || {}).name;
     if (r.started.length) UI.toast('Copying the ' + nm + ': ' + r.started.join(', '), 'good');
-    if (r.skipped.some(x => /slot/i.test(x))) UI.toast('Not every subsystem could start: ' + r.skipped.filter(x => /slot/i.test(x)).length + ' wait for a free project slot', 'bad');
-    else if (!r.started.length) UI.toast(r.skipped[0] || 'Nothing to copy', 'bad');
+    // what did not start, and why: parts the shelf ran out of, a project slot, money
+    if (r.short.length) UI.toast('Not started, not enough parts: ' + r.short.join(', ') + '. Buy them in the Inventory, then copy ' + (r.short.length > 1 ? 'them' : 'it') + ' here or in the Design Office.', 'bad');
+    const slot = r.skipped.filter(x => /slot/i.test(x)).length, other = r.skipped.filter(x => !/: (already built|a project is running|Needs )/.test(x) && !/slot/i.test(x));
+    if (slot) UI.toast('Not every subsystem could start: ' + slot + ' wait for a free project slot', 'bad');
+    if (other.length) UI.toast('Not started: ' + other[0], 'bad');
+    else if (!r.started.length && !r.short.length && !slot) UI.toast(r.skipped[0] || 'Nothing to copy', 'bad');
     if (document.getElementById('modal')) UI.refbotModal(); UI.render();
   };
   UI.A.upgradeModal = function (subId) {
@@ -1174,6 +1233,9 @@
         '<div class="row wrap xs muted mt" style="gap:4px 12px">' + D.EQUIP.map((e, i) => { const z = Sh.sizeOf(e.id, Sh.lvl(S, e.id)); return z ? '<span><span class="cdot" style="background:' + PAL[i % PAL.length] + '"></span>' + h(e.name) + ' ' + n(z) + '</span>' : ''; }).join('') + '</div>' +
         '<div class="xs muted mt">The team works in ' + h(D.SPACE_TIERS[S.spaceTier || 0].name) + '. ' +
         (nx ? 'The school hands over ' + h(nx.name) + ' (' + n(nx.sqft) + ' sq ft) when Program Support is <b>' + nx.sup + '</b> or higher at a season review (it is ' + Math.round(S.support) + ' now). ' : 'That is all the room there is: it fits every facility at its top level. ') + UI.q('workshop', 'Workshop space') + '</div></div>'; }
+    { const ra = G.Shop.renoAllInfo(S); // Renovate all (both tabs)
+      if (ra.ids.length) { const low = Math.min(...ra.ids.map(id => G.Shop.cond(S, id)));
+        o += '<div class="row mb"><span class="sm muted">' + ra.ids.length + ' facilit' + (ra.ids.length === 1 ? 'y is' : 'ies are') + ' worn (the lowest at ' + Math.round(low) + '%)</span><span class="sp"></span><button class="btn sm" data-act="renoAll" title="' + h(ra.ids.map(id => G.Shop.item(id).name + ' ' + Math.round(G.Shop.cond(S, id)) + '%: ' + U.money(G.Shop.renoCost(S, id))).join(' · ')) + '">Renovate all · ' + U.money(ra.cost) + '</button></div>'; } }
     // two tabs: the robot's facilities, and the ones that serve the team and the program
     const tab = UI.st.shopTab === 'team' ? 'team' : 'tech', inTab = e => D.EQUIP_TEAM.includes(e.id) === (tab === 'team');
     const owned = t => D.EQUIP.filter(e => D.EQUIP_TEAM.includes(e.id) === (t === 'team') && G.Shop.lvl(S, e.id)).length;
@@ -1197,8 +1259,9 @@
     if (l) {
       const c = Sh.cond(S, e.id), eff = Sh.eff(S, e.id);
       o += '<div class="statrow"><span class="n">Condition</span>' + UI.bar(c, 100, UI.colorFor(c)) + '<span class="v">' + Math.round(c) + '%</span></div>' +
+        (e.wornUpkeep ? '<div class="sm">Now: <span class="good">' + h(Sh.effectText(S, e.id)) + '</span></div>' + (c < 99.5 ? '<div class="xs muted">Wear raises its upkeep: ' + U.money(Sh.upkeepOf(S, e)) + ' at Kickoff (' + U.money(e.upkeep * l) + ' when renovated).</div>' : '') :
         '<div class="sm">Now (' + Math.round(eff * 100) + '% efficiency): <span class="good">' + h(Sh.effectText(S, e.id)) + '</span></div>' +
-        (eff < 0.99 ? '<div class="xs muted">At full condition: ' + h(Sh.effectText(S, e.id, l, 1)) + '</div>' : '') +
+        (eff < 0.99 ? '<div class="xs muted">At full condition: ' + h(Sh.effectText(S, e.id, l, 1)) + '</div>' : '')) +
         (Sh.fx(S, e.id, 'slot', l, 1) && !Sh.slotOf(S, e.id) ? '<div class="xs bad">Below ' + Sh.SLOT_COND + '% condition: its project slot is out of action until you renovate.</div>' : '');
     }
     if (e.id === 'pfield') o += UI.elemStatus(S);
@@ -1206,7 +1269,7 @@
       (blk ? '<div class="xs bad">Not enough room: needs ' + need + ' sq ft, ' + Math.max(0, Sh.spaceFree(S)) + ' sq ft free.</div>' : '');
     o += '<div class="row wrap gap4 mt">';
     if (l) o += '<button class="btn sm" data-act="renoEq" data-arg="' + e.id + '" ' + (reno ? '' : 'disabled') + '>' + (reno ? 'Renovate · ' + U.money(reno) : 'Like new') + '</button>';
-    if (l) { const dn = Sh.downInfo(S, e.id); o += '<button class="btn sm ghost" data-act="downEq" data-arg="' + e.id + '" title="Give this level back to make room. Half its price comes back at full condition, less as it wears; nothing for a donated level.">' + (l > 1 ? 'Downgrade to Lv ' + (l - 1) : 'Remove') + ' · +' + U.money(dn.refund) + '</button>'; }
+    if (l && !e.noDown) { const dn = Sh.downInfo(S, e.id); o += '<button class="btn sm ghost" data-act="downEq" data-arg="' + e.id + '" title="Give this level back to make room. Half its price comes back at full condition, less as it wears; nothing for a donated level.">' + (l > 1 ? 'Downgrade to Lv ' + (l - 1) : 'Remove') + ' · +' + U.money(dn.refund) + '</button>'; }
     const lb = up != null ? Sh.levelBlock(S, e.id) : null;
     if (lb) o += '<span class="xs muted">' + h(lb) + '</span>';
     else if (up != null) o += '<button class="btn sm ' + (l ? '' : 'primary') + '" data-act="buyEq" data-arg="' + e.id + '"' + (blk ? ' disabled title="' + h(blk) + '"' : '') + '>' + (l ? 'Upgrade to Lv ' + (l + 1) : 'Buy') + ' · ' + U.money(up) + '</button>' +
@@ -1214,7 +1277,7 @@
     else if (up == null) o += UI.tag('top level', 'good');
     { const F = Sh.FINISH.find(f => f.id === e.id), n = F ? Sh.finishOf(S, F) : 0, left = n ? Sh.finishCards(S).filter(f => f === F).length : 0;
       if (n) o += ' <span class="xs good">' + (n > 1 ? n + ' "Finish now" cards this season: ' + left + ' left' : left ? '"Finish now" card ready this season' : '"Finish now" card used this season') + '</span>'; }
-    o += '</div><div class="xs dim mt">Upkeep ' + U.money(e.upkeep) + '/season per level · wears ' + [e.wear.season ? e.wear.season + '%/build week' : '', e.wear.off ? e.wear.off + '%/offseason month' : '', e.wear.event ? e.wear.event + '%/event' : ''].filter(Boolean).join(', ') + '</div></div>';
+    o += '</div><div class="xs dim mt">Upkeep ' + U.money(e.upkeep) + '/season per level' + (e.wornUpkeep ? ', up to ' + (1 + e.wornUpkeep) + '× when worn' : '') + ' · wears ' + [e.wear.season ? e.wear.season + '%/build week' : '', e.wear.off ? e.wear.off + '%/offseason month' : '', e.wear.event ? e.wear.event + '%/event' : ''].filter(Boolean).join(', ') + '</div></div>';
     return o;
   }
   // Game elements on the practice field: this game's sets, preorders on the way, how full the field is
@@ -1234,6 +1297,7 @@
   };
   UI.A.buyEq = id => { if (!UI.err(G.Career.buyEquip(G.S, id))) { UI.toast('Done — ' + G.Shop.item(id).levels[G.Shop.lvl(G.S, id) - 1].name + ' ready', 'good'); UI.render(); } };
   UI.A.grantEq = id => { if (!UI.err(G.Career.buyEquip(G.S, id, { grant: true }))) { UI.toast('The school board paid for your ' + G.Shop.item(id).levels[G.Shop.lvl(G.S, id) - 1].name, 'good'); G.Save.write('auto'); UI.render(); } };
+  UI.A.renoAll = () => { const S = G.S, r = G.Shop.renoAllInfo(S); if (UI.err(G.Shop.renovateAll(S))) return; UI.toast(r.ids.length + ' facilit' + (r.ids.length === 1 ? 'y' : 'ies') + ' renovated for ' + U.money(r.cost) + ': all back to 100%', 'good'); UI.render(); };
   UI.A.renoEq = id => { const cost = G.Shop.renoCost(G.S, id); if (!UI.err(G.Shop.renovate(G.S, id))) { UI.toast('Renovated for ' + U.money(cost) + ' — back to 100%', 'good'); UI.render(); } };
   UI.A.buyBatt = n => { const before = G.Shop.fleetHealth(G.S); if (!UI.err(G.Career.buyBatteries(G.S, Number(n)))) { UI.toast('Fleet health ' + Math.round(before * 100) + '% → ' + Math.round(G.Shop.fleetHealth(G.S) * 100) + '%', 'good'); UI.render(); } };
   UI.batteryRow = function (S) {

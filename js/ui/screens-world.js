@@ -16,7 +16,7 @@
     return '#' + a.map((v, j) => Math.round(v + (b[j] - v) * f).toString(16).padStart(2, '0')).join('');
   };
   const inkOn = c => { const x = rgb(c); return 0.299 * x[0] + 0.587 * x[1] + 0.114 * x[2] > 140 ? '#0b0b0b' : '#ffffff'; };
-  const EV_COL = '#9085e9', ME_COL = '#f5b800', LAND = '#1d242c', WATER = '#0b141c', EDGE = '#34404c';
+  const EV_COL = '#9085e9', ME_COL = '#f5b800', ELITE_COL = '#ff4f8b', LAND = '#1d242c', WATER = '#0b141c', EDGE = '#34404c';
   const f1 = v => (v == null ? '—' : v.toFixed(1));
   const iconBody = name => UI.icon(name, 24).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 
@@ -49,9 +49,10 @@
       if (st.type === 'regional' && t.home) return;
       if (st.type === 'rookie' && t.ry !== cy) return;
       if (st.type === 'qual' && !ws.q[t.num]) return;
+      if (st.type === 'elite' && !t.elite) return;
       if (t.str < st.smin || t.str > st.smax) return;
       const p = G.Geo.teamPos(t.num, t.region, t.home, cy);
-      out.push({ num: t.num, x: p.xy[0], y: p.xy[1], str: t.str, rookie: t.ry === cy, area: t.home ? D.DISTRICT[t.home].short + ' District' : t.region, hub: p.hub });
+      out.push({ num: t.num, x: p.xy[0], y: p.xy[1], str: t.str, rookie: t.ry === cy, elite: !!t.elite, name: t.name, area: t.home ? D.DISTRICT[t.home].short + ' District' : t.region, hub: p.hub });
     });
     return out;
   }
@@ -82,16 +83,20 @@
     clampView(st);
     const vw = Geo.W / k, vh = Geo.H / k, vx = st.cx - vw / 2, vy = st.cy - vh / 2, px = v => (v / k).toFixed(2);
     const dists = G.World.districtsAt(cy), myPos = Geo.teamPos(me, S.team.region, S.team.home, cy).xy;
+    // a team shown from a message or the scouting list ("Show this team on the map"): marked, with its distance from you
+    const mt = st.mark && st.mark !== me ? S.teams[st.mark] : null, mk = mt ? { t: mt, xy: Geo.teamPos(mt.num, mt.region, mt.home, cy).xy } : null;
+    if (mk) mk.mi = Math.round(Geo.miles(myPos, mk.xy));
     // ---- filters (one row above the map)
     const opt = (v, cur, label) => '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>';
     let o = '<div class="row wrap wm-f mb">' +
       flab('Show', '<div class="segs">' + [['both', 'Teams and events'], ['teams', 'Teams'], ['events', 'Events']].map(x => '<button class="btn sm ' + (st.show === x[0] ? 'sel' : '') + '" data-act="wmShow" data-arg="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>') +
       flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
-      flab('Filter by team type', '<select class="inp fsel" data-chg="wmType">' + opt('all', st.type, 'All types') + opt('district', st.type, 'District teams') + opt('regional', st.type, 'Regional teams') + opt('rookie', st.type, 'Rookies') + opt('qual', st.type, 'Championship qualified') + '</select>') +
+      flab('Filter by team type', '<select class="inp fsel" data-chg="wmType">' + opt('all', st.type, 'All types') + opt('district', st.type, 'District teams') + opt('regional', st.type, 'Regional teams') + opt('rookie', st.type, 'Rookies') + opt('qual', st.type, 'Championship qualified') + opt('elite', st.type, 'Elite teams') + '</select>') +
       flab('Filter by strength', '<select class="inp fsel" data-chg="wmSmin" title="Weakest team shown">' + [0, 20, 30, 40, 50, 60, 70, 80].map(v => opt(v, st.smin, v)).join('') + '</select><span class="xs muted">to</span>' +
       '<select class="inp fsel" data-chg="wmSmax" title="Strongest team shown">' + [30, 40, 50, 60, 70, 80, 90, 100].map(v => opt(v, st.smax, v)).join('') + '</select>') +
       flab('Filter events by week', '<select class="inp fsel" data-chg="wmWeek">' + opt('all', st.wk, 'All weeks') + [1, 2, 3, 4, 5, 6, 7].map(w => opt(w, st.wk, 'Week ' + w)).join('') + opt('mine', st.wk, 'Your events') + '</select>') +
-      '<span class="sp"></span><button class="btn sm" data-act="wmMe" title="Center the map on your team">' + UI.icon('star', 13) + ' Your team</button></div>';
+      '<span class="sp"></span>' + (mk ? '<span class="wm-mark-chip sm">' + UI.icon('map', 13) + ' <b>' + mk.t.num + '</b> ' + h(mk.t.name) + ' · ' + (mk.mi < 12 ? 'across town' : 'about ' + Math.max(15, Math.round(mk.mi / 5) * 5) + ' miles from you') + ' <button class="btn sm" data-act="wmUnmark" title="Remove the marker">Clear</button></span>' : '') +
+      '<button class="btn sm" data-act="wmMe" title="Center the map on your team">' + UI.icon('star', 13) + ' Your team</button></div>';
     // ---- the map
     let svg = '<svg id="wmsvg" class="wm-svg" viewBox="' + vx.toFixed(1) + ' ' + vy.toFixed(1) + ' ' + vw.toFixed(1) + ' ' + vh.toFixed(1) + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of the teams and events of ' + cy + '">' +
       '<defs><clipPath id="wm-us"><path d="' + Geo.path(Geo.US) + '"/></clipPath></defs>' +
@@ -117,8 +122,10 @@
     }
     // ---- teams: clusters sized by how many, coloured by average strength
     const cell = 40 / k, R = n => (n > 1 ? Math.min(30, 7 + 3.3 * Math.sqrt(n)) : 4.5) / k;
+    // elite teams are drawn on their own, in rose, on top of the groups
+    const mts = st.show !== 'events' ? mapTeams(S, st) : [], elites = mts.filter(i => i.elite);
     if (st.show !== 'events') {
-      cluster(mapTeams(S, st), cell).forEach(c => {
+      cluster(mts.filter(i => !i.elite), cell).forEach(c => {
         const n = c.list.length, s = U.avg(c.list.map(i => i.str)), col = UI.strColor(s), r = R(n), rk = c.list.filter(i => i.rookie).length, one = c.list[0];
         const tip = n > 1 ? n + ' teams · average strength ' + Math.round(s) + (rk ? ' · ' + rk + ' rookie' + (rk > 1 ? 's' : '') : '') + '\n' + topAreas(c.list) + (k < 12 ? '\nClick to zoom in' : '')
           : 'Team ' + one.num + (one.rookie ? ' (rookie)' : '') + ' · ' + one.area + '\nStrength ' + one.str + ' · near ' + one.hub + '\nClick for its season';
@@ -127,6 +134,8 @@
           (n > 1 ? '<text x="' + c.x.toFixed(1) + '" y="' + c.y.toFixed(1) + '" font-size="' + px(n > 99 ? 10 : 11) + '" fill="' + inkOn(col) + '" text-anchor="middle" dominant-baseline="central" font-weight="700" class="wm-lbl">' + n + '</text>' : '') + '</g>';
       });
     }
+    elites.forEach(e => { const r = 5.5 / k;
+      svg += '<g class="wm-hit" data-act="wmTeam" data-arg="l:' + e.num + '" data-tip="' + h('Elite team ' + e.num + ' ' + e.name + ' · ' + e.area + '\nStrength ' + e.str + ' · near ' + e.hub + '\nClick for its season') + '"><circle cx="' + e.x.toFixed(1) + '" cy="' + e.y.toFixed(1) + '" r="' + r.toFixed(2) + '" fill="' + ELITE_COL + '" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></g>'; });
     // ---- events: violet diamonds; yours on their own, ringed in gold, with a dashed line from home
     const evs = ws.events.filter(e => (st.wk === 'all' || (st.wk === 'mine' ? mine(S, e) : e.week === Number(st.wk)))).map(e => { const p = Geo.eventPos(ws, e); return { e, x: p.xy[0] + 11 / k, y: p.xy[1] - 11 / k, hub: p.hub, mine: mine(S, e) }; });
     if (st.show !== 'teams') {
@@ -148,6 +157,13 @@
     }
     if (st.dist) svg += dists.map(d => label(d.id, d.short + ' District', 11, '#c3c2b7', ' font-weight="700"')).join(''); // district names above the circles
     svg += champs;
+    // ---- the marked team: a gold ring and its number, a dashed line from yours
+    if (mk) { const x = mk.xy[0], y = mk.xy[1], r = 9 / k;
+      svg += '<g class="wm-hit" data-act="wmTeam" data-arg="l:' + mk.t.num + '" data-tip="' + h('Team ' + mk.t.num + ' ' + mk.t.name + '\n' + G.Geo.areaName(mk.t.region, mk.t.home) + ' · strength ' + mk.t.str + '\n' + (mk.mi < 12 ? 'Across town' : 'About ' + mk.mi + ' miles from you')) + '">' +
+        '<line x1="' + myPos[0].toFixed(1) + '" y1="' + myPos[1].toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + ME_COL + '" stroke-opacity=".6" stroke-width="1.2" stroke-dasharray="2 3" vector-effect="non-scaling-stroke"/>' +
+        '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r * 1.6).toFixed(2) + '" fill="none" stroke="' + ME_COL + '" stroke-width="2.5" vector-effect="non-scaling-stroke"/>' +
+        '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r * 0.55).toFixed(2) + '" fill="' + UI.strColor(mk.t.str) + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+        '<text x="' + (x + r * 2).toFixed(1) + '" y="' + (y + 4 / k).toFixed(1) + '" font-size="' + px(12) + '" fill="' + ME_COL + '" font-weight="800" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">' + mk.t.num + '</text></g>'; }
     // ---- your team, on top of everything
     { const x = myPos[0], y = myPos[1], r = 10 / k, pts = [];
       for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; pts.push((x + rr * Math.cos(a)).toFixed(2) + ' ' + (y + rr * Math.sin(a)).toFixed(2)); }
@@ -155,7 +171,7 @@
         '<text x="' + (x - r * 1.1).toFixed(1) + '" y="' + (y - r * 0.5).toFixed(1) + '" font-size="' + px(12) + '" fill="' + ME_COL + '" font-weight="800" text-anchor="end" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">You</text></g>'; }
     svg += '</svg>';
     const leg = '<div class="wm-leg"><div class="xs b">Team strength</div><div class="wm-grad" style="background:linear-gradient(90deg,' + RAMP.join(',') + ')"></div><div class="row xs muted"><span>' + RAMP_AT[0] + '</span><span class="sp"></span><span>50</span><span class="sp"></span><span>' + RAMP_AT[5] + '+</span></div>' +
-      '<div class="xs muted">Circle size: how many teams</div><div class="wm-keys xs"><span><i class="k-ev"></i>Events</span><span><i class="k-myev"></i>Your events</span><span><i class="k-me">★</i>Your team</span>' + (st.cmp ? '<span><i class="k-cmp"></i>Championship</span>' : '') + '</div></div>';
+      '<div class="xs muted">Circle size: how many teams</div><div class="wm-keys xs"><span><i class="k-ev"></i>Events</span><span><i class="k-myev"></i>Your events</span><span><i class="k-me">★</i>Your team</span><span><i class="k-elite"></i>Elite team</span>' + (st.cmp ? '<span><i class="k-cmp"></i>Championship</span>' : '') + '</div></div>';
     o += '<div class="wmap" id="wmap">' + svg + leg +
       '<div class="wm-zoom"><button class="btn sm" data-act="wmZoom" data-arg="in" title="Zoom in">+</button><button class="btn sm" data-act="wmZoom" data-arg="out" title="Zoom out">−</button><button class="btn sm" data-act="wmZoom" data-arg="reset" title="The whole map">⟲</button></div>' +
       '<div class="wm-tip" id="wmtip"></div></div>';
@@ -186,6 +202,19 @@
   UI.A.wmWeek = v => { MS().wk = v === 'all' || v === 'mine' ? v : Number(v); UI.render(); };
   UI.A.wmZoom = a => { const st = MS(); if (a === 'reset') { st.k = 1; st.cx = 500; st.cy = 311; clampView(st); UI.render(); } else zoomAt(st.cx, st.cy, a === 'in' ? 2 : 0.5); };
   UI.A.wmMe = () => { const S = G.S, st = MS(), p = G.Geo.teamPos(S.team.num, S.team.region, S.team.home, S.wseason.cy).xy; st.k = Math.max(st.k, 4); st.cx = p[0]; st.cy = p[1]; clampView(st); UI.render(); };
+  // "Show this team on the map" (Inbox messages, the scouting list): the World map, centred on the team and marked
+  UI.A.mapTeam = arg => {
+    const S = G.S, num = Number(arg), st = MS(), cy = S.wseason && S.wseason.cy, t = num === S.team.num ? null : S.teams[num];
+    if (!cy || (!t && num !== S.team.num)) return UI.toast('That team is not on this season\'s map', 'bad');
+    const p = t ? G.Geo.teamPos(t.num, t.region, t.home, cy).xy : G.Geo.teamPos(num, S.team.region, S.team.home, cy).xy;
+    // a team near yours: zoom in until the two are well apart and show both; a far one: centred on its own
+    const me = G.Geo.teamPos(S.team.num, S.team.region, S.team.home, cy).xy, d = Math.hypot(p[0] - me[0], p[1] - me[1]), kf = U.clamp(0.3 * G.Geo.W / Math.max(d, 1), 2.5, 12);
+    st.mark = t ? num : null;
+    if (t && kf > 3) { st.k = kf; st.cx = (p[0] + me[0]) / 2; st.cy = (p[1] + me[1]) / 2; } else { st.k = Math.max(st.k, 4); st.cx = p[0]; st.cy = p[1]; }
+    clampView(st); UI.closeModal(); UI.st.worldTab = 'map'; UI.go('world');
+    const f = document.querySelector('.wm-f'); if (f) f.scrollIntoView({ block: 'start' });
+  };
+  UI.A.wmUnmark = () => { MS().mark = null; UI.render(); };
   UI.A.wmArea = key => {
     const S = G.S, st = MS(), cy = S.wseason.cy, [kind, id] = key.split(':');
     const ts = Object.values(S.teams).filter(t => (kind === 'd' ? t.home === id : !t.home && t.region === id)).map(t => G.Geo.teamPos(t.num, t.region, t.home, cy).xy);
@@ -197,10 +226,10 @@
     if (dragged()) return;
     const S = G.S;
     if (arg.startsWith('z:')) { const p = arg.slice(2).split(',').map(Number); return zoomAt(p[0], p[1], 2.5); }
-    const nums = arg.slice(2).split(',').map(Number), rows = G.Scout.rows(S).filter(r => nums.includes(r.num)).sort((a, b) => b.str - a.str);
+    const nums = arg.slice(2).split(',').map(Number), rows = G.Scout.rows(S).filter(r => nums.includes(r.num)).sort((a, b) => (b.me - a.me) || (b.str || 0) - (a.str || 0)); // yours first
     UI.modal('<h2>' + (rows.length > 1 ? rows.length + ' teams here' : 'Team ' + rows[0].num) + '</h2><div class="sub">' + h(rows.length > 1 ? 'Too close together to pull apart on the map' : rows[0].area + (rows[0].rookie ? ' · rookie team' : '')) + '</div>' +
       '<table class="t tight mt"><tr><th>Team</th><th>Area</th><th class="num">Strength</th><th class="num">Events</th><th>W-L-T</th><th class="num">OPR</th><th>Best finish</th><th></th></tr>' + rows.map(r =>
-        '<tr><td class="b">' + r.num + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + r.str + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
+        '<tr><td class="b">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num + (r.elite ? ' ' + UI.eliteTag() : '')) + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + (r.str == null ? '<span class="muted" title="Your team has no world rating: your own robot plays its matches">—</span>' : r.str) + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
         '<td><button class="btn sm" data-act="scFindTeam" data-arg="' + r.num + '">Scouting</button></td></tr>').join('') + '</table>' +
       '<div class="row mt"><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };
@@ -292,13 +321,14 @@
       '<div style="overflow-x:auto"><table class="t tight sc-t"><tr><th class="num" title="Place in this list, in the current order">#</th>' + th('Team', 'num') + th('Area', 'area') + th('Events', 'ev', 'num', 'Events played this season') +
       th('W-L-T', 'wl', '', 'Qualification record, sorted by win rate') + th('RS', 'rs', 'num', 'Ranking score: average ranking points per qualification match') + th('OPR', 'opr', 'num', 'Offensive power rating: points the robot adds to its alliance per match (season average, fouls left out)') +
       th('Auto', 'au', 'num', 'OPR in the autonomous period') + th('Teleop', 'te', 'num', 'OPR in the teleoperated period, endgame left out') + th('Endgame', 'en', 'num', 'OPR in the endgame (climbing, parking, balancing)') +
-      th('Best finish', 'best', '', 'Best playoff finish this season') + th('Awards', 'aw', 'num', 'Judged awards this season') + '</tr>' +
+      th('Best finish', 'best', '', 'Best playoff finish this season') + th('Awards', 'aw', 'num', 'Judged awards this season') + '<th></th></tr>' +
       rows.slice(st.page * PAGE, st.page * PAGE + PAGE).map((r, i) => {
         const pos = st.page * PAGE + i + 1;
-        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
+        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.elite ? ' ' + UI.eliteTag() : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
           '<td class="xs">' + h(r.area) + '</td><td class="num">' + r.ev + '</td><td class="nowrap">' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + (r.rs == null ? '—' : r.rs.toFixed(2)) + '</td>' +
           '<td class="num b">' + f1(r.opr) + '</td><td class="num">' + f1(r.au) + '</td><td class="num">' + f1(r.te) + '</td><td class="num">' + f1(r.en) + '</td>' +
-          '<td class="xs nowrap">' + h(r.bestTxt || '—') + (r.wins > 1 ? ' ×' + r.wins : '') + '</td><td class="num">' + (r.aw || '') + '</td></tr>';
+          '<td class="xs nowrap">' + h(r.bestTxt || '—') + (r.wins > 1 ? ' ×' + r.wins : '') + '</td><td class="num">' + (r.aw || '') + '</td>' +
+          '<td><button class="btn sm icon-btn" data-act="mapTeam" data-arg="' + r.num + '" title="Show this team on the map" aria-label="Show this team on the map">' + UI.icon('map', 13) + '</button></td></tr>';
       }).join('') + '</table></div>' +
       (pages > 1 ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="scPage" data-arg="0"' + (st.page ? '' : ' disabled') + '>« First</button><button class="btn sm" data-act="scPage" data-arg="' + (st.page - 1) + '"' + (st.page ? '' : ' disabled') + '>‹ Previous</button>' +
         '<span class="sm">Page ' + (st.page + 1) + ' of ' + pages + '</span><button class="btn sm" data-act="scPage" data-arg="' + (st.page + 1) + '"' + (st.page < pages - 1 ? '' : ' disabled') + '>Next ›</button><button class="btn sm" data-act="scPage" data-arg="' + (pages - 1) + '"' + (st.page < pages - 1 ? '' : ' disabled') + '>Last »</button><span class="sp"></span></div>' : '') + '</div>';

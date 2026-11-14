@@ -53,11 +53,12 @@
       o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
-      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="Regional areas">' + D.REGIONS.map(r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + '</option>').join('') + '</optgroup>' +
-        (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ')</option>').join('') + '</optgroup>' : '') + '</select></label>' +
+      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="Regional areas">' + D.REGIONS.map(r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>').join('') + '</optgroup>' +
+        (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
       '</div>';
     if (n.mode === 'career') {
-      const d = n.home ? D.DISTRICT[n.home] : null;
+      const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff);
+      o += '<div class="hint mt"><b>Competition:</b> average team strength about ' + pv.avg + ', and ' + pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world. California has the most. ' + UI.q('world', 'Elite teams') + '</div>';
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(2, Math.round(G.World.sizeOf(d, n.start) * 2 / 36)) + ' district events, a District Championship of ' + d.dcmp + '. <b>District play:</b> one fee covers two local district events of about 36 teams with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
         : '<b>Regional team in the ' + h(n.region) + '.</b> Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
     }
@@ -69,7 +70,8 @@
     if (n.mode === 'career' || n.scenario === 'custom') {
       o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money, ngPx), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
     }
-    o += '<h3 class="mt">Difficulty</h3><div class="grid g3">' + choice('diff', 'easy', 'Easy', 'Weaker opponents, fewer faults, more sponsor money.') + choice('diff', 'normal', 'Normal', 'The intended experience.') + choice('diff', 'hard', 'Hard', 'Stronger opponents, more faults, stingy sponsors.') + '</div>';
+    o += '<h3 class="mt">Difficulty</h3><div class="grid g3">' + choice('diff', 'easy', 'Easy', 'Weaker opponents and fewer, weaker elite teams, fewer faults, more sponsor money.') + choice('diff', 'normal', 'Normal', 'The intended experience: a title takes an elite-level robot and drive team.') + choice('diff', 'hard', 'Hard', 'Stronger opponents and more, stronger elite teams, more faults, stingy sponsors.') + '</div>';
+    if (n.mode === 'career') o += '<label class="row mt"><input type="checkbox" data-chg="ngNoFail" ' + (n.noFail ? 'checked' : '') + '> No-fail mode <span class="sm muted">(the program can\'t be cut when Program Support hits 0; you can change it later in Settings)</span></label>';
     if (n.mode === 'career') {
       const cal = G.calFrom(n.start), nS = cal.length;
       o += '<h3 class="mt">Season order</h3><div class="grid g2">' + choice('order', 'real', 'Real order', 'Every year plays its own game.') + choice('order', 'random', 'Random order', 'The games are shuffled: the next one is a surprise at each Kickoff. Technology, vendors, prices and events still follow the calendar year.') + '</div>';
@@ -87,12 +89,13 @@
     if (k === 'num') n.numAuto = false; // the player's own number stays
   };
   UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
+  UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
     if (!String(n.name).trim()) return UI.toast('Give your team a name', 'bad');
     const scen = n.mode === 'single' ? D.SCENARIOS.find(s => s.id === n.scenario) : null;
     G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
-      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, scenario: scen ? scen.id : null });
+      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
     if (G.S.phase === 'kickoff') UI.kickoffModal();
@@ -132,6 +135,30 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1', title: 'Elite teams, and a Parts Shelf that costs to keep', notes: [
+      'Elite teams: a few programs at the very top of the sport, close to maxed out in robot, drive team and strategy. At least one in every area and district, the most in California; they last for years, now and then one drops back to a local powerhouse and a long-time strong team joins them. Every Championship division has them, and they lead the other alliances on Einstein: titles are hard to win, and harder to win twice. A rose Elite tag at events and in scouting, rose dots and a filter on the map, and their number for each home on the New Career page.',
+      'Watch alliance selection pick by pick, whether or not you are picked, or skip to your turn or to the end. While others pick you see only your own scouting data.',
+      'District events vary: about 24 to 40 teams, more and smaller events in a small district, so you do not meet the same teams at every one. Every event\'s stars now come from the teams actually scheduled there.',
+      'Season goals put qualifying for the Championship before winning an event (an event win qualifies you, and so do awards and wildcards); sponsors pay more for a win than for qualifying.',
+      'Stop Build Day years: one Install Upgrade block fits what is packed for a few subsystems (the biggest gain in strength first), and a full practice day fits everything. The practice page shows the robot\'s strength, now and with everything fitted.',
+      'Easy and Hard change the elite teams too: about half as many and a little weaker on Easy, half again as many and stronger on Hard.',
+      'Robot reveals around Week 0 (Build Week 5 to Competition Week 2): every elite team near you, a few famous ones from elsewhere and a local rival post one, each with a picture of the robot and what people make of it. The Inbox has an Elite watch note when the list of elite teams changes.',
+      'Team-built swerve before modules are sold is much harder: before 2018 it needs CNC Machining, takes three times the hours and much more material, tops out lower and breaks down often; in 2018 and 2019 it takes twice the hours and is still fragile.',
+      'A worn Parts Shelf still holds as many parts, but its upkeep at Kickoff rises as it wears, slowly at first and faster the more worn it is: up to five times at 0% condition. The Workshop card shows what it costs now and after a renovation, and the Inbox warns at 60% and 35%.',
+      'When renovating the shelf would cost less than the extra upkeep its wear adds over the Kickoffs left in your career, a pop-up says so once, with a Renovate button.',
+      'No-fail mode can be switched on from the New Career page (it was only in Settings).',
+      'Renovate all: one button at the top of the Workshop brings every worn facility back to 100% for one bill (the facilities and their prices are in its tooltip).',
+      'Published designs come out at the start of Build Week 2: their makers spend Week 1 building them. Until then the Design Office says so, with what copying would save against a week of your team\'s hours. Start your own design at Kickoff, or wait and use Week 1 for a test chassis, code, program projects or a rest before an overtime week.',
+      'The team argues about it in the Inbox: wait or build our own at the start of Week 1 (or, if you started at Kickoff, whether you should have waited), a first look when the designs are out (the parts check, or theirs against ours), and a follow-up in Week 3 that depends on what you did. The forum has the oldest joke in the sport every year: a good team recommending the Anybot to everybody else, being far too good for it themselves. Meet them at an event with a copy and you hear about it.',
+      'The copy estimate in the published designs window now counts mechanism kits and GridTube that two subsystems would share (it used to count every free kit for each of them).',
+      'Copying a whole published robot checks the shelf first. A subsystem it can\'t cover (the Blueprint\'s swerve drivetrain without 4 swerve modules, or too few motors or encoders) shows what it is short of, with Buy buttons, and the build button says how many subsystems will start. Before, the copy left those subsystems out without saying so.',
+      'The Apex Blueprint\'s story says how many swerve modules you have and takes you straight to them in the Inventory.',
+      'Local teams are local on the world map. A scrimmage invitation, a team that drops off spare parts, a rookie team asking for help, a rival\'s reveal video and the weekly "locally" line now name a team near you and say how far away it is (they used to pick any team in your area, often hundreds of miles off). The "locally" line names a real winner from last week when there is one, and a pit request (a team short of a part at an event) comes only in a competition week when you play a regional or district event, from a team at that event.',
+      'Show this team on the map: Inbox messages that name another team, and every row of the Scouting list, have a button that opens the World map centred on that team, ringed in gold with its distance from you. It does not make a message one that waits for you.',
+      'World map: the box for a spot with several teams lists yours first, with a dash for strength (it said "null").',
+      'The Parts Shelf can no longer be downgraded or removed: the parts on it would have nowhere to go.',
+      'The guide gives the real size of each workshop room (2,850, 4,300 and 5,700 sq ft); the robotics center fits every facility at its top level, the new ones included.'
+    ] },
     { v: '3.0', title: 'FRC Manager 3.0: the official release', notes: [
       'The ten-season career from 2016 to 2026 is out of preview: everything from the 2.9 versions below (the calendar, districts, the simulated world, ten real games and the stories in between), plus a bigger workshop, vendor booths, a pit crew that drills and two published robots a year.',
       'Fixed: in the World scouting table the best teams owed nearly all their OPR to the endgame (in 2020, 90 endgame points against a 25-point hang). A team\'s style still moves points between auto, teleop and the endgame, but never past what one robot can score in the endgame, and never more than 40% of its teleop. Scores from events you play were right all along. Seasons already in a save keep their old numbers until the next events.',
