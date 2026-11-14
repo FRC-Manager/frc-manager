@@ -584,3 +584,9 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 /* Stop Build Day: the bagged robot is out of reach until its next event */
 .botcard.bagged { filter: grayscale(0.9); opacity: .72; }
 .botcard.bagged .botimg { opacity: .6; }
+/* 3.1.1: an email in the Inbox */
+.msg .mailhd { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(127, 127, 127, 0.08); border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.6; }
+.msg .mailhd span { display: inline-block; min-width: 58px; color: var(--dim); }
+.msg .mb.mailbody { color: var(--text, inherit); font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 4px 2px; }
+.msg .revpic { max-width: 480px; }
+.msg .revpic canvas { width: 100%; height: auto; display: block; border-radius: 6px; }

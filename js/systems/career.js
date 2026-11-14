@@ -8,7 +8,59 @@
   // ======================= helpers =======================
   C.inbox = function (S, title, body, kind, extra) {
     S.inbox.unshift(Object.assign({ id: U.uid('i'), title, body, kind: kind || 'info', date: C.dateLabel(S), read: false }, extra || {}));
-    if (S.inbox.length > 120) S.inbox.length = 120;
+    // The Inbox keeps D.INBOX_MAX messages (120 until 3.1.1, when a busy season pushed its own messages out). The newest
+    // D.INBOX_RECENT always stay. Older than that, background messages (C.msgBg) and lapsed replies go first, then the
+    // oldest of the rest, so results, emails and decisions outlast the chatter. A reply still open is never removed.
+    if (S.inbox.length > D.INBOX_MAX) {
+      const open = m => !!(m.reply && m.replied == null && G.News && G.News.replyOptions(S, m).length), light = m => C.msgBg(m) || (!!m.reply && !open(m));
+      while (S.inbox.length > D.INBOX_MAX) {
+        let i = -1;
+        for (let k = S.inbox.length - 1; k >= D.INBOX_RECENT && i < 0; k--) if (light(S.inbox[k])) i = k;
+        for (let k = S.inbox.length - 1; k >= D.INBOX_RECENT && i < 0; k--) if (!open(S.inbox[k])) i = k;
+        S.inbox.splice(i < 0 ? S.inbox.length - 1 : i, 1);
+      }
+    }
+  };
+  // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
+  // (projects done, knowledge levels), team chatter and general news (m.bg). A message that names a team, shows a robot,
+  // takes a reply, is marked plot or announces a product is never background. The Inbox can hide them (Hide background).
+  C.msgBg = m => !m.reply && !m.robot && !m.plot && !m.launch && !(m.teams && m.teams.length) && (!!m.bg || m.kind === 'dev' || m.kind === 'know' || m.kind === 'fun');
+  // An email (3.1.1): a letter with From / To / Subject, shown in the Inbox as one
+  C.mail = function (S, from, to, subject, body, extra) { C.inbox(S, subject, body, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {})); };
+  const leadMentor = S => (S.mentors.length ? S.mentors.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.ten || 0) - (a.ten || 0))[0] : null);
+  const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
+  // the World Champions hear from the mentor of the alliance they beat in the finals
+  C.mailChampCongrats = function (S, ev) {
+    const F = ev.po && ev.po.matches.find(x => x.id === 'F'); if (!F || F.loser == null) return;
+    const fin = ev.alliances[F.loser] || [], cap = fin[0], T = S.teams[cap]; if (!T) return;
+    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), games = F.games.filter(g => !g.replay), lost = games.filter(g => g.winner !== (F.red === F.winner ? 'red' : 'blue')).length;
+    const close = games.length >= 3 || lost > 0, el = !!T.elite;
+    const body = 'Hi ' + (lead ? lead.name.split(' ')[0] : 'everyone') + ',\n\n' +
+      'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + (close ? 'That was ' + (['', 'one', 'two', 'three', 'four', 'five'][games.length] || games.length) + ' finals, and every one of them was close: your drive team did not give us one mistake to work with.' : 'Two finals, and we never found a way back into either of them. Your drive team did not give us one mistake to work with.') + '\n\n' +
+      'Well done this year. ' + (el ? 'We have been on that stage before and we will be on it again, so enjoy the banner while it is the newest one in the building.' : 'We will be back, a little faster and a lot more stubborn.') + ' We\'ll see if you can be as lucky next year.\n\n' +
+      'Our students asked me to say one more thing: your pit crew lent us a spare on Friday, and they have not stopped talking about it.\n\n' +
+      'See you next April,\n' + name + '\nLead mentor, Team ' + cap + ' ' + T.name;
+    C.mail(S, name + ' (lead mentor, Team ' + cap + ' ' + T.name + ')', (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name, 'Congratulations, and see you next year', body, { teams: [cap] });
+  };
+  // the Hall of Fame: FIRST writes to the team that won the FIRST Impact Award at the Championship
+  C.mailHallOfFame = function (S) {
+    const lead = leadMentor(S), cy = C.calYear(S);
+    C.mail(S, 'FIRST Robotics Competition (Hall of Fame)', teamTo(S), 'Welcome to the FIRST Hall of Fame', 'Dear Team ' + S.team.num + ',\n\n' +
+      'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
+      'As a Hall of Fame team you are invited to every future FIRST Championship. You no longer need to qualify: your place is reserved each season, and your team number will be on the Hall of Fame wall at the Championship.\n\n' +
+      'Hall of Fame teams are also asked to share what they have learned: a session for other teams at the Championship, and help for the rookie teams near you. We hope you will.\n\n' +
+      'Thank you for everything that got you here' + (lead ? ', and please pass our thanks to ' + lead.name + ' and every mentor and student who worked on your submission' : '') + '.\n\n' +
+      'With our congratulations,\nThe FIRST Robotics Competition team');
+  };
+  // a mentor who won the Woodie Flowers Award (kind 'wfa') or a Woodie Flowers Finalist Award ('wffa') writes to the team
+  C.mailWfaThanks = function (S, mid, name, prof, kind, where) {
+    const m = S.mentors.find(x => x.id === mid) || { name, role: 'design' }, role = ((D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor');
+    const w = S.season && S.season.wfa, mf = String(m.name).split(' ')[0], writers = ((w && w.writers) || []).map(s => String(s).split(' ')[0]).filter(f => f !== mf).slice(0, 2), area = prof && prof.area ? prof.area : 'this work';
+    const wrote = writers.length ? (writers.length > 1 ? writers[0] + ' and ' + writers[1] : writers[0]) : 'the students who wrote it';
+    const body = 'Hi everyone,\n\n' + (kind === 'wfa'
+      ? 'I have tried to write this email four times since Einstein. Here is the short version: thank you. The Woodie Flowers Award has my name on it, but it is about you. The committee read your essay about ' + area + ', and every line in it was something one of you figured out on your own after I asked one more question.\n\n' + wrote + ': I know how many evenings that essay took. I read it again on the flight home and had to put my sunglasses on.\n\nNothing changes on Monday. The shop opens at 3:30, the robot still needs a new intake, and I still expect safety glasses on every head. But I will be smiling more than usual, and you will know why.'
+      : 'Thank you. When the judges at the ' + (where || 'event') + ' read your essay and called my name, I could not hear the rest over you in the stands. A Woodie Flowers Finalist Award is about a mentor, but it is earned by the students who explain what they learned. ' + wrote + ' did that better than I ever could.\n\nThe award also puts my name in front of the Woodie Flowers committee at the Championship. Whatever happens there, this banner already means more to me than any trophy on our shelf.\n\nSee you at practice. Bring your safety glasses, and maybe some tissues for me.');
+    C.mail(S, m.name + ' (' + role + ')', teamTo(S), kind === 'wfa' ? 'Thank you, all of you' : 'About Saturday', body + '\n\n' + m.name.split(' ')[0]);
   };
   // In season (Kickoff → Championship) the team may run up debt down to D.DEBT_LIMIT; the school settles it at the
   // season review at a cost to program support and reputation. In the offseason spending needs cash.
@@ -560,10 +612,13 @@
     if (tier === 'fly' && G.Shop.lvl(S, 'trailer')) return 'trailer';
     return tier;
   };
+  // A bigger team costs more to move: the robot's freight and the tools cost every team the same, the seats, rooms and
+  // meals grow with the students who go. The D.TRAVEL prices are for a team of 25 (×0.72 at 15, ×1.42 at 40).
+  C.travelSize = S => { const n = Math.min(80, Math.max(5, S.studentsCount || (S.students || []).length || 25)); return 0.3 + 0.7 * n / 25; };
   C.travelCost = function (S, def) {
     if (def.kind === 'einstein') return 0;
     const mode = C.travelMode(S, def), tier = mode === 'trailer' ? 'fly' : mode;
-    let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' ? 0.4 : 1) * (mode === 'trailer' ? D.TRAILER_LONG : 1);
+    let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' ? 0.4 : 1) * (mode === 'trailer' ? D.TRAILER_LONG : 1) * C.travelSize(S);
     if (tier !== 'fly') c *= G.Shop.travelMult(S);
     if (C.hasPerk(S, 'travelDiscount')) c *= 0.75;
     return Math.round(c);
@@ -1023,7 +1078,7 @@
       C.earn(S, fund, 'School funding');
       const np = (S.programs || []).length;
       if (np) C.spend(S, C.programCost(S), 'Feeder programs (' + np + ')');
-      (S.programs || []).forEach(pg => { pg.years = (pg.years || 0) + 1; });
+      (S.programs || []).forEach(pg => { pg.years = (pg.years || 0) + 1; delete pg.ftcBoost; }); // a strong FTC season (ftcBoost) lifted this intake only
       const via = Object.keys(from).map(k => from[k] + ' from ' + k).join(', ');
       C.inbox(S, 'New school year', n + ' new students joined (' + S.studentsCount + ' total).' + (waitlist > 0 ? ' The team is full at ' + D.STUDENT_CAP + ' students: ' + waitlist + ' more applied and went on the waiting list.' : '') + (via ? ' Core recruits: ' + via + '.' : '') + ' School funding: ' + U.money(fund) + '.' + (np ? ' Feeder programs: ' + U.money(C.programCost(S)) + '.' : ''), 'staff');
     }
@@ -1434,7 +1489,7 @@
     }
     if (ev.kind === 'einstein') {
       S.season.einstein = true;
-      if (r.won) { S.season.worldChamp = true; S.worldChamps++; S.rep = 100; S.morale = 100; S.lastChamp = S.year; S.lastChampSi = S.si; S.season.wc = C.wcData(S, ev); C.inbox(S, 'WORLD CHAMPIONS!', 'Your alliance won Einstein. Unbelievable season!', 'event');
+      if (r.won) { S.season.worldChamp = true; S.worldChamps++; S.rep = 100; S.morale = 100; S.lastChamp = S.year; S.lastChampSi = S.si; S.season.wc = C.wcData(S, ev); C.inbox(S, 'WORLD CHAMPIONS!', 'Your alliance won Einstein. Unbelievable season!', 'event'); C.mailChampCongrats(S, ev);
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
@@ -1726,6 +1781,7 @@
         ci.result = 'winner'; ci.cele = C.impactCele(S, 'winner'); S.hallOfFame = S.si;
         S.rep = 100; S.morale = 100; S.sponsors.forEach(sp => { sp.sat = Math.min(100, sp.sat + 20); });
         C.inbox(S, 'FIRST IMPACT AWARD!', 'After Einstein Final 1 the judges called your team to the field: you won the FIRST Impact Award, the most prestigious award in the program, and joined the Hall of Fame. Hall of Fame teams are invited to every future Championship.', 'event');
+        C.mailHallOfFame(S);
       } else {
         C.inbox(S, 'FIRST Impact Award: Team ' + nm(ci.winner), 'Team ' + nm(ci.winner) + ' won the FIRST Impact Award at the Championship. Finalists: ' + ci.finalists.map(nm).join(', ') + '.' +
           (ci.out === 'finalist' ? ' Your team was among the Finalists.' : ci.eligible ? ' Your entry (Impact rating ' + ci.score + ') placed ' + U.ord(ci.rank) + ' of ' + ci.of + '.' : S.hallOfFame != null ? ' Your team is already in the Hall of Fame.' : ' Only this season\'s regional Impact Award winners are judged at the Championship.'), 'event');
@@ -1806,6 +1862,7 @@
         mine.wffa = C.calYear(S); C.addRep(S, D.WFA.rep.wffa); S.morale = Math.min(100, S.morale + 6);
         (S.wfaHonors = S.wfaHonors || []).push({ kind: 'wffa', cy: C.calYear(S), mid: mine.id, name: mine.name, prof: mine.prof, event: e.name });
         C.inbox(S, 'Woodie Flowers Finalist Award: ' + mine.name, 'At the ' + e.name + ' the judges read your students\' essay aloud and called ' + mine.name + ', ' + C.profLine(mine.prof).replace(/^./, c => c.toLowerCase()) + ', to the field: a Woodie Flowers Finalist. The award honours a mentor who leads, inspires and teaches through communication, and the students\' words about ' + mine.prof.area + ' made the case. A blue banner for the award goes on your wall (History).\n\n' + mine.name + ' is now one of the mentors the Woodie Flowers Award is chosen from at the Championship, this season and, re-nominated, in any season after.', 'event');
+        C.mailWfaThanks(S, mine.id, mine.name, mine.prof, 'wffa', e.name);
       } else C.inbox(S, 'Woodie Flowers Finalist Award at the ' + e.name, 'Your students\' essay about ' + mine.name + ' was judged here. The award went to ' + (other ? other.name + ' of Team ' + other.team + ', ' + C.profLine(other.prof).replace(/^./, c => c.toLowerCase()) : 'another mentor') + '. ' + mine.name + ' can be nominated again next season.', 'event');
     }
     return won;
@@ -1861,6 +1918,7 @@
       c.cele = C.wfaCele(S);
       (S.wfaHonors = S.wfaHonors || []).push({ kind: 'wfa', cy, mid: W.mid, name: W.name, prof: W.prof, event: 'FIRST Championship', cele: c.cele });
       C.inbox(S, 'WOODIE FLOWERS AWARD: ' + W.name, 'On Einstein, alongside the FIRST Impact Award, ' + W.name + ' received the ' + cy + ' Woodie Flowers Award: one mentor chosen from ' + c.of + ' candidates, every one of them a Woodie Flowers Finalist. ' + W.name + ' is ' + C.profLine(W.prof).replace(/^(\w)/, x => (/^[aeiou]/i.test(x) ? 'an ' : 'a ') + x.toLowerCase()) + ', and your students\' essay was about what that work in ' + W.prof.area + ' taught them. A mentor receives the award once in a lifetime. Its blue banner hangs with your Championship honours (History).', 'event');
+      C.mailWfaThanks(S, W.mid, W.name, W.prof, 'wfa');
     } else C.inbox(S, 'Woodie Flowers Award: ' + W.name + ', Team ' + W.team, 'The ' + cy + ' Woodie Flowers Award went to ' + W.name + ' of Team ' + W.team + ' ' + ((S.teams[W.team] || {}).name || '') + ', ' + C.profLine(W.prof).replace(/^./, x => x.toLowerCase()) + ' (' + W.how + '). It was chosen from ' + c.of + ' Woodie Flowers Finalists.' +
       (c.nominee ? ' Your nominee, ' + c.nominee + ', was one of them.' : ''), 'event');
     return c;
@@ -2551,13 +2609,24 @@
     return list[list.length - 1];
   };
   // Your own FTC teams run in the FTC Team Space: one per facility level, each in a feeder program slot
-  C.programPower = pg => C.programMaturity(pg) * (pg.own ? D.FTC_OWN.power : 1);
+  // (3.1.1) an own FTC team's season adds pg.ftcBoost to its pull on next September's recruits (news.js, FTC season review)
+  C.programPower = pg => C.programMaturity(pg) * (pg.own ? D.FTC_OWN.power * (1 + (pg.ftcBoost || 0)) : 1);
   C.programCost = S => (S.programs || []).reduce((s, p) => s + (p.own ? D.FTC_OWN.cost : D.FEEDER_COST), 0);
   C.ownTeams = S => (S.programs || []).filter(p => p.own).length;
   C.ownMax = S => Math.round(G.Shop.fx(S, 'ftc', 'ftc', null, 1));
-  C.addProgram = function (S, focus, own) {
+  // (3.1.1) How many outside feeder programs (FLL, camps, clubs, other schools' FTC) the team can run: 3, plus up to 3
+  // more from its Business & Outreach Mentor (+1 at 2★, +2 at 4★) and its reputation (+1 at 50, +2 at 80), at most
+  // D.FEEDER_MAX. Your own FTC teams don't count (the FTC Team Space limits them). Programs over the cap keep running.
+  C.feederCap = function (S) {
+    const biz = C.mentorStars(S, 'biz'), rep = S.rep || 0, fm = biz >= 4 ? 2 : biz >= 2 ? 1 : 0, fr = rep >= 80 ? 2 : rep >= 50 ? 1 : 0;
+    return { n: Math.min(D.FEEDER_MAX, 3 + fm + fr), biz, rep, fm, fr };
+  };
+  C.outsidePrograms = S => (S.programs || []).filter(p => !p.own).length;
+  C.feederCapWhy = S => { const c = C.feederCap(S); return 'Room for ' + c.n + ' outside programs: 3, ' + (c.fm ? '+' + c.fm + ' from your ' + c.biz + '★ Business & Outreach Mentor, ' : '') + (c.fr ? '+' + c.fr + ' from your reputation, ' : '') + 'at most ' + D.FEEDER_MAX + '. A Business & Outreach Mentor (2★, 4★) and reputation (50, 80) open more. Your own FTC teams don\'t count.'; };
+  C.addProgram = function (S, focus, own, noCap) { // noCap: an older save's programs, which keep running
     S.programs = S.programs || [];
     if (S.programs.length >= D.FEEDER_MAX) return 'You can run at most ' + D.FEEDER_MAX + ' feeder programs';
+    if (!own && !noCap && C.outsidePrograms(S) >= C.feederCap(S).n) return C.feederCapWhy(S);
     if (own && C.ownTeams(S) >= C.ownMax(S)) return C.ownMax(S) ? 'Your FTC Team Space has room for ' + C.ownMax(S) + ' team' + (C.ownMax(S) > 1 ? 's' : '') + ': upgrade it in the Workshop for another' : 'Build an FTC Team Space in the Workshop first';
     const used = new Set(S.programs.map(p => p.name)), rng = G.R;
     let name, g = 0;
@@ -2586,7 +2655,7 @@
     if (!S.programs) {
       const n = U.clamp(S.feeders || 0, 0, D.FEEDER_MAX);
       S.programs = [];
-      for (let i = 0; i < n; i++) { C.addProgram(S, 'balanced'); S.programs[i].years = 2; }
+      for (let i = 0; i < n; i++) { C.addProgram(S, 'balanced', false, true); S.programs[i].years = 2; }
     }
     S.feeders = S.programs.length;
     // v2.9.9: End Effectors became their own knowledge area. Until then claws and grippers taught Arms & Wrists and Ground

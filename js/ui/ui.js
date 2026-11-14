@@ -136,7 +136,7 @@
         '<div class="xs muted" style="padding:8px 10px"><span class="t">Other screens open again after you leave the event from its results page.</span></div></div>';
     }
     const actOnly = !!(S.settings && S.settings.badgeAct);
-    const unread = actOnly ? UI.actionable(S) : S.inbox.filter(m => !m.read).length;
+    const unread = actOnly ? UI.actionable(S) : UI.inboxShown(S).filter(m => !m.read).length;
     const items = [['hq', 'hq', 'Headquarters'], ['inbox', 'inbox', 'Inbox', unread], ['garage', 'garage', 'Garage'], ['design', 'design', 'Design Office'], ['parts', 'parts', 'Inventory'], ['know', 'know', 'Tech Knowledge'],
       ['team', 'team', 'Team'], ['mentors', 'mentors', 'Mentors'], ['workshop', 'workshop', 'Workshop'], ['finance', 'finance', 'Finance'], ['calendar', 'calendar', 'Calendar']];
     if (G.World.on(S) && S.wseason) items.push(['world', 'map', 'World']);
@@ -508,7 +508,7 @@
     o += UI.card('Program goals', (s.goals.length ? s.goals.map(g => '<div class="row sm mb"><span class="tag ' + (D.PROGRAM_GOALS[g.id].check(s) ? 'good' : '') + '">' + g.tier + '</span><span>' + h(G.Career.goalText(G.S, D.PROGRAM_GOALS[g.id].text)) + '</span></div>').join('') : '<p class="muted">Goals are set at Kickoff.</p>') +
       '<div class="mt"><div class="row sm mb"><span class="muted">Program support</span><span class="sp"></span><b>' + Math.round(S.support) + '</b></div>' + UI.bar(S.support, 100, UI.colorFor(S.support)) + '</div>', '');
     // inbox
-    o += UI.card('Latest news', S.inbox.slice(0, 4).map(m => '<div class="sm mb"><b>' + h(m.title) + '</b><div class="xs dim">' + h(m.date) + '</div></div>').join('') || '<p class="muted">Nothing yet.</p>', '<button class="btn sm" data-act="nav" data-arg="inbox">Inbox</button>');
+    o += UI.card('Latest news', UI.inboxShown(S).slice(0, 4).map(m => '<div class="sm mb"><b>' + h(m.title) + '</b><div class="xs dim">' + h(m.date) + '</div></div>').join('') || '<p class="muted">Nothing yet.</p>', '<button class="btn sm" data-act="nav" data-arg="inbox">Inbox</button>');
     o += '</div>';
     return o;
   } };
@@ -539,6 +539,14 @@
   // =====================================================================
   // INBOX
   // =====================================================================
+  // Background messages (3.1.1): what a player can skip without missing anything about the season. Development reports
+  // (projects done, knowledge levels), team chatter and general news about the FRC world. A message that names a team,
+  // shows a robot, takes a reply or changes something is never background. The Inbox toggle hides them (S.settings.hideBg).
+  // (S given) a general-news offer whose reply lapsed unanswered is background too
+  UI.isBg = (m, S) => G.Career.msgBg(m) || (!!S && !!m.reply && m.replied == null && m.kind === 'news' && !(m.teams && m.teams.length) && !G.News.replyOptions(S, m).length);
+  UI.hideBg = S => !!(S.settings && S.settings.hideBg);
+  UI.inboxShown = S => (UI.hideBg(S) ? S.inbox.filter(m => !UI.isBg(m, S)) : S.inbox);
+  UI.A.hideBg = () => { const S = G.S; S.settings = S.settings || {}; S.settings.hideBg = !S.settings.hideBg; G.Save.write('auto'); UI.render(); };
   // the other teams a message is about: the ones it was written with (m.teams), or "Team 1234" in its text (older messages)
   UI.msgTeams = function (S, m) {
     if (!G.World.on(S) || !S.wseason) return [];
@@ -547,17 +555,20 @@
   };
   UI.S.inbox = { html() {
     const S = G.S;
-    const KIND = { boost: ['Opportunity', 'good'], incident: ['Shop incident', 'warn'], shop: ['Facilities', 'warn'], fun: ['Team chatter', 'info'], news: ['News', ''], money: ['Finance', 'good'], event: ['Event', 'acc'], dev: ['Development', ''], know: ['Knowledge', ''], staff: ['Team', ''], kickoff: ['Kickoff', 'acc'], goal: ['Goals', ''] };
+    const KIND = { boost: ['Opportunity', 'good'], incident: ['Shop incident', 'warn'], shop: ['Facilities', 'warn'], fun: ['Team chatter', 'info'], news: ['News', ''], money: ['Finance', 'good'], event: ['Event', 'acc'], dev: ['Development', ''], know: ['Knowledge', ''], staff: ['Team', ''], kickoff: ['Kickoff', 'acc'], goal: ['Goals', ''], ftc: ['FTC', 'info'], mail: ['Email', 'acc'] };
     const kt = m => KIND[m.kind] ? UI.tag(KIND[m.kind][0], KIND[m.kind][1]) + ' ' : '';
     // messages can carry optional replies with small effects: shown inline when the message is open, never as a popup
     let openReplies = 0;
-    const list = S.inbox.map(m => {
+    const shown = UI.inboxShown(S), nBg = S.inbox.length - shown.length;
+    const list = shown.map(m => {
       const opts = G.News.replyOptions(S, m), open = UI.st.openMsg === m.id;
       if (opts.length) openReplies++;
       const rt = opts.length ? ' ' + UI.tag('reply', 'acc') : m.replied != null ? ' ' + UI.tag('replied', 'good') : m.reply ? ' ' + UI.tag('expired') : '';
       let body = '';
       if (open) {
-        body = (m.robot && m.robot.look ? '<div class="mb">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 320, 180) + '</div>' : '') + '<div class="mb">' + h(m.body) + '</div>'; // a reveal: the robot's picture
+        body = (m.robot && m.robot.look ? '<div class="mb revpic">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 480, 270) + '</div>' : '') + // a reveal: the robot's picture (at most 480 px wide, so it stays sharp)
+          (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div><div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '') + // an email: its header
+          '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>';
         if (m.series && UI.festSeriesBox) body += UI.festSeriesBox(m.series, m.seriesTag); // the Festival's result, as in the pop-up
         // the teams it names, on the World map (a convenience: it does not make the message one that waits for you)
         { const ts = UI.msgTeams(S, m); if (ts.length) body += '<div class="row wrap gap4 mb">' + ts.map(n => '<button class="btn sm" data-act="mapTeam" data-arg="' + n + '">' + UI.icon('map', 13) + ' ' + (ts.length > 1 ? 'Show ' + n + ' on the map' : 'Show this team on the map') + '</button>').join('') + '</div>'; }
@@ -568,7 +579,7 @@
       return '<div class="msg ' + (m.read ? '' : 'unread') + '" data-act="readMsg" data-arg="' + m.id + '"><div class="row">' + kt(m) + '<span class="mt">' + h(m.title) + '</span>' + rt + '<span class="sp"></span><span class="md">' + h(m.date) + '</span></div>' + body + '</div>';
     }).join('');
     const due = G.Career.dueActivities(S);
-    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
+    return UI.head('Inbox', 'inbox', 'News, results and decisions. Not everything gets a pop-up: rumours of coming changes turn up here first.' + (openReplies ? ' ' + openReplies + ' message' + (openReplies > 1 ? 's' : '') + ' you can reply to (optional).' : ''), 'basics') + '<div class="row wrap mb"><button class="btn sm" data-act="readAll">Mark all read</button><button class="btn sm' + (S.settings && S.settings.badgeAct ? ' sel' : '') + '" data-act="badgeAct" title="What the number next to Inbox in the sidebar counts: every unread message, or only the items that wait for you (open replies, a shop incident, sponsor activities)">Sidebar count: ' + (S.settings && S.settings.badgeAct ? 'actionable only (' + UI.actionable(S) + ')' : 'all unread') + '</button>' + '<button class="btn sm' + (UI.hideBg(S) ? ' sel' : '') + '" data-act="hideBg" title="Background messages: development reports (projects done, knowledge levels), team chatter and general FRC news. Anything that names a team, shows a robot, takes a reply or changes something always stays.">' + (UI.hideBg(S) ? 'Background hidden (' + nBg + ')' : 'Hide background') + '</button>' + (S.incident ? '<button class="btn sm primary" data-act="incident">Resolve shop incident</button>' : '') + (due.length ? '<button class="btn sm primary" data-act="activities">' + due.length + ' sponsor activit' + (due.length > 1 ? 'ies' : 'y') + ' to resolve</button>' : '') + '</div>' + (list || '<p class="muted">Empty.</p>');
   } };
   UI.A.badgeAct = () => { const S = G.S; S.settings = S.settings || {}; S.settings.badgeAct = !S.settings.badgeAct; G.Save.write('auto'); UI.render(); };
   UI.A.readMsg = id => { const m = G.S.inbox.find(x => x.id === id); if (m) m.read = true; UI.st.openMsg = UI.st.openMsg === id ? null : id; UI.render(); };
@@ -1168,7 +1179,7 @@
     programs: 'Feeder programs: three established balanced programs give 100. Outreach-focus programs and your own FTC teams count for more.',
     rep: 'Your reputation, as shown in the top bar.' };
   function feederCard(S) {
-    const C = G.Career, list = S.programs || [], fo = C.feederOutlook(S), full = list.length >= D.FEEDER_MAX;
+    const C = G.Career, list = S.programs || [], fo = C.feederOutlook(S), full = list.length >= D.FEEDER_MAX, cap = C.feederCap(S), out = C.outsidePrograms(S), capFull = full || out >= cap.n;
     const AT = { drive: 'Drive', aware: 'Aware', comp: 'Comp', mech: 'Mech', hp: 'HP', strat: 'Strat' };
     const sel = pg => '<select class="inp" style="width:auto;flex:none" data-chg="progFocus" data-id="' + pg.id + '" title="Changing the focus costs a year of growth (free while the program is new)">' + Object.keys(D.FEEDER_FOCUS).map(k => '<option value="' + k + '"' + (pg.focus === k ? ' selected' : '') + '>' + h(D.FEEDER_FOCUS[k].name) + '</option>').join('') + '</select>';
     const rows = list.map(pg => {
@@ -1178,12 +1189,13 @@
     }).join('');
     const look = fo.n ? Object.keys(AT).map(k => AT[k] + ' <b>+' + Math.round(fo.attr[k]) + '</b>').join(' · ') : '';
     const body = '<div class="sm muted mb">FLL, FTC, camps and clubs that grow your next generation: ' + U.money(D.FEEDER_COST) + ' a year each, full strength after three school years. They bring students every September, with the skills their focus trains. ' + UI.q('team', 'Feeder programs') + ' ' +
-      (C.ownMax(S) ? 'Your FTC Team Space runs ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' own FTC team' + (C.ownMax(S) > 1 ? 's' : '') + '.' : '') + '</div>' +
+      'Outside programs: <b>' + out + ' of ' + cap.n + '</b> <span class="xs" title="' + h(C.feederCapWhy(S)) + '">(outreach mentor and reputation open more)</span>. ' +
+      (C.ownMax(S) ? 'Your FTC Team Space runs ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' own FTC team' + (C.ownMax(S) > 1 ? 's' : '') + ' (not counted).' : '') + '</div>' +
       (list.length ? rows : '<p class="muted">No feeder programs yet. Start one: it pays off next September and keeps growing after that.</p>') +
       (fo.n ? '<div class="hint mt"><b>Next September</b>: about +' + fo.size.toFixed(1) + ' extra recruits, and ' + Math.round(fo.share * 100) + '% of core recruits come through your programs. Average recruit skill bonus: ' + look + '. Impact "Feeder programs": <b>' + Math.round(Math.min(100, fo.impact / 3 * 100)) + '</b>/100. Cost ' + U.money(C.programCost(S)) + '/yr.</div>' : '');
     return '<div class="mt">' + UI.card(UI.it('sprout', 'Feeder programs ') + UI.tag(list.length + '/' + D.FEEDER_MAX, full ? 'warn' : ''), body,
       (C.ownMax(S) ? '<button class="btn sm" data-act="addOwnProg" ' + (full || C.ownTeams(S) >= C.ownMax(S) ? 'disabled' : '') + ' title="Your own FTC team in the FTC Team Space: ' + U.money(D.FTC_OWN.cost) + ' a year, much stronger recruits. ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' running.">+ Own FTC team</button>' : '') +
-      '<button class="btn sm primary" data-act="addProg" ' + (full ? 'disabled' : '') + ' title="' + U.money(D.FEEDER_COST) + ' a year, paid in September">+ Start a program</button>') + '</div>';
+      '<button class="btn sm primary" data-act="addProg" ' + (capFull ? 'disabled' : '') + ' title="' + h(capFull && !full ? C.feederCapWhy(S) : U.money(D.FEEDER_COST) + ' a year, paid in September') + '">+ Start a program</button>') + '</div>';
   }
   UI.A.addOwnProg = () => { const e = G.Career.addProgram(G.S, 'balanced', true); if (e) return UI.err(e); const pg = G.S.programs[G.S.programs.length - 1]; UI.toast(pg.name + ' founded. Pick its focus (free while it is new).', 'good'); UI.render(); };
   UI.A.addProg = () => { const e = G.Career.addProgram(G.S, 'balanced'); if (e) return UI.err(e); const pg = G.S.programs[G.S.programs.length - 1]; UI.toast(pg.name + ' started. Pick its focus (free while it is new).', 'good'); UI.render(); };
@@ -1423,7 +1435,7 @@
     o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? (S.eventsDone['scrim' + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'scrim') ? undoBtn('scrim') : '<button class="btn sm bad" data-act="withdrawScrim">Withdraw</button>')) : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>', '', 'mb');
     for (let w = 1; w <= 6; w++) {
       const list = S.regionals.filter(r => r.week === w);
-      o += '<div class="card mb"><div class="ct">Week ' + w + (S.phase === 'comp' && S.week === w ? ' ' + UI.tag('this week', 'acc') : '') + '</div><table class="t"><tr><th>' + (dist ? 'District event' : 'Regional') + '</th><th>Region</th><th>Travel</th><th class="num">Teams</th><th title="How strong the field is, and how much more (or less) the team learns there than at a ★★★ event">Strength</th><th></th></tr>' +
+      o += '<div class="card mb"><div class="ct">Week ' + w + (S.phase === 'comp' && S.week === w ? ' ' + UI.tag('this week', 'acc') : '') + '</div><table class="t"><tr><th>' + (dist ? 'District event' : 'Regional') + '</th><th>Region</th><th title="Travel for your ' + (S.studentsCount || S.students.length) + ' students: it grows with the team (the robot\'s freight costs the same for everyone)">Travel</th><th class="num">Teams</th><th title="How strong the field is, and how much more (or less) the team learns there than at a ★★★ event">Strength</th><th></th></tr>' +
         list.map(r => {
           const tier = D.travelTier(S.team.region, r.region, r.local), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
           return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="nowrap"><span class="acc">' + '★'.repeat(r.str) + '</span> <span class="xs muted" title="Experience at this event">×' + (+C.expMult(r).toFixed(2)) + ' XP</span></td><td>' +

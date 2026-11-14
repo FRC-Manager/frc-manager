@@ -519,11 +519,31 @@
       if (best === me) { if (sel.fast === 'mine') sel.fast = null; sel.pending = { type: 'invite', k, from: captain }; break; }
       if (sel.watch && !sel.fast && sel.beat) break; // watching: the next decision waits for Next
       // an AI invitee that would captain an alliance itself may decline, if it can do better that way
-      if (rng.chance(Ev.declineChance(ev, k, best).p)) { sel.declined.push(best); sel.log.push(best + ' declined alliance ' + (k + 1)); if (sel.watch) sel.beat = sel.log[sel.log.length - 1]; continue; }
+      if (rng.chance(Ev.declineChance(ev, k, best).p)) {
+        markDeclined(sel, best, k); sel.log.push(best + ' declined Alliance ' + (k + 1) + ' (' + captain + ')');
+        if (sel.watch) sel.beat = best + ' declined Alliance ' + (k + 1) + '\'s invitation: they would rather captain an alliance of their own. No alliance can pick them now, so ' + captain + ' picks again.';
+        continue;
+      }
       Ev.selAccept(ev, k, best);
       if (sel.watch) sel.beat = sel.log[sel.log.length - 1];
     }
-    if (sel.done) { if (sel.watch && !sel.fast) { sel.beat = 'Alliance selection is complete.'; return; } Ev.finishSelection(ev); }
+    // the end: a watcher keeps the final board up (also after Skip to your turn, if no decision of yours came)
+    if (sel.done) { if (sel.watch && sel.fast !== 'end') { sel.fast = null; sel.beat = 'Alliance selection is complete.'; return; } Ev.finishSelection(ev); }
+  };
+  // a team that declines can't be picked again (it can still captain an alliance); the captain it turned down picks again
+  function markDeclined(sel, team, k) { if (!sel.declined.includes(team)) sel.declined.push(team); (sel.declinedAt = sel.declinedAt || {})[team] = k; sel.repick = k; }
+  // What declining would leave a team (asked before it declines, or after): nobody can pick it, so it plays the playoffs
+  // only as a captain. { kind: 'captain' } it is sure to captain an alliance later in the first round; { kind: 'maybe',
+  // need, picks } only if `need` teams ranked above it go in the `picks` picks made before the last captain comes
+  // forward; { kind: 'out' } it sits the playoffs out (the second round, or ranked too low).
+  Ev.declineOutlook = function (ev, team) {
+    const sel = ev.sel, out = { kind: 'out' };
+    if (!sel || sel.done || sel.round !== 1 || inAlliance(ev, team)) return out;
+    const order = sel.pool.filter(t => !inAlliance(ev, t)), pos = order.indexOf(team), seats = 8 - sel.alliances.length;
+    if (pos < 0 || seats <= 0) return out;
+    if (pos < seats) return { kind: 'captain' };
+    const cur = sel.alliances[sel.k], picks = (cur && cur.length < 2 ? 1 : 0) + seats - 1, need = pos - seats + 1;
+    return need <= picks ? { kind: 'maybe', need, picks } : out;
   };
   // How likely a team is to turn an invitation down: { p, why }. Only a team that would captain an alliance itself later in
   // the first round can (anyone else who declines sits the playoffs out). It weighs the alliance it is offered (the
@@ -547,9 +567,10 @@
   };
   Ev.selAccept = function (ev, k, team) {
     const sel = ev.sel;
+    const again = sel.repick === k; sel.repick = null;
     sel.alliances[k].push(team);
     sel.pool = sel.pool.filter(t => t !== team);
-    sel.log.push('Alliance ' + (k + 1) + ' (' + sel.alliances[k][0] + ') picks ' + team);
+    sel.log.push('Alliance ' + (k + 1) + ' (' + sel.alliances[k][0] + ') picks ' + team + (again ? ' instead' : ''));
     advanceK(ev);
   };
   function advanceK(ev) {
@@ -559,12 +580,17 @@
   }
   Ev.playerPick = function (ev, team) {
     const sel = ev.sel, k = sel.pending.k;
+    // only a team still free can be picked: not on an alliance, and not one that declined an invitation
+    if (team === G.S.team.num || !sel.pool.includes(team) || inAlliance(ev, team) || sel.declined.includes(team)) {
+      sel.pending.declinedMsg = team + (sel.declined.includes(team) ? ' declined an invitation earlier, so no alliance can pick them.' : ' is not available.') + ' Pick again.';
+      return false;
+    }
     sel.pending = null;
     const rng = G.makeRng(hash(ev.seed, 555 + sel.log.length * 7919 + team));
     const dc = Ev.declineChance(ev, k, team);
     if (rng.chance(dc.p)) {
-      sel.declined.push(team); sel.log.push(team + ' declined your invitation!');
-      sel.pending = { type: 'pick', k, declinedMsg: team + ' declined your invitation: ' + dc.why + '. Pick again.' };
+      markDeclined(sel, team, k); sel.log.push(team + ' declined your invitation!'); if (G.S.season) G.S.season.declinedBy = { team, ev: ev.name };
+      sel.pending = { type: 'pick', k, declinedMsg: team + ' declined your invitation: ' + dc.why + '. No alliance can pick them now. Pick again.' };
       return false;
     }
     Ev.selAccept(ev, k, team);
@@ -575,16 +601,19 @@
   Ev.playerRespond = function (ev, accept) {
     const sel = ev.sel, p = sel.pending, me = G.S.team.num;
     sel.pending = null;
-    if (accept) Ev.selAccept(ev, p.k, me);
-    else { sel.declined.push(me); sel.log.push(me + ' declined alliance ' + (p.k + 1)); }
-    if (sel.watch) sel.beat = sel.log[sel.log.length - 1];
+    if (accept) { Ev.selAccept(ev, p.k, me); if (sel.watch) sel.beat = sel.log[sel.log.length - 1]; }
+    else {
+      const ol = Ev.declineOutlook(ev, me), cap = sel.alliances[p.k][0];
+      markDeclined(sel, me, p.k); sel.log.push(me + ' declined Alliance ' + (p.k + 1) + ' (' + cap + ')');
+      if (sel.watch) sel.beat = 'You declined Alliance ' + (p.k + 1) + '\'s invitation. ' + (ol.kind === 'captain' ? 'You will captain an alliance of your own later in this round.' : ol.kind === 'maybe' ? 'You captain an alliance only if ' + ol.need + ' of the teams ranked above you are picked first.' : 'You sit out the playoffs.') + ' ' + cap + ' picks again.';
+    }
     Ev.selStep(ev);
   };
   Ev.finishSelection = function (ev) {
     ev.alliances = ev.sel.alliances.filter(a => a && a.length >= 2);
     ev.alliances.forEach(a => {
       while (a.length < 3) {
-        const t = ev.sel.pool.find(x => !ev.alliances.some(b => b.includes(x)));
+        const t = ev.sel.pool.find(x => !ev.alliances.some(b => b.includes(x)) && !ev.sel.declined.includes(x)); // a team that declined can't be added either
         if (t == null) break;
         a.push(t); ev.sel.pool = ev.sel.pool.filter(x => x !== t);
       }

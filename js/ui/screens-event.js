@@ -219,21 +219,26 @@
   function selectionView(ev) {
     const sel = ev.sel;
     let o = '<div class="grid ' + (sel.pending && sel.pending.type === 'pick' ? 'g12' : 'g2') + '"><div class="card"><div class="ct">Alliances</div><table class="t"><tr><th>#</th><th>Captain</th><th>1st pick</th><th>2nd pick</th></tr>';
-    for (let k = 0; k < 8; k++) { const a = sel.alliances[k] || [], clock = !sel.done && sel.k === k && (sel.watch || sel.pending); o += '<tr class="' + (a.includes(me()) ? 'me' : '') + '"><td>' + (k + 1) + (clock ? ' <span class="xs acc" title="On the clock">◀</span>' : '') + '</td><td>' + (a[0] ? tlink(a[0]) : '') + '</td><td>' + (a[1] ? tlink(a[1]) : '') + '</td><td>' + (a[2] ? tlink(a[2]) : '') + '</td></tr>'; }
+    for (let k = 0; k < 8; k++) { const a = sel.alliances[k] || [], clock = !sel.done && sel.k === k && (sel.watch || sel.pending); o += '<tr class="' + (a.includes(me()) ? 'me' : '') + '"><td>' + (k + 1) + (clock ? ' <span class="xs acc" title="On the clock">◀</span>' : '') + '</td><td>' + (a[0] ? tlink(a[0]) + declTag(sel, a[0]) : '') + '</td><td>' + (a[1] ? tlink(a[1]) : '') + '</td><td>' + (a[2] ? tlink(a[2]) : '') + '</td></tr>'; }
     o += '</table>' + (sel.log.length ? '<div class="xs muted mt">' + sel.log.slice(-5).map(h).join('<br>') + '</div>' : '') + '</div><div class="card hl">';
     if (sel.pending && sel.pending.type === 'invite') {
-      const p = sel.pending, rank = G.Ev.rankOf(ev, p.from);
-      o += '<div class="ct">Invitation!</div><p>Alliance <b>' + (p.k + 1) + '</b> captain <b>' + p.from + ' ' + h(tname(p.from)) + '</b> (ranked ' + U.ord(rank) + ', OPR ' + (G.Ev.opr(ev)[p.from] || 0) + ') invites you to join.</p><p class="sm muted">Declining means no other alliance can pick you — you only play playoffs if you become a captain yourself.</p>' +
-        '<div class="row"><button class="btn primary" data-act="selRespond" data-arg="1">Accept</button><button class="btn bad" data-act="selRespond" data-arg="0">Decline</button></div>';
+      const p = sel.pending, rank = G.Ev.rankOf(ev, p.from), ol = G.Ev.declineOutlook(ev, me());
+      const warn = ol.kind === 'captain' ? '<p class="sm muted">If you decline, no other alliance can pick you, but you are sure to captain an alliance of your own later in this round.</p>'
+        : ol.kind === 'maybe' ? '<div class="warnbox mb">If you decline, no other alliance can pick you. You captain an alliance only if ' + ol.need + ' of the teams ranked above you are picked in the next ' + ol.picks + ' picks: otherwise you sit out the playoffs.</div>'
+        : '<div class="warnbox mb"><b>If you decline, you sit out the playoffs.</b> No other alliance can pick you, and ' + (sel.round === 1 ? 'you are ranked too low to become a captain.' : 'every captain is already set.') + '</div>';
+      o += '<div class="ct">Invitation!</div><p>Alliance <b>' + (p.k + 1) + '</b> captain <b>' + p.from + ' ' + h(tname(p.from)) + '</b> (ranked ' + U.ord(rank) + ', OPR ' + (G.Ev.opr(ev)[p.from] || 0) + ') invites you to join.</p>' + warn +
+        '<div class="row"><button class="btn primary" data-act="selRespond" data-arg="1">Accept</button><button class="btn bad" data-act="selRespond" data-arg="' + (ol.kind === 'captain' ? '0' : 'ask') + '">' + (ol.kind === 'out' ? 'Decline and sit out' : 'Decline') + '</button></div>';
     } else if (sel.pending && sel.pending.type === 'pick') {
       o += '<div class="ct">Your pick — Alliance ' + (sel.pending.k + 1) + ' (' + (sel.round === 1 ? 'first' : 'second') + ' round)</div>' + (sel.pending.declinedMsg ? '<div class="warnbox mb">' + h(sel.pending.declinedMsg) + '</div>' : '') + pickTable(ev);
     } else if (sel.watch) {
       // watching: what just happened, the controls, and only your own scouting data (the pick list is yours on your turn)
-      const mine = sel.alliances.some(a => a && a.includes(me())), out = sel.declined.includes(me());
+      const mine = sel.alliances.some(a => a && a.includes(me())), out = sel.declined.includes(me()), ol = out ? G.Ev.declineOutlook(ev, me()) : null;
       o += '<div class="ct">' + (sel.done ? 'Alliance selection complete' : 'Alliance selection · round ' + sel.round) + '</div><div class="lg b mb">' + h(sel.beat || '') + '</div>' +
         '<div class="row wrap gap4">' + (sel.done ? '<button class="btn primary" data-act="selNext">Continue to the playoffs</button>' :
-          '<button class="btn primary" data-act="selNext">Next pick</button>' + (!mine && !out ? '<button class="btn" data-act="selSkip" data-arg="mine" title="Run the picks until it is your turn to pick or to answer an invitation (or to the end, if neither comes)">Skip to your turn</button>' : '') + '<button class="btn" data-act="selSkip" data-arg="end" title="Run the rest of the selection (it still stops for your own decisions)">Skip to the end</button>') + '</div>' +
-        '<div class="xs muted mt">' + (mine ? 'Your alliance is set. Watch who the others pick.' : out ? 'You declined an invitation: no other alliance can pick you now.' : 'Not picked yet. The other captains\' pick lists are their own: you see only your scouting data.') + '</div>';
+          '<button class="btn primary" data-act="selNext">Next pick</button>' + (!mine && (!out || ol.kind !== 'out') ? '<button class="btn" data-act="selSkip" data-arg="mine" title="Run the picks until it is your turn to pick or to answer an invitation (or to the end, if neither comes)">Skip to your turn</button>' : '') + '<button class="btn" data-act="selSkip" data-arg="end" title="Run the rest of the selection (it still stops for your own decisions)">Skip to the end</button>') + '</div>' +
+        '<div class="xs muted mt">' + (mine ? 'Your alliance is set. Watch who the others pick.'
+          : out ? (sel.done || ol.kind === 'out' ? 'You declined an invitation and sit out the playoffs.' : ol.kind === 'captain' ? 'You declined an invitation: no alliance can pick you, but you will captain one of your own.' : 'You declined an invitation: you captain an alliance only if ' + ol.need + ' more teams ranked above you are picked first.')
+          : sel.done ? 'Your team was not picked this time.' : 'Not picked yet. The other captains\' pick lists are their own: you see only your scouting data.') + '</div>';
       o += '</div></div>' + watchScout(ev);
       return o;
     } else if (sel.done) o += '<p>Alliance selection complete.</p>';
@@ -242,10 +247,16 @@
     return o;
   }
   // while others pick: your own scouting data on the teams still available (no pick values or recommendations)
+  // a team that declined an invitation: it can't be picked again (it can still captain an alliance)
+  function declTag(sel, t) {
+    if (!sel.declined.includes(t)) return '';
+    const k = sel.declinedAt && sel.declinedAt[t] != null ? sel.declinedAt[t] : null;
+    return ' <span title="Declined ' + (k != null ? 'Alliance ' + (k + 1) + '\'s' : 'an') + ' invitation: no alliance can pick them, but they can still captain one">' + UI.tag('declined', 'warn') + '</span>';
+  }
   function watchScout(ev) {
-    const sel = ev.sel, opr = G.Ev.opr(ev), avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t)) && !sel.declined.includes(t)).sort((a, b) => G.Ev.rankOf(ev, a) - G.Ev.rankOf(ev, b));
-    return '<div class="card mt"><div class="ct">Your scouting data · teams still available</div><div class="xs muted mb">What your scouts saw in qualifications (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%), by rank.</div><div style="max-height:360px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">Rank</th><th class="num">OPR</th>' + OBS_HEAD + '</tr>' +
-      avail.slice(0, 40).map(t => '<tr class="' + (t === me() ? 'me' : '') + '"><td class="nowrap">' + tlink(t) + '</td><td class="num">' + G.Ev.rankOf(ev, t) + '</td><td class="num">' + Math.round(opr[t] || 0) + '</td>' + obsCells(ev, t) + '</tr>').join('') + '</table></div></div>';
+    const sel = ev.sel, opr = G.Ev.opr(ev), avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t))).sort((a, b) => G.Ev.rankOf(ev, a) - G.Ev.rankOf(ev, b));
+    return '<div class="card mt"><div class="ct">Your scouting data · teams still available</div><div class="xs muted mb">What your scouts saw in qualifications (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%), by rank. Teams marked declined can\'t be picked.</div><div style="max-height:360px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">Rank</th><th class="num">OPR</th>' + OBS_HEAD + '</tr>' +
+      avail.slice(0, 40).map(t => '<tr class="' + (t === me() ? 'me' : sel.declined.includes(t) ? 'dim' : '') + '"><td class="nowrap">' + tlink(t) + declTag(sel, t) + '</td><td class="num">' + G.Ev.rankOf(ev, t) + '</td><td class="num">' + Math.round(opr[t] || 0) + '</td>' + obsCells(ev, t) + '</tr>').join('') + '</table></div></div>';
   }
   UI.A.selNext = function () { G.Ev.selNext(Ev()); G.Save.write('auto'); UI.render(); };
   UI.A.selSkip = function (m) { G.Ev.selSkip(Ev(), m); G.Save.write('auto'); UI.render(); };
@@ -261,15 +272,23 @@
   function pickTable(ev) {
     const sel = ev.sel, opr = G.Ev.opr(ev), al = sel.alliances[sel.pending.k] || [me()];
     const avail = sel.pool.filter(t => !sel.alliances.some(a => a && a.includes(t)) && !sel.declined.includes(t) && t !== me());
+    const gone = sel.declined.filter(t => t !== me() && !sel.alliances.some(a => a && a.includes(t)));
     const rows = avail.map(t => ({ t, sc: G.Ev.scout(ev, t), v: G.Ev.pickScore(ev, al, t, true) })).sort((a, b) => b.v - a.v);
     return '<div class="xs muted mb">Sorted by pick value from your own scouting (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%): OPR and the points your scouts saw, discounted by breakdowns, plus auto and climb consistency, fouls and what your alliance still needs.</div>' +
       '<div style="max-height:440px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">OPR</th>' + OBS_HEAD + '<th class="num">Value</th><th></th></tr>' + rows.slice(0, 30).map((r, i) => {
       const dc = G.Ev.declineChance(ev, sel.pending.k, r.t); // a future captain that could build a stronger alliance itself may say no
       return '<tr><td class="nowrap">' + tlink(r.t) + (i < 3 ? ' ' + UI.tag('rec', 'acc') : '') + (dc.p >= 0.15 ? ' <span title="About ' + Math.round(dc.p * 100) + '% likely to decline: ' + h(dc.why) + '">' + UI.tag('may decline', 'warn') + '</span>' : '') + '<div class="xs muted">#' + G.Ev.rankOf(ev, r.t) + ' · ' + h(r.sc.arch || '') + '</div></td><td class="num">' + (opr[r.t] || 0) + '</td>' + obsCells(ev, r.t) + '<td class="num b">' + r.v.toFixed(1) + '</td><td><button class="btn sm primary" data-act="selPick" data-arg="' + r.t + '">Pick</button></td></tr>';
-    }).join('') + '</table></div>';
+    }).join('') + '</table></div>' + (gone.length ? '<div class="xs muted mt">Declined, can\'t be picked: ' + gone.map(t => tlink(t)).join(' · ') + '</div>' : '');
   }
-  UI.A.selPick = function (t) { const ev = Ev(); const ok = G.Ev.playerPick(ev, Number(t)); if (!ok) UI.toast('They declined!', 'bad'); UI.render(); };
-  UI.A.selRespond = function (a) { G.Ev.playerRespond(Ev(), a === '1'); UI.render(); };
+  UI.A.selPick = function (t) { const ev = Ev(); const ok = G.Ev.playerPick(ev, Number(t)); if (!ok) UI.toast(ev.sel.declined.includes(Number(t)) ? t + ' declined: pick again' : 'Pick again', 'bad'); UI.render(); };
+  UI.A.selRespond = function (a) {
+    const ev = Ev();
+    if (a === 'ask') { // declining could keep your team out of the playoffs: say so once more
+      const ol = G.Ev.declineOutlook(ev, me());
+      return UI.confirm('Decline the invitation?', ol.kind === 'maybe' ? 'No other alliance can pick you after this. You captain an alliance only if ' + ol.need + ' of the teams ranked above you are picked first; otherwise your team sits out the playoffs.' : 'No other alliance can pick you after this, and you can\'t become a captain: your team sits out the playoffs.', 'Decline', () => { G.Ev.playerRespond(Ev(), false); UI.render(); });
+    }
+    G.Ev.playerRespond(ev, a === '1'); UI.render();
+  };
 
   // ---------------- playoffs ----------------
   const DIVC = { Archimedes: '#e5484d', Curie: '#ff8a3d', Daly: '#f5c542', Galileo: '#30c27a', Hopper: '#22b8c8', Johnson: '#3e8cff', Milstein: '#9b6bff', Newton: '#ff5fa2',

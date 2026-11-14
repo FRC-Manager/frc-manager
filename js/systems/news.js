@@ -301,7 +301,6 @@
     { id: 'plush', title: 'New pit mascot', body: S => 'Someone brought a ' + R().pick(PLUSH) + ' plushie to the shop. It is now the official pit mascot and has its own badge.' },
     { id: 'parents', title: 'Parent group chat', body: () => 'The parent group chat has ' + R().int(120, 400) + ' unread messages. Most are about carpools. One is a lasagna recipe.' },
     { id: 'drive', req: S => S.robot && inSeason(S), title: 'Drive practice', body: S => 'Drive practice: ' + driver(S) + ' set a personal-best cycle time and took a victory lap around the shop. The lap was slower.' },
-    { id: 'reveal', req: S => S.robot && revealWin(S), title: 'Reveal video stats', body: S => 'Your robot reveal reached ' + R().int(2, 40) + ',' + R().int(100, 999) + ' views. Top comment: "' + R().pick(['how is it that fast', 'clean wiring, respect', 'the bumpers are perfect', 'my grandma could drive that (compliment)', 'is that legal??', 'need the CAD please']) + '"' },
     { id: 'scale', req: S => S.robot && inSeason(S) && G.Robot.weight(S) >= 115, title: 'The scale', body: S => 'The robot weighs ' + G.Robot.weight(S) + ' lb. The team now refers to the scale as "the enemy".' },
     { id: 'swear', req: S => S.money < 5000, title: 'Swear jar', body: S => 'Treasurer ' + student(S) + ' started a swear jar. It is already the team\'s fourth-largest sponsor.' },
     { id: 'debt', req: S => S.money < 0, title: 'The red number', body: S => 'Someone wrote the team balance on the whiteboard in red marker. ' + student(S) + ' added "temporary!!" underneath. ' + mentor(S) + ' added a third exclamation mark.' },
@@ -536,6 +535,9 @@
     { id: 'c13shelf', req: S => lvl(S, 'shelf') > 0 && G.Shop.cond(S, 'shelf') < 50, title: 'Zip ties', body: S => 'The middle shelf of the parts rack came down during a meeting. ' + student(S) + ' had it back up in ten minutes with zip ties, and the zip ties went on the shopping list.' },
     { id: 'c12refq', req: S => S.phase === 'comp' && lastEv(S) && lastEv(S).refs && lastEv(S).refs.any >= 2, title: 'Spot the difference', body: S => 'There were ' + lastEv(S).refs.any + ' Anybots at the ' + lastEv(S).name + '. ' + student(S) + ' kept a list of how each team had changed theirs, and it ran to two pages.' },
     { id: 'c12refbp', req: S => S.phase === 'comp' && lastEv(S) && lastEv(S).refs && lastEv(S).refs.bp >= 2, title: 'Same intake, different team', body: S => student(S) + ' fixed a Blueprint team\'s intake in the queue with a spare from our cart. ' + (S.season.copied && Object.values(S.season.copied).includes('bp') ? 'It is the same part as ours.' : 'Theirs is the Apex design and ours is not, but the bolts are the same.') },
+    // 3.1.1: a team that turned your invitation down, and the travel bill of a big team
+    { id: 'c311decl', cd: 30, req: S => S.phase === 'comp' && !!(S.season && S.season.declinedBy && S.teams && S.teams[S.season.declinedBy.team]), title: 'Turned down', body: S => { const d = S.season.declinedBy, t = S.teams[d.team]; named.push(t.num); return 'At the ' + d.ev + ', ' + t.num + ' ' + t.name + ' said no to our invitation and captained an alliance of their own. ' + student(S) + ' has been checking their results ever since "just out of interest". ' + student2(S, '') + ' has added them to the scouting watch list in red.'; } },
+    { id: 'c311bus', cd: 40, req: S => (S.phase === 'comp' || S.phase === 'build') && (S.studentsCount || 0) >= 32, title: 'The travel spreadsheet', body: S => 'Treasurer ' + student(S) + ' built a spreadsheet for the next trip: ' + S.studentsCount + ' students, ' + Math.ceil(S.studentsCount / 4) + ' hotel rooms and a very long column of meals. "Every new member is another seat on the bus," they told the meeting. Nobody is sure whether that was a complaint.' },
     { id: 'c13elite', req: S => S.phase === 'comp' && eventMates(S).some(t => t.elite), title: 'Next to an elite pit', body: S => { const t = eventMates(S).find(x => x.elite); named.push(t.num); return student(S) + ' walked past ' + t.num + ' ' + t.name + '\'s pit three times this week. Every bin labelled, every battery logged, a spare for every part on the robot, and it is quieter than a library. ' + student2(S, '') + ' came back with a notebook full of ideas and a slightly smaller ego.'; } },
     { id: 'c13wait', req: S => S.phase === 'build' && S.week < D.REF_WEEK && G.Robot.refsSoon(S).length && !S.projects.some(p => p.type === 'build'), title: 'Waiting for the published robot', body: S => student(S) + ' has refreshed the ' + G.Robot.refsSoon(S)[0].by.replace(/^the /, '') + ' page forty times today. Everyone else is wiring a test chassis, writing drive code or, for once, going home on time.' },
     { id: 'c13own', req: S => S.phase === 'build' && S.week < D.REF_WEEK && G.Robot.refsSoon(S).length && S.projects.filter(p => p.type === 'build' && !p.ref).length >= 2, title: 'Not waiting', body: S => student(S) + ' says the team is not waiting a week for somebody else\'s robot. The intake CAD has been on the big screen since Saturday, and nobody has asked to go home.' },
@@ -630,14 +632,17 @@
     if (fr.length) return R().wpick(fr, e => e.w || 1);
     return ok.sort((a, b) => (seen(S)[a.id] || 0) - (seen(S)[b.id] || 0))[0] || null;
   }
-  function runNews(S, e) {
+  // general news that is about your own season or the game's strategy and rules stays in front when background is hidden
+  const PLOT = new Set(['n5rules', 'n5impact', 'n5amp', 'n5reef', 'n5hoard', 'meta', 'lastyr', 'award', 'restock', 'champs']);
+  function runNews(S, e, bg) { // bg: general news from the NEWS pool (no effect): background unless it takes a reply, names a team or is in PLOT
+    if (bg && PLOT.has(e && e.id)) bg = false;
     if (!e) return false;
     named = [];
     const res = e.run(S);
     if (!res) return false;
     seen(S)[e.id] = turnNo(S);
     if (res[2] && res[2].reply) res[2].until = turnNo(S); // replies are open for this turn only (a week in season, a month in the offseason)
-    post(S, res[0], res[1], 'news', named.length ? Object.assign({}, res[2] || {}, { teams: [...new Set(named)] }) : res[2]);
+    post(S, res[0], res[1], 'news', Object.assign({}, res[2] || {}, named.length ? { teams: [...new Set(named)] } : {}, bg && !named.length && !(res[2] && res[2].reply) ? { bg: true } : {}));
     return true;
   }
   // Called once per turn
@@ -647,23 +652,30 @@
   const revealWin = S => (S.phase === 'build' && S.week >= 5) || (S.phase === 'comp' && S.week <= 2);
   const winLeft = S => (S.phase === 'build' ? 10 - S.week : 3 - S.week); // turns left in the window, this one included
   const mmss = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
-  // a team's reveal style stays the same from year to year
-  const styleOf = t => (t.elite && t.num % 11 === 0 ? 'none' : ['render', 'cinematic', 'teaser', 'full', 'stream'][(t.num * 7 + 3) % 5]);
-  const styleText = (t, a, b) => {
+  // a team's reveal style stays the same from year to year: a render that stays up as long as the team number, a
+  // cinematic video, a teaser, raw practice footage, a live stream, one picture on the forum with no words, or nothing
+  // at all (the picture is somebody's photo from a scrimmage)
+  const STYLES = ['render', 'cinematic', 'teaser', 'full', 'stream', 'forum', 'scrim'];
+  const styleOf = t => (t.elite && t.num % 11 === 0 ? 'none' : STYLES[(t.num * 11 + Math.floor(t.num / 10) + 3) % STYLES.length]);
+  const styleText = (t, a, b, S) => {
+    const ago = S && S.phase === 'comp' ? 'before the season started' : 'last weekend'; // scrimmages are around Week 0
     const st = styleOf(t);
     if (st === 'render') { const n = t.num, len = n >= 100 && n < 1000 && n % 100 < 60 ? Math.floor(n / 100) + ':' + String(n % 100).padStart(2, '0') : mmss(n); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
-    if (st === 'cinematic') return 'Drone shots, slow motion and a soundtrack that sounds expensive. The robot is on screen for nine seconds in total, and those nine seconds have been looped a thousand times.';
+    if (st === 'cinematic') return R().pick(['Drone shots, slow motion and a soundtrack that sounds expensive. The robot is on screen for nine seconds in total, and those nine seconds have been looped a thousand times.',
+      'A film, not a video: a sunrise, a countdown, sparks in slow motion, and the robot rolling out of fog to a drum hit. ' + a + ' says the fog machine alone must have cost more than our drivetrain.']);
     if (st === 'teaser') return 'Twelve seconds: a wheel, a flash of bumper, a noise that might be a climber. The forum has a frame-by-frame thread and ' + b + ' has posted in it eleven times.';
     if (st === 'full') return 'Eight minutes of uncut practice-field footage, cycle after cycle, no music, no edits. Somehow it is the most frightening one of all.';
     if (st === 'stream') return 'They revealed it live on a stream with ' + R().int(3, 9) + ',' + R().int(100, 999) + ' viewers, then drove it for an hour and answered questions about everything except the intake.';
-    return 'No reveal, as every year: the first anyone sees of their robot will be on a practice field in Week 1. The picture is a blurry photo from a parent in the stands at their scrimmage.';
+    if (st === 'forum') return 'No video. One picture on the forum, on a grey background: no title, no caption, not a word. It had ' + R().int(300, 900) + ' replies by morning, ' + R().pick(['most of them arrows and circles drawn on the picture.', 'and somebody has already measured the wheel base from the pixels.', 'and the top one just says "oh no".']);
+    if (st === 'scrim') return 'Someone in the stands at a scrimmage ' + ago + ' took this picture and put it online without asking: a little blurry, slightly sideways, and shared more than any reveal video this year. ' + b + ' has it as a phone background "for motivation".';
+    return 'The first anyone was meant to see of their robot was a practice field in Week 1, but a parent in the stands at their scrimmage took this blurry photo, and it was everywhere by morning.';
   };
   // what people notice in the picture
   const featureTalk = (S, lk, el) => {
     const c = [];
     if (lk.manip === 'turretlift') c.push(el ? 'A turret on top of an elevator, from an elite team. Everyone is shocked; three teams have already started on one.' : 'A turret on top of an elevator. Nobody knew that was allowed, including, possibly, them.');
     if (lk.shooter === 'turret' || lk.shooter === 'rotor') c.push('The turret keeps the shooter on target the whole time, even while the robot drives the other way.');
-    if (['triple', 'arms', 'hook2'].includes(lk.climber)) c.push('Top comment, with nine hundred likes: "I can\'t even tell how their climber works from the reveal."');
+    if (['triple', 'arms', 'hook2'].includes(lk.climber)) c.push('Top comment, with nine hundred likes: "I can\'t even tell how their climber works from this."');
     if (lk.drive === 'swerve' && !G.Era.of(S).swerve.cots) c.push('They machined their own swerve modules. ' + (el ? 'Again.' : 'Bold.'));
     else if (lk.drive === 'swerve') c.push('Swerve, of course: the robot drifts sideways through traffic like it is on ice.');
     if (lk.manip === 'elevwrist' || lk.manip === 'dja') c.push('The arm folds into a shape the frame rules never imagined.');
@@ -677,25 +689,215 @@
     return G.Cap.look(year, subs, { visionLvl: t.rb.visionLvl });
   };
   function postReveal(S, t, kind, mi) {
-    const sv = S.season.rev, a = student(S), b = student2(S, a), el = !!t.elite, lk = revealLook(S, t), none = el && styleOf(t) === 'none';
+    const sv = S.season.rev, a = student(S), b = student2(S, a), el = !!t.elite, lk = revealLook(S, t), st = styleOf(t);
+    // a still picture or a video; the scrimmage photo and the no-reveal teams' photo were taken by somebody else and leaked
+    const leak = st === 'scrim' || st === 'none', still = leak || st === 'forum' || st === 'render';
     sv.done[t.num] = 1;
     const where = mi != null ? away(mi) : 'from ' + (t.home ? D.DISTRICT[t.home].name : t.region);
     const ft = R().shuffle(featureTalk(S, lk, el)).slice(0, 2);
-    const react = el ? R().pick(['Every team in the world watched it before lunch. ' + a + ' says the gearbox is "just a gearbox" and has rewatched the gearbox eleven times.', 'By evening there were four "response" videos and a spreadsheet estimating their cycle time to a tenth of a second.', a + ' put it on the shop TV and the build session stopped for twenty minutes.', 'The reveal has more views than the game animation. ' + b + ' thinks that is fair.'])
-      : R().pick(['Your students have watched it ' + R().int(20, 90) + ' times and are "definitely not worried".', a + ' noticed they use the same bearings as you and is taking it as a compliment.', b + ' is already sketching the defense plan on the whiteboard.']);
-    const title = kind === 'local' ? 'Elite reveal: ' + t.num + ' ' + t.name : kind === 'far' ? 'Everyone is watching: ' + t.num + ' ' + t.name : 'Rival reveal: ' + t.num + ' ' + t.name;
-    const body = 'Team ' + t.num + ' ' + t.name + (el ? ', one of the elite teams' : '') + ' (' + where + ') ' + (none ? 'kept to its tradition.' : 'posted its reveal.') + ' ' + styleText(t, a, b) + (ft.length ? '\n\n' + ft.join(' ') : '') + '\n\n' + react;
+    const react = el ? R().pick(still
+      ? ['Every team in the world had seen it before lunch. ' + a + ' says the gearbox is "just a gearbox" and has zoomed in on the gearbox eleven times.', 'By evening there were four forum threads measuring it in pixels and a spreadsheet guessing their cycle time to a tenth of a second.', a + ' put it on the shop TV and the build session stopped for twenty minutes.', 'It has more views than the game animation. ' + b + ' thinks that is fair.', 'Three forum threads are arguing about one bolt in it. ' + b + ' has opinions on the bolt.', a + ' printed it and taped it to the shop door with the words "this is the bar".']
+      : ['Every team in the world watched it before lunch. ' + a + ' says the gearbox is "just a gearbox" and has rewatched the gearbox eleven times.', 'By evening there were four "response" videos and a spreadsheet estimating their cycle time to a tenth of a second.', a + ' put it on the shop TV and the build session stopped for twenty minutes.', 'The video has more views than the game animation. ' + b + ' thinks that is fair.', 'Three forum threads are arguing about one bolt in it. ' + b + ' has opinions on the bolt.', a + ' paused it on the best frame, printed it and taped it to the shop door with the words "this is the bar".'])
+      : R().pick(still
+        ? ['Your students have zoomed in on it ' + R().int(20, 90) + ' times and are "definitely not worried".', a + ' noticed they use the same bearings as you and is taking it as a compliment.', b + ' is already sketching the defense plan on the whiteboard.', a + ' and ' + b + ' have measured it in pixels twice and got two different sizes. Both say it proves ours is better.']
+        : ['Your students have watched it ' + R().int(20, 90) + ' times and are "definitely not worried".', a + ' noticed they use the same bearings as you and is taking it as a compliment.', b + ' is already sketching the defense plan on the whiteboard.', a + ' and ' + b + ' have counted their cycles twice and got two different numbers. Both say it proves we are faster.']);
+    const nm = t.num + ' ' + t.name, title = kind === 'local' ? (leak ? 'Elite robot leaked: ' : 'Elite reveal: ') + nm : kind === 'far' ? 'Everyone is watching: ' + nm : (leak ? 'Rival robot leaked: ' : 'Rival reveal: ') + nm;
+    const rival = kind === 'rival' ? '\n\n' + R().pick(['On paper they are about as strong as you are this year: the team you will be fighting for the same picks.', 'They look about as strong as you this year, and every scout around here knows it.']) : '';
+    const opens = st === 'none' ? 'kept to its tradition: no reveal. The robot leaked anyway.' : st === 'scrim' ? 'never posts a reveal, but the robot leaked anyway.' : 'posted its reveal.';
+    const body = 'Team ' + nm + (el ? ', one of the elite teams' : '') + ' (' + where + ') ' + opens + ' ' + styleText(t, a, b, S) + (ft.length ? '\n\n' + ft.join(' ') : '') + rival + '\n\n' + react;
     post(S, title, body, el ? 'news' : 'fun', { teams: [t.num], robot: { look: lk, num: t.num } });
   }
+  // the local rival: a team near you (not elite) whose robot should be about as strong as yours this season (your robot
+  // as it stands; if it is barely built yet, a middling local team)
+  function rivalOf(S, sv) {
+    const all = G.Geo.nearTeams(S).filter(x => !x.t.elite && !sv.done[x.t.num]), close = all.filter(x => x.mi <= 150), near = (close.length >= 5 ? close : all.filter(x => x.mi <= 250)).slice(0, 30); // within 150 miles when there are enough teams there
+    if (!near.length) return null;
+    const ps = near.map(x => { const t = x.t; if (!t.rb || t.rb.year !== S.year) G.AI.seasonRobot(t, S.year, R()); return { x, p: G.AI.entry(t, S.year, 0.9, 1, G.makeRng(t.num * 7919 + S.year)).power || 0 }; });
+    const mine = G.Robot.powerNow(S), target = mine >= 30 ? mine : ps.map(o => o.p).sort((a, b) => a - b)[ps.length >> 1];
+    ps.sort((a, b) => (Math.abs(a.p - target) + a.x.mi / 25) - (Math.abs(b.p - target) + b.x.mi / 25));
+    return ps[0].x;
+  }
+  // your own reveal, once the robot has a few subsystems on it: the views, the top comment and the picture
+  function ownReveal(S) {
+    const a = student(S), b = student2(S, a), k = Math.max(1, Math.round(S.rep / 10));
+    const how = R().pick(['a ninety-second video ' + b + ' edited at 3 a.m., with a drone shot borrowed from a parent', 'one render that stays on screen far too long, "as a tribute"', 'a teaser of a wheel and a bumper, then the whole robot in one slow turn', 'a live stream from the shop that mostly showed the back of ' + a + '\'s head', 'two minutes of practice-field cycles and a drum loop']);
+    const top = R().pick(['how is it that fast', 'clean wiring, respect', 'the bumpers are perfect', 'my grandma could drive that (compliment)', 'is that legal??', 'need the CAD please', 'the music choice is elite', 'ok but what does the climber do']);
+    post(S, 'Our reveal is live', 'The team posted its robot reveal: ' + how + '. It reached ' + R().int(k, 4 * k) + ',' + R().int(100, 999) + ' views. Top comment: "' + top + '".\n\n' +
+      R().pick([a + ' has replied to every comment. Every single one.', 'Two rival teams liked it, which ' + b + ' says is "a statement".', a + ' has watched the view counter more than the robot this week.']), 'fun', { robot: { look: G.Robot.look(S), num: S.team.num } });
+  }
   function reveals(S) {
-    if (!S.cal || !G.World.on(S) || !S.season || !revealWin(S)) return;
-    const sv = S.season.rev = S.season.rev || { done: {} }, left = winLeft(S), Geo = G.Geo, me = Geo.myPos(S), cy = Geo.cyOf(S), area = S.team.home || S.team.region;
+    if (!S.season || !revealWin(S)) return;
+    const sv = S.season.rev = S.season.rev || { done: {} }, left = winLeft(S);
+    // yours, in every mode (the rest needs the world simulation)
+    const R0 = S.robot, subs = R0 && R0.bots && R0.bots[R0.comp || 0] ? R0.bots[R0.comp || 0].subs : {}, built = Object.keys(subs).filter(k => k !== 'soft' && subs[k] && subs[k].ver).length;
+    if (!sv.mine && built >= 2 && (left <= 1 || R().chance(0.5))) { sv.mine = 1; ownReveal(S); }
+    if (!S.cal || !G.World.on(S)) return;
+    const Geo = G.Geo, me = Geo.myPos(S), cy = Geo.cyOf(S), area = S.team.home || S.team.region;
     const mi = t => Math.round(Geo.miles(me, Geo.teamPos(t.num, t.region, t.home, cy).xy));
     const el = G.World.elites(S).filter(t => !sv.done[t.num]), local = el.filter(t => G.World.areaOf(t) === area || mi(t) <= 300);
     local.forEach(t => { if (left <= 1 || R().chance(1 / left)) postReveal(S, t, 'local', mi(t)); }); // a local elite reveal always reaches you
-    const far = el.filter(t => !local.includes(t)), want = 3 - (sv.far || 0);
-    if (want > 0 && far.length && R().chance(Math.min(1, want / left))) { postReveal(S, R().pick(far), 'far'); sv.far = (sv.far || 0) + 1; }
-    if (!sv.rival && (left <= 1 || R().chance(1 / left))) { const x = G.Geo.localTeam(S, t => !t.elite && t.str > 55, 150); if (x) { postReveal(S, x.t, 'rival', x.mi); sv.rival = 1; } }
+    // and three or four from elsewhere, spread over the window: everyone in the world watches the elite teams' reveals
+    if (sv.farWant == null) sv.farWant = R().int(3, 4);
+    const far = el.filter(t => !local.includes(t)), need = sv.farWant - (sv.far || 0), per = need / left;
+    for (let i = 0, k = Math.min(need, Math.floor(per) + (R().chance(per % 1) ? 1 : 0)); i < k; i++) {
+      const pool = far.filter(t => !sv.done[t.num]); if (!pool.length) break;
+      postReveal(S, R().wpick(pool, t => Math.max(1, (t.str || 85) - 80)), 'far'); sv.far = (sv.far || 0) + 1;
+    }
+    if (!sv.rival && (left <= 1 || R().chance(1 / left))) { const x = rivalOf(S, sv); if (x) { postReveal(S, x.t, 'rival', x.mi); sv.rival = 1; } }
+  }
+  // ---- FIRST Tech Challenge (3.1.1): the FTC season runs beside yours ----
+  // Its own schedule, never the news lottery. World news (background): the kickoff in September, a midseason look in
+  // Build Week 4 and the World Championship in May. With your own FTC teams (FTC Team Space) a report on them five
+  // times a season: kickoff, league meets (November), qualifier (Build Week 3), state championship (Competition Week 2)
+  // and the end of their season (May). Calendar careers only.
+  const ftcNum = (rng, y) => rng.int(200, 9000 + (Math.max(2016, Math.min(2026, y)) - 2016) * 1900);
+  const ftcSeason = y => (y - 1) + '–' + String(y).slice(2);
+  // the FTC game of the season ending in year y: the real one, or in a random-order career one of the eleven shuffled on
+  // their own (never paired with the FRC game, which would give away next season's FRC game in September)
+  function ftcGame(S, y) {
+    const F = S.ftc = S.ftc || { done: {} }, i = D.FTC_GAMES.findIndex(g => g.y === y);
+    if (i < 0) return null;
+    if (!G.Career.isFictional(S)) return D.FTC_GAMES[i];
+    if (!F.order) F.order = R().shuffle(D.FTC_GAMES.map((g, k) => k));
+    return D.FTC_GAMES[F.order[i]];
+  }
+  N.ftcGame = ftcGame;
+  // your FTC teams this season: how strong (p, 0-1) from the program's year (its maturity: New, Growing, Established),
+  // the FTC Team Space and its focus; a team in its first FTC season (a rookie team) a little less. yr: its FTC season.
+  function ftcMine(S, y) {
+    const F = S.ftc, own = (S.programs || []).filter(p => p.own);
+    if (F.cur && F.cur.y === y) { F.cur.teams = F.cur.teams.filter(t => own.some(p => p.id === t.id)); return F.cur.teams; }
+    const lvl = Math.max(1, G.Shop.lvl(S, 'ftc') || 1), fb = { drive: 0.06, tech: 0.06, strat: 0.03, balanced: 0.03, outreach: -0.03 };
+    F.cur = { y, teams: own.map(pg => {
+      if (!pg.ftcNum) pg.ftcNum = Math.max(200, ftcNum(R(), y) - R().int(0, 600));
+      pg.ftcSeasons = (pg.ftcSeasons || 0) + 1;
+      const yr = pg.ftcSeasons, m = G.Career.programMaturity(pg);
+      return { id: pg.id, name: pg.name, num: pg.ftcNum, yr, stage: G.Career.programStage(pg), out: pg.focus === 'outreach', p: U.clamp(0.12 + 0.55 * m + 0.08 * (lvl - 1) + (fb[pg.focus] || 0) - (yr === 1 ? 0.05 : 0) + R().norm(0, 0.12), 0.05, 0.97) };
+    }) };
+    return F.cur.teams;
+  }
+  const ftcYr = t => (t.yr === 1 ? 'rookie season' : U.ord(t.yr || 1) + ' season');
+  const ftcName = t => 'FTC ' + t.num + ' ' + t.name + (t.yr ? ' (' + ftcYr(t) + ')' : '');
+  const ftcAward = t => (R().chance(t.out ? 0.45 : 0.22) ? (R().chance(t.p * 0.45) ? 'Inspire' : R().pick(D.FTC_AWARDS)) : null);
+  function ftcWorld(S, y, key) {
+    const g = ftcGame(S, y); if (!g) return;
+    const rng = R(), when = ftcSeason(y);
+    if (key === 'kick') post(S, 'FTC kickoff: ' + g.name, 'The FIRST Tech Challenge revealed its ' + when + ' game, ' + g.name + '. ' + g.desc + (ftcEraNew(y) ? '\n\nNew this season: ' + ftcEraNew(y).text : '') + (D.FTC_RULES.find(r => r.y === y) ? '\n\nRule change: ' + D.FTC_RULES.find(r => r.y === y).text : '') + '\n\nFTC robots are smaller (18 inches to a side) and play two against two on a 12-foot field. Many of your future students are watching this reveal from a middle-school classroom.', 'ftc', { bg: true });
+    else if (key === 'mid') {
+      const t = ftcNum(rng, y), mech = rng.pick(['a two-stage linear slide', 'a four-bar arm', 'a roller intake as wide as the robot', 'a flywheel shooter', 'a passive funnel and a fast drivetrain', 'a claw on a rotating wrist']);
+      post(S, 'FTC midseason: ' + g.name, 'Halfway through the ' + when + ' FTC season, team ' + t + ' ' + D.teamName(rng) + ' tops the world rankings. The robot everyone copies handles the ' + g.bits + ' with ' + mech + ', and the forums are arguing about whether it is legal, as every year.', 'ftc', { bg: true });
+    } else if (key === 'worlds') {
+      const CH = G.Era.champs(y), al = () => [0, 1, 2].map(() => ftcNum(rng, y) + ' ' + D.teamName(rng));
+      const one = c => 'In ' + c + ': ' + (a => a[0] + ', ' + a[1] + ' and ' + a[2])(al()) + '. Inspire Award: ' + ftcNum(rng, y) + ' ' + D.teamName(rng) + '.';
+      post(S, 'FTC World Championship: ' + g.name, 'The ' + when + ' FIRST Tech Challenge World Championship' + (CH.n > 1 ? 's are' : ' is') + ' over. The winning alliance' + (CH.n > 1 ? 's' : '') + ':\n\n' + CH.cities.map(one).join('\n') + '\n\nThe Inspire Award is FTC\'s highest honour: the team that best shows what the program stands for.', 'ftc', { bg: true });
+    }
+  }
+  function ftcReport(S, y, key) {
+    if (key === 'end' && !(S.ftc && S.ftc.cur && S.ftc.cur.y === y)) return; // no season of ours to review
+    const g = ftcGame(S, y), ts = ftcMine(S, y); if (!g || !ts.length) return;
+    const m = mentor(S), one = ts.length === 1, they = one ? 'it' : 'they';
+    let title = 'Our FTC teams', body = '';
+    if (key === 'kick') {
+      title = 'Our FTC teams: ' + g.name; body = 'Down the hall, ' + (one ? 'our FTC team' : 'our ' + ts.length + ' FTC teams') + ' watched the ' + g.name + ' reveal: ' + ts.map(t => ftcName(t) + (/^[AEIOU]/.test(t.stage) ? ', an ' : ', a ') + t.stage.toLowerCase() + ' program').join('; ') + '. ' + g.desc + (ts.some(t => t.yr === 1) ? ' For the rookies it is their first game ever: they spent the afternoon learning what a match is.' : '') + (ftcEraNew(y) ? ' ' + ftcEraNew(y).ours : '') + '\n\n' + m + ' has already been asked to judge a "which intake is better" argument. ' + student(S) + ' volunteered to mentor them on Thursdays.';
+    } else if (key === 'league') {
+      title = 'Our FTC teams: league meets'; body = 'After the fall league meets:\n\n' + ts.map(t => { const w = Math.round(10 * U.clamp(0.2 + 0.65 * t.p + R().norm(0, 0.1), 0, 1)), n = R().int(8, 14), rk = U.clamp(Math.round(1 + (1 - t.p) * (n - 1) + R().norm(0, 1.5)), 1, n); t.league = { w, rk, n }; return ftcName(t) + ': ' + w + '–' + (10 - w) + ', ' + U.ord(rk) + ' of ' + n + ' in the league.'; }).join('\n') + '\n\n' + R().pick(['The FRC drivers watched the last meet and are now very quiet about their own cycle times.', 'One of their robots is held together with more zip ties than ours, which ' + student(S) + ' calls "inspiring".']);
+    } else if (key === 'qual') {
+      title = 'Our FTC teams: the qualifier'; body = ts.map(t => {
+        const n = R().int(24, 36), rk = U.clamp(Math.round(1 + (1 - t.p) * (n - 1) + R().norm(0, 3)), 1, n), won = rk <= 4 ? R().chance(0.25 + 0.5 * t.p) : rk <= 12 && R().chance(0.12 * t.p), aw = ftcAward(t);
+        t.adv = won || aw === 'Inspire' || rk <= 3 || (!!aw && R().chance(0.4)) || (rk <= 8 && R().chance(0.2));
+        const de = y >= 2025, fin = !won && rk <= 8 && R().chance(0.35), third = !won && !fin && rk <= 10 && R().chance(0.3); // the playoffs: best-of-three series, from 2024–25 double elimination
+        t.qual = { rk, n, won, aw, how: won ? (de ? 'won the double-elimination playoffs' : 'on the winning alliance') : fin ? (de ? 'finalists, through the lower bracket' : 'finalists') : null,
+          ap: y >= 2026 ? Math.round(2 + 14 * (n - rk) / (n - 1)) + (won ? 40 : fin ? 20 : third ? 10 : 0) + (aw ? (aw === 'Inspire' ? 30 : 12) : 0) : null }; // 2025–26: advancement points (D.FTC_RULES)
+        return ftcName(t) + ': ranked ' + U.ord(rk) + ' of ' + n + (t.qual.how ? ', ' + t.qual.how : '') + (t.qual.ap != null ? ', ' + t.qual.ap + ' advancement points' : '') + (aw ? ', ' + aw + ' Award' : '') + '. ' + (t.adv ? 'On to the state championship!' + (t.yr === 1 ? ' As a rookie team!' : '') : 'Their season ends here' + (t.yr === 1 ? ': a first season is for learning.' : '.'));
+      }).join('\n') + (ts.some(t => t.adv) ? '\n\nThe FRC team cheered from the stands: ' + student(S) + ' lost their voice.' : '\n\n' + m + ': "Next year. And they learned more this season than we did."');
+    } else if (key === 'state') {
+      const go = ts.filter(t => t.adv); if (!go.length) return;
+      title = 'Our FTC teams: state championship'; body = go.map(t => {
+        const won = R().chance(0.05 + 0.35 * t.p * t.p), fin = !won && R().chance(0.15 + 0.3 * t.p), aw = ftcAward(t), res = won ? 'state champions' : fin ? 'finalists' : 'out in the ' + R().pick(['semifinals', 'quarterfinals']);
+        t.worlds = won || aw === 'Inspire' || (fin && R().chance(0.35)); t.state = { res, aw };
+        return ftcName(t) + ': ' + res + (aw ? ', ' + aw + ' Award' : '') + '. ' + (t.worlds ? 'They are going to the World Championship!' + (t.yr === 1 ? ' In their rookie season.' : '') : 'Their season is over, and a good one.');
+      }).join('\n');
+    } else if (key === 'end') {
+      // after the Championship: the season review, every team's whole season, its program year and what comes next
+      const go = ts.filter(t => t.worlds);
+      go.forEach(t => { const div = R().chance(0.03 + 0.15 * Math.pow(t.p, 3)), champ = div && R().chance(0.25), rk = U.clamp(Math.round(1 + (1 - t.p) * 35 + R().norm(0, 5)), 1, 36); t.wres = champ ? 'WORLD CHAMPIONS' : div ? 'division champions, then out on the Einstein of FTC' : rk <= 4 ? 'ranked ' + U.ord(rk) + ' in their division, then out in the division playoffs' : 'ranked ' + U.ord(rk) + ' of 36 in their division'; t.wtop = champ ? 2 : div ? 1 : 0; });
+      const pgOf = t => (S.programs || []).find(p => p.id === t.id), next = t => { const pg = pgOf(t); return pg ? G.Career.programStage({ years: (pg.years || 0) + 1 }) : t.stage; };
+      // what the season does for next September's recruits: a run that went far draws more and better students to the
+      // program (pg.ftcBoost, used by C.programPower at the September intake, then cleared)
+      const fo0 = G.Career.feederOutlook(S);
+      ts.forEach(t => { t.boost = t.wtop === 2 ? 0.35 : t.wtop === 1 ? 0.3 : t.wres ? 0.2 : t.state ? (/champions/.test(t.state.res) ? 0.15 : 0.1) : t.qual && (t.qual.won || t.qual.aw) ? 0.05 : 0; const pg = pgOf(t); if (pg) pg.ftcBoost = t.boost; });
+      const fo1 = G.Career.feederOutlook(S), AT = { drive: 'driving', aware: 'awareness', comp: 'composure', mech: 'mechanisms', hp: 'human player', strat: 'strategy' };
+      const ups = Object.keys(AT).map(k => ({ k, a: fo0.attr[k], b: fo1.attr[k] })).filter(x => Math.round(x.b) > Math.round(x.a)).sort((p, q) => (q.b - q.a) - (p.b - p.a)).slice(0, 3);
+      const recruits = ts.some(t => t.boost) ? 'Next September\'s recruits: ' + (Math.round(fo1.share * 100) > Math.round(fo0.share * 100) ? Math.round(fo1.share * 100) + '% of core recruits come through your programs (from ' + Math.round(fo0.share * 100) + '%), and ' : '') + (ups.length ? 'the average recruit\'s skill bonus rises: ' + ups.map(x => AT[x.k] + ' +' + Math.round(x.a) + ' → +' + Math.round(x.b)).join(', ') + '.' : 'a little more talent from the FTC teams.') + ' This lift is for that intake only (Team page, Feeder programs).'
+        : 'Next September\'s recruits: no lift from this season. A run to the state championship or beyond draws more and better students to a program.';
+      const line = t => { const r = [];
+        if (t.league) r.push('league ' + t.league.w + '–' + (10 - t.league.w) + ' (' + U.ord(t.league.rk) + ' of ' + t.league.n + ')');
+        if (t.qual) r.push('qualifier ' + U.ord(t.qual.rk) + ' of ' + t.qual.n + (t.qual.how ? ', ' + t.qual.how : t.qual.won ? ', winning alliance' : '') + (t.qual.ap != null ? ', ' + t.qual.ap + ' advancement points' : '') + (t.qual.aw ? ', ' + t.qual.aw + ' Award' : ''));
+        if (t.state) r.push('state: ' + t.state.res + (t.state.aw ? ', ' + t.state.aw + ' Award' : ''));
+        if (t.wres) r.push('World Championship: ' + t.wres);
+        return ftcName(t) + (/^[AEIOU]/.test(t.stage) ? ', an ' : ', a ') + t.stage.toLowerCase() + ' program:\n  ' + (r.length ? r.join(' · ') : 'joined during the season: no events this year') + '.\n  Next season: ' + (next(t) === t.stage ? 'still ' + t.stage.toLowerCase() : 'it grows to ' + next(t).toLowerCase()) + (t.yr === 1 ? ', and no longer rookies' : '') + '. Pull on next fall\'s recruits: ' + (t.boost ? '+' + Math.round(t.boost * 100) + '% for this season' : 'unchanged') + '.'; };
+      const best = go.some(t => t.wtop === 2) ? 'One of our FTC teams won the World Championship. The whole shop is wearing their T-shirts.' : go.some(t => t.wtop === 1) ? 'A division title at Worlds: a season nobody here will forget.' : go.length ? 'Worlds! ' + m + ' watched every match on the stream: "Some of them will be on our drive team in three years. Remember this."' : ts.some(t => t.state) ? 'A state championship run, and a long list of ideas for next year.' : 'No trophies this time, but every one of them can now build, wire and drive a robot.';
+      title = 'FTC season review: ' + g.name; body = 'The ' + ftcSeason(y) + ' FTC season is over. How our ' + (one ? 'team' : ts.length + ' teams') + ' did:\n\n' + ts.map(line).join('\n\n') + '\n\n' + best + ' ' + R().int(2, 6) + ' of ' + (one ? 'its' : 'their') + ' eighth-graders have already asked when they can join the FRC team.\n\n' + recruits;
+    }
+    if (body) post(S, title, body, 'ftc', { plot: true });
+  }
+  // the vendors go after FTC too: one launch each October, from a vendor that exists that year (y: the FTC season's end).
+  // What they sell follows FTC's technology (D.FTC_ERAS); in the season an era begins, a launch that goes with it comes first.
+  const ftcEraAt = y => D.FTC_ERAS.filter(e => e.y <= y).pop() || null, ftcEraNew = y => D.FTC_ERAS.find(e => e.y === y) || null;
+  const FTC_VEND = [
+    { id: 'sterling', ok: y => y <= 2019, era: 'android', title: () => 'Sterling Motion mails an FTC catalogue', body: () => 'Sterling Motion sent out its first FTC catalogue: the same brushed motors, only smaller, phone mounts in three colours, and the same carpeted booth, now at FTC qualifiers too. The prices are "premium, as always". The middle-school teams are buying them anyway, because their mentors did.' },
+    { id: 'apex', ok: y => y >= 2020 && y < 2025, title: () => 'Apex Motion launches Apex Mini for FTC', body: () => 'Apex Motion has an FTC motor: Apex Mini, palm-sized, with an encoder built in and the same software as its big brother. The founder says FTC kids broke more Sterling parts than anyone, so they deserve better ones. The launch video has more views than some FRC reveals.' },
+    { id: 'apexodo', ok: y => y >= 2025, era: 'odometry', title: () => 'Apex Motion: an odometry computer for FTC', body: () => 'Apex Motion\'s new FTC board reads two small dead wheels and an IMU and tells the robot where it is on the field, a hundred times a second. "Path following used to be a senior project," the founder says. "Now it is a cable."' },
+    { id: 'lumen', ok: () => true, era: 'controlhub', title: y => (y >= 2021 ? 'Lumen Robotics: a control hub for FTC' : 'Lumen Robotics: an expansion hub for FTC'), body: y => (y >= 2021 ? 'Lumen Robotics released an FTC control hub with the Android computer built in: no phone on the robot, at a price a middle-school team can pay.' : 'Lumen Robotics released an FTC expansion hub: motors, servos and sensors on one board, still with a phone on the robot, at a price a middle-school team can pay.') + ' Lumen\'s FRC customers recognise the colour of the case.' },
+    { id: 'lantern', ok: y => y >= 2018, era: 'visionportal', title: () => 'Lanternworks: Lantern Pocket for FTC', body: y => 'Lanternworks shrank its camera for FTC: Lantern Pocket is the size of a matchbox and ' + (y >= 2023 ? 'reads AprilTags on board, so the robot knows where it is without the hub doing the maths.' : 'finds the vision targets and game pieces on its own.') + ' FTC robots can now line up a shot the way FRC robots do, and the FTC forums are already arguing about whether that is fair.' },
+    { id: 'cots', ok: () => true, title: () => 'A slide kit in every FTC box', body: () => 'One of the COTS suppliers released a modular linear-slide kit for FTC: aluminium channel, pulleys and a string kit that bolts together in an afternoon. Half the FTC robots at the next qualifier will have one, and so will a few FRC prototypes.' }
+  ];
+  function ftcVendor(S, y) {
+    const F = S.ftc, used = F.vend = F.vend || [], ok = FTC_VEND.filter(v => v.ok(y)), en = ftcEraNew(y);
+    if (!ok.length) return;
+    const tied = en && ok.find(v => v.era === en.id), fresh = ok.filter(v => !used.includes(v.id));
+    const v = tied || (fresh.length ? R().pick(fresh) : ok.sort((a, b) => used.lastIndexOf(a.id) - used.lastIndexOf(b.id))[0]);
+    used.push(v.id); const own = ftcMine(S, y).length;
+    post(S, 'Vendor news: ' + v.title(y), v.body(y) + (tied ? ' It is out just in time for ' + en.name + '.' : '') + (own ? '\n\nOur own FTC teams have already asked ' + mentor(S) + ' for two.' : ''), 'news', own ? { plot: true } : { bg: true });
+  }
+  // Is the FTC game a hint at ours? The team argues in October and finds out at Kickoff. Since 2018–19 FTC and FRC share
+  // a season theme (D.FTC_GAMES theme), so in real order the guess comes true; in a random-order career the FTC game is
+  // drawn on its own, so it is right only by chance, and the October talk never names the next FRC game.
+  function ftcHint(S, y) {
+    const g = ftcGame(S, y); if (!g) return;
+    const a = student(S), b = student2(S, a), m = mentor(S);
+    const th = y >= 2019 && g.theme ? g.theme : null; // the shared season themes start with the 2018–19 season (calendar)
+    S.ftc.guess = { y, gy: g.y, ftc: g.name, theme: th, who: a, doubt: b };
+    post(S, 'Is the FTC game a hint?', a + ' is sure of it: "' + (th ? g.name + ' is all about ' + th + ', and FTC and FRC share a season theme now. Our game in January is about ' + th + ' too. I am already sketching."' : 'Every year somebody says the FTC game gives ours away. ' + g.name + ' has ' + g.bits + ' in it, so I say we get ' + g.bits + ' too."') + '\n\n' +
+      b + ' is not having it: "FTC robots are 18 inches wide and play on a 12-foot field. Even when the theme matches, the game does not. We learn nothing until January."\n\n' +
+      m + ': "Write your guesses on the whiteboard. Closest one gets first pick of the Kickoff donuts."', 'fun', { plot: true });
+  }
+  N.ftcHintCheck = function (S) { // at Kickoff: was the guess right?
+    const q = S.ftc && S.ftc.guess, C = G.Career; if (!q || q.y !== C.cy(S) || q.told) return;
+    q.told = true;
+    const fr = (G.Seasons[S.year] || {}).name || 'this game', right = !!q.theme && q.gy === S.year;
+    post(S, 'Was the FTC game a hint?', right ? q.who + '\'s guess on the whiteboard was right: ' + fr + ' shares its theme, ' + q.theme + ', with ' + q.ftc + '. The robots could not be more different, but ' + q.who + ' got the first donut and has not stopped talking about it.'
+      : q.theme ? 'The whiteboard said ' + q.theme + '. ' + fr + ' has nothing to do with it. ' + q.doubt + ' erased the whiteboard with great ceremony and took the first donut.'
+      : 'No link again: ' + fr + ' has nothing in common with ' + q.ftc + ' except the carpet. ' + q.doubt + ' says "told you" about once an hour.', 'fun', { plot: true });
+  };
+  function ftc(S) {
+    if (!S.cal || S.mode !== 'career') return;
+    const F = S.ftc = S.ftc || { done: {} }, once = (k, f) => { if (!F.done[k]) { F.done[k] = 1; f(); } };
+    if (S.phase === 'off') {
+      const mo = month(S), next = S.upcoming < S.cal.length ? S.cal[S.upcoming] : null, cy = G.Career.cy(S);
+      if (mo === 'May') once('w' + cy, () => { ftcWorld(S, cy, 'worlds'); ftcReport(S, cy, 'end'); });
+      if (S.lostYear && S.offYear === 2021) once('w2020', () => ftcReport(S, 2020, 'end')); // the review the jump to 2021 skipped
+      if (S.lostYear && S.offYear === 2021) once('lost', () => { const g = ftcGame(S, 2021); if (g) post(S, 'FTC in the lost year: ' + g.name, 'While there was no FRC season, the FIRST Tech Challenge played ' + g.name + ' at remote events. ' + g.desc + ' Teams ran their matches alone on half-fields in garages and classrooms and sent in the scores.' + (ftcEraNew(2021) ? ' It was also the year ' + ftcEraNew(2021).name + ' arrived: ' + ftcEraNew(2021).text.replace(/^[^:]*: /, '') : '') +(ftcMine(S, 2021).length ? '\n\nOur own FTC teams did it in the shop parking lot, with an extension cord and a tarp.' : ''), 'ftc', { bg: true }); });
+      if (mo === 'Sep' && next) once('k' + next, () => { ftcWorld(S, next, 'kick'); ftcReport(S, next, 'kick'); });
+      if (mo === 'Oct' && next) once('v' + next, () => ftcVendor(S, next));
+      if (mo === 'Oct' && next) once('h' + next, () => ftcHint(S, next));
+      if (mo === 'Nov' && next) once('l' + next, () => ftcReport(S, next, 'league'));
+      return;
+    }
+    const cy = G.Career.cy(S);
+    if (S.phase === 'build' && S.week === 3) once('q' + cy, () => ftcReport(S, cy, 'qual'));
+    if (S.phase === 'build' && S.week === 4) once('m' + cy, () => ftcWorld(S, cy, 'mid'));
+    if (S.phase === 'comp' && S.week === 2) once('s' + cy, () => ftcReport(S, cy, 'state'));
   }
   N.revealWin = revealWin;
   N.item = id => EVENTS.concat(NEWS, CHAT).find(x => x.id === id) || null; // for the developer tools and tests
@@ -704,12 +906,15 @@
     // at least one news item: now and then one with an effect, otherwise a story about the FRC world or your program
     let got = false;
     if (R().chance(0.17)) got = runNews(S, pickT(S, EVENTS, 10));
-    for (let k = 0; k < 4 && !got; k++) got = runNews(S, pickT(S, NEWS, 12));
-    if (R().chance(0.2)) runNews(S, pickT(S, NEWS, 12));
+    for (let k = 0; k < 4 && !got; k++) got = runNews(S, pickT(S, NEWS, 12), true);
+    if (R().chance(0.2)) runNews(S, pickT(S, NEWS, 12), true);
     seasonTalk(S); // this game's big argument, once a season
     // in season, about one week in four: a vendor warns that a part will be gone next week (its own roll, not the news lottery)
     if ((S.phase === 'build' || S.phase === 'comp') && R().chance(0.25) && !(seen(S).restock >= turnNo(S) - 1)) { const e = NEWS.find(x => x.id === 'restock'); if (e && e.req(S)) runNews(S, e); }
     reveals(S);   // robot reveals around Week 0: every elite team near you, a few famous ones, a local rival
+    ftc(S);       // the FTC season beside yours: world news, and your own FTC teams
+    // the outside feeder programs the team can run (3.1.1): say so when an outreach mentor or reputation opens one more
+    { const fc = G.Career.feederCap(S).n; if (S.fcSeen != null && fc > S.fcSeen && S.mode === 'career') post(S, 'Room for another feeder program', (G.Career.feederCap(S).fr && fc > S.fcSeen ? 'Word about the team gets around: ' : '') + 'a middle school and a library club have asked whether we could run a program with them. ' + G.Career.feederCapWhy(S) + ' (Team page, Feeder programs.)', 'staff'); S.fcSeen = fc; }
     rumours(S);   // what people have heard about the changes the calendar is about to bring
     usedNews(S);  // the second-hand market, the first time it marks a kind of part down
     // one to three chatter posts
@@ -726,6 +931,7 @@
     const mf = G.Seasons[S.year].meta;
     if (mf && mf.faults) G.Career.inbox(S, 'Scouting report: what breaks this year', mf.faults + ' Expect brief comms drops at every event; clean wiring and a reliable, well-maintained robot keep them rare and short.', 'info');
     post(S, 'Kickoff watch party', R().int(18, 45) + ' students, ' + R().int(4, 12) + ' boxes of donuts and one very loud reaction when the ' + G.Seasons[S.year].name + ' field appeared on screen. ' + student(S) + ' has already sketched three robots on a napkin.', 'fun');
+    N.ftcHintCheck(S); // October's whiteboard guess from the FTC game
   };
   // The published designs in the team's own words (calendar careers from 2018): the argument at the start of Build
   // Week 1 (wait for them, or build our own?), a first look when they are out (Week 2), and a follow-up in Week 3 that
@@ -769,12 +975,12 @@
         const same = own.filter(k => picks[k] && conc(k) === picks[k]), diff = own.filter(k => picks[k] && conc(k) !== picks[k]);
         C.inbox(S, 'Theirs and ours', a + ' put the ' + r.name + '\'s CAD on the big screen next to ours. ' + (same.length ? 'Same idea on the ' + and(same.map(subName)) + ', which ' + b + ' calls proof that we got it right. ' : '') +
           (diff.length ? 'Different on the ' + and(diff.map(subName)) + ': ' + (same.length ? a : b) + ' thinks ours is better, ' + m + ' wants to see both on the field first. ' : '') +
-          'Anything we have not started yet can still be copied, and a built subsystem can be switched to theirs for the cost of a switch (Design Office).' + jokeP, 'dev');
+          'Anything we have not started yet can still be copied, and a built subsystem can be switched to theirs for the cost of a switch (Design Office).' + jokeP, 'dev', { plot: true });
       } else {
         const short = rs.map(r => ({ r, pl: Rb.refPlan(S, r) })).filter(x => x.pl.miss.length);
         C.inbox(S, 'First look at ' + names, 'The team watched the build videos in the shop over pizza. ' + a + ' printed the parts list and went straight to the shelf: ' + (short.length ? 'for the ' + short[0].r.name + ' we are short of ' + G.Parts.missList(short[0].pl.miss) + ' (Inventory).' : 'everything we need is there.') + ' ' + b + ' had the simulator model running before the second video ended.' +
           (rs.length > 1 ? '\n\nThe argument now is which one. ' + b + ' wants the ' + rs[1].name + ': "It is what the good teams build." ' + a + ' wants the ' + rs[0].name + ': "We can finish it, and then make it ours." ' + m + ': "Whichever we pick, we pick it this week."' : '') +
-          '\n\nCopy a whole robot from the window, or single subsystems from the concept chooser (Design Office).' + jokeP, 'dev');
+          '\n\nCopy a whole robot from the window, or single subsystems from the concept chooser (Design Office).' + jokeP, 'dev', { plot: true });
       }
       return;
     }

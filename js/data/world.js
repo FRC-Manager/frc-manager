@@ -27,6 +27,7 @@
     Northeast: ['Midwest', 'Southeast', 'Canada'], Southeast: ['Southwest', 'Midwest', 'Northeast'], Canada: ['Midwest', 'Northeast']
   };
   D.TRAVEL = { local: { name: 'Local', cost: 800 }, drive: { name: 'Drive', cost: 3500 }, fly: { name: 'Fly', cost: 9000 } };
+  D.INBOX_MAX = 220; D.INBOX_RECENT = 60; // messages the Inbox keeps, and the newest that always stay (career.js C.inbox)
   D.travelTier = (home, region, localFlag) => home === region ? (localFlag ? 'local' : 'drive') : (D.ADJ[home].includes(region) ? 'drive' : 'fly');
 
   D.REGIONAL_NAMES = {
@@ -173,6 +174,42 @@
   D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000, cash: 3000 }; // cash: when no upgrade fits, in 2026 dollars (shown in the year's dollars)
   // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
   D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3 };
+  // FIRST Tech Challenge games, by the year their season ends (the FTC season runs from a September kickoff to the
+  // Championship in April or May). News only: the kickoff, the season, the World Championship, and your own FTC teams.
+  // In a random-order career the FTC games are shuffled on their own (news.js ftcGame), never paired with the FRC game.
+  // theme: from the 2018–19 season FTC and FRC share a season theme (space, a city, …), so the FTC game is a fair hint.
+  D.FTC_GAMES = [
+    { y: 2016, name: 'RES-Q', bits: 'debris', desc: 'A rescue mission: robots gather debris (blocks and balls) into bins on the mountain, drive up its ramps, drop rescue climber figures into the shelter and, in the last thirty seconds, hang from the high bar.' },
+    { y: 2017, name: 'VELOCITY VORTEX', bits: 'particles', desc: 'Robots shoot wiffle-ball particles into the centre and corner vortexes, press beacon buttons to claim them for their alliance, and finish by lifting a huge cap ball onto the centre vortex.' },
+    { y: 2018, name: 'RELIC RECOVERY', bits: 'glyphs', desc: 'Robots stack foam glyphs into cryptoboxes to build ciphers, knock the right jewel off in autonomous, carry relics over the wall into recovery zones, and balance on their balancing stones at the end.' },
+    { y: 2019, name: 'ROVER RUCKUS', bits: 'minerals', theme: 'space', desc: 'Robots land from the lander in autonomous and sample the gold mineral, collect gold cubes and silver balls from the crater into the lander\'s cargo hold, and latch back onto the lander to finish.' },
+    { y: 2020, name: 'SKYSTONE', bits: 'stones', theme: 'building a city', desc: 'Robots stack studded stones on their foundation, find the Skystones in autonomous, drag the foundation into place, top the tallest tower with a capstone and park under the skybridge.' },
+    { y: 2021, name: 'ULTIMATE GOAL', bits: 'rings', desc: 'Robots shoot foam rings into tower goals and at power shot targets, and carry wobble goals over the line at the end.', remote: true },
+    { y: 2022, name: 'FREIGHT FRENZY', bits: 'freight', theme: 'moving cargo', desc: 'Robots carry freight (boxes, balls and rubber ducks) from the warehouse to the shipping hubs, spin ducks off the carousel, and cap a hub with their own team shipping element.' },
+    { y: 2023, name: 'POWERPLAY', bits: 'cones', theme: 'energy', desc: 'Robots place cones on junctions of four heights to own them; an alliance that links its junctions into a circuit scores a bonus, and a team beacon tops it off in the endgame.' },
+    { y: 2024, name: 'CENTERSTAGE', bits: 'pixels', theme: 'the stage and the arts', desc: 'Robots place hexagonal pixels on the backdrop to build mosaics, launch paper-airplane drones in the endgame, and hang from the rigging to finish.' },
+    { y: 2025, name: 'INTO THE DEEP', bits: 'samples', theme: 'the ocean', desc: 'Robots pull samples out of the submersible and score them in the high baskets or hang them on its bars as specimens, then climb its rungs at the end.' },
+    { y: 2026, name: 'DECODE', bits: 'artifacts', theme: 'history and archaeology', desc: 'Robots collect purple and green artifacts and shoot them into their goal, sorted to match the motif the obelisk shows, and return to base at the end.' }
+  ];
+  D.FTC_AWARDS = ['Think', 'Connect', 'Innovate', 'Control', 'Design', 'Motivate'];
+  // FTC's competition rules that changed, by the year a season ends (checked against FTC event results: through 2023–24
+  // best-of-three semifinals and finals with alliances of two or three, two ranking points for a win)
+  D.FTC_RULES = [
+    { y: 2025, id: 'de', text: 'Playoffs become double elimination: an upper and a lower bracket replace the best-of-three semifinals and finals, so one loss no longer ends an alliance\'s event.' },
+    { y: 2026, id: 'ap', text: 'Ranking points work like FRC\'s now: on top of a win, bonus ranking points for scoring achievements, up to six a match (a win used to be worth two). And advancement points decide who moves on: 2 to 16 for the qualification ranking, 40, 20 and 10 for the playoff winners, finalists and third place, plus points for awards.' }
+  ];
+  // FTC's technology eras, by the year a season ends (they follow the calendar, as FRC's do, whatever the game): what
+  // the September kickoff calls new, what your own FTC teams make of it, and the vendor launches that go with them.
+  D.FTC_ERAS = [
+    { y: 2016, id: 'android', name: 'Android phones', text: 'FTC runs on Android now: one phone rides on the robot as its controller, another is the drivers\' station, and the robot is programmed in Java or in blocks.', ours: 'Our FTC teams spent the first week finding a phone mount that survives a collision.' },
+    { y: 2018, id: 'exphub', name: 'the expansion hub', text: 'A new expansion hub is in the kit: motors, servos and sensors on one small board, where a stack of separate modules and a nest of cables used to be.', ours: 'The FTC kids held a small ceremony for the old wiring harness.' },
+    { y: 2019, id: 'detect', name: 'object detection', text: 'Machine learning comes to FTC: object detection is built into the software, so an autonomous routine can tell one game piece from another with the phone\'s camera.', ours: 'Our FTC programmers want to know why the FRC team still aims by hand.' },
+    { y: 2021, id: 'controlhub', name: 'the control hub', text: 'The control hub arrives: the Android computer is built into the hub itself, so the robot no longer carries a phone.', ours: 'The FTC teams retired their robot phones to the parts drawer, still in their tape.' },
+    { y: 2022, id: 'driverhub', name: 'the driver hub', text: 'A purpose-built driver hub replaces the phone in the drivers\' hands: no more matches lost to a phone that took a call or an update.', ours: 'The drivers say the new driver hub "feels like cheating".' },
+    { y: 2023, id: 'apriltag', name: 'AprilTags', text: 'AprilTags reach FTC: teams print the black-and-white square tags on their signal sleeves and read them with an outside library, far more reliably than shapes or colours.', ours: 'Our FTC programmers printed their first AprilTag on the shop printer and have been pointing a camera at it ever since.' },
+    { y: 2024, id: 'visionportal', name: 'AprilTags on the field', text: 'AprilTags are on the field and built into the FTC software (VisionPortal): a robot can now work out where it is from the tags, the way FRC robots do.', ours: 'Our FTC teams and our FRC programmers are sharing an AprilTag whiteboard now.' },
+    { y: 2025, id: 'odometry', name: 'odometry computers and smart cameras', text: 'A wave of ready-made sensors: odometry computers that track the robot\'s position from two small dead wheels, and smart cameras that find tags and game pieces on their own.', ours: 'The FTC teams\' autonomous routines got twice as accurate in a month, and nobody will say which sensor did it.' }
+  ];
   // A satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor has
   // chance x (satisfaction - sat) / (100 - sat); at most one donation per season and one per offseason. Tuned by simulation so
   // that a team with every sponsor slot filled that never skips a sponsor activity averages about one donation a year

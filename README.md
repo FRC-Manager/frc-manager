@@ -55,7 +55,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 **The program**
 
 - **Program Support** from the school keeps the team alive; **reputation** brings sponsors, recruits and harder goals.
-- **Outreach over several seasons** wins the Impact Award. Feeder programs shape who joins.
+- **Outreach over several seasons** wins the Impact Award. Feeder programs shape who joins: an outreach mentor and reputation open more of them, and your own FTC teams play their own season beside yours, in the Inbox with the FTC kickoff, the World Championship and the vendors' FTC launches.
 - **One mentor a season** can be nominated by the students for the Woodie Flowers Award: a Finalist at a regional or District Championship, then one winner in the world on Einstein.
 - **Fatigue**: leave about a tenth of the week idle in season, or tired students make mistakes at events.
 - **Debt** is allowed from Kickoff to the Championship and settled by the school at the season review, at a price.
