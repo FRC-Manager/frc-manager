@@ -115,7 +115,7 @@
     const p = x.prod, owned = P().items(S, p.cat).filter(i => i.p === p.id).length, price = P().price(S, p), ok = P().inStock(S, p.id) || !P().inSeason(S);
     const qty = p.cat === 'motor' || p.cat === 'pgear' ? [1, 4, 8] : p.cat === 'swerve' ? [1, 4] : p.cat === 'enc' ? [1, 4] : p.cat === 'gearbox' || p.cat === 'wcd' || p.cat === 'kdrive' ? [1, 2] : [1];
     const bv = brand(p);
-    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.closing ? UI.tag('discontinued: last stock', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag('loyalty −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
+    return '<div class="pcard ' + (x.ending ? 'old' : '') + '" style="--vc:' + D.VENDORS[bv].color + '"><div class="row wrap gap4"><b>' + h(p.name) + '</b>' + (p.kind ? '<span class="xs muted">' + p.kind + '</span>' : '') + (x.isNew ? UI.tag('NEW', 'acc') : '') + (x.ending ? UI.tag('last year on sale', 'warn') : '') + (x.closing ? UI.tag('discontinued: last stock', 'warn') : '') + (x.clear ? UI.tag('closing sale −' + Math.round((1 - G.Era.CLEAR_PRICE) * 100) + '%', 'warn') : '') + (P().saleFor(S, p) ? UI.tag(P().saleSrc(S, p.v) + ' −' + Math.round(P().saleFor(S, p) * 100) + '%', 'good') : '') + '<span class="sp"></span>' + vtag(bv) + '</div>' +
       '<div class="statrow"><span class="n">Performance</span>' + UI.bar(p.perf * 100, 100, D.VENDORS[bv].color) + '<span class="v">' + Math.round(p.perf * 100) + '</span></div>' +
       '<div class="row sm wrap"><span class="b">' + U.money(price) + '</span><span class="muted">each · owned ' + owned + '</span><span class="sp"></span>' + (p.v === 'K' ? UI.tag('always in stock', 'good') : stockTag(S, p.id)) + '</div>' +
       '<div class="row wrap gap4 mt">' + qty.map(n => '<button class="btn sm" data-act="buyProd" data-arg="' + p.id + '|' + n + '" ' + (ok ? '' : 'disabled') + '>+' + n + ' · ' + U.money(n * price) + '</button>').join('') + '</div></div>';
@@ -126,8 +126,16 @@
     return '<div class="mt" style="border-top:1px solid var(--line);padding-top:8px">' + UI.loyaltyBar(S, slot) +
       '<div class="xs muted mt">Points per season. On your competition robot now: <b>' + pct(sh) + '</b> of the control system (' + Math.round(D.LOYALTY.robot * Math.min(1, sh / D.LOYALTY.full)) + ' of ' + D.LOYALTY.robot + '; ' + pct(D.LOYALTY.full) + ' counts in full). Ordered since the last review: <b>' + U.money((S.vendBought || {})[slot] || 0) + '</b> of ' + U.money(D.LOYALTY.buyFull) + ' (' + Math.round(D.LOYALTY.buy * Math.min(1, ((S.vendBought || {})[slot] || 0) / D.LOYALTY.buyFull)) + ' of ' + D.LOYALTY.buy + ').' + (y.stock ? ' Your orders ship first: +' + pct(y.stock) + ' in-season stock.' : '') + '</div>' +
       (y.voucher ? '<div class="sm good mt">' + UI.icon('money', 14) + ' Voucher: <b>' + U.money(y.voucher.amt) + '</b> left, good through the ' + (S.cal[y.voucher.until] || '') + ' season. It pays first.</div>' : '') +
-      (y.sale ? '<div class="sm good mt">' + UI.icon('bolt', 14) + ' Loyalty sale: <b>−' + pct(y.sale) + '</b> on everything until Kickoff.</div>' : '') +
-      ((S.loyalShip || []).some(x => x.slot === slot) ? '<div class="sm good mt">' + UI.icon('box', 14) + ' Free parts arrive at Kickoff.</div>' : '') + '</div>';
+      (y.sale ? '<div class="sm good mt">' + UI.icon('bolt', 14) + ' ' + (P().saleSrc(S, slot) === 'prize' ? 'Prize sale' : 'Loyalty sale') + ': <b>−' + pct(y.sale) + '</b> on everything until Kickoff.</div>' : '') +
+      ((S.loyalShip || []).some(x => x.slot === slot && x.prize) ? '<div class="sm good mt">' + UI.icon('box', 14) + ' Prize parts arrive at Kickoff.</div>' : '') +
+      ((S.loyalShip || []).some(x => x.slot === slot && !x.prize) ? '<div class="sm good mt">' + UI.icon('box', 14) + ' Free parts arrive at Kickoff.</div>' : '') + '</div>';
+  }
+  // a Lanternworks prize from its Circuit Jam (3.1.3): a voucher, a sale or parts at Kickoff (no loyalty level there)
+  function lanternPerks(S) {
+    const v = S.voucher && S.voucher.L && S.voucher.L.amt > 0 ? S.voucher.L : null, sale = P().saleOf(S, 'L'), ship = (S.loyalShip || []).some(x => x.slot === 'L');
+    return (v ? '<div class="sm good mb">' + UI.icon('money', 14) + ' Voucher: <b>' + U.money(v.amt) + '</b> left, good through the ' + (S.cal[v.until] || '') + ' season. It pays first.</div>' : '') +
+      (sale ? '<div class="sm good mb">' + UI.icon('bolt', 14) + ' Prize sale: <b>−' + pct(sale) + '</b> on everything until Kickoff.</div>' : '') +
+      (ship ? '<div class="sm good mb">' + UI.icon('box', 14) + ' Prize parts arrive at Kickoff.</div>' : '');
   }
   function elecTab(S) {
     const sale = P().forSale(S);
@@ -210,7 +218,7 @@
     // Lanternworks: the vision company (calendar careers), its own catalogue
     if (S.cal) {
       const V = D.VENDORS.L, lis = onSale.filter(x => x.prod.v === 'L');
-      o += '<h2 class="mt" id="inv-camera">' + UI.it('camera', V.name) + ' ' + UI.tag(V.tag) + ' <span class="xs muted">' + h(V.desc) + '</span></h2><div class="grid g3">' +
+      o += '<h2 class="mt" id="inv-camera">' + UI.it('camera', V.name) + ' ' + UI.tag(V.tag) + ' <span class="xs muted">' + h(V.desc) + '</span></h2>' + lanternPerks(S) + '<div class="grid g3">' +
         (lis.length ? lis.map(x => prodCard(S, x)).join('') : '<div class="pcard empty xs muted" style="--vc:' + V.color + '">Nobody sells a vision camera yet. Vision is home-made for now: Vision Level 1 needs no camera but takes twice the hours, and Level 2 is out of reach.</div>') +
         (lis.some(x => x.prod.id === 'cameraL2') && P().count(S, 'camera') && P().items(S, 'camera').some(it => it.p === 'cameraL1') ? '<div class="pcard empty xs muted">Your Lantern 1 cameras still work, but they were made for reflective tape: with AprilTags on the field they aim less well than a Lantern 2.</div>' : '') + '</div>';
     }

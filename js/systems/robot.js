@@ -49,12 +49,14 @@
   Robot.newSeason = function (S, year) {
     const soft = G.Seasons.concept(year, 'soft', 'code'), st = {};
     Object.keys(soft.base).forEach(k => st[k] = soft.base[k] + 3 * lvlFor(S, 'soft', soft, k));
+    // a code library ported to this season's standard (3.1.3): the code starts a little further on, up to its ceiling
+    if (G.Career.codeCurrent && G.Career.codeCurrent(S)) Object.keys(st).forEach(k => { st[k] = Math.max(st[k], Math.min(st[k] + D.CODELIB.stat, Robot.ceil(S, year, 'soft', soft, k))); });
     const R = { year, autoTier: 0, visionLvl: 0, pending: [], emergency: 0, comp: 0, drive: 0, store: [], fam: {}, design: {}, bots: [],
       soft: { sub: 'soft', concept: 'code', ver: 1, stats: st, rel: 90, cond: 100, w: 0, hidden: 0, hours: 0 } };
     G.Seasons[year].subs.forEach(sd => { if (sd.id !== 'soft') R.design[sd.id] = { concept: null, ver: 0, stats: {}, rel: 0, w: 0, hours: 0 }; });
     R.bots = [1, 2].map(n => { const subs = {}; G.Seasons[year].subs.forEach(sd => { subs[sd.id] = sd.id === 'soft' ? null : emptyUnit(sd.id); }); return { name: 'Robot ' + n, subs }; });
     S.robot = Robot.link(R);
-    S.projects = S.projects.filter(p => p.type === 'research' || p.type === 'kb');
+    S.projects = S.projects.filter(p => p.type === 'research' || p.type === 'kb' || p.type === 'code');
   };
   // v2.9.3: the End Effector subsystem (2018, 2019, 2023, 2025). A robot from an earlier save gets one. The old intake
   // concepts that really were end effectors (a claw, a station funnel) become one and the intake slot is left empty; a
@@ -617,6 +619,10 @@
     if (Robot.actuated(S, subId, c)) m *= 1 - Robot.actuatorShare(S); // air (or, later, servos) for the small motions
     return m * G.Parts.devMult(S);
   }
+  // the code library (3.1.3): ported for this season, the first code upgrade, auto routine or vision level goes faster
+  function codeFirst(S, first) { return first && G.Career.codeCurrent(S) ? 1 - D.CODELIB.first : 1; }
+  // how much lightweighting can still take off a design: down to 40% of the concept's weight (at least 1 lb)
+  Robot.lightRoom = (d, c) => Math.max(0, d.w - Math.max(1, 0.4 * ((c && c.w) || d.w)));
   function swMult(S) {
     let m = G.Shop.swHoursMult(S);
     m *= 1 - 0.2 * G.Career.mentorSkill(S, 'prog') / 100;
@@ -640,7 +646,7 @@
     if (['harden', 'light', 'copy'].includes(spec.type) && spec.sub === 'soft') return { hours: 0, cost: 0, name: '', err: 'Not for robot code', fields };
     const basic = Robot.basicCopy(R, spec); // a test chassis of a simple drive concept: no design needed
     if (['upgrade', 'harden', 'light', 'copy'].includes(spec.type) && (!des || !des.ver) && !basic) return { hours: 0, cost: 0, name: '', err: 'Build this subsystem first', fields };
-    if (spec.type !== 'research' && spec.type !== 'kb' && !R) return { hours: 0, cost: 0, name: '', err: 'No robot this season yet', fields };
+    if (spec.type !== 'research' && spec.type !== 'kb' && spec.type !== 'vchal' && spec.type !== 'code' && !R) return { hours: 0, cost: 0, name: '', err: 'No robot this season yet', fields };
     switch (spec.type) {
       case 'build': {
         const c = G.Seasons.concept(year, spec.sub, spec.concept);
@@ -685,17 +691,17 @@
       case 'upgrade': {
         const c = G.Seasons.concept(year, spec.sub, des.concept);
         const soft = spec.sub === 'soft';
-        hours = (soft ? 60 : 40 + 20 * c.cx) * ef.h * (1 - 0.06 * lvlFor(S, spec.sub, c, spec.focus)) * (soft ? swMult(S) : hwMult(S, spec.sub, c) * G.Shop.designMult(S));
+        hours = (soft ? 60 : 40 + 20 * c.cx) * ef.h * (1 - 0.06 * lvlFor(S, spec.sub, c, spec.focus)) * (soft ? swMult(S) * codeFirst(S, des.ver === 1) : hwMult(S, spec.sub, c) * G.Shop.designMult(S));
         cost = (soft ? 120 : (250 + 200 * c.cx) * D.PROTO_COST) * ef.cost;
         name = sd.name + ' upgrade (' + (D.STAT[spec.focus] || spec.focus) + ')';
         break;
       }
       case 'harden': { const c = G.Seasons.concept(year, spec.sub, des.concept); hours = (40 + 10 * c.cx) * hwMult(S, spec.sub, c) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 100 + 50 * c.cx; name = sd.name + ' hardening'; break; }
-      case 'light': { hours = 40 * hwMult(S, spec.sub, G.Seasons.concept(year, spec.sub, des.concept)) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 150; name = sd.name + ' lightweighting'; break; }
+      case 'light': { const c = G.Seasons.concept(year, spec.sub, des.concept); if (Robot.lightRoom(des, c) < 0.1) err = 'As light as it gets (' + des.w.toFixed(1) + ' lb)'; hours = 40 * hwMult(S, spec.sub, c) * (1 - G.Shop.fx(S, 'weld', 'weld')); cost = 150; name = sd.name + ' lightweighting'; break; }
       case 'auto': {
         const t = R.autoTier;
         if (t >= 3) err = 'Best auto already';
-        hours = (60 + 40 * (t + 1)) * swMult(S); cost = 100;
+        hours = (60 + 40 * (t + 1)) * swMult(S) * codeFirst(S, t === 0); cost = 100;
         name = 'Auto routine: ' + (G.Seasons[year].autoTiers[Math.min(3, t + 1)]);
         break;
       }
@@ -704,14 +710,21 @@
         if (l >= 2) err = 'Vision maxed';
         else if (l >= ve.max) err = 'Vision Level ' + (l + 1) + ' is out of reach until someone sells a vision camera';
         else if (ve.cam && G.Parts.count(S, 'camera') < l + 1) err = 'Needs ' + (l + 1) + ' vision camera' + (l ? 's' : '') + ' (Inventory)';
-        hours = 120 * (l + 1) * swMult(S) * ve.hours; cost = 200;
+        hours = 120 * (l + 1) * swMult(S) * ve.hours * codeFirst(S, l === 0); cost = 200;
         name = 'Vision Level ' + (l + 1) + (l === 0 ? (ve.cam ? ' (auto-aim)' : ' (home-made auto-aim)') : ' (shoot on the move)');
         break;
       }
       case 'kb': { // built once, then brought up to date every year
         const up = !!S.equip.kb;
-        if (up && G.Career.kbCurrent(S)) err = 'Up to date for this season';
+        if (S.phase !== 'off') err = 'An offseason job: the wiki and the CAD library are written before Kickoff'; // pre-season only (3.1.3)
+        else if (up && G.Career.kbCurrent(S)) err = 'Up to date for next season';
         hours = up ? D.KB_UPKEEP_HOURS : 60; cost = 0; name = up ? 'Knowledge Base yearly update' : 'Knowledge Base (wiki + CAD library)'; break;
+      }
+      case 'code': { // the code library (3.1.3): built once, then ported to next season's standard every offseason
+        const up = !!S.equip.code;
+        if (S.phase !== 'off') err = 'An offseason job: the code is ported before Kickoff';
+        else if (up && G.Career.codeCurrent(S)) err = 'Ported to next season\'s standard';
+        hours = (up ? D.CODELIB.upkeep : D.CODELIB.hours) * swMult(S); cost = 0; name = up ? 'Code library: port to next season' : 'Code library (drive, auto and vision code)'; break;
       }
       case 'impact': { if (S.season && S.season.impactDone) err = 'Already submitted this season'; hours = 40; cost = 100; name = 'Impact Award submission'; break; }
       // in season: drills that make repairs between matches faster, and bumpers that come off and go on in seconds
@@ -730,13 +743,22 @@
       }
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === spec.rid);
+        if (!G.Career.researchOpen(S)) err = S.mode === 'single' ? 'R&D is an offseason job: a single season has none' : 'R&D is closed for the season: it opens after the Championship'; // offseason only (3.1.3)
         hours = r.hours * (1 - 0.04 * Robot.know(S, r.area)); cost = r.cost; name = r.name;
+        break;
+      }
+      case 'vchal': { // a vendor challenge entry (3.1.3): only in the challenge's month, once a year
+        const C = G.Career, c = C.chal(spec.ch);
+        if (!c) { err = 'No such challenge'; break; }
+        if (C.chalNow(S) !== c) err = 'The ' + c.name + ' runs in ' + c.month;
+        else if (C.chalState(S).ent[C.chalKey(S, c)]) err = 'Sent this year';
+        hours = c.hours; cost = 0; name = c.name + ' entry'; fields = { ch: c.id };
         break;
       }
     }
     // one design project per subsystem at a time (copies run alongside, one at a time)
     if (spec.sub && S.projects.some(p => p.sub === spec.sub && (spec.type === 'copy') === (p.type === 'copy'))) err = err || (spec.type === 'copy' ? 'A copy of this subsystem is already being built' : 'A project on this subsystem is already running');
-    if (['auto', 'vision', 'impact', 'wfa', 'kb', 'pit', 'bumper'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
+    if (['auto', 'vision', 'impact', 'wfa', 'kb', 'pit', 'bumper', 'vchal', 'code'].includes(spec.type) && S.projects.some(p => p.type === spec.type)) err = err || 'Already in progress';
     if (spec.type === 'practiceBot' || spec.type === 'testChassis') err = 'Use the Garage shortcuts (a copy of each subsystem)'; // project types until v2.9.7
     if (spec.type === 'research' && S.projects.some(p => p.rid === spec.rid)) err = err || 'Already in progress';
     if (G.Career.hasPerk(S, 'partsDiscount') && spec.type !== 'research') cost *= 0.92;
@@ -827,7 +849,7 @@
   // Fabrication (copies of finished designs, a full second robot) uses team hours but no project slot
   Robot.isFab = p => p.type === 'copy' || p.type === 'practiceBot' || p.type === 'testChassis';
   // program projects (the Impact and Woodie Flowers essays, research for the knowledge base) take no project slot either
-  Robot.PROGRAM = ['impact', 'wfa', 'kb', 'pit', 'bumper']; // program projects: no project slot, no testing, no Finish now card
+  Robot.PROGRAM = ['impact', 'wfa', 'kb', 'pit', 'bumper', 'vchal', 'code']; // program projects: no project slot, no testing, no Finish now card
   Robot.noSlot = p => Robot.isFab(p) || Robot.PROGRAM.includes(p.type);
   Robot.slotUsed = S => S.projects.filter(p => !Robot.noSlot(p)).length;
   Robot.slotText = S => { const p = Robot.slotParts(S), raw = p.base + p.mentors + p.perk + p.facilities; return p.base + ' base + ' + p.mentors + ' mentors' + (p.perk ? ' + 1 sponsor' : '') + ' + ' + p.facilities + ' facilities' + (raw > Robot.MAX_SLOTS ? ' (capped at ' + Robot.MAX_SLOTS + ')' : ' (max ' + Robot.MAX_SLOTS + ')') + (p.temp ? ' + ' + p.temp + ' temporary' : ''); };
@@ -1117,6 +1139,7 @@
       case 'harden': {
         const d = R.design[p.sub], t = targetUnit(R, p.sub), bagH = !!t && t === R.subs[p.sub] && !!Robot.bagLock(S);
         d.rel = Math.round(d.rel + (96 - d.rel) * Math.min(0.9, (0.35 + 0.15 * px) * (1 + G.Shop.fx(S, 'weld', 'weld')))); // a welding station makes hardening go further
+        d.hard = (d.hard || 0) + 1; // shown on the subsystem (3.1.3)
         if (bagH) hold(S, { k: p.sub, concept: d.concept, relMin: d.rel, clear: true });
         else if (t) { t.rel = Math.max(t.rel, d.rel); t.hidden = 0; t.cond = 100; }
         G.Career.inbox(S, 'Hardening complete', bagH ? 'The reinforced ' + G.Seasons.sub(year, p.sub).name.toLowerCase() + ' parts (reliability ' + d.rel + ') are packed for your next event: the competition robot is in the bag, so they go on in the pits on practice day (Install Upgrade).' : G.Seasons.sub(year, p.sub).name + ' reliability is now ' + d.rel + (t ? ' and hidden faults were cleared.' : '.'), 'dev');
@@ -1128,7 +1151,8 @@
         const d = R.design[p.sub], t = targetUnit(R, p.sub), cw = (G.Seasons.concept(year, p.sub, d.concept) || {}).w || d.w;
         const wf = G.Shop.fx(S, 'weld', 'weld'), dw = Math.min(rng.range(2, 6) * (1 + 0.5 * px) * (1 + wf), Math.max(0, d.w - Math.max(1, 0.4 * cw)));
         d.w = Math.max(1, d.w - dw);
-        const bagL = !!t && t === R.subs[p.sub] && !!Robot.bagLock(S), drop = rng.chance(0.2 * (1 - wf));
+        d.lite = (d.lite || 0) + 1; d.liteLb = Math.round(((d.liteLb || 0) + dw) * 10) / 10; // shown on the subsystem (3.1.3)
+        const bagL =!!t && t === R.subs[p.sub] && !!Robot.bagLock(S), drop = rng.chance(0.2 * (1 - wf));
         if (drop) d.rel = Math.max(20, d.rel - 3);
         if (bagL) hold(S, { k: p.sub, concept: d.concept, wMax: d.w, relAdd: drop ? -3 : 0 });
         else if (t) { t.w = Math.min(t.w, d.w); if (drop) t.rel = Math.max(20, t.rel - 3); }
@@ -1141,6 +1165,12 @@
         const first = !S.equip.kb;
         S.equip.kb = true; S.kbFor = G.Career.kbCycle(S);
         G.Career.inbox(S, first ? 'Knowledge Base online' : 'Knowledge Base up to date', (first ? 'Areas you do not use lose half as much know-how at the end of the season.' : 'The wiki and the CAD library cover this year\'s rules and this year\'s students again.') + ' It needs an update every year: a short project in the Design Office.', 'dev');
+        break;
+      }
+      case 'code': { // the code library (3.1.3)
+        const first = !S.equip.code, C = G.Career;
+        S.equip.code = true; S.codeFor = C.kbCycle(S);
+        C.inbox(S, first ? 'Code library online' : 'Code library ported', (first ? 'The drive, auto and vision code now lives in one library, tested on last season\'s robot.' : 'The code library runs on next season\'s control system release now, tested on last season\'s robot.') + ' For the ' + (S.phase === 'off' ? 'coming' : 'current') + ' season the robot code starts a little further on, and the first code upgrade, the first auto routine and the first vision level take ' + Math.round(D.CODELIB.first * 100) + '% fewer hours. It needs a port every offseason.', 'dev');
         break;
       }
       case 'pit': {
@@ -1164,6 +1194,7 @@
           : 'Your students nominated ' + m.name + ' (' + C.profLine(m.prof) + ') for the Woodie Flowers Finalist Award. It is judged at ' + (home ? 'the ' + home.short + ' District Championship in week 7, whether or not the team plays there' : 'the next regional the team plays') + '.', 'dev');
         break;
       }
+      case 'vchal': G.Career.chalSent(S, p, px); break; // a vendor challenge entry is sent (3.1.3)
       case 'research': {
         const r = D.RESEARCH.find(x => x.id === p.rid);
         const g = Robot.addXP(S, r.area, Math.round(r.xp * (1 + 0.2 * q) * (1 + 0.3 * px)));

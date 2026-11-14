@@ -32,7 +32,7 @@
     };
     ev.scoutCred = Ev.credibility(S, ev);
     const player = S.team.num;
-    const weekMult = def.kind === 'champs' || def.kind === 'einstein' ? 1.08 : def.kind === 'offseason' ? 1.04 : def.kind === 'scrimmage' ? 0.8 : 0.85 + 0.03 * (ev.week - 1);
+    const weekMult = def.kind === 'champs' || def.kind === 'einstein' ? 1.08 : def.kind === 'offseason' ? (def.summit ? D.SUMMIT.weekMult : 1.04) : def.kind === 'scrimmage' ? 0.8 : 0.85 + 0.03 * (ev.week - 1);
     const diffMult = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1;
     const size = def.size || 40;
     const exclude = new Set([player]);

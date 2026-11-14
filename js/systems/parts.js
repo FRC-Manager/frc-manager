@@ -749,7 +749,14 @@
   };
   // a loyalty sale runs from the letter until Kickoff
   P.saleOf = (S, slot) => { const s = S.vendSale && S.vendSale[slot]; return s && S.phase === 'off' && S.upcoming === s.up ? s.pct : 0; };
-  P.saleFor = (S, prod) => (prod && (prod.v === 'A' || prod.v === 'B') && S.vendSale ? P.saleOf(S, prod.v) : 0);
+  P.saleFor = (S, prod) => (prod && (prod.v === 'A' || prod.v === 'B' || prod.v === 'L') && S.vendSale ? P.saleOf(S, prod.v) : 0);
+  // where the running sale comes from: 'loyalty' or 'prize' (a vendor challenge, 3.1.3)
+  P.saleSrc = (S, slot) => (P.saleOf(S, slot) ? S.vendSale[slot].src || 'loyalty' : null);
+  // a new sale until Kickoff; the bigger one wins when two overlap
+  P.setSale = (S, slot, pct, src) => { if (pct >= P.saleOf(S, slot)) (S.vendSale = S.vendSale || {})[slot] = { pct, up: S.upcoming, src }; };
+  // a catalogue's vendor and its newest product of a category ('L': Lanternworks, which keeps no loyalty level)
+  P.slotVendor = (S, slot) => (slot === 'L' ? D.VENDORS.L : P.loyal(S, slot).vendor);
+  P.slotCur = (S, cat, slot) => { if (slot === 'L') { const L = D.LANTERN.filter(x => x.cat === cat && P.lanternSold(S, x)).pop(); return L ? P.prod(L.id) : null; } const p = P.cur(S, cat, slot); return p && !P.gone(S, p) ? p : null; };
   // how much of the competition robot's electronics each catalogue supplies (kit parts count for nobody)
   P.vendorShare = function (S) {
     const v = S.robot ? P.profile(S).vendors : {}, tot = (v.A || 0) + (v.B || 0) + (v.K || 0);
@@ -777,7 +784,7 @@
     });
     S.vendBought = { A: 0, B: 0 };
     // a voucher is good through the season after it was given
-    Object.keys(S.voucher || {}).forEach(slot => { const v = S.voucher[slot]; if (v && S.si >= v.until) { if (v.amt > 0) G.Career.inbox(S, 'Voucher expired', 'The ' + U.money(v.amt) + ' left on your ' + P.loyal(S, slot).vendor.name + ' voucher expired with the season.', 'money'); delete S.voucher[slot]; } });
+    Object.keys(S.voucher || {}).forEach(slot => { const v = S.voucher[slot]; if (v && S.si >= v.until) { if (v.amt > 0) G.Career.inbox(S, 'Voucher expired', 'The ' + U.money(v.amt) + ' left on your ' + P.slotVendor(S, slot).name + ' voucher expired with the season.', 'money'); delete S.voucher[slot]; } });
     return out;
   };
   const LOYAL_INTRO = {
@@ -804,7 +811,7 @@
     (S.launchQueue = S.launchQueue || []).push({ kind: 'loyalty' });
     return O;
   };
-  P.packText = (S, O) => O.pack.map(x => x.n + ' ' + (x.n > 1 ? CAT_WORD[x.cat] : CAT_WORD[x.cat].replace(/s$/, ''))).join(', ') + ' (the newest ' + D.VENDORS[O.brand].short + ' version on sale by then)';
+  P.packText = (S, O) => O.pack.map(x => x.n + ' ' + P.catWord(x.cat, x.n)).join(', ') + ' (the newest ' + D.VENDORS[O.brand].short + ' version on sale by then)';
   // each offseason month from September: one letter at a time
   P.loyalMonth = function (S) {
     if (!P.loyalOn(S) || S.loyalOffer || !(S.loyalDue || []).length || S.month < D.LOYALTY.month) return;
@@ -822,7 +829,7 @@
     let text;
     if (pick === 'pack') { (S.loyalShip = S.loyalShip || []).push({ slot: O.slot, lvl: O.lvl, list: O.pack }); text = 'Your free parts arrive with the Kit of Parts at Kickoff: ' + P.packText(S, O) + '.'; }
     else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
-    else { (S.vendSale = S.vendSale || {})[O.slot] = { pct: O.sale, up: S.upcoming }; text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
+    else { P.setSale(S, O.slot, O.sale, 'loyalty'); text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
     (S.loyalLog = S.loyalLog || []).push({ slot: O.slot, brand: O.brand, lvl: O.lvl, pick, cy: P.buyCy(S) });
     G.Career.letter(S, V.name + ' (team partnerships)', 'Loyalty sponsorship: ' + V.name, 'Thank you for building with ' + V.short + ' parts year after year. ' + text, 'See you at Kickoff,\nThe ' + V.name + ' partnerships team');
     S.loyalOffer = null;
@@ -832,15 +839,54 @@
   P.loyalDeliver = function (S) {
     (S.loyalShip || []).forEach(sh => {
       const got = [];
-      sh.list.forEach(x => { const pr = P.cur(S, x.cat, sh.slot); if (pr && !P.gone(S, pr)) { P.add(S, x.cat, pr.id, x.n, 1); got.push(x.n + '× ' + pr.name); } });
-      if (got.length) G.Career.inbox(S, 'Loyalty parts have arrived', 'In the box next to the Kit of Parts: ' + got.join(', ') + '. With thanks from ' + P.loyal(S, sh.slot).vendor.name + '.', 'dev');
+      sh.list.forEach(x => { const pr = P.slotCur(S, x.cat, sh.slot); if (pr) { P.add(S, x.cat, pr.id, x.n, 1); got.push(x.n + '× ' + pr.name); } });
+      if (got.length) G.Career.inbox(S, sh.prize ? 'Prize parts have arrived' : 'Loyalty parts have arrived', 'In the box next to the Kit of Parts: ' + got.join(', ') + '. With thanks from ' + P.slotVendor(S, sh.slot).name + (sh.prize ? ' (your ' + sh.prize + ' prize)' : '') + '.', 'dev');
     });
     S.loyalShip = [];
   };
 
+  // ======================= vendor challenge prizes (3.1.3) =======================
+  // A prize in a vendor's challenge (D.CHALLENGES) works like a loyalty sponsorship: free parts at Kickoff, a voucher or a
+  // sale until Kickoff, one to choose (D.CHAL.prize, by place). A pop-up, a letter, and a blocker until chosen.
+  const PRIZE_TALK = [
+    ['Second year in a row we stayed up all weekend for this. First year it paid.', 'a student on Team {t}'],
+    ['The judges\' notes were longer than our entry. Every line was useful.', 'a mentor on Team {t}'],
+    ['We did not win, but our CAD lead has a job offer from a judge. I think that counts.', 'a parent on Team {t}'],
+    ['Free parts for doing what the kids do anyway. Best deal in FRC.', 'a treasurer on Team {t}'],
+    ['The winning entry is on the vendor\'s blog now. Half the forum is taking it apart.', 'a lead mentor'],
+    ['Our freshmen entered on their own. Next year I am giving them the good computers.', 'a mentor on Team {t}']
+  ];
+  P.prizeOffer = function (S, c, place, n) {
+    const K = D.CHAL.prize[c.v][place - 1], V = D.VENDORS[c.v], rng = R();
+    const pack = Object.keys(K.pack).filter(cat => !!P.slotCur(S, cat, c.v)).map(cat => ({ cat, n: K.pack[cat] }));
+    const O = S.prizeOffer = { ch: c.id, name: c.name, slot: c.v, brand: c.v === 'L' ? 'L' : P.slotBrand(S, c.v) || c.v, place, n, stage: 'choose', pack, packValue: pack.reduce((t, x) => t + x.n * P.slotCur(S, x.cat, c.v).price, 0),
+      voucher: K.voucher, sale: K.sale, month: D.MONTHS[S.month], talk: rng.shuffle(PRIZE_TALK.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{t}', someTeam(S, rng))]) };
+    const e = (S.vchal && S.vchal.ent[c.id + G.Career.offCal(S)]) || {};
+    G.Career.letter(S, V.name + ' (community team)', c.name + ': ' + (place === 1 ? 'first prize' : 'second prize'), 'Out of ' + n + ' entries this year, the judges gave your team ' + (place === 1 ? 'first prize' : 'one of our two second prizes') + ' in the ' + c.name + (e.made ? ', for ' + e.made : '') + '. ' +
+      (place === 1 ? 'It was not close.' : 'It was close at the top.') + ' Your students should be very proud.\n\nAs our thanks, a prize to choose: free ' + V.short + ' parts at Kickoff (' + O.pack.map(x => x.n + ' ' + P.catWord(x.cat, x.n)).join(', ') + '), a voucher of ' + U.money(O.voucher) + ' good through next season, or ' + Math.round(O.sale * 100) + '% off everything from ' + V.short + ' until Kickoff. The box of merch and stickers every entrant gets is on its way too.',
+    'Congratulations,\nThe ' + V.name + ' community team', { prio: true, note: 'Choose the prize in the pop-up or on Headquarters. Reputation +' + D.CHAL.rep[place - 1] + ', morale +' + D.CHAL.morale[place - 1] + '.' });
+    (S.launchQueue = S.launchQueue || []).push({ kind: 'prize' });
+    return O;
+  };
+  P.prizeChoose = function (S, pick) {
+    const O = S.prizeOffer;
+    if (!O || O.stage !== 'choose') return 'Nothing to choose';
+    if (!['pack', 'voucher', 'sale'].includes(pick)) return 'Choose one of the three';
+    const V = D.VENDORS[O.slot === 'L' ? 'L' : O.brand];
+    let text;
+    if (pick === 'pack') { (S.loyalShip = S.loyalShip || []).push({ slot: O.slot, lvl: 0, list: O.pack, prize: O.name }); text = 'Your prize parts arrive with the Kit of Parts at Kickoff: ' + P.packText(S, O) + '.'; }
+    else if (pick === 'voucher') { const v = S.voucher = S.voucher || {}; v[O.slot] = { amt: ((v[O.slot] || {}).amt || 0) + O.voucher, until: S.upcoming }; text = 'A voucher of ' + U.money(O.voucher) + ' is on your account. It pays first whenever you buy ' + V.short + ' parts, and it is good through next season.'; }
+    else { P.setSale(S, O.slot, O.sale, 'prize'); text = 'Everything from ' + V.short + ' is ' + Math.round(O.sale * 100) + '% off for your team until Kickoff, new products included.'; }
+    (S.prizeLog = S.prizeLog || []).push({ ch: O.ch, place: O.place, pick, cy: P.buyCy(S) });
+    G.Career.inbox(S, 'Prize chosen: ' + O.name, text, 'money');
+    S.prizeOffer = null;
+    return null;
+  };
+
   // ======================= product launch events =======================
   // ======================= product launch events =======================
-  const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules', wcd: 'West Coast drive sets', pgear: 'planetary gearboxes', canfd: 'CAN FD hubs' };
+  const CAT_WORD = { motor: 'motors', enc: 'encoders', ctrl: 'control hubs', swerve: 'swerve modules', wcd: 'West Coast drive sets', pgear: 'planetary gearboxes', canfd: 'CAN FD hubs', camera: 'vision cameras', accel: 'ML accelerators', nswitch: 'network switches' };
+  P.catWord = (cat, n) => (n > 1 ? CAT_WORD[cat] : cat === 'nswitch' ? 'network switch' : CAT_WORD[cat].replace(/s$/, ''));
   const LAUNCH_INTRO = {
     T: [
       'Sterling Motion announced it the way it always has: a printed catalogue in the mail, a full-page advertisement, and a booth with carpet at the trade show.',

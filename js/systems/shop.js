@@ -573,7 +573,7 @@
       const t = turnsFor(S, 2); addBoost(S, { kind: 'cat', cat: 'soft', value: 1.4, turns: t, title: 'University programming lab' });
       return ['University lab access', 'A nearby university lent its robotics lab and a grad student to your programmers. Software +40% for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
     } },
-    { id: 'innovate', w: 1, req: () => true, run: S => {
+    { id: 'innovate', w: 1, req: S => S.phase === 'off', run: S => { // research is offseason R&D (3.1.3)
       const t = turnsFor(S, 2); addBoost(S, { kind: 'cat', cat: 'research', value: 1.5, turns: t, title: 'District innovation days' });
       return ['District innovation days', 'The school district gave your team two "innovation days" off regular classes. Research +50% for ' + t + (S.phase === 'off' ? ' month' : ' week') + (t > 1 ? 's' : '') + '.'];
     } },

@@ -247,7 +247,7 @@
     // the best mentors the budget carries (up to six, with money to spare after their fee)
     if (S.phase === 'off' && S.market && S.market.length && S.mentors.length < 6) S.market.filter(m => S.money - (m.cost || 0) >= 30000).sort((a, b) => (b.stars || 0) - (a.stars || 0)).slice(0, 1).forEach(m => C.hireMentor(S, m.id));
     // the offseason: the Knowledge Base and research, two projects at a time
-    if (S.phase === 'off') { R.startProject(S, { type: 'kb' }); D.RESEARCH.filter(r => !S.projects.some(p => p.rid === r.id)).sort((a, b) => a.cost - b.cost).forEach(r => { if (S.projects.filter(p => p.type === 'research').length < 2 && S.money > 15000) R.startProject(S, { type: 'research', rid: r.id }); }); }
+    if (S.phase === 'off') { R.startProject(S, { type: 'kb' }); if (opts.code !== false) R.startProject(S, { type: 'code' }); D.RESEARCH.filter(r => !S.projects.some(p => p.rid === r.id)).sort((a, b) => a.cost - b.cost).forEach(r => { if (S.projects.filter(p => p.type === 'research').length < 2 && S.money > 15000) R.startProject(S, { type: 'research', rid: r.id }); }); }
     // Kickoff: the best concepts, built thoroughly (parts bought first)
     if (S.phase === 'kickoff') {
       G.Parts.stockUp(S, { motor: 24, enc: 10, ctrl: 2, swerve: 4, wcd: 2, gearbox: 4, camera: 2 }, opts.vendor || 'B');
@@ -282,6 +282,7 @@
       const ev = S.event;
       if (opts.fuzz) Dev.fuzzEvent(S, log);
       ev.watchSel = false; // the autoplay does not watch alliance selection
+      if (ev.mconf && !ev.mconf.done) [0, 1, 2, 3].forEach(i => C.summitListen(S, ev, i)); // Summit Champs: the first talks
       G.Ev.skipPractice(ev);
       if (S.robot) { const f = G.Robot.famAvg(S.robot, S.robot.comp || 0); log.famSum = (log.famSum || 0) + (f || 0); log.famN = (log.famN || 0) + 1; }
       if (opts.probe && ev.kind === 'regional') { const p = Dev.probe(S, ev); log.probes.push(p); log.push('  probe ' + ev.name + ': alliance avg ' + p.toFixed(1) + ' · conf ' + ev.conf.toFixed(2) + ' tune ' + ev.tune.toFixed(2) + ' cond ' + Math.round(G.Robot.condAvg(S)) + ' arrival ' + (ev.arrival ? ev.arrival.cond : '-') + ' fam ' + Math.round(100 * (G.Robot.famAvg(S.robot, S.robot.comp || 0) || 0))); }
@@ -302,6 +303,8 @@
       if (opts.until && opts.until(S)) break; // stop early, e.g. to inspect a mid-season state in the UI
       if (S.lostYear && S.lostYear.stage === 'choose') { const e = C.pandemicChoose(S, opts.pandemic || ['remote', 'skills']); if (e) { log.push('PROBLEM pandemic choice: ' + e); break; } log.push('2021: season cancelled (' + S.lostYear.picks.join(' + ') + ')'); }
       if (S.loyalOffer && S.loyalOffer.stage === 'choose') { const O = S.loyalOffer, pk = opts.loyal || ['voucher', 'pack', 'sale'][(S.loyalLog || []).length % 3]; G.Parts.loyalChoose(S, pk); log.push(G.Career.cy(S) + ' loyalty: ' + G.Data.VENDORS[O.brand].name + ' level ' + O.lvl + ' → ' + pk); }
+      if (S.prizeOffer && S.prizeOffer.stage === 'choose') { const O = S.prizeOffer, pk = opts.prize || ['voucher', 'pack', 'sale'][(S.prizeLog || []).length % 3]; G.Parts.prizeChoose(S, pk); log.push(G.Career.cy(S) + ' prize: ' + O.name + ' (' + (O.place === 1 ? 'first' : 'second') + ') → ' + pk); }
+      { const ch = G.Career.chalNow(S); if (ch && opts.chal !== false) G.Robot.startProject(S, { type: 'vchal', ch: ch.id }); } // vendor challenges (3.1.3)
       if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
@@ -313,6 +316,7 @@
         if (S.market.length && S.mentors.length < 6) C.hireMentor(S, S.market[0].id);
       }
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');
+      if (S.phase === 'off' && S.robot && S.summit && S.summit.inv === C.cy(S) && !S.offReg.includes('os_summit') && ['Aug', 'Sep'].includes(D.MONTHS[S.month]) && opts.summit !== false) C.registerOffseason(S, 'os_summit'); // an invitation to Summit Champs: go
       if (C.needReg && C.needReg(S)) { const r = S.regionals.find(x => !C.canRegister(S, x)); if (r) C.register(S, r.id); } // nothing registered by December: the season cannot start without an event
       if (S.phase === 'off' && S.projects.length < 2) { const r = D.RESEARCH.find(x => !S.projects.some(p => p.rid === x.id)); G.Robot.startProject(S, { type: 'research', rid: r.id }); }
       // parts: stock up before Kickoff (and top up at Kickoff), like a sensible player

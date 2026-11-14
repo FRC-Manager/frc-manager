@@ -70,20 +70,37 @@
     return '<div class="ehero einstein"><div class="eh-stars"></div><div class="row"><div><div class="eh-k">FIRST CHAMPIONSHIP' + where + ' · ' + season + ' · WORLD FINALS' + (ev.watch ? ' · FROM THE STANDS' : '') + '</div><div class="eh-t gold">EINSTEIN FIELD</div>' +
       '<div class="eh-s">' + ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'][(ev.alliances || []).length] + ' division champions · ' + (G.Ev.isRR(ev) ? 'round robin, then a best-of-three final' : G.Ev.isSE(ev) ? 'best-of-three series' : 'double elimination') + ' · one World Champion alliance</div></div><span class="sp"></span><span class="eh-cup">' + UI.icon('trophy', 46) + '</span></div><div class="eh-divs">' + chips + '</div></div>';
   }
+  // (3.1.3) Summit Champs: a sunset over the California hills, the invitation-only offseason event
+  function summitHero(ev, kpi) {
+    const S = G.S, host = G.Career.summitHost(S), el = (ev.teams || []).filter(n => S.teams[n] && S.teams[n].elite).length;
+    G.UI.job(() => { const mn = document.getElementById('main'); if (mn) mn.classList.add('ev-summit'); });
+    return '<div class="ehero summit"><div class="sm-sun"></div><div class="sm-ridge far"></div><div class="sm-ridge"></div><div class="row"><div><div class="eh-k">INVITATION ONLY · CALIFORNIA · OCTOBER ' + G.Career.calYear(S) + '</div><div class="eh-t summit">SUMMIT CHAMPS</div>' +
+      '<div class="eh-s">' + ev.teams.length + ' teams that won an event this season' + (host ? ' · hosted by Team ' + host.num + ' ' + h(host.name) : '') + '</div></div><span class="sp"></span>' + kpi + '</div>' +
+      '<div class="eh-divs"><span class="eh-div sm-chip"><i></i>' + el + ' elite teams</span><span class="eh-div sm-chip"><i></i>Mentor conference before practice</span><span class="eh-div sm-chip"><i></i>Triple experience</span></div></div>';
+  }
+  UI.summitIntro = function (ev) {
+    const S = G.S, host = G.Career.summitHost(S), el = (ev.teams || []).filter(n => S.teams[n] && S.teams[n].elite).length, col = '#ff9a4d';
+    UI.modal('<div class="xs b" style="color:' + col + ';letter-spacing:.08em">SUMMIT CHAMPS · CALIFORNIA</div><h2>Welcome to the summit</h2>' +
+      '<p class="story-p">The best teams of the season, in one building' + (host ? ', on the home field of Team ' + host.num + ' ' + h(host.name) : '') + '. Every robot here won an event this year as a captain or a first pick, and ' + el + ' of them belong to elite teams.</p>' +
+      '<div class="card flat mb" style="border-left:3px solid ' + col + '"><ul class="story-ul"><li>First the mentor conference: choose ' + G.Data.SUMMIT.listen + ' of ' + G.Data.SUMMIT.talks + ' talks, each a little know-how in its area.</li><li>Then a practice block, qualifications, alliance selection and playoffs, as at any event, against a field as strong as a Championship division\'s playoffs.</li><li>It counts for more than any other offseason event: reputation, morale, sponsor goodwill, and triple experience for the students.</li></ul></div>' +
+      '<div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>', { wide: true });
+  };
   // the slim version for the match pages
   function evRibbon(ev) {
+    if (ev && ev.summit) { UI.job(() => { const mn = document.getElementById('main'); if (mn) mn.classList.add('ev-summit'); }); return '<div class="eribbon summit">' + UI.icon('trophy', 14) + ' SUMMIT CHAMPS · INVITATION ONLY</div>'; }
     if (!evTheme(ev)) return '';
     const div = G.S.champsDiv || 'Newton';
     return ev.kind === 'einstein' ? '<div class="eribbon einstein">' + UI.icon('trophy', 14) + (ev.festival ? ' FESTIVAL OF CHAMPIONS · MANCHESTER, NEW HAMPSHIRE' + (ev.stream ? ' · LIVESTREAM' : '') : ' EINSTEIN FIELD · WORLD FINALS') + '</div>' : '<div class="eribbon champs" style="--div:' + UI.divColor(div) + '"><i></i>' + h(div.toUpperCase()) + ' DIVISION · FIRST CHAMPIONSHIP</div>';
   }
   UI.S.event = { nav: 'event', after() { const ev = Ev(); if (!ev) return; if (ev.festival && !ev.introSeen && ev.stage !== 'done') { ev.introSeen = true; UI.festivalIntro(ev); return; }
     if (ev.kind === 'champs' && !ev.openSeen && ev.stage !== 'practice' && ev.stage !== 'done') { ev.openSeen = true; UI.champsOpening(ev); return; }
+    if (ev.summit && !ev.introSeen && ev.stage !== 'done') { ev.introSeen = true; UI.summitIntro(ev); return; }
     if (ev.kind === 'einstein' && !ev.festival && !ev.stream && !ev.einSeen && ev.stage !== 'done') { ev.einSeen = true; UI.einsteinIntro(ev); return; } if (UI.ceremony(ev)) return; if (ev.stage === 'done' && ev.result && ev.result.won && !ev.party) { ev.party = true; UI.confetti(); } }, html() {
     const S = G.S, ev = Ev();
     if (!ev) return '<h1>Event</h1><p class="muted">No active event.</p><button class="btn" data-act="nav" data-arg="hq">Back to HQ</button>';
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
     const kpi = rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '';
-    let o = ev.kind === 'champs' || ev.kind === 'einstein' ? evHero(ev, kpi)
+    let o = ev.summit ? summitHero(ev, kpi) : ev.kind === 'champs' || ev.kind === 'einstein' ? evHero(ev, kpi)
       : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(ev.dist && ev.kind === 'regional' ? 'District event' : K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
     const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
     o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
@@ -132,6 +149,14 @@
   function practiceView(ev) {
     const S = G.S;
     let o = '';
+    // Summit Champs: the mentor conference, before practice (3.1.3)
+    if (ev.summit && ev.mconf && !ev.mconf.done) {
+      const c = ev.mconf, left = G.Data.SUMMIT.listen - c.picked.length;
+      o += '<div class="card hl mb"><div class="ct">' + UI.icon('mentors', 16) + ' Mentor conference</div><div class="sm muted mb">The mentors of the teams here talk about their season. Choose ' + left + ' more talk' + (left === 1 ? '' : 's') + ': each adds a little know-how (+' + G.Data.SUMMIT.confXP + ' XP) in its area. ' + UI.q('calendar', 'Summit Champs') + '</div>' +
+        c.talks.map((t, i) => { const got = c.picked.includes(i), a = G.Data.AREA ? G.Data.AREA[t.area] : null, lvl = G.Robot.know(S, t.area);
+          return '<div class="row mb"><div class="sp"><b>' + h(t.title) + '</b><div class="xs muted">' + h(t.by) + ' · your level ' + lvl + (a ? ' in ' + h(a.name) : '') + '</div></div>' + (got ? UI.tag('heard', 'good') : '<button class="btn sm primary" data-act="confTalk" data-arg="' + i + '">Listen</button>') + '</div>'; }).join('') +
+        '<div class="row"><span class="sp"></span><button class="btn sm" data-act="confSkip">' + (c.picked.length ? 'Done' : 'Skip the conference') + '</button></div></div>';
+    }
     if (ev.inspection && ev.inspection.notes.length) o += '<div class="warnbox mb">' + ev.inspection.notes.map(h).join('<br>') + '</div>';
     if (ev.arrival && ev.arrival.cond != null && ev.practice.used.length === 0) o += '<div class="' + (ev.arrival.cond < 99 ? 'warnbox' : 'hint') + ' mb">Robot arrived at <b>' + ev.arrival.cond + '%</b> condition.' + (ev.arrival.notes.length ? ' ' + ev.arrival.notes.map(h).join(' ') : '') + (ev.arrival.cond < 99 ? ' The pit crew can repair it between matches with spare parts.' : '') + '</div>';
     o += '<div class="grid g2"><div class="card"><div class="ct">' + (ev.pracReview ? 'Practice day complete' : 'Practice day — block ' + (ev.practice.used.length + 1) + ' of ' + ev.practice.blocks) + '</div>';
@@ -258,6 +283,8 @@
     return '<div class="card mt"><div class="ct">Your scouting data · teams still available</div><div class="xs muted mb">What your scouts saw in qualifications (credibility ' + Math.round(100 * (ev.scoutCred == null ? 1 : ev.scoutCred)) + '%), by rank. Teams marked declined can\'t be picked.</div><div style="max-height:360px;overflow:auto"><table class="t tight"><tr><th>Team</th><th class="num">Rank</th><th class="num">OPR</th>' + OBS_HEAD + '</tr>' +
       avail.slice(0, 40).map(t => '<tr class="' + (t === me() ? 'me' : sel.declined.includes(t) ? 'dim' : '') + '"><td class="nowrap">' + tlink(t) + declTag(sel, t) + '</td><td class="num">' + G.Ev.rankOf(ev, t) + '</td><td class="num">' + Math.round(opr[t] || 0) + '</td>' + obsCells(ev, t) + '</tr>').join('') + '</table></div></div>';
   }
+  UI.A.confTalk = i => { const S = G.S, t = G.Career.summitListen(S, Ev(), Number(i)); if (t) UI.toast('+' + G.Data.SUMMIT.confXP + ' XP: ' + G.Data.AREA[t.area].name, 'good'); G.Save.write('auto'); UI.render(); };
+  UI.A.confSkip = () => { const ev = Ev(); if (ev && ev.mconf) ev.mconf.done = true; UI.render(); };
   UI.A.selNext = function () { G.Ev.selNext(Ev()); G.Save.write('auto'); UI.render(); };
   UI.A.selSkip = function (m) { G.Ev.selSkip(Ev(), m); G.Save.write('auto'); UI.render(); };
   // ---- scouting data cells (observed in this event's qualification matches) ----

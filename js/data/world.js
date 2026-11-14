@@ -61,10 +61,55 @@
     { id: 'os_jun', name: 'Summer Heat Invitational', month: 'Jun', size: 24, fee: 800 },
     { id: 'os_jul', name: 'River City Rumble', month: 'Jul', size: 28, fee: 1000 },
     { id: 'os_sep', name: 'Harvest Brawl', month: 'Sep', size: 32, fee: 1200 },
+    { id: 'os_summit', name: 'Summit Champs', month: 'Oct', size: 40, fee: 3000, invite: true }, // (3.1.3) invitation only: see D.SUMMIT
     { id: 'os_oct', name: 'Fall Classic', month: 'Oct', size: 30, fee: 1000 },
     { id: 'os_nov', name: 'Robot Rumble Showcase', month: 'Nov', size: 24, fee: 700 }
   ];
   D.MONTHS = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // (3.1.3) Summit Champs: the invitation-only October event of the best teams of the season, hosted every year by an
+  // elite team in California. Invited: the teams that won an official event as captain or first pick (world simulation),
+  // the strongest of them and the host. A field like a Championship division's playoffs, a mentor conference before
+  // practice (pick talks for a little know-how), more reward, and full travel (a flight unless you are in the West).
+  D.SUMMIT = { id: 'os_summit', region: 'West', str: 5, weekMult: 1.08, xp: 3, inviteMonth: 'Aug', talks: 4, listen: 2, confXP: 25, elites: 8, pull: -10,
+    rep: 5, repWin: 6, morale: 5, moraleWin: 10, sat: 6 };
+  // (3.1.3) Vendor challenges: each vendor runs one online contest a year, always in the same offseason month, from its
+  // first year on (not in a career's opening pre-season). A team enters with a program project that month (Design
+  // Office); the results come the next month. The odds follow one station (fac) and the students' average mechanism
+  // skill, plus extra hours on the entry; no mentor helps. Prizes work like a loyalty sponsorship: free parts at Kickoff,
+  // a voucher or a sale, one to choose.
+  D.CHALLENGES = [
+    { id: 'code', v: 'B', name: 'Lumen Code Cup', from: 2023, month: 'Jun', res: 'Jul', fac: 'laptops', area: 'autoPath', hours: 80,
+      what: 'a week to write the autonomous code for a robot in Lumen\'s simulator, scored on a public leaderboard',
+      made: ['a five-piece auto that never touched a wall', 'a path planner that re-plans when a simulated partner gets in the way', 'an auto that scored the most in the last ten seconds of the week', 'a routine the judges called "boring, in the best way"'],
+      merch: ['a teal Lumen hoodie for every student who entered', 'a sheet of "I beat the leaderboard (once)" stickers', 'a USB stick with next year\'s simulator on it, a month early'],
+      // the invitation window: its first year, then every year after ({n}: second, third…; {x}: this year's twist)
+      first: ['Lumen Robotics announced something new this morning, and it is not a part: the Lumen Code Cup, a contest for FRC students. For one week in June, teams write the autonomous code for a robot in Lumen\'s simulator, and a public leaderboard scores every run.', 'The founder said it in the announcement video, from the warehouse floor between two pallets: "Half the teams we sell to never get past a two-piece auto. We want to see what students write when the robot cannot break."'],
+      later: ['The Lumen Code Cup is back for its {n} year: a week in June, Lumen\'s simulator, and a leaderboard that never sleeps.', 'This year\'s robot: {x}.'],
+      twist: ['a swerve drive with a slow turret', 'a tank drive that shares the field with two simulated partners', 'a robot whose camera fails halfway through every run', 'last year\'s winner, with one motor fewer'] },
+    { id: 'elec', v: 'L', name: 'Lanternworks Circuit Jam', from: 2024, month: 'Sep', res: 'Oct', fac: 'ebench', area: 'elec', hours: 60,
+      what: 'one weekend to lay out and wire the electrical board of a robot the organisers describe, from the battery to the camera, judged on the photos and the wiring diagram',
+      made: ['a board where every wire is labelled at both ends', 'a camera mount with its own little power board', 'a wiring diagram the judges printed and pinned to their wall', 'a board that comes off the robot with four bolts and one plug'],
+      merch: ['green Lanternworks T-shirts that glow faintly under a ring light', 'a roll of wire labels and a sheet of lantern stickers', 'a keychain made from a retired Lantern 1 lens'],
+      first: ['Lanternworks, the vision company behind the green ring light on half the robots at every event, is running a contest of its own: the Lanternworks Circuit Jam. One weekend in September, one robot described on paper, and every team lays out and wires its electrical board, from the battery to the camera.', 'The two founders were drive-team programmers once. "Most of the robots we watched die on the field died of a loose wire," one of them wrote. "This contest is our revenge."'],
+      later: ['The Lanternworks Circuit Jam is back for its {n} year: one weekend, one robot on paper, every wire on the board.', 'This year\'s robot: {x}. The judges look at the photos and the wiring diagram, and they look closely.'],
+      twist: ['two cameras, a coprocessor and a CAN bus that runs the length of the frame', 'a robot that has to survive a simulated brownout', 'a board that must come off the robot in under a minute', 'six motors on one side of the frame and no room to route their wires'] },
+    { id: 'cad', v: 'A', name: 'Apex CAD Sprint', from: 2022, month: 'Nov', res: 'Dec', fac: 'cad', area: ['elevator', 'swerve', 'turret', 'intake'], hours: 80,
+      what: 'forty-eight hours to design a complete robot for a game from the past, in CAD, judged by Apex engineers',
+      made: ['a robot with a two-stage elevator that folds inside the frame', 'a full robot under 110 lb on paper, every bolt drawn, on a swerve drive', 'a turret that the judges said they would build themselves', 'a full-width intake the judges called "touch it, own it" in CAD'],
+      merch: ['orange Apex T-shirts, one per student who entered', 'a strip of Apex stickers for the robot', 'a keychain cut from a motor shaft, engraved with the founder\'s "nothing fails twice"'],
+      first: ['Apex Motion has a new launch, and for once it is not a part: the Apex CAD Sprint. Forty-eight hours in November to design a complete robot, in CAD, for a game from the past. Apex engineers judge every entry.', 'The founder kept a list of failed parts for years, and the contest has one rule that comes straight from it: "Nothing goes on the robot that you could not buy this afternoon."'],
+      later: ['The Apex CAD Sprint is back for its {n} year: forty-eight hours, one complete robot in CAD, judged by Apex engineers.', 'This year\'s game from the past is {x}.'],
+      twist: null } // the CAD Sprint's twist is a past game (G.Seasons)
+  ];
+  // full: station level that counts in full; mech: average mechanism skill from no help to full; w: weights of the
+  // station, the students and the entry's quality; p1/p2: first and second prize odds at a perfect score (first prize
+  // falls off faster: s^3 against s^2); entries: about how many teams enter (first year, then more each year)
+  D.CHAL = { full: 3, mech: [25, 65], w: { fac: 0.5, mech: 0.35, q: 0.15 }, p1: 0.05, p2: 0.2, entries: [240, 45], xp: 15, rep: [3, 1], morale: [4, 2], merchMorale: 1,
+    prize: {
+      A: [{ pack: { motor: 6, enc: 4 }, voucher: 2000, sale: 0.35 }, { pack: { motor: 2, enc: 2 }, voucher: 750, sale: 0.2 }],
+      B: [{ pack: { motor: 6, enc: 4 }, voucher: 2000, sale: 0.35 }, { pack: { motor: 2, enc: 2 }, voucher: 750, sale: 0.2 }],
+      L: [{ pack: { camera: 2, accel: 1, nswitch: 1 }, voucher: 800, sale: 0.4 }, { pack: { camera: 1, nswitch: 1 }, voucher: 300, sale: 0.25 }]
+    } };
 
   // ---------- Fees ----------
   D.FEES = { firstRegional: 6000, addRegional: 4000, late: 1000, champs: 5000, scrimmage: 500, shopOps: 2000 };
@@ -409,6 +454,14 @@
   D.TECH_RULE_PCT = 0.25; D.TECH_DESIGN_PCT = 0.15; D.TECH_CAP = 1.25; D.TECH_RULES_N = 2; D.TECH_DESIGNS_N = 3;
   D.TECH_DEEP = 1.5; D.TECH_DEEP_LVL = 4;
   D.KB_UPKEEP_HOURS = 25; // the Knowledge Base's yearly update (the first build takes 60 hours)
+  // (3.1.3) The code library: the team's drive, auto and vision code in one place, ported every offseason to next season's
+  // control system release (its beta is out in the autumn). Built once (hours), then a yearly port (upkeep), offseason only;
+  // both scale with the Programming Station and the programming mentor. Ported for the season: the robot code starts +stat
+  // on each stat, and the first code upgrade, the first auto routine and the first vision level take `first` fewer hours.
+  D.CODELIB = { hours: 80, upkeep: 40, stat: 3, first: 0.4 };
+  // hardening tops out near reliability 96 (it still clears hidden faults and restores condition): from HARD_MAX it shows as
+  // maxed; lightweighting stops at 40% of the concept's weight
+  D.HARD_MAX = 95;
   // In-season program projects (once a season, no project slot): pit crew training makes repairs between matches at events
   // faster (×fast, plus up to polish with extra hours); bumper standards rules out the bumper incident at events
   D.PIT_TRAIN = { hours: 40, cost: 120, fast: 1.3, polish: 0.15 };
