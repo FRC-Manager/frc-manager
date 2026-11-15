@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRC Manager World Viewer</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  body { padding: 14px 16px 40px; }
+  .wv-wrap { max-width: 1500px; margin: 0 auto; }
+  .wv-top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+  .wv-top h1 { font-size: 20px; margin: 0 8px 0 0; }
+  .wv-top label { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .wv-top .inp { width: auto; padding: 4px 8px; }
+  .wv-years { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-bottom: 10px; }
+  .wv-years .btn.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--panel)); font-weight: 700; }
+  .wv-years .btn:disabled { opacity: 0.35; }
+  .wv-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+  @media (max-width: 1150px) { .wv-main { grid-template-columns: minmax(0, 1fr); } }
+  .wv-map { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #0b141c; }
+  .wv-map svg { display: block; width: 100%; height: auto; cursor: grab; touch-action: none; user-select: none; }
+  .wv-map svg:active { cursor: grabbing; }
+  .wv-map text { font-family: inherit; pointer-events: none; }
+  .wv-map text.halo { paint-order: stroke; stroke: #0b141c; }
+  .wv-views { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; align-items: center; }
+  .wv-sum { font-size: 14px; margin-bottom: 8px; }
+  .wv-sum b { color: var(--accent); }
+  table.wv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.wv th, table.wv td { padding: 3px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); text-align: right; white-space: nowrap; }
+  table.wv th { color: var(--muted); font-weight: 600; font-size: 11px; position: sticky; top: 0; background: var(--panel); }
+  table.wv th:first-child, table.wv td:first-child, table.wv td.l, table.wv th.l { text-align: left; }
+  table.wv tr.click { cursor: pointer; } table.wv tr.click:hover td { background: rgba(255, 255, 255, 0.04); }
+  table.wv tr.on td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  table.wv td.off { color: #ffb86b; } table.wv td.dim { color: var(--muted); }
+  .wv-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .wv-scroll { max-height: 600px; overflow: auto; }
+  .wv-leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; align-items: center; }
+  .wv-leg i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .wv-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+  .wv-note { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  #status { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wv-wrap">
+  <div class="wv-top">
+    <h1>FRC Manager World Viewer</h1>
+    <label>Start <select class="inp" id="start"></select></label>
+    <label>Difficulty <select class="inp" id="diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></label>
+    <label>Seed <input class="inp" id="seed" type="number" value="7" style="width:90px"></label>
+    <button class="btn primary" id="run">Simulate the decade</button>
+    <span id="status">Pick a start year and simulate: the game plays every season to 2026 and keeps a picture of the world each year.</span>
+  </div>
+  <div class="wv-years" id="years"></div>
+  <div class="wv-sum" id="sum"></div>
+  <div class="wv-main">
+    <div>
+      <div class="wv-map"><div id="map"></div></div>
+      <div class="wv-views" id="views"></div>
+      <div class="wv-leg" id="leg"></div>
+      <div class="card mt" id="chart"></div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="wv-tabs" id="tabs"></div>
+        <div id="panel"></div>
+      </div>
+    </div>
+  </div>
+  <div class="wv-note">The game's numbers against the real ones: teams, team numbers by the thousand, average strength, the top 100 by rating and regionals for every area and season from 2016 to 2026 (2021 was not played).
+    Outside the United States the game holds about one team for every 2.2 real ones; in the United States about one for every four. Sources: FIRST's team index, The Blue Alliance (events), match13 (ratings).</div>
+</div>
+<script src="../../js/core.js"></script>
+<script src="../../js/data/seasons.js"></script>
+<script src="../../js/data/seasons-classic.js"></script>
+<script src="../../js/data/seasons-fantasy.js"></script>
+<script src="../../js/data/world.js"></script>
+<script src="../../js/data/world-areas.js"></script>
+<script src="../../js/data/eras.js"></script>
+<script src="../../js/data/parts.js"></script>
+<script src="../../js/sim/engine.js"></script>
+<script src="../../js/sim/rules.js"></script>
+<script src="../../js/sim/rules-classic.js"></script>
+<script src="../../js/sim/rules-fantasy.js"></script>
+<script src="../../js/sim/ai.js"></script>
+<script src="../../js/sim/event.js"></script>
+<script src="../../js/systems/robot.js"></script>
+<script src="../../js/systems/career.js"></script>
+<script src="../../js/systems/shop.js"></script>
+<script src="../../js/systems/parts.js"></script>
+<script src="../../js/systems/news.js"></script>
+<script src="../../js/systems/world.js"></script>
+<script src="../../js/systems/scouting.js"></script>
+<script src="../../js/render/draw.js"></script>
+<script src="../../js/render/draw-classic.js"></script>
+<script src="../../js/render/draw-fantasy.js"></script>
+<script src="../../js/ui/ui.js"></script>
+<script src="../../js/ui/icons.js"></script>
+<script src="../../js/ui/screens-event.js"></script>
+<script src="../../js/ui/screens-menu.js"></script>
+<script src="../../js/ui/screens-parts.js"></script>
+<script src="../../js/ui/screens-world.js"></script>
+<script src="../../js/ui/tutorial.js"></script>
+<script src="../../js/dev.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

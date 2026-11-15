@@ -21,10 +21,12 @@
   D.teamName = rng => rng.pick(D.TEAM_A) + ' ' + rng.pick(D.TEAM_B);
 
   // ---------- Regions & travel ----------
-  D.REGIONS = ['West', 'Southwest', 'Midwest', 'Northeast', 'Southeast', 'Canada'];
+  // (3.5) the areas of the world, who is a drive from whom, and the travel tiers are set in world-areas.js (loaded next):
+  // the five areas of the United States, North, and six areas overseas
+  D.REGIONS = ['West', 'Southwest', 'Midwest', 'Northeast', 'Southeast', 'North'];
   D.ADJ = {
-    West: ['Southwest'], Southwest: ['West', 'Midwest', 'Southeast'], Midwest: ['Southwest', 'Northeast', 'Southeast', 'Canada'],
-    Northeast: ['Midwest', 'Southeast', 'Canada'], Southeast: ['Southwest', 'Midwest', 'Northeast'], Canada: ['Midwest', 'Northeast']
+    West: ['Southwest'], Southwest: ['West', 'Midwest', 'Southeast'], Midwest: ['Southwest', 'Northeast', 'Southeast', 'North'],
+    Northeast: ['Midwest', 'Southeast', 'North'], Southeast: ['Southwest', 'Midwest', 'Northeast'], North: ['Midwest', 'Northeast']
   };
   D.TRAVEL = { local: { name: 'Local', cost: 800 }, drive: { name: 'Drive', cost: 3500 }, fly: { name: 'Fly', cost: 9000 } };
   D.INBOX_MAX = 220; D.INBOX_RECENT = 60; // messages the Inbox keeps, and the newest that always stay (career.js C.inbox)
@@ -36,14 +38,19 @@
     Midwest: ['Great Lakes', 'Prairie Wind', 'River Bend', 'Heartland', 'Iron Range', 'Twin Rivers'],
     Northeast: ['Harbor Lights', 'Maple Ridge', 'Liberty Bay', 'Pine Hollow', 'Atlantic Shores', 'Granite Falls'],
     Southeast: ['Magnolia', 'Bayou Country', 'Peach Hills', 'Gulf Breeze', 'Blue Ridge', 'Palmetto Coast'],
-    Canada: ['Northern Lights', 'Maple Leaf', 'Lakehead', 'Prairie North', 'Laurentian', 'Rocky Summit']
+    North: ['Northern Lights', 'Maple Leaf', 'Lakehead', 'Prairie North', 'Laurentian', 'Rocky Summit'],
+    // (3.5) overseas: a single season's catalogue draws from these (a career's regionals are named by their city, world-areas.js)
+    'Central America': ['Saddle Mountain', 'Desert Lagoon', 'Valley of the Volcanoes'], 'South America': ['Central Plateau', 'Tropic Line'], Europe: ['Lowland Canals'],
+    'Middle East': ['Two Continents', 'Tulip Gardens', 'Aegean Breeze', 'Steppe Winds'], 'East Asia': ['Pearl Delta', 'Great River Delta', 'Jade Mountain'], 'Asia Pacific': ['Blue Mountains', 'Coral Sea']
   };
 
-  // Build a season's regional catalogue: 5 events per week x 6 weeks
-  D.makeRegionals = function (year, rng) {
-    const all = [];
-    D.REGIONS.forEach(r => D.REGIONAL_NAMES[r].forEach(n => all.push({ name: n + ' Regional', region: r })));
-    rng.shuffle(all);
+  // Build a season's regional catalogue (a single season, without the world simulation): 5 events per week x 6 weeks.
+  // Most are in North America; the areas overseas hold a few, and the team's own area (home) always has at least three.
+  D.makeRegionals = function (year, rng, home) {
+    const na = [], far = [], mine = [];
+    D.REGIONS.forEach(r => (D.REGIONAL_NAMES[r] || []).forEach(n => (r === home ? mine : D.REGIONAL_NAMES[r].length >= 6 ? na : far).push({ name: n + ' Regional', region: r })));
+    rng.shuffle(na); rng.shuffle(far); rng.shuffle(mine);
+    const all = rng.shuffle(mine.slice(0, 3).concat(far.slice(0, 5), mine.slice(3), na).slice(0, 30));
     const list = [];
     for (let w = 1; w <= 6; w++) {
       for (let k = 0; k < 5; k++) {
@@ -466,27 +473,22 @@
   // faster (×fast, plus up to polish with extra hours); bumper standards rules out the bumper incident at events
   D.PIT_TRAIN = { hours: 40, cost: 120, fast: 1.3, polish: 0.15 };
   D.BUMPER_STD = { hours: 30, cost: 280 };
-  // Elite teams (world simulation, 3.1): the programs at the very top of the sport, close to maxed out in robot, drive team
-  // and strategy. They are placed where the real ones are, by the cities teams come from (G.Geo.HUBS): a zone is a
-  // district's cities (even before the district forms) or an area's cities outside its districts. California has the most.
-  // They last: strength drifts a point or two a year (b), a few fade (fade, never the dynasties), and an established team
-  // (minAge seasons in the world, strength promoteAt or more) can rise to fill its zone. Every area keeps at least one.
-  D.ELITE_ZONES = [
-    { z: 'sierra', n: 5, name: 'California' }, { z: 'lakeshore', n: 3, name: 'Michigan' }, { z: 'mesa', n: 2, name: 'Texas' },
-    { z: 'harbor', n: 2, name: 'New England' }, { z: 'evergreen', n: 2, name: 'the Pacific Northwest' }, { z: 'Canada', n: 2, name: 'Canada' },
-    { z: 'Midwest', n: 2, name: 'the Midwest' }, { z: 'Northeast', n: 2, name: 'the Northeast' }, { z: 'Southeast', n: 2, name: 'the Southeast' },
-    { z: 'Southwest', n: 1, name: 'the Southwest' }, { z: 'West', n: 1, name: 'the Mountain West' }
-  ];
+  // Elite teams (world simulation, 3.1; by the real numbers from 3.5): the programs at the very top of the sport, close
+  // to maxed out in robot, drive team and strategy. How many each zone has every season follows the real top 100 teams
+  // by rating, scaled to the size of the game's world (world-areas.js: D.TOP100, D.eliteTargets): about 30 on Normal.
+  // A zone is a district's cities (even before the district forms) or an area's cities outside its districts, so not
+  // every area has an elite team every year. They last while their zone keeps its places: strength drifts a point or
+  // two a year (b) and a few fade by themselves (fade, never the dynasties). When a zone loses a place its weakest
+  // elite team fades; when it gains one its best established team (minAge seasons in the world) rises.
   D.ELITE = { b: [92, 97], fresh: [90, 93], lo: 89, hi: 98, fade: 0.03, dyn: 0.45, minAge: 5, promoteAt: 82, q: [0.95, 0.99], bonus: 6, drv: [93, 98], div: 1, ein: 2 }; // off: tests only (no elite teams)
-  // by difficulty: how many (n: share of each zone's count, at least one per area always; plus: extra places in the
-  // biggest zones), how good, how many your Championship division is sure to have (div) and how many lead each of the
-  // other alliances on Einstein (ein). 3.1.5: normal and hard got a few more elite teams (normal had 24 with the
-  // defaults, now 28; hard 38 → 44), stronger: drv is the driver's (and composure's) range, hp the human player's, and rel
-  // the reliability their robots run at (extremely high; without it, the robot's quality decides as for everyone else)
+  // by difficulty: how many (n: the share of the real top 100's places: half on Easy, all on Normal, half as many again
+  // on Hard), how good, how many your Championship division is sure to have (div) and how many lead each of the other
+  // alliances on Einstein (ein). drv is the driver's (and composure's) range, hp the human player's, and rel the
+  // reliability their robots run at (extremely high; without it, the robot's quality decides as for everyone else)
   D.ELITE_DIFF = {
     easy: { n: 0.5, b: [89, 93], fresh: [88, 91], q: [0.9, 0.95], bonus: 0, drv: [88, 93], div: 0, ein: 1 },
-    normal: { plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1 }, b: [93, 97], fresh: [91, 94], q: [0.96, 0.99], bonus: 7, drv: [95, 99], hp: [94, 98], rel: 97 },
-    hard: { n: 1.5, plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1, evergreen: 1, Canada: 1 }, b: [94, 98], fresh: [92, 95], q: [0.975, 0.995], bonus: 10, drv: [97, 99], hp: [96, 99], rel: 98, div: 2, ein: 2 }
+    normal: { b: [93, 97], fresh: [91, 94], q: [0.96, 0.99], bonus: 7, drv: [95, 99], hp: [94, 98], rel: 97 },
+    hard: { n: 1.5, b: [94, 98], fresh: [92, 95], q: [0.975, 0.995], bonus: 10, drv: [97, 99], hp: [96, 99], rel: 98, div: 2, ein: 2 }
   };
   D.REF_AI = { anyFloor: 0.2, bpShare: 0.35, bpBoost: 0.04 }; // AI teams copy too: the weakest that would fall below the floor build the Anybot (quality raised to it); a share of the lower middle build the Blueprint (its concepts, +0.04 quality)
   D.REF_STEP = 0.25; // a copied published design starts as a version 2: its stats this share of the way from a first build to the ceiling

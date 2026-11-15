@@ -282,13 +282,14 @@
       G.AI.addRookies(S.teams, rng, order[0], 12, S.team.num, cal[0]);
     }
     C.refreshMarket(S);
-    if (!G.World.on(S)) S.regionals = D.makeRegionals(order[0], rng);
+    if (!G.World.on(S)) S.regionals = D.makeRegionals(order[0], rng, S.team.region);
     if (o.mode === 'career') {
       C.genOffers(S);
       G.Parts.teaser(S);
       { const eb = C.eraBrief(S); if (eb) C.inbox(S, eb.title, 'What the sport looks like as your career begins:\n\n' + eb.lines.map(x => '• ' + x).join('\n') + '\n\nAll of this changes over the years. The big changes arrive as pop-ups, and a recap after every season tells the story of the year.', 'info'); }
       C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy facilities (Workshop) and parts (Inventory), start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.\n\nResearch, the Knowledge Base and the code library (Design Office) are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.', 'info');
       C.inbox(S, ...C.regNotice(S)); // the career starts in October: registration is already open
+      C.farSeasonNote(S);
       if (G.World.on(S)) C.wfaSeed(S);
     } else {
       // single season: auto-sign starter sponsors, then kickoff right away
@@ -329,7 +330,8 @@
     const make = (slot) => {
       const tk = slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
       const T = D.SPONSOR_TYPES[tk];
-      let name; let g = 0; do { name = rng.pick(D.SPONSOR_NAMES[tk]); g++; } while (used.has(name) && g < 10);
+      const pool = D.sponsorPool(tk, S.team.home, S.team.region); // (3.5) names with the flavour of the team's home
+      let name; let g = 0; do { name = rng.pick(pool); g++; } while (used.has(name) && g < 10);
       used.add(name);
       let base = D.SPONSOR_BASE[slot] * (T.f || 1) * perf * money * rng.range(0.94, 1.06);
       base = Math.round(base / 250) * 250;
@@ -658,14 +660,18 @@
     }
     return null;
   };
-  // How the team gets there: local, drive, fly — or, with a team trailer, a long drive instead of flying the robot
+  // How the team gets there: local, drive, fly — or, with a team trailer, a long drive instead of flying the robot.
+  // (3.5) An event in another part of the world is a flight overseas (intl): dearer, harder on the robot, and no trip
+  // for the trailer. The Championship is in the middle of North America: overseas for every team from outside it.
   C.travelMode = function (S, def) {
     if (def.kind === 'einstein') return 'none';
-    let tier = def.kind === 'champs' ? 'fly' : def.kind === 'dcmp' ? 'drive' : def.kind === 'regional' ? D.travelTier(S.team.region, def.region, def.local) : 'local';
-    if (def.kind === 'offseason') tier = def.summit ? D.travelTier(S.team.region, D.SUMMIT.region, false) : 'drive'; // Summit Champs: California
+    const home = S.team.region;
+    let tier = def.kind === 'champs' ? (D.overseas(home, 'Midwest') ? 'intl' : 'fly') : def.kind === 'dcmp' ? 'drive' : def.kind === 'regional' ? D.travelTier(home, def.region, def.local) : 'local';
+    if (def.kind === 'offseason') tier = def.summit ? D.travelTier(home, D.SUMMIT.region, false) : 'drive'; // Summit Champs: California
     if (tier === 'fly' && G.Shop.lvl(S, 'trailer')) return 'trailer';
     return tier;
   };
+  C.byAir = mode => mode === 'fly' || mode === 'intl';
   // A bigger team costs more to move: the robot's freight and the tools cost every team the same, the seats, rooms and
   // meals grow with the students who go. The D.TRAVEL prices are for a team of 25 (×0.72 at 15, ×1.42 at 40).
   C.travelSize = S => { const n = Math.min(80, Math.max(5, S.studentsCount || (S.students || []).length || 25)); return 0.3 + 0.7 * n / 25; };
@@ -673,7 +679,7 @@
     if (def.kind === 'einstein') return 0;
     const mode = C.travelMode(S, def), tier = mode === 'trailer' ? 'fly' : mode;
     let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' && !def.summit ? 0.4 : 1) * (mode === 'trailer' ? D.TRAILER_LONG : 1) * C.travelSize(S);
-    if (tier !== 'fly') c *= G.Shop.travelMult(S);
+    if (!C.byAir(tier)) c *= G.Shop.travelMult(S);
     if (C.hasPerk(S, 'travelDiscount')) c *= 0.75;
     return Math.round(c);
   };
@@ -686,7 +692,8 @@
       if (def.kind === 'dcmp') C.spend(S, D.FEES.dcmp, 'Registration: ' + def.name);
     }
     if (def.kind === 'einstein') return C.startEinstein(S, def);
-    const fly = C.travelMode(S, def) === 'fly';
+    const mode = C.travelMode(S, def), fly = C.byAir(mode), intl = mode === 'intl';
+    if (intl) S.lastEventIntl = turnKey(S); // jet lag (fatigueNext)
     G.Shop.wear(S, 'event', { fly });
     // The robot arrives at 100% unless: not enough spare parts for the repairs, a long trip (shipped by air),
     // or a sponsor demo with the robot this same competition week. (Einstein follows the division too closely for any of this.)
@@ -703,7 +710,8 @@
       if (rep.used) arrival.notes.push('Repairs used ' + rep.used + ' spare part' + (rep.used > 1 ? 's' : '') + '.');
       if (rep.short) arrival.notes.push('Not enough spare parts to finish the repairs (' + rep.short + ' condition points left).');
       const hit = (amt, why) => { Object.values(S.robot.subs).forEach(x => { if (x.ver && x !== S.robot.subs.soft) x.cond = Math.max(0, x.cond - amt()); }); arrival.notes.push(why); };
-      if (fly) hit(() => G.R.range(4, 9), 'The robot was shipped by air and took some knocks in transit.');
+      if (intl) hit(() => G.R.range(D.INTL_KNOCKS[0], D.INTL_KNOCKS[1]), 'The robot crossed an ocean in its crate and took some knocks on the way.');
+      else if (fly) hit(() => G.R.range(4, 9), 'The robot was shipped by air and took some knocks in transit.');
       if (S.demoWear && S.demoWear.key === turnKey(S)) { hit(() => S.demoWear.amt, 'The sponsor demo earlier this week left wear the team had no time to fix.'); }
       S.demoWear = null;
       arrival.cond = Math.round(G.Robot.condAvg(S));
@@ -734,8 +742,9 @@
     const notes = [], need = G.Robot.repairNeed(S), have = Math.max(0, S.parts.spares - (S.parts.spareUse || 0));
     let cond = 100;
     if (need > have + 0.01) { notes.push('short on spare parts'); cond -= Math.min(25, (need - have) * D.SPARE_COND_PER_UNIT / Math.max(1, Object.values(S.robot.subs).filter(x => x.ver).length)); }
-    const fly = C.travelMode(S, def) === 'fly';
-    if (fly) { notes.push('flying (−4–9%)'); cond -= 6.5; }
+    const mode = C.travelMode(S, def);
+    if (mode === 'intl') { notes.push('flying overseas (−' + D.INTL_KNOCKS[0] + '–' + D.INTL_KNOCKS[1] + '%)'); cond -= (D.INTL_KNOCKS[0] + D.INTL_KNOCKS[1]) / 2; }
+    else if (mode === 'fly') { notes.push('flying (−4–9%)'); cond -= 6.5; }
     if (S.demoWear && S.demoWear.key === turnKey(S)) { notes.push('sponsor demo this week (−' + S.demoWear.amt + '%)'); cond -= S.demoWear.amt; }
     return { cond: Math.round(cond), notes, spares: Math.max(0, Math.ceil(need - have)) };
   };
@@ -1061,6 +1070,7 @@
     let d = (C.idleTarget(S) - f) * D.FATIGUE_SLOPE * (eventWeek ? 0.5 : 1), drift = (D.FATIGUE_BASE - before) * 0.08;
     if (S.overtime) { d = Math.max(0, d) + D.FATIGUE_OVERTIME; drift = Math.max(0, drift); }
     if (eventWeek) d += S.team.home && G.World.on(S) && S.week <= 5 ? D.FATIGUE_DISTRICT : D.FATIGUE_EVENT;
+    if (eventWeek) { const e = C.eventThisTurn(S); if (S.lastEventIntl === turnKey(S) || (e && e.def && C.travelMode(S, e.def) === 'intl')) d += D.FATIGUE_INTL; } // jet lag
     return Math.round(U.clamp(before + d + drift, 5, 100));
   }
   C.fatigueWeek = fatigueWeek;
@@ -1147,10 +1157,11 @@
       // a team that chose to join a new district plays there from the season now being planned
       if (S.team.homeNext) { S.team.home = S.team.homeNext; delete S.team.homeNext; if (!S.scenario) S.maxEvents = Math.min(S.maxEvents, 3); }
       C.genOffers(S);
-      if (G.World.on(S)) G.World.plan(S, rng); else S.regionals = D.makeRegionals(S.order[S.upcoming] || S.year, rng);
+      if (G.World.on(S)) G.World.plan(S, rng); else S.regionals = D.makeRegionals(S.order[S.upcoming] || S.year, rng, S.team.region);
       S.registered = []; S.scrimmage = false;
       C.inbox(S, 'Sponsor season', 'New sponsor offers are in (Finance).', 'money');
       C.inbox(S, ...C.regNotice(S));
+      C.farSeasonNote(S);
     }
     if (mo === 'Nov') C.inbox(S, 'Drive team tryouts', 'Pick next season\'s drive team on the Team screen.', 'staff');
     // November: last call for next season's field elements (preorders arrive with the Kit of Parts and never sell out)
@@ -1185,7 +1196,8 @@
       C.inbox(S, 'The ' + su.cy + ' season in numbers', su.teams + ' teams are registered this season' + (first ? '' : ': ' + su.rookies + ' rookie teams joined and ' + wl.folded + ' teams did not return') + '. ' +
         su.regional + ' of them play the ' + su.regionals + ' regionals; ' + su.district + ' play in ' + su.districts + ' districts (' + su.dEvents + ' district events).' +
         (wl.formed.length ? ' New this year: the ' + wl.formed.map(id => D.DISTRICT[id].name).join(' and the ') + '.' : '') +
-        (d ? ' Your district, the ' + d.name + ', has ' + G.World.sizeOf(d, su.cy) + ' teams; the top ' + d.dcmp + ' reach its District Championship and about ' + G.World.slots(S, d) + ' go on to the Championship.' : '') +
+        (() => { const nw = D.REGIONS.filter(r => D.WORLD_AREAS[r] && D.WORLD_AREAS[r].first === su.cy && D.sitesOf(r, su.cy).length && !G.World.legacy(S)); return nw.length ? ' A first: ' + nw.map(r => D.regionThe(r) + ' holds a regional of its own (' + D.sitesOf(r, su.cy)[0] + ')').join(', and ') + '.' : ''; })() +
+        (d ? ' Your district, the ' + d.name + ', has ' + G.World.sizeOf(d, su.cy) + ' teams; the top ' + G.World.dcmpSize(d, su.cy) + ' reach its District Championship and about ' + G.World.slots(S, d) + ' go on to the Championship.' : '') +
         ' The ' + (d ? 'District' : 'World') + ' page follows every event.', 'info');
       // the top tier: who fell out of it (a local powerhouse now) and who joined it
       { const nm = n => { const t = S.teams[n]; return t ? n + ' ' + t.name + ' (' + (t.home ? D.DISTRICT[t.home].short : t.region) + ')' : String(n); }, f = wl.faded || [], r = wl.rose || [];
@@ -1204,7 +1216,7 @@
     S.parts.spares = 0; S.parts.spareUse = 0;
     S.usedAreas = {}; S.practiceWeeks = 0; S.defDrill = 0; S.elecShake = 0; S.lastTune = 0; S.lastConf = 0; S.champsDeclined = false; S.pendingEinstein = false;
     S.champsDiv = rng.pick(S.cal ? C.champs(S).div : DIVS);
-    if (!S.regionals.length || S.regionals[0].year !== S.year) S.regionals = D.makeRegionals(S.year, rng);
+    if (!S.regionals.length || S.regionals[0].year !== S.year) S.regionals = D.makeRegionals(S.year, rng, S.team.region);
     if (S.mode === 'career') C.markFull(S);
     // finances
     const biz = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
@@ -1366,6 +1378,19 @@
     G.Ev.rollIncident(S, ev);
   };
   // October: registration for next season opens (the inbox message; the pop-up in the UI says the same)
+  // (3.5) When registration opens, a regional team outside North America hears what its own area holds next season:
+  // its first regional ever, or none at all (then every event is a flight, and most of them overseas).
+  C.farSeasonNote = function (S) {
+    if (!G.World.on(S) || S.team.home || !S.wseason || !D.WORLD_AREAS[S.team.region]) return;
+    const r = S.team.region, cy = S.wseason.cy, A = D.WORLD_AREAS[r], home = S.regionals.filter(e => e.region === r), The = D.regionThe(r).replace(/^t/, 'T');
+    if (home.length) {
+      if (A.first === cy) C.inbox(S, 'A regional at home', The + ' holds its first regional in ' + cy + ': the ' + home[0].name + ' in ' + home[0].hub + '. No ocean to cross for it, and half the teams in the pits will be neighbours. It will fill quickly: register while there is room (Calendar).', 'event', { prio: true });
+      return;
+    }
+    const near = (D.NEAR[r] || []).filter(x => S.regionals.some(e => e.region === x)), sea = near.filter(x => D.overseas(r, x));
+    C.inbox(S, 'No regional at home in ' + cy, The + ' holds no regional in ' + cy + '. ' + (near.length ? 'The teams here usually travel to ' + near.map(D.regionThe).join(' or ') + (sea.length === near.length ? ', a flight overseas' : sea.length ? ' (some of it overseas)' : ', an ordinary flight') + '. ' : '') +
+      'A flight overseas costs about ' + U.money(Math.round(D.TRAVEL.intl.cost * C.travelSize(S) / 100) * 100) + ' for your team, is harder on the robot than an ordinary one, and the team trailer cannot make the trip. Budget for it before you register (Calendar): one event well prepared is a season too.', 'event', { prio: true });
+  };
   C.regNotice = function (S) {
     const d = S.team.home && G.World.on(S) ? D.DISTRICT[S.team.home] : null;
     return [(d ? 'District event' : 'Regional') + ' registration is open', 'Sign up for next season\'s ' + (d ? d.name + ' events' : 'regionals') + ' in the Calendar while every event still has spots. ' +
@@ -1869,7 +1894,8 @@
   const wRng = key => G.makeRng(hashS(key) || 11);
   C.makeProf = function (role, r) {
     const p = r.pick(D.PROFESSIONS[role] || D.PROFESSIONS.design), k = p[2];
-    return { t: p[0], area: p[1], at: k === 'school' ? r.pick(D.SCHOOLS) + ' High School' : r.pick(D.SPONSOR_NAMES[k] || D.SPONSOR_NAMES.eng) };
+    const tm = (G.S && G.S.team) || {}; // (3.5) where the mentor works carries the flavour of the team's home
+    return { t: p[0], area: p[1], at: k === 'school' ? D.schoolName(r, tm.home, tm.region) : r.pick(D.sponsorPool(k, tm.home, tm.region)) };
   };
   C.profLine = p => (p ? p.t + (p.at ? ' at ' + p.at : '') : 'Mentor');
   // a mentor's background: profession, years in FIRST and seasons with this team (filled in once from the mentor's own id)
@@ -2931,7 +2957,17 @@
     S.feeders = S.programs.length;
   };
   // older saves: a feeder count becomes that many established, balanced programs
+  // (3.5) an area's name from before: every `region` in the save takes the new one
+  function renameRegions(S) {
+    const seen = new Set(), walk = o => {
+      if (!o || typeof o !== 'object' || seen.has(o)) return; seen.add(o);
+      if (typeof o.region === 'string' && D.REGION_OLD[o.region]) o.region = D.REGION_OLD[o.region];
+      (Array.isArray(o) ? o : Object.values(o)).forEach(walk);
+    };
+    walk(S);
+  }
   C.migrate = function (S) {
+    if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.on(S) && S.teams && !G.World.elites(S).length && S.wseason) G.World.eliteSetup(S, G.R, S.wseason.cy); // 3.1: elite teams in a world from before
     if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {

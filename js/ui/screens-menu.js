@@ -30,15 +30,22 @@
   // =====================================================================
   // the suggested team number for the start year: a rookie gets a number from that year's rookie block, an established or
   // powerhouse team one at least a year older. It follows the start year and profile until the player types a number.
+  // (3.5) An established team's number is one its home really has that season (D.NUMS: every area's real team numbers
+  // by the thousand); a powerhouse carries one of the home's oldest.
   UI.ngAutoNum = function (n) {
     const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, rng = G.makeRng((Date.now() ^ (cy * 7919)) & 0xffffff);
     if (n.profile === 'rookie') { const b = D.numBlock(cy); return rng.int(b[0], b[1]); }
     const top = (D.NUM_FROM[cy - 1] || D.NUM_FROM[cy] || 11000) - 1; // at least a season older than this year's rookies
-    return n.profile === 'powerhouse' ? rng.int(100, Math.min(top, 3500)) : rng.int(1000, top);
+    const zone = (n.mode === 'career' && n.home) || n.region, draw = () => D.zoneNum(rng, D.NUMS[zone] ? zone : 'Midwest', cy, top);
+    if (n.profile !== 'powerhouse') return draw();
+    let best = draw(); for (let i = 0; i < 9; i++) best = Math.min(best, draw()); // the lowest of ten: one of the old programs
+    return best;
   };
+  // a default school name with the flavour of the home (until the player types one)
+  UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: 0, numAuto: true, name: D.teamName(rng), school: rng.pick(D.SCHOOLS) + ' High School', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
+    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, name: D.teamName(rng), school: D.schoolName(rng, null, 'Midwest'), c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
     UI.st.ng.num = UI.ngAutoNum(UI.st.ng);
     UI.go('newgame');
@@ -56,15 +63,22 @@
       o += '<h3 class="mt">Fantasy games <span class="sm muted" style="font-weight:400">· fictional games in the 2026 match format, played as the ' + G.FANTASY_CY + ' season</span></h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' + G.FANTASY_YEARS.map(y => choice('year', y, G.Seasons[y].name, G.Seasons[y].tagline)).join('') + '</div>';
       o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
+    // (3.5) the home list: the areas of North America, the rest of the world, and the districts of the start year
+    const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
-      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="Regional areas">' + D.REGIONS.map(r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>').join('') + '</optgroup>' +
+      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA').map(ngOpt).join('') + '</optgroup>' +
+        '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA').map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
       '</div>';
     if (n.mode === 'career') {
-      const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff);
-      o += '<div class="hint mt"><b>Competition:</b> average team strength about ' + pv.avg + ', and ' + pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world. California has the most. ' + UI.q('world', 'Elite teams') + '</div>';
-      o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(2, Math.round(G.World.sizeOf(d, n.start) * 2 / 36)) + ' district events, a District Championship of ' + d.dcmp + '. <b>District play:</b> one fee covers two local district events of about 36 teams with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
-        : '<b>Regional team in the ' + h(n.region) + '.</b> Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
+      const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff), A = D.WORLD_AREAS[n.region], sites = D.sitesOf(n.region, n.start), far = D.overseas(n.region, 'Midwest');
+      o += '<div class="hint mt"><b>Competition:</b> about ' + pv.teams + ' teams in ' + n.start + ', average strength about ' + pv.avg + ', and ' + (pv.elite ? pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world.' : 'no ' + UI.eliteTag() + ' team calls this area home this season.') +
+        ' The numbers follow the real season. ' + UI.q('world', 'Elite teams') + '</div>';
+      o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
+        : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + 'Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
+      // travel from an area outside North America: its own regionals this first season, and what is overseas
+      if (far || A) o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your district events are close to home. ' : A ? (sites.length ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + sites.length + ' regional' + (sites.length > 1 ? 's' : '') + ' (' + h(sites.filter((x, i, a) => a.indexOf(x) === i).join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') : '') +
+        (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
     }
     // avatar and colours (the whole UI picks up the primary colour)
     o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
@@ -109,9 +123,14 @@
   } };
   UI.A.ng = (v, el) => {
     const n = UI.st.ng, k = el.dataset.k;
-    if (k === 'homeSel') { if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); } UI.render(); return; }
+    if (k === 'homeSel') {
+      if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); }
+      if (n.numAuto) n.num = UI.ngAutoNum(n); if (n.schoolAuto) n.school = UI.ngSchool(n); // the suggested number and school follow the home
+      UI.render(); return;
+    }
     n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
     if (k === 'num') n.numAuto = false; // the player's own number stays
+    if (k === 'school') n.schoolAuto = false;
   };
   // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
   UI.A.ngGame = y => {
@@ -174,6 +193,16 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.3', title: 'Beta of 3.5: the whole world', notes: [
+      'The world simulation covers every part of the world with teams in it. Twelve areas: the West, Southwest, Midwest, Northeast and Southeast, the North, Central America, South America, Europe, the Middle East, East Asia and Asia Pacific. Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East.',
+      'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the team numbers they carry by the thousand, their average strength, and the cities that host its regionals. Some seasons an area has no regional of its own.',
+      'Elite teams follow the real top 100 teams in the world by rating, scaled to the game\'s world and shared by area each season. Not every area has one every year.',
+      'A new kind of travel: a flight overseas, to an event in another part of the world. It costs more than an ordinary flight, is harder on the robot and a little more tiring, and the team trailer cannot make the trip. The Championship is overseas for every team outside North America.',
+      'The World page\'s map shows the whole world and opens on your part of it.',
+      'Your default team number and school name follow your home, and sponsors are named after the industries of the place.',
+      'A career saved before this version plays its season out as it was and grows into the whole world the next October. The old northern area is now the North.',
+      'For testing: tools/world-viewer plays a decade and shows the map and every area\'s numbers against the real ones, year by year.'
+    ] },
     { v: '3.4.2', title: 'Beta of 3.5: two display fixes', notes: [
       'Custom career: "As listed" is the default way to play your games, and it now shows as chosen from the start.',
       'Inventory, Your robots: the Control system card names who made each part, so Sterling parts say Sterling and no longer Apex.'

@@ -310,9 +310,14 @@
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {
         S.offers.filter(o => o.slot === 'title').slice(0, 1).forEach(o => C.signSponsor(S, o.id, true));
         S.offers.filter(o => o.slot !== 'title').slice(0, 3).forEach(o => C.signSponsor(S, o.id, true));
-        if (opts.max) { const wk = []; S.regionals.filter(r => !r.full).sort((a, b) => a.week - b.week).forEach(r => { if (!wk.some(w => Math.abs(w - r.week) < 2) && !C.register(S, r.id)) wk.push(r.week); }); } // as many events as allowed, a week apart
-        else { const regs = S.regionals.filter(r => [2, 4].includes(r.week) && !r.full);
-        [2, 4].forEach(w => { const r = regs.find(x => x.week === w); if (r) C.register(S, r.id); }); }
+        // (3.5) like a sensible player, the script does not cross an ocean for a regional when one is nearer: events
+        // overseas only when nothing else can be entered, and then a single one
+        const seas = r => D.travelTier(S.team.region, r.region, r.local) === 'intl', open = S.regionals.filter(r => !r.full), near = open.filter(r => !seas(r)), far = open.filter(seas);
+        if (opts.max) { const wk = []; near.sort((a, b) => a.week - b.week).forEach(r => { if (!wk.some(w => Math.abs(w - r.week) < 2) && !C.register(S, r.id)) wk.push(r.week); }); } // as many events as allowed, a week apart
+        else { const regs = near.filter(r => [2, 4].includes(r.week));
+        [2, 4].forEach(w => { const r = regs.find(x => x.week === w); if (r) C.register(S, r.id); });
+        if (!S.registered.length && near.length) C.register(S, near[0].id); }
+        if (!S.registered.length && far.length) C.register(S, far.sort((a, b) => D.goW(S.team.region, b.region) - D.goW(S.team.region, a.region))[0].id);
         if (S.market.length && S.mentors.length < 6) C.hireMentor(S, S.market[0].id);
       }
       if (S.phase === 'off' && S.robot && D.MONTHS[S.month] === 'Jul' && !S.offReg.length) C.registerOffseason(S, 'os_jul');

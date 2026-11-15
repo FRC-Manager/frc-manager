@@ -33,12 +33,26 @@
   // =====================================================================
   // MAP
   // =====================================================================
-  const MS = () => (UI.st.map = UI.st.map || { k: 1, cx: 500, cy: 311, show: 'both', reg: true, dist: true, cmp: true, type: 'all', smin: 0, smax: 100, wk: 'all' });
+  // (3.5) the map is the whole world: zoom 1 shows all of it, about 5 one part of the world, up to KMAX a single city.
+  // It opens on the part of the world your team is in.
+  const KMAX = 64;
+  const MS = () => (UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, type: 'all', smin: 0, smax: 100, wk: 'all' });
   const clampView = st => {
-    st.k = U.clamp(st.k, 1, 12);
-    const vw = G.Geo.W / st.k, vh = G.Geo.H / st.k;
-    st.cx = U.clamp(st.cx, vw / 2, G.Geo.W - vw / 2); st.cy = U.clamp(st.cy, vh / 2, G.Geo.H - vh / 2);
+    st.k = U.clamp(st.k, 1, KMAX);
+    const vw = G.Geo.W / st.k, vh = G.Geo.VH / st.k;
+    st.cx = U.clamp(st.cx, vw / 2, G.Geo.W - vw / 2); st.cy = vh >= G.Geo.H ? G.Geo.H / 2 : U.clamp(st.cy, vh / 2, G.Geo.H - vh / 2);
   };
+  // show these points (map units) with some room around them
+  const fitView = (st, pts, pad, kmax) => {
+    if (!pts.length) return;
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    st.cx = (x0 + x1) / 2; st.cy = (y0 + y1) / 2;
+    st.k = U.clamp(Math.min(G.Geo.W / ((x1 - x0) * (pad || 1.3) + 12), G.Geo.VH / ((y1 - y0) * (pad || 1.3) + 12)), 1, kmax || 24);
+    clampView(st);
+  };
+  // the part of the world a team is in: every city of its area's part of the world (North America as one)
+  // (a team of the United States or the North sees those two; one from Central America the whole continent)
+  const homeView = (S, st) => { const r = S.team.region, g = D.GROUP[r] || 'NA'; fitView(st, G.Geo.HUBS.filter(x => (D.GROUP[x.r] || 'NA') === g && x.n !== 'Honolulu' && (x.r !== 'Central America' || r === 'Central America')).map(x => G.Geo.xy(x.lon, x.lat)), 1.15, 10); };
   // an event is yours if you registered for it, played it or were invited to it
   const mine = (S, e) => S.registered.includes(e.id) || e.teams.includes(S.team.num) || !!S.eventsDone[e.id] || (e.kind === 'dcmp' && e.dist === S.team.home && !!S.season.dcmpQualified);
   const played = (S, e) => !!S.eventsDone[e.id] || e.teams.includes(S.team.num) && e.done;
@@ -51,7 +65,7 @@
       if (st.type === 'qual' && !ws.q[t.num]) return;
       if (st.type === 'elite' && !t.elite) return;
       if (t.str < st.smin || t.str > st.smax) return;
-      const p = G.Geo.teamPos(t.num, t.region, t.home, cy);
+      const p = G.Geo.posOf(S, t, cy);
       out.push({ num: t.num, x: p.xy[0], y: p.xy[1], str: t.str, rookie: t.ry === cy, elite: !!t.elite, name: t.name, area: t.home ? D.DISTRICT[t.home].short + ' District' : t.region, hub: p.hub });
     });
     return out;
@@ -79,12 +93,13 @@
   };
 
   UI.worldMap = function (S) {
-    const st = MS(), ws = S.wseason, cy = ws.cy, k = st.k, me = S.team.num, Geo = G.Geo;
+    const st = MS(), ws = S.wseason, cy = ws.cy, me = S.team.num, Geo = G.Geo;
+    if (st.seen !== S.team.num + ':' + S.team.region) { st.seen = S.team.num + ':' + S.team.region; homeView(S, st); } // a career's first look: its own part of the world
     clampView(st);
-    const vw = Geo.W / k, vh = Geo.H / k, vx = st.cx - vw / 2, vy = st.cy - vh / 2, px = v => (v / k).toFixed(2);
-    const dists = G.World.districtsAt(cy), myPos = Geo.teamPos(me, S.team.region, S.team.home, cy).xy;
+    const k = st.k, vw = Geo.W / k, vh = Geo.VH / k, vx = st.cx - vw / 2, vy = st.cy - vh / 2, px = v => (v / k).toFixed(2);
+    const dists = G.World.districtsOf(S, cy), myPos = Geo.posOf(S, S.team, cy).xy;
     // a team shown from a message or the scouting list ("Show this team on the map"): marked, with its distance from you
-    const mt = st.mark && st.mark !== me ? S.teams[st.mark] : null, mk = mt ? { t: mt, xy: Geo.teamPos(mt.num, mt.region, mt.home, cy).xy } : null;
+    const mt = st.mark && st.mark !== me ? S.teams[st.mark] : null, mk = mt ? { t: mt, xy: Geo.posOf(S, mt, cy).xy } : null;
     if (mk) mk.mi = Math.round(Geo.miles(myPos, mk.xy));
     // ---- filters (one row above the map)
     const opt = (v, cur, label) => '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>';
@@ -99,15 +114,18 @@
       '<button class="btn sm" data-act="wmMe" title="Center the map on your team">' + UI.icon('star', 13) + ' Your team</button></div>';
     // ---- the map
     let svg = '<svg id="wmsvg" class="wm-svg" viewBox="' + vx.toFixed(1) + ' ' + vy.toFixed(1) + ' ' + vw.toFixed(1) + ' ' + vh.toFixed(1) + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of the teams and events of ' + cy + '">' +
-      '<defs><clipPath id="wm-us"><path d="' + Geo.path(Geo.US) + '"/></clipPath></defs>' +
-      '<rect x="-200" y="-200" width="1400" height="1100" fill="' + WATER + '"/>' +
+      '<defs><clipPath id="wm-us"><path d="' + Geo.path(Geo.US) + '"/></clipPath><clipPath id="wm-ca"><path d="' + Geo.path(Geo.CA) + '"/></clipPath></defs>' +
+      '<rect x="-400" y="-400" width="1800" height="1500" fill="' + WATER + '"/>' +
+      Object.keys(Geo.LAND).map(n => '<path d="' + Geo.path(Geo.LAND[n]) + '" fill="' + LAND + '" stroke="' + EDGE + '" stroke-width="1" vector-effect="non-scaling-stroke"/>').join('') +
       '<path d="' + Geo.path(Geo.CA) + '" fill="' + LAND + '" stroke="' + EDGE + '" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
       '<path d="' + Geo.path(Geo.US) + '" fill="' + LAND + '" stroke="' + EDGE + '" stroke-width="1" vector-effect="non-scaling-stroke"/>';
-    if (st.reg) svg += '<g clip-path="url(#wm-us)" fill="none" stroke="#4a5868" stroke-width="1.2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke">' + ['West', 'Southwest', 'Midwest', 'Northeast', 'Southeast'].map(r => '<path d="' + Geo.path(Geo.REGION[r]) + '" vector-effect="non-scaling-stroke"/>').join('') + '</g>';
-    if (st.dist) svg += '<g clip-path="url(#wm-us)">' + dists.map(d => '<path d="' + Geo.path(Geo.DIST[d.id]) + '" fill="' + d.color + '" fill-opacity="' + (d.id === S.team.home ? 0.2 : 0.11) + '" stroke="' + d.color + '" stroke-width="' + (d.id === S.team.home ? 2 : 1.4) + '" vector-effect="non-scaling-stroke"/>').join('') + '</g>';
+    if (st.reg && k >= 2.5) svg += '<g clip-path="url(#wm-us)" fill="none" stroke="#4a5868" stroke-width="1.2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke">' + D.US_REGIONS.map(r => '<path d="' + Geo.path(Geo.REGION[r]) + '" vector-effect="non-scaling-stroke"/>').join('') + '</g>';
+    if (st.dist) svg += dists.map(d => { const clip = Geo.DCLIP[d.id] === undefined ? 'us' : Geo.DCLIP[d.id];
+      return '<g' + (clip ? ' clip-path="url(#wm-' + clip + ')"' : '') + '><path d="' + Geo.path(Geo.DIST[d.id]) + '" fill="' + d.color + '" fill-opacity="' + (d.id === S.team.home ? 0.2 : 0.11) + '" stroke="' + d.color + '" stroke-width="' + (d.id === S.team.home ? 2 : 1.4) + '" vector-effect="non-scaling-stroke"/></g>'; }).join('');
     svg += Geo.WATER.map(p => '<path d="' + Geo.path(p) + '" fill="' + WATER + '" stroke="' + EDGE + '" stroke-width="1" vector-effect="non-scaling-stroke"/>').join('');
-    const label = (key, text, size, fill, extra) => { const p = Geo.xy(Geo.LABEL[key][0], Geo.LABEL[key][1]); return '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" font-size="' + px(size) + '" fill="' + fill + '" text-anchor="' + (Geo.LABEL[key][2] || 'middle') + '" class="wm-lbl wm-halo" stroke-width="' + px(3) + '"' + (extra || '') + '>' + h(text) + '</text>'; };
-    if (st.reg) svg += D.REGIONS.map(r => label(r, r.toUpperCase(), 13, '#6c7884', ' letter-spacing="' + px(2.5) + '"')).join('');
+    // a name shows from the zoom at which there is room for it (the third number of its place)
+    const label = (key, text, size, fill, extra) => { const L = Geo.LABEL[key]; if (!L || k < (L[2] || 1)) return ''; const p = Geo.xy(L[0], L[1]); return '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" font-size="' + px(size) + '" fill="' + fill + '" text-anchor="' + (L[3] || 'middle') + '" class="wm-lbl wm-halo" stroke-width="' + px(3) + '"' + (extra || '') + '>' + h(text) + '</text>'; };
+    if (st.reg) svg += D.REGIONS.map(r => label(r, r.toUpperCase(), 13, '#6c7884', ' letter-spacing="' + px(2.5) + '"')).join('') + (k < 3 ? (() => { const p = Geo.xy(-100, 58); return '<text x="' + p[0].toFixed(1) + '" y="' + p[1].toFixed(1) + '" font-size="' + px(13) + '" fill="#6c7884" text-anchor="middle" class="wm-lbl wm-halo" stroke-width="' + px(3) + '" letter-spacing="' + px(2.5) + '">NORTH AMERICA</text>'; })() : '');
     // ---- the Championship cities (drawn after the teams and events, so nothing covers them)
     let champs = '';
     if (st.cmp) {
@@ -129,7 +147,7 @@
         const n = c.list.length, s = U.avg(c.list.map(i => i.str)), col = UI.strColor(s), r = R(n), rk = c.list.filter(i => i.rookie).length, one = c.list[0];
         const tip = n > 1 ? n + ' teams · average strength ' + Math.round(s) + (rk ? ' · ' + rk + ' rookie' + (rk > 1 ? 's' : '') : '') + '\n' + topAreas(c.list) + (k < 12 ? '\nClick to zoom in' : '')
           : 'Team ' + one.num + (one.rookie ? ' (rookie)' : '') + ' · ' + one.area + '\nStrength ' + one.str + ' · near ' + one.hub + '\nClick for its season';
-        svg += '<g class="wm-hit" data-act="wmTeam" data-arg="' + (n > 1 && k < 12 ? 'z:' + c.x.toFixed(1) + ',' + c.y.toFixed(1) : 'l:' + c.list.map(i => i.num).join(',')) + '" data-tip="' + h(tip) + '">' +
+        svg += '<g class="wm-hit" data-act="wmTeam" data-arg="' + (n > 1 && k < KMAX ? 'z:' + c.x.toFixed(1) + ',' + c.y.toFixed(1) : 'l:' + c.list.map(i => i.num).join(',')) + '" data-tip="' + h(tip) + '">' +
           '<circle cx="' + c.x.toFixed(1) + '" cy="' + c.y.toFixed(1) + '" r="' + r.toFixed(2) + '" fill="' + col + '" stroke="rgba(255,255,255,.55)" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
           (n > 1 ? '<text x="' + c.x.toFixed(1) + '" y="' + c.y.toFixed(1) + '" font-size="' + px(n > 99 ? 10 : 11) + '" fill="' + inkOn(col) + '" text-anchor="middle" dominant-baseline="central" font-weight="700" class="wm-lbl">' + n + '</text>' : '') + '</g>';
       });
@@ -142,8 +160,8 @@
       const dia = (x, y, r) => 'M' + x.toFixed(1) + ' ' + (y - r).toFixed(2) + 'L' + (x + r).toFixed(2) + ' ' + y.toFixed(1) + 'L' + x.toFixed(1) + ' ' + (y + r).toFixed(2) + 'L' + (x - r).toFixed(2) + ' ' + y.toFixed(1) + 'Z';
       cluster(evs.filter(x => !x.mine), cell).forEach(c => {
         const n = c.list.length, r = (n > 1 ? Math.min(20, 7 + 2.6 * Math.sqrt(n)) : 6.5) / k;
-        const tip = (n > 1 ? n + ' events\n' : '') + c.list.slice(0, 8).map(x => evLine(S, x.e)).join('\n') + (n > 8 ? '\n…and ' + (n - 8) + ' more' : '') + (n > 1 && k < 12 ? '\nClick to zoom in' : '');
-        svg += '<g class="wm-hit" data-act="wmEvent" data-arg="' + (n > 1 && k < 12 ? 'z:' + c.x.toFixed(1) + ',' + c.y.toFixed(1) : 'l:' + c.list.map(x => x.e.id).join(',')) + '" data-tip="' + h(tip) + '"><path d="' + dia(c.x, c.y, r) + '" fill="' + EV_COL + '" stroke="#0b0b0b" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
+        const tip = (n > 1 ? n + ' events\n' : '') + c.list.slice(0, 8).map(x => evLine(S, x.e)).join('\n') + (n > 8 ? '\n…and ' + (n - 8) + ' more' : '') + (n > 1 && k < KMAX ? '\nClick to zoom in' : '');
+        svg += '<g class="wm-hit" data-act="wmEvent" data-arg="' + (n > 1 && k < KMAX ? 'z:' + c.x.toFixed(1) + ',' + c.y.toFixed(1) : 'l:' + c.list.map(x => x.e.id).join(',')) + '" data-tip="' + h(tip) + '"><path d="' + dia(c.x, c.y, r) + '" fill="' + EV_COL + '" stroke="#0b0b0b" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
           (n > 1 ? '<text x="' + c.x.toFixed(1) + '" y="' + c.y.toFixed(1) + '" font-size="' + px(10) + '" fill="#0b0b0b" text-anchor="middle" dominant-baseline="central" font-weight="700" class="wm-lbl">' + n + '</text>' : '') + '</g>';
       });
       const my = evs.filter(x => x.mine);
@@ -152,7 +170,7 @@
         const r = 8 / k, done = played(S, x.e), tip = (done ? 'You played here' : 'You are registered') + '\n' + evLine(S, x.e);
         svg += '<g class="wm-hit" data-act="wmEvent" data-arg="l:' + x.e.id + '" data-tip="' + h(tip) + '"><circle cx="' + x.x.toFixed(1) + '" cy="' + x.y.toFixed(1) + '" r="' + (r * 1.45).toFixed(2) + '" fill="none" stroke="' + ME_COL + '" stroke-width="2.2" vector-effect="non-scaling-stroke"/>' +
           '<path d="' + dia(x.x, x.y, r) + '" fill="' + (done ? ME_COL : EV_COL) + '" stroke="#0b0b0b" stroke-width="1" vector-effect="non-scaling-stroke"/>' +
-          (k < 2 ? '' : '<text x="' + (x.x + r * 1.9).toFixed(1) + '" y="' + (x.y + 4 / k).toFixed(1) + '" font-size="' + px(11) + '" fill="' + ME_COL + '" font-weight="700" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">' + h(evShort(x.e) + ' · W' + x.e.week) + '</text>') + '</g>';
+          (k < 8 ? '' : '<text x="' + (x.x + r * 1.9).toFixed(1) + '" y="' + (x.y + 4 / k).toFixed(1) + '" font-size="' + px(11) + '" fill="' + ME_COL + '" font-weight="700" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">' + h(evShort(x.e) + ' · W' + x.e.week) + '</text>') + '</g>';
       });
     }
     if (st.dist) svg += dists.map(d => label(d.id, d.short + ' District', 11, '#c3c2b7', ' font-weight="700"')).join(''); // district names above the circles
@@ -173,12 +191,12 @@
     const leg = '<div class="wm-leg"><div class="xs b">Team strength</div><div class="wm-grad" style="background:linear-gradient(90deg,' + RAMP.join(',') + ')"></div><div class="row xs muted"><span>' + RAMP_AT[0] + '</span><span class="sp"></span><span>50</span><span class="sp"></span><span>' + RAMP_AT[5] + '+</span></div>' +
       '<div class="xs muted">Circle size: how many teams</div><div class="wm-keys xs"><span><i class="k-ev"></i>Events</span><span><i class="k-myev"></i>Your events</span><span><i class="k-me">★</i>Your team</span><span><i class="k-elite"></i>Elite team</span>' + (st.cmp ? '<span><i class="k-cmp"></i>Championship</span>' : '') + '</div></div>';
     o += '<div class="wmap" id="wmap">' + svg + leg +
-      '<div class="wm-zoom"><button class="btn sm" data-act="wmZoom" data-arg="in" title="Zoom in">+</button><button class="btn sm" data-act="wmZoom" data-arg="out" title="Zoom out">−</button><button class="btn sm" data-act="wmZoom" data-arg="reset" title="The whole map">⟲</button></div>' +
+      '<div class="wm-zoom"><button class="btn sm" data-act="wmZoom" data-arg="in" title="Zoom in">+</button><button class="btn sm" data-act="wmZoom" data-arg="out" title="Zoom out">−</button><button class="btn sm" data-act="wmZoom" data-arg="home" title="Your part of the world">⌂</button><button class="btn sm" data-act="wmZoom" data-arg="reset" title="The whole map">⟲</button></div>' +
       '<div class="wm-tip" id="wmtip"></div></div>';
     o += '<div class="xs muted mt mb">Drag to move, scroll or + to zoom, click a circle to zoom in. Team strength is the world simulation\'s rating. ' + UI.q('world', 'The map') + '</div>';
     // ---- the same numbers as a table: one row per area and district
     const areas = [];
-    D.REGIONS.forEach(r => areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }));
+    D.REGIONS.forEach(r => { if (G.World.legacy(S) && !Object.values(S.teams).some(t => t.region === r)) return; areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }); });
     dists.forEach(d => areas.push({ key: 'd:' + d.id, name: d.name, kind: 'District', f: t => t.home === d.id, ev: e => e.dist === d.id, d }));
     const all = Object.values(S.teams), mineA = S.team.home ? 'd:' + S.team.home : 'r:' + S.team.region;
     o += UI.card('Areas and districts ' + UI.tag(cy + '', ''), '<div style="overflow-x:auto"><table class="t tight"><tr><th>Area</th><th>Kind</th><th class="num">Teams</th><th class="num" title="Average strength (the world simulation\'s rating)">Avg strength</th><th class="num">Rookies</th><th class="num">Events</th><th class="num" title="Teams that have qualified for the Championship so far">Qualified</th></tr>' +
@@ -192,7 +210,7 @@
 
   // ---- map actions
   const redraw = () => { if (UI.wmRaf) return; UI.wmRaf = requestAnimationFrame(() => { UI.wmRaf = 0; UI.render(); }); };
-  const zoomAt = (x, y, f) => { const st = MS(), k0 = st.k; st.k = U.clamp(k0 * f, 1, 12); st.cx = x + (st.cx - x) * k0 / st.k; st.cy = y + (st.cy - y) * k0 / st.k; clampView(st); redraw(); };
+  const zoomAt = (x, y, f) => { const st = MS(), k0 = st.k; st.k = U.clamp(k0 * f, 1, KMAX); st.cx = x + (st.cx - x) * k0 / st.k; st.cy = y + (st.cy - y) * k0 / st.k; clampView(st); redraw(); };
   const dragged = () => Date.now() - (UI.wmDragAt || 0) < 350;
   UI.A.wmShow = v => { MS().show = v; UI.render(); };
   UI.A.wmLayer = v => { const st = MS(); st[v] = !st[v]; UI.render(); };
@@ -200,26 +218,26 @@
   UI.A.wmSmin = v => { const st = MS(); st.smin = Number(v); if (st.smax < st.smin) st.smax = Math.min(100, st.smin + 10); UI.render(); };
   UI.A.wmSmax = v => { const st = MS(); st.smax = Number(v); if (st.smin > st.smax) st.smin = Math.max(0, st.smax - 10); UI.render(); };
   UI.A.wmWeek = v => { MS().wk = v === 'all' || v === 'mine' ? v : Number(v); UI.render(); };
-  UI.A.wmZoom = a => { const st = MS(); if (a === 'reset') { st.k = 1; st.cx = 500; st.cy = 311; clampView(st); UI.render(); } else zoomAt(st.cx, st.cy, a === 'in' ? 2 : 0.5); };
-  UI.A.wmMe = () => { const S = G.S, st = MS(), p = G.Geo.teamPos(S.team.num, S.team.region, S.team.home, S.wseason.cy).xy; st.k = Math.max(st.k, 4); st.cx = p[0]; st.cy = p[1]; clampView(st); UI.render(); };
+  UI.A.wmZoom = a => { const st = MS(); if (a === 'reset') { st.k = 1; st.cx = G.Geo.W / 2; st.cy = G.Geo.H / 2; clampView(st); UI.render(); } else if (a === 'home') { homeView(G.S, st); UI.render(); } else zoomAt(st.cx, st.cy, a === 'in' ? 2 : 0.5); };
+  UI.A.wmMe = () => { const S = G.S, st = MS(), p = G.Geo.posOf(S, S.team, S.wseason.cy).xy; st.k = Math.max(st.k, 20); st.cx = p[0]; st.cy = p[1]; clampView(st); UI.render(); };
   // "Show this team on the map" (Inbox messages, the scouting list): the World map, centred on the team and marked
   UI.A.mapTeam = arg => {
     const S = G.S, num = Number(arg), st = MS(), cy = S.wseason && S.wseason.cy, t = num === S.team.num ? null : S.teams[num];
     if (!cy || (!t && num !== S.team.num)) return UI.toast('That team is not on this season\'s map', 'bad');
-    const p = t ? G.Geo.teamPos(t.num, t.region, t.home, cy).xy : G.Geo.teamPos(num, S.team.region, S.team.home, cy).xy;
+    const p = t ? G.Geo.posOf(S, t, cy).xy : G.Geo.posOf(S, S.team, cy).xy;
     // a team near yours: zoom in until the two are well apart and show both; a far one: centred on its own
-    const me = G.Geo.teamPos(S.team.num, S.team.region, S.team.home, cy).xy, d = Math.hypot(p[0] - me[0], p[1] - me[1]), kf = U.clamp(0.3 * G.Geo.W / Math.max(d, 1), 2.5, 12);
+    const me = G.Geo.posOf(S, S.team, cy).xy, d = Math.hypot(p[0] - me[0], p[1] - me[1]), kf = U.clamp(0.3 * G.Geo.W / Math.max(d, 1), 2.5, KMAX);
     st.mark = t ? num : null;
-    if (t && kf > 3) { st.k = kf; st.cx = (p[0] + me[0]) / 2; st.cy = (p[1] + me[1]) / 2; } else { st.k = Math.max(st.k, 4); st.cx = p[0]; st.cy = p[1]; }
+    if (t && kf > 12) { st.k = kf; st.cx = (p[0] + me[0]) / 2; st.cy = (p[1] + me[1]) / 2; } else { st.k = Math.max(st.k, 20); st.cx = p[0]; st.cy = p[1]; }
     clampView(st); UI.closeModal(); UI.st.worldTab = 'map'; UI.go('world');
     const f = document.querySelector('.wm-f'); if (f) f.scrollIntoView({ block: 'start' });
   };
   UI.A.wmUnmark = () => { MS().mark = null; UI.render(); };
   UI.A.wmArea = key => {
     const S = G.S, st = MS(), cy = S.wseason.cy, [kind, id] = key.split(':');
-    const ts = Object.values(S.teams).filter(t => (kind === 'd' ? t.home === id : !t.home && t.region === id)).map(t => G.Geo.teamPos(t.num, t.region, t.home, cy).xy);
+    const ts = Object.values(S.teams).filter(t => (kind === 'd' ? t.home === id : !t.home && t.region === id)).map(t => G.Geo.posOf(S, t, cy).xy);
     if (!ts.length) return;
-    st.cx = U.avg(ts.map(p => p[0])); st.cy = U.avg(ts.map(p => p[1])); st.k = kind === 'd' ? 3.5 : 2.2; clampView(st);
+    fitView(st, ts, 1.25, 40);
     UI.render(); const m = document.getElementById('wmap'); if (m) m.scrollIntoView({ block: 'nearest' });
   };
   UI.A.wmTeam = arg => {
@@ -303,7 +321,7 @@
     const opt = (v, label) => '<option value="' + v + '"' + (st.area === v ? ' selected' : '') + '>' + h(label) + '</option>';
     let o = '<div class="row wrap wm-f mb">' +
       flab('Filter by area', '<select class="inp fsel" data-chg="scArea">' + opt('mine', 'Your ' + (S.team.home ? 'district' : 'area') + ' (' + (S.team.home ? D.DISTRICT[S.team.home].short : S.team.region) + ')') + opt('all', 'All areas') +
-      '<optgroup label="Areas (every team)">' + D.REGIONS.map(r => opt('r:' + r, r)).join('') + '</optgroup><optgroup label="Districts">' + G.World.districtsAt(cy).map(d => opt('d:' + d.id, d.name)).join('') + '</optgroup></select>') +
+      '<optgroup label="Areas (every team)">' + D.REGIONS.map(r => opt('r:' + r, r)).join('') + '</optgroup><optgroup label="Districts">' + G.World.districtsOf(S, cy).map(d => opt('d:' + d.id, d.name)).join('') + '</optgroup></select>') +
       flab('Filter by team type', '<select class="inp fsel" data-chg="scType">' + [['all', 'All types'], ['district', 'District teams'], ['regional', 'Regional teams'], ['rookie', 'Rookies'], ['qual', 'Championship qualified']].map(x => '<option value="' + x[0] + '"' + (st.type === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>') +
       '<label class="row xs" style="gap:5px"><input type="checkbox" data-chg="scPlayed"' + (st.played ? ' checked' : '') + '> Played only</label>' +
       flab('Find team', '<input class="inp fsel" type="number" min="1" max="99999" placeholder="Team #" data-chg="scFind" title="Type a team number and press Enter" style="width:96px">') +

@@ -99,7 +99,7 @@
     return { n: 1, divs: 8, fmt: 'de', cities: ['Houston'], names: [DIV8] };
   };
   // in the two-Championship years the west and south play in Houston, the north and east in St. Louis / Detroit
-  Era.champsSide = region => (['Midwest', 'Northeast', 'Canada'].includes(region) ? 1 : 0);
+  Era.champsSide = region => ((G.Data.SIDE1 || ['Midwest', 'Northeast', 'North']).includes(region) ? 1 : 0);
   // Regional teams and the Championship. Through 2024 there is no Regional Pool: a place earned by a team that has
   // already qualified becomes a wildcard for the finalist alliance. The pool (points from a team's best two regionals)
   // starts in 2025. The real rules changed a little from year to year; the game uses one wildcard rule and one pool rule.
