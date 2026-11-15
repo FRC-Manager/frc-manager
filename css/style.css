@@ -338,6 +338,8 @@ table.t.slots select.inp { max-width: 100%; }
 @keyframes wcup { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .wc-kicker { font-size: 12px; font-weight: 800; letter-spacing: .22em; color: #e6c46a; margin-top: 6px; }
 .wc-team { font-size: 22px; font-weight: 900; letter-spacing: .06em; color: #fff; margin-top: 8px; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+.wc-school { font-size: 13px; font-weight: 700; letter-spacing: .1em; color: #d7dde4; margin-top: 3px; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.hq-school { color: var(--text, #e8edf2); font-weight: 700; }
 .wc-you { font-size: 14px; font-weight: 800; letter-spacing: .3em; color: #f3dfa6; margin-top: 10px; }
 .wc-title { position: relative; z-index: 1; font-size: clamp(26px, 5vw, 44px); line-height: 1.05; font-weight: 900; letter-spacing: .03em; margin: 6px auto 4px; max-width: 760px;
   background: linear-gradient(100deg, #b8860b 0%, #ffe9a8 22%, #f5c542 40%, #fff7d6 50%, #d4a017 62%, #ffe9a8 80%, #b8860b 100%); background-size: 260% 100%;

@@ -345,6 +345,8 @@ table.t.slots select.inp { max-width: 100%; }
 @keyframes wcup { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .wc-kicker { font-size: 12px; font-weight: 800; letter-spacing: .22em; color: #e6c46a; margin-top: 6px; }
 .wc-team { font-size: 22px; font-weight: 900; letter-spacing: .06em; color: #fff; margin-top: 8px; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+.wc-school { font-size: 13px; font-weight: 700; letter-spacing: .1em; color: #d7dde4; margin-top: 3px; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.hq-school { color: var(--text, #e8edf2); font-weight: 700; }
 .wc-you { font-size: 14px; font-weight: 800; letter-spacing: .3em; color: #f3dfa6; margin-top: 10px; }
 .wc-title { position: relative; z-index: 1; font-size: clamp(26px, 5vw, 44px); line-height: 1.05; font-weight: 900; letter-spacing: .03em; margin: 6px auto 4px; max-width: 760px;
   background: linear-gradient(100deg, #b8860b 0%, #ffe9a8 22%, #f5c542 40%, #fff7d6 50%, #d4a017 62%, #ffe9a8 80%, #b8860b 100%); background-size: 260% 100%;
@@ -725,7 +727,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.4.4';
+  G.VERSION = '3.4.5';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -3042,6 +3044,36 @@ window.G = window.G || {};
   D.nameHome = team => (team && (team.home || team.region)) || null;
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
   D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region]; return (a && a[type]) || D.SPONSOR_NAMES[type] || D.SPONSOR_NAMES.eng; };
+
+  // ---------- offseason events ----------
+  // Every home has its own offseason events: [name, city] for each of D.OFFSEASON_EVENTS, in one of the home's cities.
+  // All of them are a short trip. Outside North America there is no October event: the month is kept free, so that an
+  // invited team can fly to Summit Champs.
+  D.OFFSEASON_BY = {
+    West: { os_jun: ['Neon Nights Invitational', 'Las Vegas'], os_jul: ['Sagebrush Showdown', 'Reno'], os_sep: ['Gem State Robot Rodeo', 'Boise'], os_oct: ['Big Sky Brawl', 'Missoula'], os_nov: ['Silver State Showcase', 'Las Vegas'] },
+    sierra: { os_jun: ['Golden Coast Invitational', 'Los Angeles'], os_jul: ['Surf City Scrimmage', 'Orange County'], os_sep: ['Gold Rush Rumble', 'Sacramento'], os_oct: ['Central Valley Throwdown', 'Fresno'], os_nov: ['Bay Fog Showcase', 'San Francisco Bay'] },
+    evergreen: { os_jun: ['Rose City Invitational', 'Portland'], os_jul: ['Puget Sound Summer Scrimmage', 'Tacoma'], os_sep: ['Salmon Run Showdown', 'Seattle'], os_oct: ['Apple Harvest Classic', 'Yakima'], os_nov: ['First Snow Showcase', 'Spokane'] },
+    Southwest: { os_jun: ['Sonoran Sun Invitational', 'Phoenix'], os_jul: ['Mile High Mayhem', 'Denver'], os_sep: ['High Mesa Showdown', 'Albuquerque'], os_oct: ['Wasatch Fall Classic', 'Salt Lake City'], os_nov: ['Route 66 Roundup', 'Tulsa'] },
+    mesa: { os_jun: ['Gulf Coast Gearfest', 'Houston'], os_jul: ['Hill Country Heat', 'Austin'], os_sep: ['Stockyards Showdown', 'Fort Worth'], os_oct: ['State Fair Classic', 'Dallas'], os_nov: ['Alamo City Roundup', 'San Antonio'] },
+    Midwest: { os_jun: ['Windy City Warm-Up', 'Chicago'], os_jul: ['Crossroads Invitational', 'Indianapolis'], os_sep: ['North Star Showdown', 'Minneapolis'], os_oct: ['Fountain City Throwdown', 'Kansas City'], os_nov: ['Buckeye Bot Brawl', 'Columbus'] },
+    lakeshore: { os_jun: ['Mitten Summer Invitational', 'Grand Rapids'], os_jul: ['Cherry Capital Clash', 'Traverse City'], os_sep: ['Motor City Showdown', 'Detroit'], os_oct: ['Cider Mill Classic', 'Ann Arbor'], os_nov: ['Lake Effect Showcase', 'Kalamazoo'] },
+    Northeast: { os_jun: ['Boardwalk Brawl', 'Central Jersey'], os_jul: ['Liberty Bell Rally', 'Philadelphia'], os_sep: ['Erie Canal Classic', 'Rochester'], os_oct: ['Three Rivers Rumble', 'Pittsburgh'], os_nov: ['Charm City Showcase', 'Baltimore'] },
+    harbor: { os_jun: ['Pine Tree Invitational', 'Bangor'], os_jul: ['Ocean State Open', 'Providence'], os_sep: ['Granite State Rumble', 'Manchester'], os_oct: ['Fall Foliage Classic', 'Burlington'], os_nov: ['Minuteman Muster', 'Boston'] },
+    Southeast: { os_jun: ['Sunshine State Scrimmage', 'Orlando'], os_jul: ['Sweet Tea Showdown', 'Atlanta'], os_sep: ['Tobacco Road Rumble', 'Raleigh'], os_oct: ['Smoky Mountain Classic', 'Knoxville'], os_nov: ['Bayou Bot Boil', 'New Orleans'] },
+    North: { os_jun: ['St. Lawrence Summer Open', 'Montreal'], os_jul: ['Stampede City Showdown', 'Calgary'], os_sep: ['Pacific Gateway Invitational', 'Vancouver'], os_oct: ['Prairie Harvest Classic', 'Winnipeg'], os_nov: ['First Frost Showcase', 'Quebec City'] },
+    trillium: { os_jun: ['Golden Horseshoe Invitational', 'Hamilton'], os_jul: ['Cottage Country Classic', 'Barrie'], os_sep: ['Tech Triangle Tune-Up', 'Waterloo'], os_oct: ['Niagara Harvest Cup', 'St. Catharines'], os_nov: ['Hat Trick Showdown', 'Toronto'] },
+    'Central America': { os_jun: ['Laguna Summer Cup', 'Torreon'], os_jul: ['Saddle Mountain Invitational', 'Monterrey'], os_sep: ['Independence Cup', 'Mexico City'], os_oct: ['Mariachi Classic', 'Guadalajara'], os_nov: ['Marigold Showcase', 'Puebla'] },
+    'South America': { os_jun: ['June Festival Showdown', 'Sao Paulo'], os_jul: ['Planalto Winter Cup', 'Brasilia'], os_sep: ['Pampas Open', 'Porto Alegre'], os_nov: ['Carioca Showcase', 'Rio de Janeiro'] },
+    Europe: { os_jun: ['Midsummer Robot Games', 'Stockholm'], os_jul: ['Lowlands Open', 'Eindhoven'], os_sep: ['Vistula Cup', 'Warsaw'], os_nov: ['Alpine Winter Showcase', 'Zurich'] },
+    Anatolia: { os_jun: ['Bosphorus Summer Cup', 'Istanbul'], os_jul: ['Aegean Open', 'Izmir'], os_sep: ['Anatolian Plateau Invitational', 'Ankara'], os_nov: ['Turquoise Coast Showcase', 'Antalya'] },
+    levant: { os_jun: ['White City Summer Scrimmage', 'Tel Aviv'], os_jul: ['Carmel Cup', 'Haifa'], os_sep: ['Citrus Grove Open', 'Rehovot'], os_nov: ['Golden Stone Showcase', 'Jerusalem'] },
+    'East Asia': { os_jun: ['Dragon Boat Invitational', 'Hangzhou'], os_jul: ['Pearl River Summer Open', 'Shenzhen'], os_sep: ['Mid-Autumn Moon Cup', 'Shanghai'], os_nov: ['Jade Mountain Showcase', 'Taipei'] },
+    'Asia Pacific': { os_jun: ['Harbour City Winter Open', 'Sydney'], os_jul: ['Yarra Robot Carnival', 'Melbourne'], os_sep: ['Golden Wattle Invitational', 'Canberra'], os_nov: ['Jacaranda Showcase', 'Brisbane'] }
+  };
+  D.OFFSEASON_BY['Middle East'] = D.OFFSEASON_BY.levant;
+  // the offseason events of a team: its district's (or the district its cities will form), else its area's
+  D.offseasonHome = team => (team && (team.home || team.z || team.region)) || null;
+  D.offseasonAbroad = team => !!team && D.GROUP[team.region] !== undefined && D.GROUP[team.region] !== 'NA';
 
   // ---------- the real seasons, 2016 to 2026 ----------
   // real teams that played each season (FIRST's team index)
@@ -9918,21 +9950,31 @@ window.G = window.G || {};
   };
 
   // Choose AI teams attending an event
-  AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs) {
+  // (3.5) local: { zone, zoneOf } for an event that stays at home (an offseason event, the Week 0 scrimmage). Its field
+  // is the home area's own teams (its district or cities first). Only where those are too few to fill it do others
+  // make up the numbers, the nearest first: the areas next door, the rest of its part of the world, the nearest other
+  // part of the world (D.NEAR, in its order), everybody else.
+  AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs, local) {
     const target = champs ? 78 : 28 + star * 9;
     const list = Object.values(pool).filter(t => !exclude.has(t.num));
     const chosen = [];
+    const grp = r => (D.GROUP && D.GROUP[r]) || 'NA', adj = D.ADJ[region] || [], near = (D.NEAR || {})[region] || [];
+    const tierOf = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
+    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1);
     const cand = list.map(t => {
-      let w = champs ? 1 : (t.region === region ? 3 : (D.ADJ[region] || []).includes(t.region) ? 1.4 : 0.35);
+      let w = champs ? 1 : local ? localW(t) : (t.region === region ? 3 : adj.includes(t.region) ? 1.4 : 0.35);
       const z = (t.str - target) / (champs ? 14 : 24);
       w *= Math.exp(-z * z) + (champs ? 0.02 : 0.15);
-      return { t, w };
+      return { t, w, tier: local && !champs ? tierOf(t) : 0 };
     });
-    for (let i = 0; i < count && cand.length; i++) {
-      const pick = rng.wpick(cand, c => c.w);
-      chosen.push(pick.t.num);
-      cand.splice(cand.indexOf(pick), 1);
-    }
+    [...new Set(cand.map(c => c.tier))].sort((a, b) => a - b).forEach(k => {
+      const c = cand.filter(x => x.tier === k);
+      while (chosen.length < count && c.length) {
+        const pick = rng.wpick(c, x => x.w);
+        chosen.push(pick.t.num);
+        c.splice(c.indexOf(pick), 1);
+      }
+    });
     return chosen;
   };
 })();
@@ -9978,7 +10020,10 @@ window.G = window.G || {};
     const size = def.size || 40;
     const exclude = new Set([player]);
     // a simulated world names the teams at every event; otherwise the field is drawn by area and strength
-    const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs');
+    // (3.5) an offseason event and the Week 0 scrimmage are held at home, for the teams around it
+    const local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, G.Era.cy(S)) } : null;
+    if (def.hub) ev.hub = def.hub; // the city, where the event has one of its own
+    const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs', local);
     ev.teams = [player].concat(ai);
     ai.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], year, weekMult, diffMult, rng); });
     ev.teams.forEach(n => { ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: rng.next() }; });
@@ -12331,12 +12376,15 @@ window.G = window.G || {};
   C.mail = function (S, from, to, subject, body, extra) { C.inbox(S, subject, body, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {})); };
   const leadMentor = S => (S.mentors.length ? S.mentors.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.ten || 0) - (a.ten || 0))[0] : null);
   const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
+  const atSchool = S => (S.team.school ? ', ' + S.team.school : ''); // the team's school or organisation, for an address line
   C.leadMentor = leadMentor;
   // (3.1.2) A letter from outside the team, as an email to the lead mentor: a greeting, the letter, a sign-off. What it
   // does in the game goes in extra.note, shown under the letter, so the letter itself stays a letter.
+  // extra.school: the letter is addressed to the team at its school or organisation (the ones FIRST sends)
   C.letter = function (S, from, subject, text, sign, extra, kind) {
-    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name;
-    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {}));
+    const ex = Object.assign({}, extra), sch = ex.school; delete ex.school;
+    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name + (sch ? atSchool(S) : '');
+    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, ex));
   };
   const board = S => 'The ' + (S.team.school || 'school') + ' school board';
   // the World Champions hear from the mentor of the alliance they beat in the finals
@@ -12366,8 +12414,8 @@ window.G = window.G || {};
   // the Hall of Fame: FIRST writes to the team that won the FIRST Impact Award at the Championship
   C.mailHallOfFame = function (S) {
     const lead = leadMentor(S), cy = C.calYear(S);
-    C.mail(S, 'FIRST Robotics Competition (Hall of Fame)', teamTo(S), 'Welcome to the FIRST Hall of Fame', 'Dear Team ' + S.team.num + ',\n\n' +
-      'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
+    C.mail(S, 'FIRST Robotics Competition (Hall of Fame)', 'Everyone on Team ' + S.team.num + ' ' + S.team.name + atSchool(S) + ': students, mentors and parents', 'Welcome to the FIRST Hall of Fame', 'Dear Team ' + S.team.num + ',\n\n' +
+      'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + (S.team.school ? ' of ' + S.team.school : '') + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
       'As a Hall of Fame team you are invited to every future FIRST Championship. You no longer need to qualify: your place is reserved each season, and your team number will be on the Hall of Fame wall at the Championship.\n\n' +
       'Hall of Fame teams are also asked to share what they have learned: a session for other teams at the Championship, and help for the rookie teams near you. We hope you will.\n\n' +
       'Thank you for everything that got you here' + (lead ? ', and please pass our thanks to ' + lead.name + ' and every mentor and student who worked on your submission' : '') + '.\n\n' +
@@ -12918,7 +12966,7 @@ window.G = window.G || {};
     add('champs', 'event', sq ? C.champs(S).label + ' — qualified!' : C.champs(S).label + (S.team.home && G.World.on(S) ? ' (through your district\'s points list)' : C.wildEra(S) ? ' (win a regional, Impact/EI/Rookie All-Star, or a finalist\'s wildcard)' : ' (win a regional, Impact/EI or Regional Pool)'), sq ? 'good' : 'dim');
     if (S.festStream && S.festStream.stage === 'open') add('off2', 'event', 'Festival of Champions livestream (optional): the two champion alliances, best of five', 'acc');
     if (S.festival && S.festival.pending) add('off2', 'event', 'Festival of Champions: best of five against the ' + S.festival.otherCity + ' champions (travel paid, cannot be skipped)', 'acc');
-    D.OFFSEASON_EVENTS.forEach(e => {
+    C.offEvents(S).forEach(e => {
       const i = D.MONTHS.indexOf(e.month), reg = S.offReg.includes(e.id), done = S.eventsDone[e.id + S.year];
       if (e.invite && !reg && !done && C.summit(S).inv !== C.cy(S)) return; // Summit Champs: only for an invited team
       if (!reg && i < cur) return; // missed: nothing to show
@@ -12941,6 +12989,18 @@ window.G = window.G || {};
   };
 
   // ======================= calendar / turns =======================
+  // (3.5) The offseason events of this team: D.OFFSEASON_EVENTS with the names and cities of its home (D.OFFSEASON_BY).
+  // A team outside North America has no October event (Summit Champs is that month, an ocean away); one it had
+  // already signed up for in an older save stays until it is played.
+  C.offEvents = function (S) {
+    const by = D.OFFSEASON_BY[D.offseasonHome(S.team)] || D.OFFSEASON_BY[S.team.region] || {}, abroad = D.offseasonAbroad(S.team);
+    // where few teams live nearby the events are no bigger than they have to be (24: eight alliances), so that as few
+    // guests as possible come from far away
+    const near = abroad && S.teams ? Object.values(S.teams).filter(t => D.GROUP[t.region] === D.GROUP[S.team.region] && t.num !== S.team.num).length : 999;
+    return D.OFFSEASON_EVENTS.filter(e => !(abroad && e.id === 'os_oct' && !(S.offReg || []).includes(e.id) && !S.eventsDone[e.id + S.year]))
+      .map(e => (by[e.id] && !e.invite ? Object.assign({}, e, { name: by[e.id][0], city: by[e.id][1], size: Math.max(24, Math.min(e.size, near + 1)) }) : e));
+  };
+  C.offEvent = (S, id) => C.offEvents(S).find(x => x.id === id) || null;
   C.eventThisTurn = function (S) {
     // An event stays active (including its results page) until the player leaves it.
     if (S.event) return { active: true, def: null };
@@ -12961,8 +13021,8 @@ window.G = window.G || {};
       return { def: { id: 'ein' + S.year, kind: 'einstein', name: watch ? 'Einstein Field: finals and awards' : 'Einstein Field', week: 8, watch } };
     }
     if (S.phase === 'off' && S.robot) {
-      const o = D.OFFSEASON_EVENTS.find(x => S.offReg.includes(x.id) && x.month === D.MONTHS[S.month] && !S.eventsDone[x.id + S.year]); // two in one month (Summit Champs and the Fall Classic): one after the other
-      if (o && !S.eventsDone[o.id + S.year]) return { def: o.invite ? C.summitDef(S, o) : { id: o.id + S.year, kind: 'offseason', name: o.name, size: o.size, str: 3, week: 0 } };
+      const o = C.offEvents(S).find(x => S.offReg.includes(x.id) && x.month === D.MONTHS[S.month] && !S.eventsDone[x.id + S.year]); // two in one month (Summit Champs and the October event at home): one after the other
+      if (o && !S.eventsDone[o.id + S.year]) return { def: o.invite ? C.summitDef(S, o) : { id: o.id + S.year, kind: 'offseason', name: o.name, size: o.size, str: 3, week: 0, hub: o.city, zone: D.offseasonHome(S.team) } }; // (3.5) hub: its city; zone: whose teams fill the field
     }
     return null;
   };
@@ -13598,7 +13658,7 @@ window.G = window.G || {};
     if (!C.regUndoable(S, key)) return 'That registration is final: withdraw instead';
     let back = 0, name = '';
     if (key === 'scrim') { S.scrimmage = false; back = S.regUndo[key]; name = 'Week 0 scrimmage'; }
-    else if (String(key).indexOf('off:') === 0) { const o = D.OFFSEASON_EVENTS.find(x => x.id === key.slice(4)); S.offReg = S.offReg.filter(x => x !== o.id); back = S.regUndo[key]; name = o.name; }
+    else if (String(key).indexOf('off:') === 0) { const o = C.offEvent(S, key.slice(4)); S.offReg = S.offReg.filter(x => x !== o.id); back = S.regUndo[key]; name = o.name; }
     else {
       // the fee schedule counts places, so the place given back is the last one paid for (plus this one's late fee)
       const r = S.regionals.find(x => x.id === key);
@@ -13629,7 +13689,7 @@ window.G = window.G || {};
     return refund;
   };
   C.withdrawOffseason = function (S, id) {
-    const o = D.OFFSEASON_EVENTS.find(x => x.id === id);
+    const o = C.offEvent(S, id);
     if (!o || !S.offReg.includes(id) || S.eventsDone[o.id + S.year]) return;
     const refund = C.refundable(S, 'off' + D.MONTHS.indexOf(o.month));
     S.offReg = S.offReg.filter(x => x !== id);
@@ -13893,7 +13953,7 @@ window.G = window.G || {};
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
-          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.' }); } }
+          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.', school: true }); } }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
       if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
@@ -13963,7 +14023,7 @@ window.G = window.G || {};
     const w = games.filter(g => g.won).length, l = games.length - w, won = m.winner === pa;
     const dt = C.driveTeam(S), driver = dt.driver && dt.driver.name ? dt.driver.name : 'Your driver', coach = C.coachName(S);
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1 },
+    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '' },
       alliance: ev.alliances[pa].map(t => ({ num: t, name: nm(t) })), opp: ev.alliances[1 - pa].map(t => ({ num: t, name: nm(t) })), games, w, l, driver, coach, sponsor,
       comeback: won && games.length > 3 && !games[0].won && !games[1].won, letSlip: !won && games.length > 3 && games[0].won && games[1].won, sweep: games.length === 3 };
     const pool = won ? [
@@ -14094,7 +14154,7 @@ window.G = window.G || {};
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
     const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
     const CHw = S.cal ? C.champs(S) : null; // two Championships (2017 to 2020): the city goes into the title
-    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name },
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '' },
       alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
       driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
       lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
@@ -14139,7 +14199,7 @@ window.G = window.G || {};
     const speakers = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2).map(x => x.name);
     const biz = C.allMentors(S).filter(x => x.role === 'biz').sort((a, b) => b.skill - a.skill)[0];
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name }, score: ci.score, speakers, mentor: biz ? biz.name : null,
+    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '' }, score: ci.score, speakers, mentor: biz ? biz.name : null,
       outreach: s.outreach || 0, points: Math.round(s.impact || 0), programs: (S.programs || []).length, seasons: S.history.length + 1,
       winner: { num: ci.winner, name: nm(ci.winner) }, finalists: ci.finalists.map(n => ({ num: n, name: nm(n) })) };
     const pool = kind === 'winner' ? [
@@ -14290,14 +14350,14 @@ window.G = window.G || {};
     S.pendingEinstein = true;
     S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
     const W = S.season.wfaCmp.winner;
-    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true });
+    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true, school: true });
   };
   C.wfaCele = function (S) {
     const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
     const w = S.season.wfa || {}, cy = C.calYear(S), writers = (w.writers || C.wfaWriters(S).map(s => s.name)).slice(0, 2);
     const role = (D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor';
     const past = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = past.slice(0, 4).concat(past.includes(1996) && !past.slice(0, 4).includes(1996) ? [1996] : []);
-    const d = { year: cy, team: { num: S.team.num, name: S.team.name }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
+    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '' }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
       students: S.studentsCount || S.students.length, past: pick.map(y => Object.assign({ year: y }, D.REAL_WFA[y])), real: D.REAL_WFA[cy] ? Object.assign({ year: cy }, D.REAL_WFA[cy]) : null };
     d.quotes = [
       writers[0] ? ['We wrote it in the library after practice for three weeks. Every sentence was something ' + m.name + ' actually said to one of us.', writers[0] + ', who wrote the essay'] : null,
@@ -15038,14 +15098,15 @@ window.G = window.G || {};
     sm.field = { cy, list };
     const nEl = list.filter(n => S.teams[n] && S.teams[n].elite).length, hn = 'Team ' + host.num + ' ' + host.name;
     if (won) {
-      sm.inv = cy; const both = S.offReg.includes('os_oct'); if (both) sm.both = cy; // already signed up for the Fall Classic: it may play both
+      sm.inv = cy; const both = S.offReg.includes('os_oct'); if (both) sm.both = cy; // already signed up for the October event at home: it may play both
+      const oct = C.offEvent(S, 'os_oct'), octName = oct ? 'the ' + oct.name : ''; // (3.5) the October event has a local name; outside North America there is none
       const who = D.personName(G.makeRng(host.num * 31 + 7)), tc = C.travelCost(S, C.summitDef(S, o));
       C.letter(S, who + ' (' + hn + ', host of Summit Champs)', 'Invitation: Summit Champs', 'Every October we invite the teams that won an event this season, as captains or first picks, to our home field in California for Summit Champs. You won the ' + won.name + ' as ' + (won.role === 'Captain' ? 'captain' : 'first pick') + ', so you are one of them.\n\n' +
         nEl + ' of the elite teams are coming. The day before the matches we hold a mentor conference: our mentors and theirs, on what worked this season and what did not. Bring a notebook.\n\nWe hope to see you there.', 'Best,\n' + who + '\n' + hn,
-        { teams: [host.num], prio: true, note: 'Sign up in the Calendar for October (' + (both ? 'you are already signed up for the Fall Classic that month: you can play both, one after the other' : 'it takes the place of the Fall Classic that month') + '): registration ' + U.money(o.fee) + ', travel about ' + U.money(tc) + '. A field like a Championship division\'s playoffs, more reputation, morale and experience than any other offseason event.' });
+        { teams: [host.num], prio: true, note: 'Sign up in the Calendar for October (' + (both ? 'you are already signed up for ' + octName + ' that month: you can play both, one after the other' : oct ? 'it takes the place of ' + octName + ' that month' : 'your area holds no event that month, so the month is free for it') + '): registration ' + U.money(o.fee) + ', travel about ' + U.money(tc) + '. A field like a Championship division\'s playoffs, more reputation, morale and experience than any other offseason event.' });
       (S.launchQueue = S.launchQueue || []).push({ kind: 'story', id: 'summitinv' + cy, tag: 'INVITATION', color: 'var(--accent)', title: 'Invited to Summit Champs',
         body: [hn + ' has invited your team to Summit Champs in October: the offseason event of the teams that won an event this season as captains or first picks. You won the ' + won.name + ' as ' + (won.role === 'Captain' ? 'captain' : 'first pick') + '.', nEl + ' elite teams are going. Before practice day there is a mentor conference: pick the talks you want to hear.'],
-        means: ['Sign up in the Calendar (October) for ' + U.money(o.fee) + ' plus travel (about ' + U.money(tc) + ')' + (both ? '. You are already signed up for the Fall Classic that month: you can play both, one after the other.' : ', or ignore it and play the Fall Classic that month.'), 'The field is as strong as a Championship division\'s playoffs. It pays more than any other offseason event: reputation, morale, sponsor goodwill and experience.', 'At the mentor conference you choose ' + D.SUMMIT.listen + ' of ' + D.SUMMIT.talks + ' talks; each adds a little know-how in its area.'], btn: 'calendar' });
+        means: ['Sign up in the Calendar (October) for ' + U.money(o.fee) + ' plus travel (about ' + U.money(tc) + ')' + (both ? '. You are already signed up for ' + octName + ' that month: you can play both, one after the other.' : oct ? ', or ignore it and play ' + octName + ' that month.' : '. Your area holds no event in October, so nothing else is in the way.'), 'The field is as strong as a Championship division\'s playoffs. It pays more than any other offseason event: reputation, morale, sponsor goodwill and experience.', 'At the mentor conference you choose ' + D.SUMMIT.listen + ' of ' + D.SUMMIT.talks + ' talks; each adds a little know-how in its area.'], btn: 'calendar' });
     } else C.inbox(S, 'Summit Champs: the invitations are out', hn + ' has sent its invitations for Summit Champs in October: the teams that won an event this season as captains or first picks, ' + nEl + ' of them elite teams. Your team was not invited this year: win an event as captain or first pick to be on the list next year.', 'news', { teams: [host.num] });
   };
   // the mentor conference: talks by the mentors of the teams there, one area each; you choose D.SUMMIT.listen of them
@@ -15193,12 +15254,13 @@ window.G = window.G || {};
   };
   C.chalTip = (S, c, o) => (o.fac < 1 ? 'A higher ' + G.Shop.item(c.fac).name + ' level raises the odds most.' : o.mech < D.CHAL.mech[1] - 5 ? 'Students with more mechanism skill raise the odds.' : 'Extra hours on the entry raise the odds a little.');
   C.registerOffseason = function (S, id) {
-    const o = D.OFFSEASON_EVENTS.find(x => x.id === id);
+    const o = C.offEvent(S, id);
+    if (!o) return 'Not held in your area'; // (3.5) no October event outside North America
     if (S.offReg.includes(id)) return 'Registered';
     if (!S.robot) return 'You need last season\'s robot';
     if (D.MONTHS.indexOf(o.month) < S.month) return 'Already past';
     if (o.invite && C.summit(S).inv !== C.cy(S)) return 'Invitation only: the teams that won an event this season as captain or first pick';
-    { const same = D.OFFSEASON_EVENTS.find(x => x.id !== id && x.month === o.month && S.offReg.includes(x.id)), both = C.summit(S).both === C.cy(S) && [id, same && same.id].includes(D.SUMMIT.id); // signed up for the Fall Classic before the invitation: both
+    { const same = C.offEvents(S).find(x => x.id !== id && x.month === o.month && S.offReg.includes(x.id)), both = C.summit(S).both === C.cy(S) && [id, same && same.id].includes(D.SUMMIT.id); // signed up for the October event at home before the invitation: both
       if (same && !both) return 'You are registered for the ' + same.name + ' that month: one event a month'; }
     { const e = C.afford(S, o.fee); if (e) return e; }
     C.spend(S, o.fee, 'Offseason: ' + o.name);
@@ -17630,6 +17692,8 @@ window.G = window.G || {};
     { id: 'c35crate', cd: 260, req: S => inSeason(S) && D.overseas && D.overseas(S.team.region, 'Midwest') && G.World.on(S), title: 'The customs list', body: S => 'The shipping crate needs a list of everything in it, with a value for each line. ' + student(S) + ' has reached line 212: "zip ties, assorted, used". The batteries travel on their own paperwork.' },
     { id: 'c35kickoff', cd: 400, req: S => S.phase === 'kickoff' && D.overseas && D.overseas(S.team.region, 'Midwest'), title: 'Kickoff at an odd hour', body: S => 'The game reveal is broadcast from the other side of the world, so the team watched it ' + R().pick(['at two in the morning, in sleeping bags, in the school library', 'before sunrise, with breakfast on the workbenches', 'at midnight, on a projector borrowed from the physics room']) + '. Nobody went home afterwards.' },
     { id: 'c35visitors', cd: 300, req: S => S.phase === 'comp' && lastEv(S) && G.World.on(S) && !G.World.legacy(S) && !D.overseas(S.team.region, 'Midwest') && Object.values(S.teams).some(t => D.overseas(t.region, S.team.region)), title: 'A long way from home', body: S => 'A team from ' + R().pick(D.REGIONS.filter(r => D.overseas(r, S.team.region))) + ' had the pit next door: three days of travel, a robot rebuilt out of its crate overnight, and a box of sweets nobody here had seen before. ' + student(S) + ' traded two shirts for one of theirs.' },
+    { id: 'c35offhome', cd: 150, req: S => off(S) && G.Career.offEvents(S).some(e => e.city && S.offReg.includes(e.id) && !S.eventsDone[e.id + S.year]), title: 'The poster by the door', body: S => { const e = G.Career.offEvents(S).find(x => x.city && S.offReg.includes(x.id) && !S.eventsDone[x.id + S.year]); return student(S) + ' pinned the poster for the ' + e.name + ' to the shop door: ' + e.city + ', ' + ({ Jun: 'June', Jul: 'July', Sep: 'September', Oct: 'October', Nov: 'November' }[e.month] || e.month) + ', ' + e.size + ' teams. ' + student2(S, '') + ' went down the list and knew ' + R().pick(['most of them from our own events', 'half of them by their pit banners', 'nearly every number on it']) + '. "No flights, no crate, no excuses," ' + mentor(S) + ' said.'; } },
+    { id: 'c35octfree', cd: 400, req: S => off(S) && G.World.on(S) && D.offseasonAbroad(S.team) && ['Sep', 'Oct'].includes(month(S)), title: 'Nothing in October', body: S => 'There is no offseason event around here in October: the calendar leaves the month open for Summit Champs, an ocean away. ' + student(S) + (S.offReg.includes('os_summit') ? ' has already weighed the crate twice.' : ' says the gap is "for when we are invited", and has started a list of what goes in the crate.') },
     { id: 'c35names', cd: 400, req: S => off(S) && G.World.on(S) && !G.World.legacy(S) && month(S) === 'Aug', title: 'The map on the wall', body: S => student(S) + ' pinned a world map to the shop wall and marked every area with teams in it. The pins run from the Pacific coast to the far side of the Tasman Sea, and ' + D.regionThe(S.team.region) + ' has ' + Object.values(S.teams).filter(t => t.region === S.team.region).length + ' of them.' },
     { id: 'c35novideo', cd: 300, req: S => G.isFantasy(S.year) && inSeason(S) && S.week <= 2, title: 'No old video', body: S => student(S) + ' went looking for match video of ' + G.Seasons[S.year].name + ' from earlier seasons. There is none: nobody has ever played it. ' + mentor(S) + ' called that "a level field".' },
     { id: 'c35custom', cd: 400, req: S => S.customGames && S.orderMode === 'custom' && off(S) && S.upcoming < S.order.length, title: 'The list on the wall', body: S => 'The seasons to come are pinned to the shop wall. Next up: ' + G.Seasons[S.order[S.upcoming]].name + '. ' + student(S) + ' has already drawn a robot for it. It has six arms.' },
@@ -19092,6 +19156,19 @@ window.G = window.G || {};
     const xy = Geo.xy(hb.lon, hb.lat);
     return { xy: [xy[0] + lap * 1.4, xy[1] - lap * 1], hub: hb.n };
   };
+  // the city an event of this season is held in, for any copy of the event (the Calendar's list, the event being
+  // played): looked up by its id. '' outside the world simulation and for events with no place of their own.
+  Geo.eventCity = function (S, e) {
+    if (!e) return '';
+    if (e.hub) return e.hub;
+    const ws = S && S.wseason, we = ws && ws.events.find(x => x.id === e.id);
+    return we ? Geo.eventPos(ws, we).hub : '';
+  };
+  // the cities an area's regionals or a district's events are held in, biggest first, as eventPos places them: the
+  // New Career page names them before the world exists (n: how many events)
+  const cities = (hubs, n) => hubs.sort((a, b) => b.w - a.w).slice(0, Math.max(0, Math.min(n, hubs.length))).map(x => x.n);
+  Geo.regionalCities = (region, cy, n) => cities(Geo.HUBS.filter(x => x.r === region && (!x.d || !formed(x.d, cy))), n);
+  Geo.districtCities = (dist, n) => cities(Geo.HUBS.filter(x => x.d === dist), n);
   Geo.areaName = (region, dist) => (dist ? D.DISTRICT[dist].name : region + ' (regional)');
   // distances on the map: back to longitude and latitude, then miles along the globe
   Geo.lonLat = xy => [xy[0] / KX + LON0, (2 * Math.atan(Math.exp(M0 - xy[1] / KY)) - Math.PI / 2) / RAD];
@@ -20906,7 +20983,7 @@ window.G = window.G || {};
     const sparks = first ? [[18, 22, 0], [64, 14, .7], [88, 70, 1.4], [40, 80, 2], [76, 40, 1]].map(s => '<i class="prz-spark" style="left:' + s[0] + '%;top:' + s[1] + '%;animation-delay:' + s[2] + 's"></i>').join('') : '';
     UI.modal('<div class="prz-hero ' + (first ? 'first' : 'second') + '">' + (first ? '<div class="prz-rays"></div>' + sparks : '') + '<div class="prz-medal">' + UI.prizeMedal(O.place, V.color) + '</div>' +
       '<div class="prz-txt"><div class="prz-k">' + h(O.name.toUpperCase()) + ' · ' + h(String(O.month).toUpperCase()) + '</div><div class="prz-t">' + (first ? 'First prize' : 'Second prize') + '</div>' +
-      '<div class="prz-s">' + (first ? 'The best of ' + O.n + ' entries: your students won it outright.' : 'One of the top three of ' + O.n + ' entries.') + ' ' + h(V.name) + ' sends a prize: choose one.</div></div></div>' +
+      '<div class="prz-s">' + (first ? 'The best of ' + O.n + ' entries: the students of ' + (S.team.school ? '<b>' + h(S.team.school) + '</b>' : 'your team') + ' won it outright.' : (S.team.school ? '<b>' + h(S.team.school) + '</b>: one' : 'One') + ' of the top three of ' + O.n + ' entries.') + ' ' + h(V.name) + ' sends a prize: choose one.</div></div></div>' +
       '<div class="grid g3 prz-cards ' + (first ? 'first' : '') + '">' +
       card('pack', 'box', 'Free parts', O.pack.map(x => x.n + ' ' + h(G.Parts.catWord(x.cat, x.n))).join(' + '), ['Delivered with the Kit of Parts at Kickoff, in the newest ' + h(V.short) + ' version.', 'Worth about ' + U.money(O.packValue) + ' at today\'s prices.']) +
       card('voucher', 'money', 'Voucher', U.money(O.voucher), ['Store credit with ' + h(V.short) + ': it pays first whenever you buy their parts.', 'Good through next season.']) +
@@ -21142,7 +21219,7 @@ window.G = window.G || {};
   // =====================================================================
   UI.S.hq = { html() {
     const S = G.S, C = G.Career;
-    let o = UI.head('Headquarters', 'hq', h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics');
+    let o = UI.head('Headquarters', 'hq', (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
@@ -22191,13 +22268,14 @@ window.G = window.G || {};
       o += '<div class="card mb"><div class="ct">Week ' + w + (S.phase === 'comp' && S.week === w ? ' ' + UI.tag('this week', 'acc') : '') + '</div><table class="t"><tr><th>' + (dist ? 'District event' : 'Regional') + '</th><th>Region</th><th title="Travel for your ' + (S.studentsCount || S.students.length) + ' students: it grows with the team (the robot\'s freight costs the same for everyone)">Travel</th><th class="num">Teams</th><th title="How strong the field is, and how much more (or less) the team learns there than at a ★★★ event">Strength</th><th></th></tr>' +
         list.map(r => {
           const tier = D.travelTier(S.team.region, r.region, r.local), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
-          return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + (r.hub ? ' <span class="xs muted">· ' + h(r.hub) + '</span>' : '') + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="nowrap"><span class="acc">' + '★'.repeat(r.str) + '</span> <span class="xs muted" title="Experience at this event">×' + (+C.expMult(r).toFixed(2)) + ' XP</span></td><td>' +
+          const city = G.Geo.eventCity(S, r); // every event names its city (a career's world; a single season has none)
+          return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + (city ? ' <span class="xs muted">· ' + h(city) + '</span>' : '') + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="nowrap"><span class="acc">' + '★'.repeat(r.str) + '</span> <span class="xs muted" title="Experience at this event">×' + (+C.expMult(r).toFixed(2)) + ' XP</span></td><td>' +
             (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : C.regUndoable(S, r.id) ? undoBtn(r.id) : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '" title="' + (C.refundable(S, 'c' + r.week) ? 'Half the fee back' : 'Less than a month away: no refund') + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';
         }).join('') + '</table></div>';
     }
     // offseason events
     if (S.phase === 'off') {
-      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + D.OFFSEASON_EVENTS.filter(e => !e.invite || S.offReg.includes(e.id) || S.eventsDone[e.id + S.year] || C.summit(S).inv === C.cy(S)).map(e => '<tr' + (e.invite ? ' class="me"' : '') + '><td>' + e.month + '</td><td>' + h(e.name) + (e.invite ? ' ' + UI.tag('Invitation', 'acc') + '<div class="xs muted">The best teams of the season, in California' + (C.summitHost(S) ? ' (host: Team ' + C.summitHost(S).num + ')' : '') + '. Travel about ' + U.money(C.travelCost(S, C.summitDef(S, e))) + '. ' + (C.summit(S).both === C.cy(S) ? 'You signed up for the Fall Classic first: you can play both.' : 'Instead of the Fall Classic.') + '</div>' : '') + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? (S.eventsDone[e.id + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'off:' + e.id) ? undoBtn('off:' + e.id) : '<button class="btn sm bad" data-act="withdrawOff" data-arg="' + e.id + '">Withdraw</button>')) : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game. Double XP for students, reputation and sponsor goodwill.</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
+      o += '<div class="mt">' + UI.card('Offseason events', S.robot ? '<table class="t"><tr><th>Month</th><th>Event</th><th class="num">Teams</th><th class="num">Fee</th><th></th></tr>' + C.offEvents(S).filter(e => !e.invite || S.offReg.includes(e.id) || S.eventsDone[e.id + S.year] || C.summit(S).inv === C.cy(S)).map(e => '<tr' + (e.invite ? ' class="me"' : '') + '><td>' + e.month + '</td><td>' + h(e.name) + (e.city ? ' <span class="xs muted">· ' + h(e.city) + '</span>' : '') + (e.invite ? ' ' + UI.tag('Invitation', 'acc') + '<div class="xs muted">The best teams of the season, in California' + (C.summitHost(S) ? ' (host: Team ' + C.summitHost(S).num + ')' : '') + '. Travel about ' + U.money(C.travelCost(S, C.summitDef(S, e))) + '. ' + (oct => (C.summit(S).both === C.cy(S) && oct ? 'You signed up for the ' + oct.name + ' first: you can play both.' : oct ? 'Instead of the ' + oct.name + '.' : 'No other event that month.'))(C.offEvent(S, 'os_oct')) + '</div>' : '') + '</td><td class="num">' + e.size + '</td><td class="num">' + U.money(e.fee) + '</td><td>' + (S.offReg.includes(e.id) ? (S.eventsDone[e.id + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'off:' + e.id) ? undoBtn('off:' + e.id) : '<button class="btn sm bad" data-act="withdrawOff" data-arg="' + e.id + '">Withdraw</button>')) : D.MONTHS.indexOf(e.month) < S.month ? '<span class="xs muted">past</span>' : '<button class="btn sm" data-act="regOff" data-arg="' + e.id + '">Register</button>') + '</td></tr>').join('') + '</table><p class="xs muted">Played with last season\'s robot and game, close to home. Double XP for students, reputation and sponsor goodwill. ' + UI.q('calendar', 'Offseason events') + '</p>' : '<p class="muted">You need a robot from a completed season to attend offseason events.</p>') + '</div>';
       o += UI.chalCard(S); // vendor challenges (3.1.3)
     }
     if (S.phase !== 'off' && S.season.events.length && !dist && !C.wildEra(S)) o += '<div class="mt">' + UI.card('Regional Pool', '<div>Pool total (best two events): <b>' + C.poolTotal(S) + '</b> / cut-off ' + C.poolThreshold(S) + '</div>' + (S.season.champsQualified ? '<div class="good mt">Qualified: ' + h(S.season.champsReason) + '</div>' : '')) + '</div>';
@@ -22206,7 +22284,7 @@ window.G = window.G || {};
   UI.A.register = id => { if (!UI.err(G.Career.register(G.S, id))) { UI.toast('Registered', 'good'); UI.render(); } };
   const wdText = key => G.Career.refundable(G.S, key) ? 'It is at least a month away, so you get half the fee back.' : 'It is less than a month away: no refund.';
   UI.A.withdraw = id => { const r = G.S.regionals.find(x => x.id === id); UI.confirm('Withdraw from ' + r.name + '?', wdText('c' + r.week), 'Withdraw', () => { G.Career.withdraw(G.S, id); UI.render(); }); };
-  UI.A.withdrawOff = id => { const o = D.OFFSEASON_EVENTS.find(x => x.id === id); UI.confirm('Withdraw from ' + o.name + '?', wdText('off' + D.MONTHS.indexOf(o.month)), 'Withdraw', () => { G.Career.withdrawOffseason(G.S, id); UI.render(); }); };
+  UI.A.withdrawOff = id => { const o = G.Career.offEvent(G.S, id); if (!o) return; UI.confirm('Withdraw from ' + o.name + '?', wdText('off' + D.MONTHS.indexOf(o.month)), 'Withdraw', () => { G.Career.withdrawOffseason(G.S, id); UI.render(); }); };
   UI.A.withdrawScrim = () => UI.confirm('Withdraw from the Week 0 scrimmage?', wdText('b7'), 'Withdraw', () => { G.Career.withdrawScrimmage(G.S); UI.render(); });
   UI.A.regScrim = () => { const S = G.S; { const e = G.Career.afford(S, D.FEES.scrimmage); if (e) return UI.err(e); } G.Career.spend(S, D.FEES.scrimmage, 'Week 0 scrimmage'); S.scrimmage = true; (S.regUndo = S.regUndo || {}).scrim = D.FEES.scrimmage; UI.render(); };
   UI.A.undoReg = key => { if (!UI.err(G.Career.undoRegister(G.S, key))) { UI.toast('Registration undone: fee returned', 'good'); UI.render(); } };
@@ -22622,7 +22700,7 @@ window.G = window.G || {};
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
     const kpi = rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '';
     let o = ev.summit ? summitHero(ev, kpi) : ev.kind === 'champs' || ev.kind === 'einstein' ? evHero(ev, kpi)
-      : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(ev.dist && ev.kind === 'regional' ? 'District event' : K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
+      : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(ev.dist && ev.kind === 'regional' ? 'District event' : K.name) + (G.Geo.eventCity(S, ev) ? ' · <b>' + h(G.Geo.eventCity(S, ev)) + '</b>' : '') + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
     const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
     o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
     if (stage === 'practice') o += practiceView(ev);
@@ -23468,6 +23546,8 @@ window.G = window.G || {};
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
   const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
   const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
+  // the team's school or organisation, under its name in every celebration (an older snapshot takes today's)
+  const wcSchool = (d, t) => { const s = (d.team && d.team.school) || (G.S && G.S.team && G.S.team.num === d.team.num ? G.S.team.school : ''); return s ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(s) + '</div>' : ''; };
   // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
   UI.worldChampModal = function (d, replay) {
     if (!d) return;
@@ -23502,7 +23582,7 @@ window.G = window.G || {};
     UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
       dl(0.05) + TROPHY + '</div>' +
       dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.city ? h(d.city.toUpperCase()) + ' · ' : '') + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
-      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + 'YOU ARE THE</div>' +
       '<div class="wc-title">' + yearTxt + ' ' + label + (d.city && streak < 2 ? ' OF ' + h(d.city.toUpperCase()) : '') + '</div>' + // a two-Championship year has two champions
       (note ? dl(0.9, 'wc-note') + h(note) + '</div>' : '') +
@@ -23540,7 +23620,7 @@ window.G = window.G || {};
     UI.modal('<div class="wc ic"><div class="ic-halo"></div>' + sparks +
       dl(0.05) + LAUREL + '</div>' +
       dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
-      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + (win ? 'YOU WON THE' : 'YOU ARE A') + '</div>' +
       '<div class="wc-title ic-title">' + (win ? 'FIRST IMPACT AWARD' : 'FIRST IMPACT AWARD FINALIST') + '</div>' +
       dl(0.9, 'wc-note') + (win ? 'The most prestigious award in the program · Hall of Fame' : 'One of six in the world') + '</div>' +
@@ -23591,7 +23671,7 @@ window.G = window.G || {};
     UI.modal('<div class="wc ic wfa"><div class="ic-halo"></div>' + sparks +
       dl(0.05) + LAUREL + '</div>' +
       dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
-      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + h(d.name.toUpperCase()) + ' RECEIVES THE</div>' +
       '<div class="wc-title ic-title">WOODIE FLOWERS AWARD</div>' +
       dl(0.9, 'wc-note') + profHtml(d.prof) + '</div>' +
@@ -23699,7 +23779,7 @@ window.G = window.G || {};
     UI.modal('<div class="wc fc' + (win ? '' : ' fin') + '" style="--fa:' + h(d.team.c1 || '#f5b800') + ';--fb:#6aa9ff"><div class="fc-beams"></div>' +
       dl(0.05) + RINGS + '</div>' +
       dl(0.35, 'wc-kicker') + 'FESTIVAL OF CHAMPIONS · JULY ' + h(String(d.year)) + ' · MANCHESTER, NEW HAMPSHIRE</div>' +
-      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + (win ? 'TWO CHAMPIONSHIPS. ONE CHAMPION. YOU ARE' : 'YOU REMAIN THE') + '</div>' +
       '<div class="wc-title fc-title">' + (win ? 'THE ONE CHAMPION OF ' + h(String(d.year)) : h(String(d.year)) + ' WORLD CHAMPIONS OF ' + h(d.city.toUpperCase())) + '</div>' +
       dl(0.9, 'wc-note') + note + '</div>' +
@@ -23924,7 +24004,11 @@ window.G = window.G || {};
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
         : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + futTxt + 'Register for one to four regionals. Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
       // travel from an area outside North America: its own regionals this first season, and what is overseas
-      if (far || A) o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your district events are close to home. ' : A ? (sites.length ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + sites.length + ' regional' + (sites.length > 1 ? 's' : '') + ' (' + h(sites.filter((x, i, a) => a.indexOf(x) === i).join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') : '') +
+      // every home's own events of the first season, with their cities; then what is far
+      const nReg = d ? Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) : A ? sites.length : G.World.regionalsIn(n.region, n.start);
+      const where = d ? G.Geo.districtCities(d.id, nReg) : A ? sites.filter((x, i, a) => a.indexOf(x) === i) : G.Geo.regionalCities(n.region, n.start, nReg);
+      o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your ' + nReg + ' district events are close to home (' + h(where.join(', ')) + '). '
+        : nReg ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + (A ? '' : 'about ') + nReg + ' regional' + (nReg > 1 ? 's' : '') + ' (' + h(where.join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') +
         (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
     }
     // avatar and colours (the whole UI picks up the primary colour)
@@ -24040,6 +24124,13 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.5', title: 'Beta of 3.5: offseason events at home', notes: [
+      'Every home has its own offseason events, named for the place and held in one of its cities: the Cherry Capital Clash in Traverse City for the Lakeshore District, the Pearl River Summer Open in Shenzhen for East Asia. The trip is still a short one.',
+      'Their fields are local: the teams of your own area first, your own district or cities most of all. Where too few teams live there, the nearest others make up the numbers. The Week 0 scrimmage draws its teams the same way. Summit Champs still invites the whole world.',
+      'Teams outside North America have four offseason events, not five: nothing is held in October, so an invited team is free to fly to Summit Champs.',
+      'Every event names its city: in the Calendar\'s registration list, on the event page and on the World map. The New Career page lists the cities of your home\'s events for every home.',
+      'Your school or organisation is shown on the Headquarters page, in the letters from FIRST and in the celebration windows.'
+    ] },
     { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
       'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
       'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',
@@ -24878,7 +24969,7 @@ window.G = window.G || {};
   const evShort = e => e.name.replace(/ (Regional|District Event)$/, '');
   const evLine = (S, e) => {
     const me = S.team.num, nm = n => (n === me ? 'you' : n);
-    return 'Week ' + e.week + ' · ' + e.name + ' · ' + e.teams.length + ' teams' +
+    return 'Week ' + e.week + ' · ' + e.name + ' · ' + G.Geo.eventCity(S, e) + ' · ' + e.teams.length + ' teams' +
       (e.done && e.res ? (e.res.winners && e.res.winners.length ? ' · won by ' + e.res.winners.map(nm).join(', ') : '') : ' · not played yet');
   };
 
@@ -25047,7 +25138,7 @@ window.G = window.G || {};
     const S = G.S, ws = S.wseason, ids = arg.slice(2).split(','), me = S.team.num, nm = n => (n === me ? '<b class="acc">' + n + '</b>' : n);
     const list = ws.events.filter(e => ids.includes(e.id)).sort((a, b) => a.week - b.week);
     UI.modal('<h2>' + (list.length > 1 ? list.length + ' events here' : h(list[0].name)) + '</h2>' + list.map(e =>
-      '<div class="card flat mb"' + (mine(S, e) ? ' style="border-color:' + ME_COL + '"' : '') + '><div class="row"><b>' + h(e.name) + '</b>' + (mine(S, e) ? ' ' + UI.tag(played(S, e) ? 'You played here' : 'Registered', 'acc') : '') + '<span class="sp"></span><span class="xs muted">Week ' + e.week + ' · ' + h(e.dist ? D.DISTRICT[e.dist].short + ' District' : e.region) + ' · ' + e.teams.length + ' teams</span></div>' +
+      '<div class="card flat mb"' + (mine(S, e) ? ' style="border-color:' + ME_COL + '"' : '') + '><div class="row"><b>' + h(e.name) + '</b>' + (mine(S, e) ? ' ' + UI.tag(played(S, e) ? 'You played here' : 'Registered', 'acc') : '') + '<span class="sp"></span><span class="xs muted">Week ' + e.week + ' · ' + h(e.dist ? D.DISTRICT[e.dist].short + ' District' : e.region) + ' · ' + h(G.Geo.eventCity(S, e)) + ' · ' + e.teams.length + ' teams</span></div>' +
         (e.done && e.res ? '<div class="sm mt">Winners: ' + (e.res.winners || []).map(nm).join(', ') + (e.res.impact ? ' · Impact Award: ' + nm(e.res.impact) : '') + '</div>' : '<div class="sm muted mt">Not played yet.</div>') + '</div>').join('') +
       '<div class="row mt"><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };
@@ -25446,8 +25537,12 @@ window.G = window.G || {};
         'Registration opens in October with a pop-up and an Inbox message. A career team must be registered for at least one event by the end of December: until it is, Continue stops there with a pop-up. A team that cannot pay a fee yet (only cash can be spent in the offseason), or has nothing open to it, is warned instead and may register after Kickoff.',
         '<b>Field strength</b> (★ to ★★★★★): how strong an event\'s field is. A stronger field is harder to win but teaches the team more: drive-team skills, the know-how from competing and the strategy read grow ×' + (1 - 2 * D.EVENT_EXP).toFixed(1) + ' at ★, ×' + (1 - D.EVENT_EXP).toFixed(2) + ' at ★★, ×1 at ★★★, ×' + (1 + D.EVENT_EXP).toFixed(2) + ' at ★★★★ and ×' + (1 + 2 * D.EVENT_EXP).toFixed(1) + ' at ★★★★★. District events are ★★★ or ★★★★, the District Championship ★★★★★. The Calendar shows each event\'s multiplier; the Championship has its own bonus.', '<b>Travel</b> is paid when the team leaves: little for a local event, more for a drive, most for a flight (a team trailer turns flights into long drives). It grows with the team: the robot\'s freight costs everyone the same, but every student needs a seat, a bed and meals. A team of 25 pays the base price, a team of 15 about 30% less, a team of 40 about 40% more.', 'A registration made this turn can be <b>undone</b> in the Calendar for everything it cost, until you press Continue.', 'After that it is a withdrawal: at least a month ahead for half the fee back; closer than that, no refund.', 'Any event can be skipped on the week it happens (no refund).'] },
       { icon: 'event', t: 'Championship', li: ['Regional teams qualify by winning a regional or by winning Impact, Engineering Inspiration or Rookie All-Star. Through 2024 the only other way in is a <b>wildcard</b>: when a team that has already qualified earns another place at a regional (or one team earns two there), that place goes to the finalist alliance, captain first, then first pick, then second pick. Later weeks hand out more of them. From 2025 the <b>Regional Pool</b> replaces wildcards: points from your best two regionals against a cut-off. District teams qualify through their district: its Championship places go to the District Championship\'s award winners and winning alliance, then down the points list. Last season\'s World Champions and Einstein finalists, and Hall of Fame teams, are invited.', 'From 2017 to 2020 there are two Championships (your area decides which one you attend), each with six divisions.', 'Win your division to play on <b>Einstein</b> against the other seven division champions.', 'The FIRST Impact Award is presented on Einstein. A regional Impact winner that is knocked out earlier still goes there, watches the finals from the stands and hears the announcement.', 'Use Week 7 to lighten the load so the team arrives rested.', 'The Championship opens with a ceremony after practice day (host city, divisions, the season so far), and Einstein with the emcee, the commentators and the livestream chat.'] }
+      ,{ icon: 'calendar', t: 'Offseason events', li: ['From June to November your home holds offseason events, played with last season\'s robot and game. Register in the Calendar, one event a month. The students earn double experience, and a result brings a little reputation, morale and sponsor goodwill (more for a win).',
+        'Every home has its own events, named for the place and held in one of its cities: a team of the Lakeshore District plays the ' + D.OFFSEASON_BY.lakeshore.os_jul[0] + ' in ' + D.OFFSEASON_BY.lakeshore.os_jul[1] + ' in July, a team in East Asia the ' + D.OFFSEASON_BY['East Asia'].os_jul[0] + ' in ' + D.OFFSEASON_BY['East Asia'].os_jul[1] + '. The trip is always a short one.',
+        'The field is local: teams of your own area, those of your own district or cities most of all. Where too few teams live there to fill the field (24 at least, for eight alliances), the nearest others make up the numbers: the areas next door first, then the rest of your part of the world, and the nearest other part only after that. The Week 0 scrimmage draws its teams the same way. Summit Champs is the exception: its field comes from the whole world.',
+        'Teams in North America have five events: June, July, September, October and November. Everywhere else there are four: nothing is held in October, the month of Summit Champs, so an invited team is free to fly there.'] }
       ,{ icon: 'trophy', t: 'Summit Champs', li: ['The invitation-only offseason event in October, hosted every year by an elite team in California. In August the host invites the teams that won an official event that season as captain or first pick (regional, district event, District Championship, a Championship division or Einstein); the world simulation decides the rest of the field: 40 teams, about 8 of them elite, as strong as a Championship division\'s playoffs.',
-        'Invited, you get an email and a pop-up, and sign up in the Calendar for October. It takes the place of the Fall Classic that month (one event a month), unless you had already signed up for the Fall Classic when the invitation came: then you can play both, one after the other. Not invited, you hear who went, and in November how it ended.',
+        'Invited, you get an email and a pop-up, and sign up in the Calendar for October. It takes the place of your home\'s October event (one event a month), unless you had already signed up for that one when the invitation came: then you can play both, one after the other. Outside North America no event is held at home in October, so the month is free for it. Not invited, you hear who went, and in November how it ended.',
         'It costs more: a higher registration and full travel to California (a flight unless you are in the West, a flight overseas from outside North America). It pays more than any other offseason event: reputation, morale, sponsor goodwill, and triple experience for the students.',
         'Before practice day there is a <b>mentor conference</b>: the mentors of the teams there each give a talk on one knowledge area. Choose 2 of the 4; each adds a little know-how (+25 XP) in its area.'] }
     ] },
@@ -25532,7 +25627,7 @@ window.G = window.G || {};
         '<b>Strength</b>: the world simulation\'s rating of a team (50 is average), shown on the World map. <b>Elite team</b>: one of the few programs at the top of the sport, close to maxed out; marked with a rose Elite tag. <b>Robot strength</b> (practice day): the points your robot adds to an alliance. <b>Reveal</b>: how a team first shows its new robot, around Week 0: a video, a render or one picture on the forum (or, for a team that never reveals, a photo someone took at a scrimmage that leaks). <b>District</b>: an area whose teams play local two-day events for <b>district points</b> and then a <b>District Championship</b>. Everyone else is a <b>regional</b> team.',
         '<b>Festival of Champions</b>: July 2017 only. The winners of the two Championships play a best of five.',
         '<b>Kickoff</b>: the day in January the game is revealed. <b>Build season</b>: the weeks from Kickoff to the first events. <b>Week 0</b>: the last build week, for scrimmages.',
-        '<b>Offseason</b>: May to December. Offseason events are played with last season\'s robot. <b>Summit Champs</b>: the invitation-only October event for teams that won an event as captain or first pick. <b>Vendor challenge</b>: a vendor\'s yearly contest for students (Code Cup, Circuit Jam, CAD Sprint), entered as a program project.',
+        '<b>Offseason</b>: May to December. <b>Offseason event</b>: an event of your home, from June to November, played with last season\'s robot against the teams around you. <b>Summit Champs</b>: the invitation-only October event for teams that won an event as captain or first pick. <b>Vendor challenge</b>: a vendor\'s yearly contest for students (Code Cup, Circuit Jam, CAD Sprint), entered as a program project.',
         '<b>Stop Build Day</b> (2016 to 2019): the day the competition robot goes in a bag until its first event.',
         '<b>The lost season</b>: 2021, which the game skips. It is the game\'s own timeline: in reality the 2020 season was stopped part-way through and its Championships were never held.',
         '<b>Wildcard</b> (through 2024) and <b>Regional Pool</b> (from 2025): the ways into the Championship for a regional team that did not win an event or a qualifying award.',

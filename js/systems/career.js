@@ -29,12 +29,15 @@
   C.mail = function (S, from, to, subject, body, extra) { C.inbox(S, subject, body, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {})); };
   const leadMentor = S => (S.mentors.length ? S.mentors.slice().sort((a, b) => (b.stars || 0) - (a.stars || 0) || (b.ten || 0) - (a.ten || 0))[0] : null);
   const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
+  const atSchool = S => (S.team.school ? ', ' + S.team.school : ''); // the team's school or organisation, for an address line
   C.leadMentor = leadMentor;
   // (3.1.2) A letter from outside the team, as an email to the lead mentor: a greeting, the letter, a sign-off. What it
   // does in the game goes in extra.note, shown under the letter, so the letter itself stays a letter.
+  // extra.school: the letter is addressed to the team at its school or organisation (the ones FIRST sends)
   C.letter = function (S, from, subject, text, sign, extra, kind) {
-    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name;
-    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, extra || {}));
+    const ex = Object.assign({}, extra), sch = ex.school; delete ex.school;
+    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name + (sch ? atSchool(S) : '');
+    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, ex));
   };
   const board = S => 'The ' + (S.team.school || 'school') + ' school board';
   // the World Champions hear from the mentor of the alliance they beat in the finals
@@ -64,8 +67,8 @@
   // the Hall of Fame: FIRST writes to the team that won the FIRST Impact Award at the Championship
   C.mailHallOfFame = function (S) {
     const lead = leadMentor(S), cy = C.calYear(S);
-    C.mail(S, 'FIRST Robotics Competition (Hall of Fame)', teamTo(S), 'Welcome to the FIRST Hall of Fame', 'Dear Team ' + S.team.num + ',\n\n' +
-      'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
+    C.mail(S, 'FIRST Robotics Competition (Hall of Fame)', 'Everyone on Team ' + S.team.num + ' ' + S.team.name + atSchool(S) + ': students, mentors and parents', 'Welcome to the FIRST Hall of Fame', 'Dear Team ' + S.team.num + ',\n\n' +
+      'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + (S.team.school ? ' of ' + S.team.school : '') + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
       'As a Hall of Fame team you are invited to every future FIRST Championship. You no longer need to qualify: your place is reserved each season, and your team number will be on the Hall of Fame wall at the Championship.\n\n' +
       'Hall of Fame teams are also asked to share what they have learned: a session for other teams at the Championship, and help for the rookie teams near you. We hope you will.\n\n' +
       'Thank you for everything that got you here' + (lead ? ', and please pass our thanks to ' + lead.name + ' and every mentor and student who worked on your submission' : '') + '.\n\n' +
@@ -616,7 +619,7 @@
     add('champs', 'event', sq ? C.champs(S).label + ' — qualified!' : C.champs(S).label + (S.team.home && G.World.on(S) ? ' (through your district\'s points list)' : C.wildEra(S) ? ' (win a regional, Impact/EI/Rookie All-Star, or a finalist\'s wildcard)' : ' (win a regional, Impact/EI or Regional Pool)'), sq ? 'good' : 'dim');
     if (S.festStream && S.festStream.stage === 'open') add('off2', 'event', 'Festival of Champions livestream (optional): the two champion alliances, best of five', 'acc');
     if (S.festival && S.festival.pending) add('off2', 'event', 'Festival of Champions: best of five against the ' + S.festival.otherCity + ' champions (travel paid, cannot be skipped)', 'acc');
-    D.OFFSEASON_EVENTS.forEach(e => {
+    C.offEvents(S).forEach(e => {
       const i = D.MONTHS.indexOf(e.month), reg = S.offReg.includes(e.id), done = S.eventsDone[e.id + S.year];
       if (e.invite && !reg && !done && C.summit(S).inv !== C.cy(S)) return; // Summit Champs: only for an invited team
       if (!reg && i < cur) return; // missed: nothing to show
@@ -639,6 +642,18 @@
   };
 
   // ======================= calendar / turns =======================
+  // (3.5) The offseason events of this team: D.OFFSEASON_EVENTS with the names and cities of its home (D.OFFSEASON_BY).
+  // A team outside North America has no October event (Summit Champs is that month, an ocean away); one it had
+  // already signed up for in an older save stays until it is played.
+  C.offEvents = function (S) {
+    const by = D.OFFSEASON_BY[D.offseasonHome(S.team)] || D.OFFSEASON_BY[S.team.region] || {}, abroad = D.offseasonAbroad(S.team);
+    // where few teams live nearby the events are no bigger than they have to be (24: eight alliances), so that as few
+    // guests as possible come from far away
+    const near = abroad && S.teams ? Object.values(S.teams).filter(t => D.GROUP[t.region] === D.GROUP[S.team.region] && t.num !== S.team.num).length : 999;
+    return D.OFFSEASON_EVENTS.filter(e => !(abroad && e.id === 'os_oct' && !(S.offReg || []).includes(e.id) && !S.eventsDone[e.id + S.year]))
+      .map(e => (by[e.id] && !e.invite ? Object.assign({}, e, { name: by[e.id][0], city: by[e.id][1], size: Math.max(24, Math.min(e.size, near + 1)) }) : e));
+  };
+  C.offEvent = (S, id) => C.offEvents(S).find(x => x.id === id) || null;
   C.eventThisTurn = function (S) {
     // An event stays active (including its results page) until the player leaves it.
     if (S.event) return { active: true, def: null };
@@ -659,8 +674,8 @@
       return { def: { id: 'ein' + S.year, kind: 'einstein', name: watch ? 'Einstein Field: finals and awards' : 'Einstein Field', week: 8, watch } };
     }
     if (S.phase === 'off' && S.robot) {
-      const o = D.OFFSEASON_EVENTS.find(x => S.offReg.includes(x.id) && x.month === D.MONTHS[S.month] && !S.eventsDone[x.id + S.year]); // two in one month (Summit Champs and the Fall Classic): one after the other
-      if (o && !S.eventsDone[o.id + S.year]) return { def: o.invite ? C.summitDef(S, o) : { id: o.id + S.year, kind: 'offseason', name: o.name, size: o.size, str: 3, week: 0 } };
+      const o = C.offEvents(S).find(x => S.offReg.includes(x.id) && x.month === D.MONTHS[S.month] && !S.eventsDone[x.id + S.year]); // two in one month (Summit Champs and the October event at home): one after the other
+      if (o && !S.eventsDone[o.id + S.year]) return { def: o.invite ? C.summitDef(S, o) : { id: o.id + S.year, kind: 'offseason', name: o.name, size: o.size, str: 3, week: 0, hub: o.city, zone: D.offseasonHome(S.team) } }; // (3.5) hub: its city; zone: whose teams fill the field
     }
     return null;
   };
@@ -1296,7 +1311,7 @@
     if (!C.regUndoable(S, key)) return 'That registration is final: withdraw instead';
     let back = 0, name = '';
     if (key === 'scrim') { S.scrimmage = false; back = S.regUndo[key]; name = 'Week 0 scrimmage'; }
-    else if (String(key).indexOf('off:') === 0) { const o = D.OFFSEASON_EVENTS.find(x => x.id === key.slice(4)); S.offReg = S.offReg.filter(x => x !== o.id); back = S.regUndo[key]; name = o.name; }
+    else if (String(key).indexOf('off:') === 0) { const o = C.offEvent(S, key.slice(4)); S.offReg = S.offReg.filter(x => x !== o.id); back = S.regUndo[key]; name = o.name; }
     else {
       // the fee schedule counts places, so the place given back is the last one paid for (plus this one's late fee)
       const r = S.regionals.find(x => x.id === key);
@@ -1327,7 +1342,7 @@
     return refund;
   };
   C.withdrawOffseason = function (S, id) {
-    const o = D.OFFSEASON_EVENTS.find(x => x.id === id);
+    const o = C.offEvent(S, id);
     if (!o || !S.offReg.includes(id) || S.eventsDone[o.id + S.year]) return;
     const refund = C.refundable(S, 'off' + D.MONTHS.indexOf(o.month));
     S.offReg = S.offReg.filter(x => x !== id);
@@ -1591,7 +1606,7 @@
         // 2017: two Championships, two champion alliances, and one more event to settle it
         const CH = S.cal ? C.champs(S) : null;
         if (CH && CH.final) { S.festival = { cy: C.cy(S), gy: S.year, city: CH.city, otherCity: CH.cities[1 - CH.side], alliance: ev.alliances[G.Ev.playerAlliance(ev)].slice(), pending: true };
-          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.' }); } }
+          C.letter(S, 'The Festival of Champions organisers', 'Invitation: the Festival of Champions', 'Congratulations on your World Championship. There were two Championships this year, so there are two champion alliances, and in July the ' + CH.city + ' and ' + CH.cities[1 - CH.side] + ' champions meet for a best-of-five to settle it.\n\nWe would be honoured to have your alliance there. We pay the trip for both alliances.', 'See you in July,\nThe Festival of Champions team', { note: 'The Festival is on your calendar and cannot be skipped. Keep the robot ready.', school: true }); } }
       else C.inbox(S, 'Einstein: ' + r.finish, 'Reaching Einstein is an achievement few teams ever manage.', 'event');
       if (r.finalist) { S.lastChamp = S.year; S.lastChampSi = S.si; S.season.worldFinalist = true; }
       S.pendingEinstein = false;
@@ -1661,7 +1676,7 @@
     const w = games.filter(g => g.won).length, l = games.length - w, won = m.winner === pa;
     const dt = C.driveTeam(S), driver = dt.driver && dt.driver.name ? dt.driver.name : 'Your driver', coach = C.coachName(S);
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1 },
+    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '' },
       alliance: ev.alliances[pa].map(t => ({ num: t, name: nm(t) })), opp: ev.alliances[1 - pa].map(t => ({ num: t, name: nm(t) })), games, w, l, driver, coach, sponsor,
       comeback: won && games.length > 3 && !games[0].won && !games[1].won, letSlip: !won && games.length > 3 && games[0].won && games[1].won, sweep: games.length === 3 };
     const pool = won ? [
@@ -1792,7 +1807,7 @@
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
     const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
     const CHw = S.cal ? C.champs(S) : null; // two Championships (2017 to 2020): the city goes into the title
-    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name },
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '' },
       alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
       driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
       lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
@@ -1837,7 +1852,7 @@
     const speakers = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2).map(x => x.name);
     const biz = C.allMentors(S).filter(x => x.role === 'biz').sort((a, b) => b.skill - a.skill)[0];
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name }, score: ci.score, speakers, mentor: biz ? biz.name : null,
+    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '' }, score: ci.score, speakers, mentor: biz ? biz.name : null,
       outreach: s.outreach || 0, points: Math.round(s.impact || 0), programs: (S.programs || []).length, seasons: S.history.length + 1,
       winner: { num: ci.winner, name: nm(ci.winner) }, finalists: ci.finalists.map(n => ({ num: n, name: nm(n) })) };
     const pool = kind === 'winner' ? [
@@ -1988,14 +2003,14 @@
     S.pendingEinstein = true;
     S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
     const W = S.season.wfaCmp.winner;
-    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true });
+    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true, school: true });
   };
   C.wfaCele = function (S) {
     const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
     const w = S.season.wfa || {}, cy = C.calYear(S), writers = (w.writers || C.wfaWriters(S).map(s => s.name)).slice(0, 2);
     const role = (D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor';
     const past = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = past.slice(0, 4).concat(past.includes(1996) && !past.slice(0, 4).includes(1996) ? [1996] : []);
-    const d = { year: cy, team: { num: S.team.num, name: S.team.name }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
+    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '' }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
       students: S.studentsCount || S.students.length, past: pick.map(y => Object.assign({ year: y }, D.REAL_WFA[y])), real: D.REAL_WFA[cy] ? Object.assign({ year: cy }, D.REAL_WFA[cy]) : null };
     d.quotes = [
       writers[0] ? ['We wrote it in the library after practice for three weeks. Every sentence was something ' + m.name + ' actually said to one of us.', writers[0] + ', who wrote the essay'] : null,
@@ -2736,14 +2751,15 @@
     sm.field = { cy, list };
     const nEl = list.filter(n => S.teams[n] && S.teams[n].elite).length, hn = 'Team ' + host.num + ' ' + host.name;
     if (won) {
-      sm.inv = cy; const both = S.offReg.includes('os_oct'); if (both) sm.both = cy; // already signed up for the Fall Classic: it may play both
+      sm.inv = cy; const both = S.offReg.includes('os_oct'); if (both) sm.both = cy; // already signed up for the October event at home: it may play both
+      const oct = C.offEvent(S, 'os_oct'), octName = oct ? 'the ' + oct.name : ''; // (3.5) the October event has a local name; outside North America there is none
       const who = D.personName(G.makeRng(host.num * 31 + 7)), tc = C.travelCost(S, C.summitDef(S, o));
       C.letter(S, who + ' (' + hn + ', host of Summit Champs)', 'Invitation: Summit Champs', 'Every October we invite the teams that won an event this season, as captains or first picks, to our home field in California for Summit Champs. You won the ' + won.name + ' as ' + (won.role === 'Captain' ? 'captain' : 'first pick') + ', so you are one of them.\n\n' +
         nEl + ' of the elite teams are coming. The day before the matches we hold a mentor conference: our mentors and theirs, on what worked this season and what did not. Bring a notebook.\n\nWe hope to see you there.', 'Best,\n' + who + '\n' + hn,
-        { teams: [host.num], prio: true, note: 'Sign up in the Calendar for October (' + (both ? 'you are already signed up for the Fall Classic that month: you can play both, one after the other' : 'it takes the place of the Fall Classic that month') + '): registration ' + U.money(o.fee) + ', travel about ' + U.money(tc) + '. A field like a Championship division\'s playoffs, more reputation, morale and experience than any other offseason event.' });
+        { teams: [host.num], prio: true, note: 'Sign up in the Calendar for October (' + (both ? 'you are already signed up for ' + octName + ' that month: you can play both, one after the other' : oct ? 'it takes the place of ' + octName + ' that month' : 'your area holds no event that month, so the month is free for it') + '): registration ' + U.money(o.fee) + ', travel about ' + U.money(tc) + '. A field like a Championship division\'s playoffs, more reputation, morale and experience than any other offseason event.' });
       (S.launchQueue = S.launchQueue || []).push({ kind: 'story', id: 'summitinv' + cy, tag: 'INVITATION', color: 'var(--accent)', title: 'Invited to Summit Champs',
         body: [hn + ' has invited your team to Summit Champs in October: the offseason event of the teams that won an event this season as captains or first picks. You won the ' + won.name + ' as ' + (won.role === 'Captain' ? 'captain' : 'first pick') + '.', nEl + ' elite teams are going. Before practice day there is a mentor conference: pick the talks you want to hear.'],
-        means: ['Sign up in the Calendar (October) for ' + U.money(o.fee) + ' plus travel (about ' + U.money(tc) + ')' + (both ? '. You are already signed up for the Fall Classic that month: you can play both, one after the other.' : ', or ignore it and play the Fall Classic that month.'), 'The field is as strong as a Championship division\'s playoffs. It pays more than any other offseason event: reputation, morale, sponsor goodwill and experience.', 'At the mentor conference you choose ' + D.SUMMIT.listen + ' of ' + D.SUMMIT.talks + ' talks; each adds a little know-how in its area.'], btn: 'calendar' });
+        means: ['Sign up in the Calendar (October) for ' + U.money(o.fee) + ' plus travel (about ' + U.money(tc) + ')' + (both ? '. You are already signed up for ' + octName + ' that month: you can play both, one after the other.' : oct ? ', or ignore it and play ' + octName + ' that month.' : '. Your area holds no event in October, so nothing else is in the way.'), 'The field is as strong as a Championship division\'s playoffs. It pays more than any other offseason event: reputation, morale, sponsor goodwill and experience.', 'At the mentor conference you choose ' + D.SUMMIT.listen + ' of ' + D.SUMMIT.talks + ' talks; each adds a little know-how in its area.'], btn: 'calendar' });
     } else C.inbox(S, 'Summit Champs: the invitations are out', hn + ' has sent its invitations for Summit Champs in October: the teams that won an event this season as captains or first picks, ' + nEl + ' of them elite teams. Your team was not invited this year: win an event as captain or first pick to be on the list next year.', 'news', { teams: [host.num] });
   };
   // the mentor conference: talks by the mentors of the teams there, one area each; you choose D.SUMMIT.listen of them
@@ -2891,12 +2907,13 @@
   };
   C.chalTip = (S, c, o) => (o.fac < 1 ? 'A higher ' + G.Shop.item(c.fac).name + ' level raises the odds most.' : o.mech < D.CHAL.mech[1] - 5 ? 'Students with more mechanism skill raise the odds.' : 'Extra hours on the entry raise the odds a little.');
   C.registerOffseason = function (S, id) {
-    const o = D.OFFSEASON_EVENTS.find(x => x.id === id);
+    const o = C.offEvent(S, id);
+    if (!o) return 'Not held in your area'; // (3.5) no October event outside North America
     if (S.offReg.includes(id)) return 'Registered';
     if (!S.robot) return 'You need last season\'s robot';
     if (D.MONTHS.indexOf(o.month) < S.month) return 'Already past';
     if (o.invite && C.summit(S).inv !== C.cy(S)) return 'Invitation only: the teams that won an event this season as captain or first pick';
-    { const same = D.OFFSEASON_EVENTS.find(x => x.id !== id && x.month === o.month && S.offReg.includes(x.id)), both = C.summit(S).both === C.cy(S) && [id, same && same.id].includes(D.SUMMIT.id); // signed up for the Fall Classic before the invitation: both
+    { const same = C.offEvents(S).find(x => x.id !== id && x.month === o.month && S.offReg.includes(x.id)), both = C.summit(S).both === C.cy(S) && [id, same && same.id].includes(D.SUMMIT.id); // signed up for the October event at home before the invitation: both
       if (same && !both) return 'You are registered for the ' + same.name + ' that month: one event a month'; }
     { const e = C.afford(S, o.fee); if (e) return e; }
     C.spend(S, o.fee, 'Offseason: ' + o.name);

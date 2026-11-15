@@ -101,7 +101,7 @@
     const K = G.Ev.KIND[ev.kind], rk = ev.rank[me()];
     const kpi = rk && rk.played ? '<div class="kpi"><span class="v xl">' + U.ord(G.Ev.rankOf(ev, me())) + '</span><span class="l">Rank · ' + rk.w + '-' + rk.l + '-' + rk.t + ' · ' + (rk.rp / rk.played).toFixed(2) + ' RS</span></div>' : '';
     let o = ev.summit ? summitHero(ev, kpi) : ev.kind === 'champs' || ev.kind === 'einstein' ? evHero(ev, kpi)
-      : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(ev.dist && ev.kind === 'regional' ? 'District event' : K.name) + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
+      : '<div class="row"><div><h1>' + h(ev.name) + '</h1><div class="sub">' + h(ev.dist && ev.kind === 'regional' ? 'District event' : K.name) + (G.Geo.eventCity(S, ev) ? ' · <b>' + h(G.Geo.eventCity(S, ev)) + '</b>' : '') + (ev.week ? ' · Week ' + ev.week : '') + ' · ' + ev.teams.length + ' teams · ' + h(G.Career.seasonName(G.S, ev.year)) + '</div></div><span class="sp"></span>' + kpi + '</div>';
     const stages = ['practice', 'quals', 'selection', 'playoffs', 'done'], stage = ev.pracReview ? 'practice' : ev.stage;
     o += '<div class="row wrap mb">' + stages.filter(s => !(ev.kind === 'scrimmage' && (s === 'selection' || s === 'playoffs')) && !(ev.kind === 'einstein' && (s === 'practice' || s === 'quals' || s === 'selection'))).map(s => UI.tag(s.toUpperCase(), s === stage ? 'acc' : stages.indexOf(s) < stages.indexOf(stage) ? 'good' : '')).join(' ') + '</div>';
     if (stage === 'practice') o += practiceView(ev);
@@ -947,6 +947,8 @@
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
   const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
   const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
+  // the team's school or organisation, under its name in every celebration (an older snapshot takes today's)
+  const wcSchool = (d, t) => { const s = (d.team && d.team.school) || (G.S && G.S.team && G.S.team.num === d.team.num ? G.S.team.school : ''); return s ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(s) + '</div>' : ''; };
   // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
   UI.worldChampModal = function (d, replay) {
     if (!d) return;
@@ -981,7 +983,7 @@
     UI.modal('<div class="wc"><div class="wc-rays"></div>' + stars +
       dl(0.05) + TROPHY + '</div>' +
       dl(0.35, 'wc-kicker') + 'EINSTEIN · ' + (d.city ? h(d.city.toUpperCase()) + ' · ' : '') + (d.fict ? '' : h(String(d.gyear)) + ' ') + h((d.game || '').toUpperCase()) + '</div>' +
-      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + 'YOU ARE THE</div>' +
       '<div class="wc-title">' + yearTxt + ' ' + label + (d.city && streak < 2 ? ' OF ' + h(d.city.toUpperCase()) : '') + '</div>' + // a two-Championship year has two champions
       (note ? dl(0.9, 'wc-note') + h(note) + '</div>' : '') +
@@ -1019,7 +1021,7 @@
     UI.modal('<div class="wc ic"><div class="ic-halo"></div>' + sparks +
       dl(0.05) + LAUREL + '</div>' +
       dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
-      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + (win ? 'YOU WON THE' : 'YOU ARE A') + '</div>' +
       '<div class="wc-title ic-title">' + (win ? 'FIRST IMPACT AWARD' : 'FIRST IMPACT AWARD FINALIST') + '</div>' +
       dl(0.9, 'wc-note') + (win ? 'The most prestigious award in the program · Hall of Fame' : 'One of six in the world') + '</div>' +
@@ -1070,7 +1072,7 @@
     UI.modal('<div class="wc ic wfa"><div class="ic-halo"></div>' + sparks +
       dl(0.05) + LAUREL + '</div>' +
       dl(0.35, 'wc-kicker') + 'FIRST CHAMPIONSHIP · ' + h(String(d.year)) + '</div>' +
-      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + d.team.num + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + h(d.name.toUpperCase()) + ' RECEIVES THE</div>' +
       '<div class="wc-title ic-title">WOODIE FLOWERS AWARD</div>' +
       dl(0.9, 'wc-note') + profHtml(d.prof) + '</div>' +
@@ -1178,7 +1180,7 @@
     UI.modal('<div class="wc fc' + (win ? '' : ' fin') + '" style="--fa:' + h(d.team.c1 || '#f5b800') + ';--fb:#6aa9ff"><div class="fc-beams"></div>' +
       dl(0.05) + RINGS + '</div>' +
       dl(0.35, 'wc-kicker') + 'FESTIVAL OF CHAMPIONS · JULY ' + h(String(d.year)) + ' · MANCHESTER, NEW HAMPSHIRE</div>' +
-      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' +
+      dl(0.5, 'wc-team') + me0 + ' · ' + h(String(d.team.name).toUpperCase()) + '</div>' + wcSchool(d, 0.58) +
       dl(0.65, 'wc-you') + (win ? 'TWO CHAMPIONSHIPS. ONE CHAMPION. YOU ARE' : 'YOU REMAIN THE') + '</div>' +
       '<div class="wc-title fc-title">' + (win ? 'THE ONE CHAMPION OF ' + h(String(d.year)) : h(String(d.year)) + ' WORLD CHAMPIONS OF ' + h(d.city.toUpperCase())) + '</div>' +
       dl(0.9, 'wc-note') + note + '</div>' +

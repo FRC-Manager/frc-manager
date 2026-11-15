@@ -137,6 +137,36 @@
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
   D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region]; return (a && a[type]) || D.SPONSOR_NAMES[type] || D.SPONSOR_NAMES.eng; };
 
+  // ---------- offseason events ----------
+  // Every home has its own offseason events: [name, city] for each of D.OFFSEASON_EVENTS, in one of the home's cities.
+  // All of them are a short trip. Outside North America there is no October event: the month is kept free, so that an
+  // invited team can fly to Summit Champs.
+  D.OFFSEASON_BY = {
+    West: { os_jun: ['Neon Nights Invitational', 'Las Vegas'], os_jul: ['Sagebrush Showdown', 'Reno'], os_sep: ['Gem State Robot Rodeo', 'Boise'], os_oct: ['Big Sky Brawl', 'Missoula'], os_nov: ['Silver State Showcase', 'Las Vegas'] },
+    sierra: { os_jun: ['Golden Coast Invitational', 'Los Angeles'], os_jul: ['Surf City Scrimmage', 'Orange County'], os_sep: ['Gold Rush Rumble', 'Sacramento'], os_oct: ['Central Valley Throwdown', 'Fresno'], os_nov: ['Bay Fog Showcase', 'San Francisco Bay'] },
+    evergreen: { os_jun: ['Rose City Invitational', 'Portland'], os_jul: ['Puget Sound Summer Scrimmage', 'Tacoma'], os_sep: ['Salmon Run Showdown', 'Seattle'], os_oct: ['Apple Harvest Classic', 'Yakima'], os_nov: ['First Snow Showcase', 'Spokane'] },
+    Southwest: { os_jun: ['Sonoran Sun Invitational', 'Phoenix'], os_jul: ['Mile High Mayhem', 'Denver'], os_sep: ['High Mesa Showdown', 'Albuquerque'], os_oct: ['Wasatch Fall Classic', 'Salt Lake City'], os_nov: ['Route 66 Roundup', 'Tulsa'] },
+    mesa: { os_jun: ['Gulf Coast Gearfest', 'Houston'], os_jul: ['Hill Country Heat', 'Austin'], os_sep: ['Stockyards Showdown', 'Fort Worth'], os_oct: ['State Fair Classic', 'Dallas'], os_nov: ['Alamo City Roundup', 'San Antonio'] },
+    Midwest: { os_jun: ['Windy City Warm-Up', 'Chicago'], os_jul: ['Crossroads Invitational', 'Indianapolis'], os_sep: ['North Star Showdown', 'Minneapolis'], os_oct: ['Fountain City Throwdown', 'Kansas City'], os_nov: ['Buckeye Bot Brawl', 'Columbus'] },
+    lakeshore: { os_jun: ['Mitten Summer Invitational', 'Grand Rapids'], os_jul: ['Cherry Capital Clash', 'Traverse City'], os_sep: ['Motor City Showdown', 'Detroit'], os_oct: ['Cider Mill Classic', 'Ann Arbor'], os_nov: ['Lake Effect Showcase', 'Kalamazoo'] },
+    Northeast: { os_jun: ['Boardwalk Brawl', 'Central Jersey'], os_jul: ['Liberty Bell Rally', 'Philadelphia'], os_sep: ['Erie Canal Classic', 'Rochester'], os_oct: ['Three Rivers Rumble', 'Pittsburgh'], os_nov: ['Charm City Showcase', 'Baltimore'] },
+    harbor: { os_jun: ['Pine Tree Invitational', 'Bangor'], os_jul: ['Ocean State Open', 'Providence'], os_sep: ['Granite State Rumble', 'Manchester'], os_oct: ['Fall Foliage Classic', 'Burlington'], os_nov: ['Minuteman Muster', 'Boston'] },
+    Southeast: { os_jun: ['Sunshine State Scrimmage', 'Orlando'], os_jul: ['Sweet Tea Showdown', 'Atlanta'], os_sep: ['Tobacco Road Rumble', 'Raleigh'], os_oct: ['Smoky Mountain Classic', 'Knoxville'], os_nov: ['Bayou Bot Boil', 'New Orleans'] },
+    North: { os_jun: ['St. Lawrence Summer Open', 'Montreal'], os_jul: ['Stampede City Showdown', 'Calgary'], os_sep: ['Pacific Gateway Invitational', 'Vancouver'], os_oct: ['Prairie Harvest Classic', 'Winnipeg'], os_nov: ['First Frost Showcase', 'Quebec City'] },
+    trillium: { os_jun: ['Golden Horseshoe Invitational', 'Hamilton'], os_jul: ['Cottage Country Classic', 'Barrie'], os_sep: ['Tech Triangle Tune-Up', 'Waterloo'], os_oct: ['Niagara Harvest Cup', 'St. Catharines'], os_nov: ['Hat Trick Showdown', 'Toronto'] },
+    'Central America': { os_jun: ['Laguna Summer Cup', 'Torreon'], os_jul: ['Saddle Mountain Invitational', 'Monterrey'], os_sep: ['Independence Cup', 'Mexico City'], os_oct: ['Mariachi Classic', 'Guadalajara'], os_nov: ['Marigold Showcase', 'Puebla'] },
+    'South America': { os_jun: ['June Festival Showdown', 'Sao Paulo'], os_jul: ['Planalto Winter Cup', 'Brasilia'], os_sep: ['Pampas Open', 'Porto Alegre'], os_nov: ['Carioca Showcase', 'Rio de Janeiro'] },
+    Europe: { os_jun: ['Midsummer Robot Games', 'Stockholm'], os_jul: ['Lowlands Open', 'Eindhoven'], os_sep: ['Vistula Cup', 'Warsaw'], os_nov: ['Alpine Winter Showcase', 'Zurich'] },
+    Anatolia: { os_jun: ['Bosphorus Summer Cup', 'Istanbul'], os_jul: ['Aegean Open', 'Izmir'], os_sep: ['Anatolian Plateau Invitational', 'Ankara'], os_nov: ['Turquoise Coast Showcase', 'Antalya'] },
+    levant: { os_jun: ['White City Summer Scrimmage', 'Tel Aviv'], os_jul: ['Carmel Cup', 'Haifa'], os_sep: ['Citrus Grove Open', 'Rehovot'], os_nov: ['Golden Stone Showcase', 'Jerusalem'] },
+    'East Asia': { os_jun: ['Dragon Boat Invitational', 'Hangzhou'], os_jul: ['Pearl River Summer Open', 'Shenzhen'], os_sep: ['Mid-Autumn Moon Cup', 'Shanghai'], os_nov: ['Jade Mountain Showcase', 'Taipei'] },
+    'Asia Pacific': { os_jun: ['Harbour City Winter Open', 'Sydney'], os_jul: ['Yarra Robot Carnival', 'Melbourne'], os_sep: ['Golden Wattle Invitational', 'Canberra'], os_nov: ['Jacaranda Showcase', 'Brisbane'] }
+  };
+  D.OFFSEASON_BY['Middle East'] = D.OFFSEASON_BY.levant;
+  // the offseason events of a team: its district's (or the district its cities will form), else its area's
+  D.offseasonHome = team => (team && (team.home || team.z || team.region)) || null;
+  D.offseasonAbroad = team => !!team && D.GROUP[team.region] !== undefined && D.GROUP[team.region] !== 'NA';
+
   // ---------- the real seasons, 2016 to 2026 ----------
   // real teams that played each season (FIRST's team index)
   D.REAL_TEAMS = { 2016: 3130, 2017: 3346, 2018: 3645, 2019: 3790, 2020: 3910, 2022: 3176, 2023: 3323, 2024: 3498, 2025: 3706, 2026: 3753 };

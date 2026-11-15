@@ -83,7 +83,11 @@
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
         : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + futTxt + 'Register for one to four regionals. Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
       // travel from an area outside North America: its own regionals this first season, and what is overseas
-      if (far || A) o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your district events are close to home. ' : A ? (sites.length ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + sites.length + ' regional' + (sites.length > 1 ? 's' : '') + ' (' + h(sites.filter((x, i, a) => a.indexOf(x) === i).join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') : '') +
+      // every home's own events of the first season, with their cities; then what is far
+      const nReg = d ? Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) : A ? sites.length : G.World.regionalsIn(n.region, n.start);
+      const where = d ? G.Geo.districtCities(d.id, nReg) : A ? sites.filter((x, i, a) => a.indexOf(x) === i) : G.Geo.regionalCities(n.region, n.start, nReg);
+      o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your ' + nReg + ' district events are close to home (' + h(where.join(', ')) + '). '
+        : nReg ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + (A ? '' : 'about ') + nReg + ' regional' + (nReg > 1 ? 's' : '') + ' (' + h(where.join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') +
         (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
     }
     // avatar and colours (the whole UI picks up the primary colour)
@@ -199,6 +203,13 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.5', title: 'Beta of 3.5: offseason events at home', notes: [
+      'Every home has its own offseason events, named for the place and held in one of its cities: the Cherry Capital Clash in Traverse City for the Lakeshore District, the Pearl River Summer Open in Shenzhen for East Asia. The trip is still a short one.',
+      'Their fields are local: the teams of your own area first, your own district or cities most of all. Where too few teams live there, the nearest others make up the numbers. The Week 0 scrimmage draws its teams the same way. Summit Champs still invites the whole world.',
+      'Teams outside North America have four offseason events, not five: nothing is held in October, so an invited team is free to fly to Summit Champs.',
+      'Every event names its city: in the Calendar\'s registration list, on the event page and on the World map. The New Career page lists the cities of your home\'s events for every home.',
+      'Your school or organisation is shown on the Headquarters page, in the letters from FIRST and in the celebration windows.'
+    ] },
     { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
       'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
       'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',

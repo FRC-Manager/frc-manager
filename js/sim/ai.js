@@ -220,21 +220,31 @@
   };
 
   // Choose AI teams attending an event
-  AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs) {
+  // (3.5) local: { zone, zoneOf } for an event that stays at home (an offseason event, the Week 0 scrimmage). Its field
+  // is the home area's own teams (its district or cities first). Only where those are too few to fill it do others
+  // make up the numbers, the nearest first: the areas next door, the rest of its part of the world, the nearest other
+  // part of the world (D.NEAR, in its order), everybody else.
+  AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs, local) {
     const target = champs ? 78 : 28 + star * 9;
     const list = Object.values(pool).filter(t => !exclude.has(t.num));
     const chosen = [];
+    const grp = r => (D.GROUP && D.GROUP[r]) || 'NA', adj = D.ADJ[region] || [], near = (D.NEAR || {})[region] || [];
+    const tierOf = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
+    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1);
     const cand = list.map(t => {
-      let w = champs ? 1 : (t.region === region ? 3 : (D.ADJ[region] || []).includes(t.region) ? 1.4 : 0.35);
+      let w = champs ? 1 : local ? localW(t) : (t.region === region ? 3 : adj.includes(t.region) ? 1.4 : 0.35);
       const z = (t.str - target) / (champs ? 14 : 24);
       w *= Math.exp(-z * z) + (champs ? 0.02 : 0.15);
-      return { t, w };
+      return { t, w, tier: local && !champs ? tierOf(t) : 0 };
     });
-    for (let i = 0; i < count && cand.length; i++) {
-      const pick = rng.wpick(cand, c => c.w);
-      chosen.push(pick.t.num);
-      cand.splice(cand.indexOf(pick), 1);
-    }
+    [...new Set(cand.map(c => c.tier))].sort((a, b) => a - b).forEach(k => {
+      const c = cand.filter(x => x.tier === k);
+      while (chosen.length < count && c.length) {
+        const pick = rng.wpick(c, x => x.w);
+        chosen.push(pick.t.num);
+        c.splice(c.indexOf(pick), 1);
+      }
+    });
     return chosen;
   };
 })();

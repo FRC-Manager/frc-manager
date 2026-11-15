@@ -280,6 +280,19 @@
     const xy = Geo.xy(hb.lon, hb.lat);
     return { xy: [xy[0] + lap * 1.4, xy[1] - lap * 1], hub: hb.n };
   };
+  // the city an event of this season is held in, for any copy of the event (the Calendar's list, the event being
+  // played): looked up by its id. '' outside the world simulation and for events with no place of their own.
+  Geo.eventCity = function (S, e) {
+    if (!e) return '';
+    if (e.hub) return e.hub;
+    const ws = S && S.wseason, we = ws && ws.events.find(x => x.id === e.id);
+    return we ? Geo.eventPos(ws, we).hub : '';
+  };
+  // the cities an area's regionals or a district's events are held in, biggest first, as eventPos places them: the
+  // New Career page names them before the world exists (n: how many events)
+  const cities = (hubs, n) => hubs.sort((a, b) => b.w - a.w).slice(0, Math.max(0, Math.min(n, hubs.length))).map(x => x.n);
+  Geo.regionalCities = (region, cy, n) => cities(Geo.HUBS.filter(x => x.r === region && (!x.d || !formed(x.d, cy))), n);
+  Geo.districtCities = (dist, n) => cities(Geo.HUBS.filter(x => x.d === dist), n);
   Geo.areaName = (region, dist) => (dist ? D.DISTRICT[dist].name : region + ' (regional)');
   // distances on the map: back to longitude and latitude, then miles along the globe
   Geo.lonLat = xy => [xy[0] / KX + LON0, (2 * Math.atan(Math.exp(M0 - xy[1] / KY)) - Math.PI / 2) / RAD];

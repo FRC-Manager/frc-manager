@@ -88,7 +88,7 @@
   const evShort = e => e.name.replace(/ (Regional|District Event)$/, '');
   const evLine = (S, e) => {
     const me = S.team.num, nm = n => (n === me ? 'you' : n);
-    return 'Week ' + e.week + ' · ' + e.name + ' · ' + e.teams.length + ' teams' +
+    return 'Week ' + e.week + ' · ' + e.name + ' · ' + G.Geo.eventCity(S, e) + ' · ' + e.teams.length + ' teams' +
       (e.done && e.res ? (e.res.winners && e.res.winners.length ? ' · won by ' + e.res.winners.map(nm).join(', ') : '') : ' · not played yet');
   };
 
@@ -257,7 +257,7 @@
     const S = G.S, ws = S.wseason, ids = arg.slice(2).split(','), me = S.team.num, nm = n => (n === me ? '<b class="acc">' + n + '</b>' : n);
     const list = ws.events.filter(e => ids.includes(e.id)).sort((a, b) => a.week - b.week);
     UI.modal('<h2>' + (list.length > 1 ? list.length + ' events here' : h(list[0].name)) + '</h2>' + list.map(e =>
-      '<div class="card flat mb"' + (mine(S, e) ? ' style="border-color:' + ME_COL + '"' : '') + '><div class="row"><b>' + h(e.name) + '</b>' + (mine(S, e) ? ' ' + UI.tag(played(S, e) ? 'You played here' : 'Registered', 'acc') : '') + '<span class="sp"></span><span class="xs muted">Week ' + e.week + ' · ' + h(e.dist ? D.DISTRICT[e.dist].short + ' District' : e.region) + ' · ' + e.teams.length + ' teams</span></div>' +
+      '<div class="card flat mb"' + (mine(S, e) ? ' style="border-color:' + ME_COL + '"' : '') + '><div class="row"><b>' + h(e.name) + '</b>' + (mine(S, e) ? ' ' + UI.tag(played(S, e) ? 'You played here' : 'Registered', 'acc') : '') + '<span class="sp"></span><span class="xs muted">Week ' + e.week + ' · ' + h(e.dist ? D.DISTRICT[e.dist].short + ' District' : e.region) + ' · ' + h(G.Geo.eventCity(S, e)) + ' · ' + e.teams.length + ' teams</span></div>' +
         (e.done && e.res ? '<div class="sm mt">Winners: ' + (e.res.winners || []).map(nm).join(', ') + (e.res.impact ? ' · Impact Award: ' + nm(e.res.impact) : '') + '</div>' : '<div class="sm muted mt">Not played yet.</div>') + '</div>').join('') +
       '<div class="row mt"><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };

@@ -37,7 +37,10 @@
     const size = def.size || 40;
     const exclude = new Set([player]);
     // a simulated world names the teams at every event; otherwise the field is drawn by area and strength
-    const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs');
+    // (3.5) an offseason event and the Week 0 scrimmage are held at home, for the teams around it
+    const local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, G.Era.cy(S)) } : null;
+    if (def.hub) ev.hub = def.hub; // the city, where the event has one of its own
+    const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs', local);
     ev.teams = [player].concat(ai);
     ai.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], year, weekMult, diffMult, rng); });
     ev.teams.forEach(n => { ev.rank[n] = { rp: 0, played: 0, w: 0, l: 0, t: 0, pts: 0, auto: 0, tb: rng.next() }; });
