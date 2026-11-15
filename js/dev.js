@@ -403,6 +403,7 @@
       if (opts.max) Dev.maxTurn(S, log, opts);
       G.Career.dueActivities(S).forEach(a => C.resolveActivity(S, a.id, 'hours'));
       if (S.incident) { if (G.Shop.resolve(S, G.R.int(0, S.incident.opts.length - 1))) G.Shop.resolve(S, 0); }
+      if (S.dispute) { if (C.resolveDispute(S, G.R.int(0, S.dispute.opts.length - 1))) C.resolveDispute(S, 0); } // (3.5) a team dispute: any answer
       const ev = C.eventThisTurn(S);
       if (ev && ev.def) {
         if (ev.def.kind === 'champs') C.registerChamps(S);

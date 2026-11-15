@@ -45,7 +45,7 @@
   UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, name: D.teamName(rng), school: D.schoolName(rng, null, 'Midwest'), c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
+    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, name: D.teamName(rng), lead: D.personName(rng), school: D.schoolName(rng, null, 'Midwest'), c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
     UI.st.ng.num = UI.ngAutoNum(UI.st.ng);
     UI.go('newgame');
@@ -68,7 +68,7 @@
     const ngOpen = r => n.mode !== 'career' || G.World.regionOpen(r, n.start);
     if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) n.school = UI.ngSchool(n); }
     const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
-    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
+    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') + inp('lead', 'Lead mentor (your name)') +
       '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
@@ -162,12 +162,12 @@
       if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
       const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
     }
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
     if (G.S.phase === 'kickoff') UI.kickoffModal();
-    else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, Lead Mentor</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, look at facilities (Workshop), stock up on parts (Inventory), register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p><p class="sm muted">Research, the Knowledge Base and the code library are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.</p>' + (function () { const eb = G.Career.eraBrief(G.S); return eb ? '<div class="card flat mb"><div class="xs muted b">' + h(eb.title.toUpperCase()) + '</div><ul class="story-ul">' + eb.lines.map(x => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : ''; })() + '<div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
+    else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, ' + h(G.Career.leadFirst(G.S)) + '</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, look at facilities (Workshop), stock up on parts (Inventory), register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p><p class="sm muted">Research, the Knowledge Base and the code library are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.</p>' + (function () { const eb = G.Career.eraBrief(G.S); return eb ? '<div class="card flat mb"><div class="xs muted b">' + h(eb.title.toUpperCase()) + '</div><ul class="story-ul">' + eb.lines.map(x => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : ''; })() + '<div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
   };
 
   // =====================================================================
@@ -203,6 +203,14 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.6', title: 'Beta of 3.5: sponsors, disputes and a name of your own', notes: [
+      'You are the lead mentor, and now you have a name: set it when you make a game (the Mentors page can change it later). Letters to the team are addressed to you, and some are copied to one of your mentors: a sponsor\'s to the business mentor, an invitation to play to the drive coach.',
+      'Sponsors: every one of them has a line that says what it does, and there are twice as many (830, with names from your home). A list of offers never shows a company twice. A sponsor that leaves stays off the list for a year.',
+      'A title sponsor writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. From the autumn of 2022 the printer maker Corvane Labs may be among the partner offers; what it donates is printers and electronics benches.',
+      'Hiring a mentor can be undone until you press Continue, like signing a sponsor. The Inbox hears of a signing or a hire on the next turn.',
+      'Team disputes: once or twice a season the team falls out with itself. You always have a choice: leave it for a small sure loss, or step in for an even chance of no loss or a worse one.',
+      'Shop incidents: fourteen more, and the same one seldom comes round twice. For a shop incident and a team dispute alike, the result shows in the window as soon as you choose.'
+    ] },
     { v: '3.4.5', title: 'Beta of 3.5: offseason events at home', notes: [
       'Every home has its own offseason events, named for the place and held in one of its cities: the Cherry Capital Clash in Traverse City for the Lakeshore District, the Pearl River Summer Open in Shenzhen for East Asia. The trip is still a short one.',
       'Their fields are local: the teams of your own area first, your own district or cities most of all. Where too few teams live there, the nearest others make up the numbers. The Week 0 scrimmage draws its teams the same way. Summit Champs still invites the whole world.',
@@ -640,6 +648,7 @@
     const S = G.S; G.Career.advance(S); UI.go(S.phase === 'end' ? 'end' : 'hq');
     if (S.phase !== 'end' && G.Career.dueActivities(S).length) UI.A.activities();
     else if (S.phase !== 'end' && S.incident) UI.A.incident();
+    else if (S.phase !== 'end' && S.dispute) UI.A.dispute();
     else if (S.launchQueue && S.launchQueue.length) UI.launchModal();
   };
 

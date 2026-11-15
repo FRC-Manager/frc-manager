@@ -348,7 +348,7 @@
       if (G.R.chance(r.p)) {
         addMods(S, r.mods, r.title);
         if (r.dmg) Object.keys(r.dmg).forEach(k => Shop.damage(S, k, r.dmg[k]));
-        if (r.robot && S.robot) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - r.robot); });
+        if (r.robot && S.robot && S.robot.subs) Object.values(S.robot.subs).forEach(s => { if (s.ver) s.cond = Math.max(0, s.cond - r.robot); });
         if (r.batt) G.R.shuffle(S.parts.batts.slice()).slice(0, 2).forEach(b => { b.h = Math.max(0.4, b.h - r.batt * 4); });
         G.Career.inbox(S, 'It happened: ' + r.title, r.hit + (r.mods ? ' (' + modsText(r.mods) + ' this turn.)' : ''), 'incident');
       } else G.Career.inbox(S, 'Dodged it: ' + r.title, r.miss, 'incident');
@@ -369,7 +369,7 @@
   // the AI era (September 2024, by the calendar): every team leans on AI coding assistants
   const aiEra = S => { if (!S.cal) return (S.year || 0) >= 2025; const cy = G.Parts.buyCy(S); return cy > 2025 || (cy === 2025 && !(S.phase === 'off' && S.month < 4)); };
   Shop.aiEra = aiEra;
-  const pickMentor = S => (S.mentors.length ? G.R.pick(S.mentors).name : 'Your lead mentor');
+  const pickMentor = S => (S.mentors.length ? G.R.pick(S.mentors).name : G.Career.leadName(S));
   const ALL = m => ({ fab: m, soft: m, research: m });
   Shop.INCIDENTS = [
     // ---------------- with choices ----------------
@@ -471,6 +471,116 @@
         { label: 'Work offline on sketches', desc: 'Fabrication −30%, Research −30% this week', mods: { fab: 0.7, research: 0.7 } },
         { label: 'Buy temporary licenses', cost: () => 300, desc: 'No delay' }
       ] },
+    // (3.5) more of them, so that the same one seldom comes round twice (Shop.rollIncident also remembers the last ten)
+    { id: 'ebench_crimp', w: 2, req: own('ebench'), title: 'The crimps are pulling out',
+      body: () => 'Half the connectors made this week come off in the hand. The crimper has been set to the wrong wire gauge since Monday, and nobody knows which wires were done before then.',
+      opts: [
+        { label: 'Fix them as they fail', desc: '40% chance of a brownout on the test stand: Software −25%, robot condition −8',
+          risk: { p: 0.4, mods: { soft: 0.75 }, robot: 8, hit: 'A power wire let go in the middle of an autonomous run. The robot stopped dead, and so did the evening.', miss: 'Three more came loose on the bench, where it did not matter. The rest have held.' } },
+        { label: 'Redo every crimp tonight', desc: 'Fabrication −15% this week, Electronics Workbench condition +5', mods: { fab: 0.85 }, fix: { ebench: 5 } },
+        { label: 'Buy a ratchet crimper that cannot be set wrong', cost: S => 120 + 60 * lvlOf(S, 'ebench'), desc: 'No delay, Electronics Workbench condition +10', fix: { ebench: 10 } }
+      ] },
+    { id: 'weld_gas', w: 2, req: own('weld'), title: 'The welder is out of gas',
+      body: () => 'The shielding gas ran out halfway along the frame, and the supplier delivers on Thursdays.',
+      opts: [
+        { label: 'Wait for Thursday', desc: 'Fabrication −30% this week', mods: { fab: 0.7 } },
+        { label: 'Bolt the frame together for now', desc: '35% chance the joints work loose: robot condition −10',
+          risk: { p: 0.35, robot: 10, hit: 'Two bolts backed out on the first hard stop, and the frame went out of square.', miss: 'The bolts held. Somebody has suggested not welding it at all, and has been ignored.' } },
+        { label: 'Pay a courier for a bottle today', cost: () => 220, desc: 'No delay' }
+      ] },
+    { id: 'pfield_seam', w: 2, req: own('pfield'), title: 'The practice field carpet is lifting',
+      body: () => 'A seam in the practice field carpet has come up, and the robot found it at full speed.',
+      opts: [
+        { label: 'Tape it down and carry on', desc: '40% chance it lifts again in the middle of a run: robot condition −10, Practice Field condition −15',
+          risk: { p: 0.4, robot: 10, dmg: { pfield: 15 }, hit: 'The tape lasted two runs. The third ended with the robot on its side and a longer tear.', miss: 'Four layers of tape, and it has held all week. It is now the smoothest part of the field.' } },
+        { label: 'Close the field and lay the carpet again', desc: 'Software −20% this week, Practice Field condition +10', mods: { soft: 0.8 }, fix: { pfield: 10 } },
+        { label: 'Have a fitter do it tomorrow morning', cost: S => 200 + 100 * lvlOf(S, 'pfield'), desc: 'No delay, Practice Field condition +15', fix: { pfield: 15 } }
+      ] },
+    { id: 'pfield_goal', w: 2, req: S => Shop.lvl(S, 'pfield') > 0 && S.phase !== 'off', title: 'The practice goal fell apart',
+      body: () => 'The wooden goal on the practice field gave way after its four-hundredth shot. It had been leaning since the two-hundredth.',
+      opts: [
+        { label: 'Rebuild it from scrap', desc: 'Fabrication −15% this week', mods: { fab: 0.85 } },
+        { label: 'Practise without it', desc: 'Software −15% this week', mods: { soft: 0.85 } },
+        { label: 'Buy timber and brackets and build it properly', cost: () => 150, desc: 'Fabrication −5% this week, Practice Field condition +5', mods: { fab: 0.95 }, fix: { pfield: 5 } }
+      ] },
+    { id: 'pit_caster', w: 2, req: own('pitcart'), title: 'A wheel came off the pit cart',
+      body: () => 'The cart shed a caster in the car park with the robot on board. The robot stayed on. Mostly.',
+      opts: [
+        { label: 'Carry everything by hand this week', desc: 'Fabrication −10% this week', mods: { fab: 0.9 } },
+        { label: 'Fix it with whatever is on the shelf', desc: '30% chance it fails again with the robot on it: robot condition −12, Pit Setup condition −15',
+          risk: { p: 0.3, robot: 12, dmg: { pitcart: 15 }, hit: 'The shelf bolt sheared on the ramp. The robot left the cart at walking pace and stopped against a door frame.', miss: 'A bolt two sizes too big and a great deal of thread lock. It rolls straighter than before.' } },
+        { label: 'Fit four new casters', cost: () => 120, desc: 'No delay, Pit Setup condition +10', fix: { pitcart: 10 } }
+      ] },
+    { id: 'trailer_flat', w: 2, req: own('trailer'), title: 'Flat tyre on the trailer',
+      body: () => 'The trailer has been sitting on a flat for a month, and the rim has started on the sidewall.',
+      opts: [
+        { label: 'Leave it until the next trip', desc: '45% chance the rim is ruined: Team Trailer condition −25',
+          risk: { p: 0.45, dmg: { trailer: 25 }, hit: 'When somebody finally looked, the rim had cut through. The trailer needs a wheel, not a tyre.', miss: 'It took air and held it. Nobody can explain the month.' } },
+        { label: 'Change it yourselves', desc: 'Fabrication −10% this week, Team Trailer condition +5', mods: { fab: 0.9 }, fix: { trailer: 5 } },
+        { label: 'Call out a tyre fitter', cost: () => 250, desc: 'No delay, Team Trailer condition +10', fix: { trailer: 10 } }
+      ] },
+    { id: 'meeting_projector', w: 2, req: own('meeting'), title: 'The projector died in the middle of a design review',
+      body: () => 'The meeting room projector went dark halfway through the design review, at the slide everybody had been waiting for.',
+      opts: [
+        { label: 'Crowd round a laptop', desc: 'Research −20%, Software −5% this week', mods: { research: 0.8, soft: 0.95 } },
+        { label: 'Borrow the library\'s projector each day', desc: '50% chance it is booked when you need it: Research −30% this week',
+          risk: { p: 0.5, mods: { research: 0.7 }, hit: 'The library\'s projector was booked for a poetry evening, twice. The review happened on a whiteboard, from memory.', miss: 'The librarian now saves it for you, and has asked what a swerve module is.' } },
+        { label: 'Buy a new lamp', cost: () => 160, desc: 'No delay, Team Meeting Room condition +10', fix: { meeting: 10 } }
+      ] },
+    { id: 'ftc_tools', w: 2, req: own('ftc'), title: 'The FTC team has borrowed your tools',
+      body: () => 'The FTC team space is spotless. Yours is missing two drill drivers, the good callipers and every small hex key you own.',
+      opts: [
+        { label: 'Hunt them down one by one', desc: 'Fabrication −15% this week', mods: { fab: 0.85 } },
+        { label: 'Hold a tool amnesty', desc: '50% chance it all comes back by morning (no loss); otherwise Fabrication −20% this week',
+          risk: { p: 0.5, mods: { fab: 0.8 }, hit: 'One hex key came back, with an apology note. The callipers are "definitely somewhere".', miss: 'By morning there was a neat pile on your bench, and three tools nobody had missed.' } },
+        { label: 'Buy the FTC space its own set', cost: () => 250, desc: 'No delay, FTC Team Space condition +10', fix: { ftc: 10 } }
+      ] },
+    { id: 'extractor', w: 2, req: S => Shop.lvl(S, 'cnc') > 0 || Shop.lvl(S, 'lathe') > 0, title: 'The dust extractor gave up',
+      body: () => 'The extractor filled up, then swallowed a glove. There are chips on every surface, including the ceiling light.',
+      opts: [
+        { label: 'Sweep as you go', desc: 'Fabrication −10% this week. 30% chance chips get into a gearbox: robot condition −8', mods: { fab: 0.9 },
+          risk: { p: 0.3, robot: 8, hit: 'A gearbox started to crunch on Thursday. It was full of aluminium glitter.', miss: 'The floor has never been swept so often. The gearboxes stayed clean.' } },
+        { label: 'Stop and strip it down properly', desc: 'Fabrication −20% this week', mods: { fab: 0.8 } },
+        { label: 'Buy a new extractor', cost: () => 300, desc: 'No delay' }
+      ] },
+    { id: 'compressor', w: 2, req: () => true, title: 'The compressor will not hold pressure',
+      body: () => 'The shop compressor runs all day and reaches half pressure. The air tools wheeze.',
+      opts: [
+        { label: 'Use hand tools this week', desc: 'Fabrication −20% this week', mods: { fab: 0.8 } },
+        { label: 'Wrap the leak in tape and hope', desc: '50% chance the hose bursts: Fabrication −35% this week',
+          risk: { p: 0.5, mods: { fab: 0.65 }, hit: 'The hose let go with a bang that emptied the room. It took a day to find a replacement.', miss: 'Nine turns of tape, and it holds. Everybody has agreed not to look at it.' } },
+        { label: 'Replace the hose and the regulator', cost: () => 180, desc: 'No delay' }
+      ] },
+    { id: 'shop_key', w: 2, req: () => true, title: 'Nobody has the key to the shop',
+      body: () => 'The one teacher with a key to the shop is away at a conference until Wednesday.',
+      opts: [
+        { label: 'Wait for Wednesday', desc: 'All development −35% this week', mods: ALL(0.65) },
+        { label: 'Work in a classroom with what you can carry', desc: 'Fabrication −40%, Software −5% this week', mods: { fab: 0.6, soft: 0.95 } },
+        { label: 'Pay the caretaker to open up each evening', cost: () => 150, desc: 'All development −5% this week', mods: ALL(0.95) }
+      ] },
+    { id: 'bandsaw', w: 2, req: () => true, title: 'The bandsaw blade snapped',
+      body: () => 'It went with a bang that stopped the whole room. Nobody was hurt, and three people needed to sit down.',
+      opts: [
+        { label: 'Cut by hand until the new blade comes', desc: 'Fabrication −25% this week', mods: { fab: 0.75 } },
+        { label: 'Fit the old blade from the drawer', desc: '40% chance it snaps too and bends the guard: Fabrication −35% this week',
+          risk: { p: 0.4, mods: { fab: 0.65 }, hit: 'The old blade lasted eleven cuts. The guard now needs straightening as well.', miss: 'The old blade cuts a little to the left. Everybody has learned to aim a little to the right.' } },
+        { label: 'Have a new blade sent by courier', cost: () => 90, desc: 'Fabrication −5% this week', mods: { fab: 0.95 } }
+      ] },
+    { id: 'code_lost', w: 2, req: own('laptops'), title: 'Three days of robot code are gone',
+      body: () => 'Somebody overwrote the shared code on Tuesday night. Three days of autonomous work are not in it any more, and one programmer has gone very quiet.',
+      opts: [
+        { label: 'Write it again from memory', desc: 'Software −40% this week', mods: { soft: 0.6 } },
+        { label: 'Search every laptop for a copy', desc: '50% chance it turns up (no loss); otherwise Software −55% this week',
+          risk: { p: 0.5, mods: { soft: 0.45 }, hit: 'A day went on the search, and the newest copy anybody had was from last Friday.', miss: 'It was on the driver station laptop all along, in a folder called "final_final_2".' } }
+      ] },
+    { id: 'wrong_order', w: 2, req: S => S.phase !== 'off', title: 'The parts order came, and it is wrong',
+      body: () => 'Forty bearings arrived this morning. You ordered four, in another size.',
+      opts: [
+        { label: 'Send them back and wait', desc: 'Fabrication −25% this week', mods: { fab: 0.75 } },
+        { label: 'Make the wrong ones fit', desc: '55% chance the bodge fails: Fabrication −35% this week, robot condition −5',
+          risk: { p: 0.55, mods: { fab: 0.65 }, robot: 5, hit: 'The printed spacers lasted one practice session. The shaft now has a groove in it.', miss: 'Printed spacers, a dab of retaining compound, and it runs true. The other thirty-six are in a drawer, "for later".' } },
+        { label: 'Order again with next-day delivery', cost: () => 200, desc: 'Fabrication −5% this week', mods: { fab: 0.95 } }
+      ] },
     // ---------------- without choices ----------------
     { id: 'snow', w: 3, req: S => S.phase === 'build' && S.week <= 6, title: 'Snow day!',
       body: () => 'School is closed for two days. The students are building snowmen instead of robots.', mods: { fab: 0.5, soft: 0.7, research: 0.5 } },
@@ -495,9 +605,11 @@
     if (S.incident || !['off', 'build', 'comp'].includes(S.phase)) return;
     if (S.incidentCool > 0) { S.incidentCool--; return; }
     if (!G.R.chance(0.09)) return;
-    const pool = Shop.INCIDENTS.filter(i => i.req(S));
+    // (3.5) the last ten are left out while there is anything else, so the same incident seldom comes round twice
+    const all = Shop.INCIDENTS.filter(i => i.req(S)), seen = S.incidentSeen || [], fresh = all.filter(i => !seen.includes(i.id)), pool = fresh.length ? fresh : all;
     if (!pool.length) return;
     const inc = G.R.wpick(pool, i => i.w);
+    S.incidentSeen = seen.concat([inc.id]).slice(-10);
     S.incidentCool = 4;
     const body = inc.body(S);
     if (inc.opts) {
@@ -512,6 +624,8 @@
     if (inc.fixAll) D.EQUIP.forEach(e => Shop.damage(S, e.id, -inc.fixAll));
     G.Career.inbox(S, (inc.mods && Object.values(inc.mods).some(v => v > 1) ? 'Good news: ' : 'Shop incident: ') + inc.title, body + '\n\nThis turn: ' + modsText(inc.mods) + '.', 'incident');
   };
+  // (3.5) A choice is settled at once, a risk included, so the window can say how it went (S.lastOutcome: what was
+  // chosen, what happened, every effect). The effects on development still last the turn.
   Shop.resolve = function (S, idx) {
     const cur = S.incident;
     if (!cur) return null;
@@ -519,13 +633,31 @@
     const cost = cur.opts[idx].cost;
     { const e = G.Career.afford(S, cost); if (e) return e; }
     if (cost) G.Career.spend(S, cost, 'Incident: ' + inc.title);
-    addMods(S, o.mods, inc.title);
-    if (o.fix) Object.keys(o.fix).forEach(k => Shop.damage(S, k, -o.fix[k]));
-    if (o.risk) S.pendingRisk = Object.assign({ title: inc.title, desc: o.desc }, o.risk);
-    G.Career.inbox(S, 'Decision: ' + inc.title, 'You chose: ' + o.label + (cost ? ' (' + U.money(cost) + ')' : '') + '. ' + o.desc + '.', 'incident');
+    const fx = cost ? ['Paid ' + U.money(cost)] : [], when = S.phase === 'off' ? ' for about a week of this month' : ' this week', nameOf = id => (Shop.item(id) || { name: id }).name;
+    const dev = m => { if (!m) return; addMods(S, m, inc.title); if (modsText(m)) fx.push(modsText(m) + when); };
+    let text = '', bad = false;
+    dev(o.mods);
+    if (o.fix) Object.keys(o.fix).forEach(k => { Shop.damage(S, k, -o.fix[k]); if (Shop.lvl(S, k) > 0) fx.push(nameOf(k) + ' condition +' + o.fix[k]); });
+    if (o.risk) {
+      const r = o.risk; bad = G.R.chance(r.p); text = bad ? r.hit : r.miss;
+      if (bad) {
+        dev(r.mods);
+        if (r.dmg) Object.keys(r.dmg).forEach(k => { Shop.damage(S, k, r.dmg[k]); if (Shop.lvl(S, k) > 0) fx.push(nameOf(k) + ' condition −' + r.dmg[k]); });
+        if (r.robot) { // the robot takes the knock; with nothing built yet there is nothing to damage, and it costs build time instead
+          const built = S.robot && S.robot.subs ? Object.values(S.robot.subs).filter(s => s.ver) : [];
+          if (built.length) { built.forEach(s => { s.cond = Math.max(0, s.cond - r.robot); }); fx.push('Robot condition −' + r.robot); }
+          else { const m = { fab: 1 - r.robot / 50 }; addMods(S, m, inc.title); fx.push(modsText(m) + when + ' (no robot to damage yet)'); }
+        }
+        if (r.batt && S.parts && S.parts.batts) { G.R.shuffle(S.parts.batts.slice()).slice(0, 2).forEach(b => { b.h = Math.max(0.4, b.h - r.batt * 4); }); fx.push('Two batteries lost health'); }
+      }
+    }
+    if (!fx.length) fx.push('No loss');
+    S.lastOutcome = { kind: 'incident', title: inc.title, choice: o.label, text, effects: fx, bad, risk: !!o.risk };
+    G.Career.inbox(S, 'Decision: ' + inc.title, 'You chose: ' + o.label + '.' + (text ? ' ' + text : '') + '\n\n' + fx.join(' · ') + '.', 'incident');
     S.incident = null;
     return null;
   };
+  Shop.addMods = addMods;
 
   // =====================================================================
   // Opportunities: school & sponsor events with positive, time-limited effects

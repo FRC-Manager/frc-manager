@@ -31,13 +31,30 @@
   const teamTo = S => 'Everyone on Team ' + S.team.num + ' ' + S.team.name + ': students, mentors and parents';
   const atSchool = S => (S.team.school ? ', ' + S.team.school : ''); // the team's school or organisation, for an address line
   C.leadMentor = leadMentor;
+  // (3.5) The lead mentor is the player, under the name given when the game was made (S.team.lead). Every letter from
+  // outside the team is addressed to them. (leadMentor above is somebody else: the most senior of the hired mentors.)
+  C.leadName = S => (S.team && S.team.lead) || 'Lead Mentor';
+  C.leadFirst = S => (S.team && S.team.lead ? String(S.team.lead).split(' ')[0] : 'Lead Mentor');
+  const teamAddr = S => C.leadName(S) + ', Team ' + S.team.num + ' ' + S.team.name;
+  C.teamAddr = teamAddr;
+  // Somebody else a letter also goes to: a mentor, with their post ("Mia Castillo (Business & Outreach Mentor)")
+  C.ccMentor = m => (m && m.name ? m.name + ' (' + ((D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor') + ')' : '');
+  C.ccRole = (S, role) => C.ccMentor(S.mentors.find(x => x.role === role));
+  // ... by who is writing: a sponsor, a vendor's partnership desk or anybody writing about money copies in the business
+  // mentor; an invitation to play copies in the drive coach
+  C.mailCc = function (S, from, subject) {
+    const f = String(from || ''), s = String(subject || '');
+    if (S.sponsors.some(sp => f.indexOf(sp.name) >= 0) || /support fund|finance office|team partnerships|paper|news channel|radio|podcast/i.test(f)) return C.ccRole(S, 'biz');
+    if (/Summit Champs|Festival of Champions/i.test(f) || /scrimmage/i.test(s)) return C.ccRole(S, 'coach');
+    return '';
+  };
   // (3.1.2) A letter from outside the team, as an email to the lead mentor: a greeting, the letter, a sign-off. What it
   // does in the game goes in extra.note, shown under the letter, so the letter itself stays a letter.
   // extra.school: the letter is addressed to the team at its school or organisation (the ones FIRST sends)
   C.letter = function (S, from, subject, text, sign, extra, kind) {
-    const ex = Object.assign({}, extra), sch = ex.school; delete ex.school;
-    const lead = leadMentor(S), to = (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name + (sch ? atSchool(S) : '');
-    C.inbox(S, subject, 'Dear ' + (lead ? lead.name.split(' ')[0] : 'Team ' + S.team.num) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: { from, to, subject } }, ex));
+    const ex = Object.assign({}, extra), sch = ex.school, cc = [].concat(ex.cc || C.mailCc(S, from, subject)).filter(Boolean).join('; '); delete ex.school; delete ex.cc;
+    const to = teamAddr(S) + (sch ? atSchool(S) : '');
+    C.inbox(S, subject, 'Dear ' + C.leadFirst(S) + ',\n\n' + text + '\n\n' + sign, 'mail', Object.assign({ mail: Object.assign({ from, to, subject }, cc ? { cc } : {}) }, ex));
   };
   const board = S => 'The ' + (S.team.school || 'school') + ' school board';
   // the World Champions hear from the mentor of the alliance they beat in the finals
@@ -57,12 +74,12 @@
       : 'Two finals (' + gs.map(sc).join(', ') + '), and we never found a way back into either of them.';
     else story = (W[gs.length] || gs.length).replace(/^./, c => c.toUpperCase()) + ' finals. ' + (lost.length ? 'We took Final ' + (gs.indexOf(lost[0]) + 1) + ' (' + lost[0].l + '–' + lost[0].w + ' to us)' : 'Final ' + (gs.indexOf(ties[0]) + 1) + ' ended in a tie') + (lost.length && ties.length ? ' and tied Final ' + (gs.indexOf(ties[0]) + 1) : '') + ', and you won ' + (won.length === 2 ? 'the other two' : won.length + ' of them') + ' (' + won.map(sc).join(', ') + '). ' +
       (isClose(last) ? 'The last one came down to the final seconds' + (last.tb ? ' and a tiebreaker' : '') + '. I still have not sat down.' : 'In the last one you left no doubt.');
-    const body = 'Hi ' + (lead ? lead.name.split(' ')[0] : 'everyone') + ',\n\n' +
+    const body = 'Hi ' + C.leadFirst(S) + ',\n\n' +
       'Congratulations to you and the whole of ' + S.team.num + ' on the World Championship. ' + story + '\n\n' +
       'Well done this year. ' + (el ? 'We have been on that stage before and we will be on it again, so enjoy the banner while it is the newest one in the building.' : 'We will be back, a little faster and a lot more stubborn.') + ' We\'ll see if you can be as lucky next year.\n\n' +
       'Our students asked me to say one more thing: your pit crew lent us a spare on Friday, and they have not stopped talking about it.\n\n' +
       'See you next April,\n' + name + '\nLead mentor, Team ' + cap + ' ' + T.name;
-    C.mail(S, name + ' (lead mentor, Team ' + cap + ' ' + T.name + ')', (lead ? lead.name + ', ' : '') + 'Team ' + S.team.num + ' ' + S.team.name, 'Congratulations, and see you next year', body, { teams: [cap] });
+    C.mail(S, name + ' (lead mentor, Team ' + cap + ' ' + T.name + ')', teamAddr(S), 'Congratulations, and see you next year', body, { teams: [cap] });
   };
   // the Hall of Fame: FIRST writes to the team that won the FIRST Impact Award at the Championship
   C.mailHallOfFame = function (S) {
@@ -71,7 +88,7 @@
       'Congratulations on the ' + cy + ' FIRST Impact Award. With it, ' + S.team.name + (S.team.school ? ' of ' + S.team.school : '') + ' joins the FIRST Hall of Fame: the teams whose work for their communities, year after year, best shows what this program is for.\n\n' +
       'As a Hall of Fame team you are invited to every future FIRST Championship. You no longer need to qualify: your place is reserved each season, and your team number will be on the Hall of Fame wall at the Championship.\n\n' +
       'Hall of Fame teams are also asked to share what they have learned: a session for other teams at the Championship, and help for the rookie teams near you. We hope you will.\n\n' +
-      'Thank you for everything that got you here' + (lead ? ', and please pass our thanks to ' + lead.name + ' and every mentor and student who worked on your submission' : '') + '.\n\n' +
+      'Thank you for everything that got you here, and please pass our thanks to ' + C.leadName(S) + ' and every mentor and student who worked on your submission.\n\n' +
       'With our congratulations,\nThe FIRST Robotics Competition team');
   };
   // a mentor who won the Woodie Flowers Award (kind 'wfa') or a Woodie Flowers Finalist Award ('wffa') writes to the team
@@ -288,13 +305,14 @@
       S.teams = G.AI.makePool(rng, 620, S.team.num, cal[0]); // team numbers follow the calendar year
       G.AI.addRookies(S.teams, rng, order[0], 12, S.team.num, cal[0]);
     }
+    if (!S.team.lead || !String(S.team.lead).trim()) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3)); // (3.5) the lead mentor is you: a name of your own, or one is given (as C.migrate gives an older save)
     C.refreshMarket(S);
     if (!G.World.on(S)) S.regionals = D.makeRegionals(order[0], rng, S.team.region);
     if (o.mode === 'career') {
       C.genOffers(S);
       G.Parts.teaser(S);
       { const eb = C.eraBrief(S); if (eb) C.inbox(S, eb.title, 'What the sport looks like as your career begins:\n\n' + eb.lines.map(x => '• ' + x).join('\n') + '\n\nAll of this changes over the years. The big changes arrive as pop-ups, and a recap after every season tells the story of the year.', 'info'); }
-      C.inbox(S, 'Welcome, Lead Mentor', 'You lead ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy facilities (Workshop) and parts (Inventory), start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.\n\nResearch, the Knowledge Base and the code library (Design Office) are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.', 'info');
+      C.inbox(S, 'Welcome, ' + C.leadFirst(S), 'You are ' + C.leadName(S) + ', lead mentor of ' + S.team.num + ' ' + S.team.name + '. It is October — the first game is revealed in January.\n\nBefore Kickoff: sign sponsors (Finance), hire mentors, buy facilities (Workshop) and parts (Inventory), start pre-season research (Design Office) and register for regionals (Calendar). Press Continue to advance a month.\n\nResearch, the Knowledge Base and the code library (Design Office) are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.', 'info');
       C.inbox(S, ...C.regNotice(S)); // the career starts in October: registration is already open
       C.farSeasonNote(S);
       if (G.World.on(S)) C.wfaSeed(S);
@@ -332,13 +350,24 @@
   C.genOffers = function (S) {
     const rng = G.R, offers = [];
     const money = D.SPONSOR_DIFF[S.diff] || 1, perf = C.sponsorPerf(S), high = C.highExpect(S);
-    const types = Object.keys(D.SPONSOR_TYPES);
-    const used = new Set(S.sponsors.map(s => s.name));
-    const make = (slot) => {
-      const tk = slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
+    const types = Object.keys(D.SPONSOR_TYPES).filter(t => !D.SPONSOR_TYPES[t].special);
+    // (3.5) One company, one offer: a list never shows a name twice (no title deal and partner deal from the same
+    // company), never a sponsor you have, and never one that left since the last list (C.sponsorLeft): a sponsor that
+    // did not renew, or whose contract you ended, stays away for a year.
+    const round = S.offerRound = (S.offerRound || 0) + 1, gone = S.sponsorGone || {};
+    Object.keys(gone).forEach(n => { if (gone[n] < round) delete gone[n]; });
+    const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone)));
+    const free = t => D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)); // (3.5) names with the flavour of the team's home
+    const make = (slot, special) => {
+      let tk = special ? special.type : slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
+      let pool = special ? [special.name] : free(tk);
+      if (!pool.length) { // every company of that kind is taken: another kind that fits the slot, else the general names
+        const alt = types.filter(t => t !== tk && (slot === 'title' ? D.SPONSOR_TYPES[t].title : slot === 'grant' ? D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant) && free(t).length);
+        if (alt.length) { tk = rng.pick(alt); pool = free(tk); } else pool = (D.SPONSOR_NAMES[tk] || []).filter(n => !used.has(n));
+        if (!pool.length) return null;
+      }
       const T = D.SPONSOR_TYPES[tk];
-      const pool = D.sponsorPool(tk, S.team.home, S.team.region); // (3.5) names with the flavour of the team's home
-      let name; let g = 0; do { name = rng.pick(pool); g++; } while (used.has(name) && g < 10);
+      const name = rng.pick(pool);
       used.add(name);
       let base = D.SPONSOR_BASE[slot] * (T.f || 1) * perf * money * rng.range(0.94, 1.06);
       base = Math.round(base / 250) * 250;
@@ -350,16 +379,26 @@
       const obligations = [];
       const obPool = rng.shuffle(D.OBLIGATIONS.slice());
       for (let i = 0; i < (slot === 'grant' ? 0 : Math.min(nOb, obPool.length)); i++) obligations.push(obPool[i].text.replace('{s}', name));
-      const perk = T.perks.length && rng.chance(slot === 'title' ? 0.9 : 0.6) ? rng.pick(T.perks) : (slot !== 'grant' && rng.chance(0.15) ? 'travelDiscount' : null);
+      const perk = T.perks.length && rng.chance(slot === 'title' ? 0.9 : 0.6) ? rng.pick(T.perks) : (slot !== 'grant' && !T.special && rng.chance(0.15) ? 'travelDiscount' : null);
       const exp = high && slot !== 'grant' ? 'High' : T.exp;
       const TM = D.SPONSOR_TERMS[slot], length = rng.int(TM.len[0], TM.len[1]); // titles and grants 2–4 seasons, partners 1–3 (3.1.5)
       return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length, goals, obligations, perk, exp };
     };
+    // (3.5) the printer maker: from the 2022 offseason one of the six partner offers may be Corvane Labs'
+    const MK = D.SPONSOR_MAKER, mk = MK && C.offerSeason(S) >= MK.from && !used.has(MK.name) && rng.chance(MK.chance) ? rng.int(0, 5) : -1;
     for (let i = 0; i < 3; i++) offers.push(make('title'));
-    for (let i = 0; i < 6; i++) offers.push(make('partner'));
+    for (let i = 0; i < 6; i++) offers.push(make('partner', i === mk ? MK : null));
     for (let i = 0; i < rng.int(1, 2); i++) offers.push(make('grant'));
-    S.offers = offers;
+    S.offers = offers.filter(Boolean);
+    if (MK && S.mode === 'career' && !S.makerSeen && S.offers.some(o => o.type === MK.type)) { // its first offer: a note in the Inbox
+      S.makerSeen = 1;
+      C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams, and one of this autumn\'s partner offers is theirs. It is a partner like the others, with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
+    }
   };
+  // the season a new list of offers is for: the one being planned (the list of October 2022 is for 2023)
+  C.offerSeason = S => (S.cal ? G.Parts.buyCy(S) : C.cy(S)) || 0;
+  // a sponsor that leaves is not on the next list of offers: it comes back a year later at the earliest
+  C.sponsorLeft = function (S, sp) { (S.sponsorGone = S.sponsorGone || {})[sp.name] = (S.offerRound || 0) + 1; };
   C.partnerSlots = S => 4 + (S.mentors.some(m => m.role === 'biz') ? 1 : 0);
   C.signSponsor = function (S, offerId, silent) {
     const o = S.offers.find(x => x.id === offerId);
@@ -373,8 +412,66 @@
     sp.undo = { turn: turnKey(S), offer: JSON.parse(JSON.stringify(o)), paid: 0 };
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
     if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = amt; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
-    if (!silent) C.inbox(S, 'Signed: ' + sp.name, (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ' — ' + U.money(sp.base) + ' per season for ' + sp.length + ' season(s).' + (S.phase === 'off' ? ' First payment arrives at Kickoff.' : ''), 'money');
+    // (3.5) nothing is said yet: a deal can be undone this turn, so it is announced when the turn ends (C.announceSignings).
+    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the title sponsor's letter.
+    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' ? 1 : 0) : 1;
     return null;
+  };
+  // ---------- signed this turn, announced the next (3.5) ----------
+  // A sponsor signed or a mentor hired can be taken back until Continue is pressed, so its message waits until then:
+  // a letter from a title sponsor, a line for a partner, a grant or a mentor.
+  C.announceSignings = function (S) {
+    S.sponsors.forEach(sp => {
+      if (!sp.undo || !sp.undo.say) return;
+      const terms = (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ': ' + U.money(sp.base) + ' a season for ' + sp.length + ' season' + (sp.length === 1 ? '' : 's') + '.' + (sp.paidYear === S.year ? '' : ' The first payment arrives at Kickoff.');
+      if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'sign', { terms });
+      else C.inbox(S, 'Signed: ' + sp.name, terms, 'money');
+    });
+    S.mentors.forEach(m => { if (m.undo) C.inbox(S, 'Mentor joined: ' + m.name, D.MENTOR_ROLES.find(r => r.id === m.role).name + ' (' + U.stars(m.stars) + ').', 'staff'); });
+  };
+  // ---------- a title sponsor's letters (3.5) ----------
+  // The company's side of the contract: always the same person in the same post for the same company.
+  C.sponsorContact = function (sp) {
+    const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL;
+    return { name: D.personName(r), role: r.pick(M.roles[sp.type] || M.roles.eng) };
+  };
+  const lcFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
+  const listAnd = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+  const numWord = n => ['no', 'one', 'two', 'three', 'four', 'five'][n] || String(n);
+  // kind 'sign': who they are, a word about their trade, why this team, what they expect.
+  // kind 'renew' (info: { met: [goal met?], oldBase }): how the season looked from their side, the new terms, the targets.
+  C.sponsorMail = function (S, sp, kind, info) {
+    const M = D.SPONSOR_MAIL, who = C.sponsorContact(sp), r = G.makeRng(hashS(kind + ':' + sp.name + ':' + S.year + ':' + (S.offerRound || 0)) || 5);
+    const colleague = D.personName(r).split(' ')[0];
+    const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
+    const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1;
+    const type = M.roles[sp.type] ? sp.type : 'eng', P = [];
+    info = info || {};
+    if (kind === 'renew') {
+      const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt);
+      const tone = sp.sat >= 80 ? 'high' : sp.sat >= 55 ? 'mid' : 'low', how = !missed.length ? 'all' : missed.length === goals.length ? 'none' : 'some';
+      P.push(r.pick(M.renewOpen[tone]) + ' ' + fill(r.pick(M.renewSeason[how])).replace('{goals}', listAnd(goals)).replace('{missed}', listAnd(missed)));
+      { const d = D.sponsorDesc(sp.name).split(/[;:]/)[0].replace(/\.$/, ''); if (d) P.push(fill(r.pick(M.renewRel[how === 'none' || tone === 'low' ? 'hard' : 'good'])).replace('{d}', lcFirst(d))); }
+      const dir = info.oldBase == null || sp.base === info.oldBase ? 'same' : sp.base > info.oldBase ? 'up' : 'down';
+      P.push(M.renewTerms[dir].replace('{n}', numWord(sp.seasonsLeft) + ' more season' + (sp.seasonsLeft === 1 ? '' : 's')).replace('{base}', U.money(sp.base)) + ' ' + fill(r.pick(M.renewAsk)).replace('{goals}', listAnd(goals)) + ' ' + r.pick(M.expect[sp.exp] || M.expect.Medium));
+      P.push(r.pick(M.close[type]));
+      C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(M.renewSubject)), P.join('\n\n'), 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name,
+        { note: 'Title sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season.' }, 'money');
+      return;
+    }
+    const desc = D.sponsorDesc(sp.name), trade = (M.trade.find(x => x.re.test(sp.name)) || { t: M.tradeType[type] }).t;
+    P.push(r.pick(M.open) + (desc ? ' ' + fill(r.pick(M.intro)).replace('{desc}', lcFirst(desc)) : ''));
+    P.push(r.pick(trade));
+    // why this team: last season's win or Championship place, its name in the sport, a first season, or any of the standing reasons
+    const last = S.history[S.history.length - 1], wonEv = last && (last.events || []).find(e => e.won), why = ['any'];
+    if (wonEv) why.push('won', 'won', 'won'); if (last && last.champs) why.push('champs', 'champs'); if (S.rep >= 70) why.push('rep', 'rep'); if (S.profile === 'rookie' && S.history.length <= 1) why.push('fresh', 'fresh', 'fresh');
+    P.push(fill(r.pick(M.why[r.pick(why)])).replace('{ev}', wonEv ? wonEv.name : 'event'));
+    let ask = r.pick(M.expect[sp.exp] || M.expect.Medium) + ' ' + fill(r.pick(M.goals)).replace('{goals}', listAnd(goals)).replace('{each}', many ? 'each' : 'it').replace('{them}', many ? 'them' : 'it');
+    if (sp.obligations.length) ask += ' ' + r.pick(M.oblig).replace('{n}', numWord(sp.obligations.length) + ' date' + (sp.obligations.length === 1 ? '' : 's')).replace('{list}', sp.obligations.join('; '));
+    P.push(ask);
+    if (sp.perk && M.perk[sp.perk]) P.push(M.perk[sp.perk]);
+    P.push(r.pick(M.close[type]));
+    C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(M.subject)), P.join('\n\n'), 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name + '\n\n' + r.pick(M.ps[type]), { note: info.terms || '' }, 'money');
   };
   // A deal signed this turn can be taken back until time moves on (the offer returns to the list)
   C.canUnsign = (S, sp) => !!(sp && sp.undo && sp.undo.turn === turnKey(S));
@@ -389,8 +486,6 @@
       if (li >= 0) S.ledger.splice(li, 1);
     }
     S.activities = S.activities.filter(a => !(a.sponsorId === sp.id && a.status === 'pending'));
-    const mi = S.inbox.findIndex(m => m.title === 'Signed: ' + sp.name);
-    if (mi >= 0) S.inbox.splice(mi, 1);
     S.offers.push(sp.undo.offer);
     return null;
   };
@@ -445,7 +540,7 @@
     const signed = [];
     ['title', 'grant', 'partner'].forEach(slot => {
       const list = S.offers.filter(o => o.slot === slot).sort((a, b) => C.offerValue(S, b) - C.offerValue(S, a));
-      for (const o of list) { if (C.signSponsor(S, o.id, true)) break; signed.push(o.name); }
+      for (const o of list) { if (C.signSponsor(S, o.id, 'auto')) break; signed.push(o.name); }
     });
     return signed;
   };
@@ -462,6 +557,7 @@
     if (!C.canEndSponsor(S, sp)) return 'A contract can only be ended in the autumn, while the new offers are open (October to Kickoff)';
     const cost = C.endSponsorCost(sp), left = sp.seasonsLeft || 1;
     S.sponsors = S.sponsors.filter(x => x !== sp);
+    C.sponsorLeft(S, sp);
     S.activities = S.activities.filter(a => !(a.sponsorId === sp.id && a.status === 'pending'));
     C.addRep(S, -cost);
     C.inbox(S, 'Sponsorship ended: ' + sp.name, 'You ended the contract with ' + sp.name + ' (' + U.money(sp.base) + ' a season, ' + left + ' season' + (left === 1 ? '' : 's') + ' still to run). Its ' + (sp.slot === 'title' ? 'title' : sp.slot === 'grant' ? 'grant' : 'partner') + ' slot is free for another offer. Sponsors talk to each other: reputation −' + cost + '.', 'money');
@@ -544,12 +640,34 @@
     if (!m) return 'Not found';
     if (S.mentors.length >= 8) return 'You can have at most 8 mentors';
     { const e = C.afford(S, m.cost); if (e) return e; }
+    C.mentorMeta(S, m);
+    const was = { turn: turnKey(S), cost: m.cost || 0, paid: m.paid, contract: m.contract, ten: m.ten, morale: S.morale, at: S.market.indexOf(m) };
     if (m.cost) C.spend(S, m.cost, 'Mentor: ' + m.name);
     m.paid = true; m.contract = Math.max(1, m.contract);
-    C.mentorMeta(S, m); m.ten = 0;
+    m.ten = 0;
     S.mentors.push(m); S.market = S.market.filter(x => x !== m);
     S.morale = Math.min(100, S.morale + 2);
-    C.inbox(S, 'Mentor joined: ' + m.name, D.MENTOR_ROLES.find(r => r.id === m.role).name + ' (' + U.stars(m.stars) + ').', 'staff');
+    was.morale = S.morale - was.morale;
+    m.undo = was; // (3.5) a hire can be taken back this turn; the Inbox hears of it when the turn ends (C.announceSignings)
+    return null;
+  };
+  // A mentor hired this turn can be let go again for everything the hire cost, until time moves on (back to the market)
+  C.canUnhire = (S, m) => !!(m && m.undo && m.undo.turn === turnKey(S));
+  C.unhireMentor = function (S, id) {
+    const m = S.mentors.find(x => x.id === id);
+    if (!m) return 'Mentor not found';
+    if (!C.canUnhire(S, m)) return 'This hire is final: it was made before this turn';
+    const u = m.undo;
+    S.mentors = S.mentors.filter(x => x !== m);
+    if (u.cost) {
+      S.money += u.cost; if (S.season) S.season.spent -= u.cost;
+      const li = S.ledger.findIndex(l => l.desc === 'Mentor: ' + m.name && l.amt === -u.cost);
+      if (li >= 0) S.ledger.splice(li, 1);
+    }
+    S.morale = Math.max(0, S.morale - u.morale);
+    m.contract = u.contract; m.ten = u.ten; if (u.paid === undefined) delete m.paid; else m.paid = u.paid;
+    delete m.undo;
+    S.market.splice(Math.max(0, Math.min(u.at, S.market.length)), 0, m);
     return null;
   };
   C.releaseMentor = function (S, id) { const m = S.mentors.find(x => x.id === id); if (!m) return; S.mentors = S.mentors.filter(x => x !== m); S.morale = Math.max(0, S.morale - 5); };
@@ -1002,6 +1120,7 @@
     else if (ev && ev.def) b.push('You have an event this turn: ' + ev.def.name + '.' + (ev.def.festival ? ' Both champion alliances are expected: it cannot be skipped, and the trip costs you nothing.' : ''));
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
+    if (S.dispute) b.push('A team dispute needs a decision: ' + S.dispute.title + '.');
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.prizeOffer && S.prizeOffer.stage === 'choose') b.push('Choose your ' + S.prizeOffer.name + ' prize (Headquarters).');
@@ -1018,6 +1137,7 @@
   C.advance = function (S) {
     if (C.blockers(S).length) return C.blockers(S);
     S.turnSeq = (S.turnSeq || 0) + 1; // (3.1.2) every message stamps the turn it arrived in (m.tq): the Inbox divides this turn's from older ones
+    C.announceSignings(S); // (3.5) sponsors signed and mentors hired last turn: final now, so the Inbox hears of them
     C.autoActivities(S); // "every turn": free activity slots are filled first (they take hours too)
     if (S.settings && S.settings.autoExtra) C.autoExtra(S); // "every turn": idle hours go to extra hours before they are spent
     if (G.Robot.autoScrapOn(S) && !G.Robot.garageLock(S)) G.Robot.scrapOld(S); // Garage setting: old versions in storage are taken apart
@@ -1035,11 +1155,13 @@
       case 'review': C.endReview(S); break;
     }
     // new turn: random news, team chatter, (rarely) a shop incident or a school/sponsor opportunity
-    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); G.Shop.rollBoost(S); C.rollDonation(S); }
+    delete S.lastOutcome; // the result of last turn's decision has been seen
+    if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); C.rollDispute(S); G.Shop.rollBoost(S); C.rollDonation(S); }
     G.Parts.rollStock(S);
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
     S.sponsors.forEach(sp => { delete sp.undo; });
+    S.mentors.forEach(m => { delete m.undo; });
     delete S.regUndo; // registrations made last turn are final now
     G.Save.write('auto');
     return null;
@@ -1682,7 +1804,7 @@
     const pool = won ? [
       ['Two champions was one too many. Now there is one.', 'the Festival emcee'],
       ['We drove a thousand miles in July to watch ' + (games.length === 5 ? 'five' : games.length === 4 ? 'four' : 'three') + ' matches. I would do it again tomorrow.', 'a parent in the stands'],
-      [driver.split(' ')[0] + ' has now won the last match of the season twice in one year.', 'your lead mentor'],
+      [driver.split(' ')[0] + ' has now won the last match of the season twice in one year.', C.leadName(S) + ', lead mentor'],
       ['They beat everybody in ' + F.city + ', and then the alliance that beat everybody in ' + F.otherCity + '.', 'a forum regular'],
       ['Twenty years with a whistle. That was the best series I ever stood beside.', 'the head referee'],
       ['I told the students that July was the offseason.', coach ? coach + ', drive coach' : 'your drive coach'],
@@ -1693,7 +1815,7 @@
       ['Losing in July to the only other champions on earth. I can live with that.', coach ? coach + ', drive coach' : 'your drive coach'],
       ['Both alliances signed both banners. Ours hangs in the shop.', 'a student on your team'],
       ['Nobody in that arena lost anything today.', 'the Festival emcee'],
-      ['We are still World Champions of ' + F.city + '. It says so on the wall.', 'your lead mentor'],
+      ['We are still World Champions of ' + F.city + '. It says so on the wall.', C.leadName(S) + ', lead mentor'],
       d.letSlip ? ['Two matches up and one hand on the trophy. I will be telling this story for years, and it will sting every time.', driver + ', driver'] : null,
       sponsor ? ['They were invited to a final only two alliances in the world could play. That is the photo in our lobby.', sponsor] : null
     ];
@@ -1815,7 +1937,7 @@
     const pool = [
       ['I can\'t feel my hands. Did we actually just win that?', driver + ', driver'],
       coach ? ['Every call in that final was one we had drilled. All I did was say them out loud.', coach + ', drive coach'] : null,
-      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', 'your lead mentor'],
+      ['At Kickoff I told them we could make it here. I wasn\'t sure I believed it. They did.', C.leadName(S) + ', lead mentor'],
       partners[0] ? ['Best alliance we have ever been part of. Thank you for picking us.', 'Team ' + partners[0] + ' ' + nm(partners[0])] : null,
       partners[1] ? ['We are going to need a bigger trailer for the ride home.', 'Team ' + partners[1] + ' ' + nm(partners[1])] : null,
       oc != null ? ['Hardest finals we have ever played. Congratulations, you earned every point.', 'Team ' + oc + ' ' + nm(oc) + ', Einstein finalists'] : null,
@@ -2003,7 +2125,7 @@
     S.pendingEinstein = true;
     S.lastDivision = { watch: true, wfa: true, alliance: champAlliance(S, side, C.cy(S), [], [], rng), teams: [], caps: {}, opr: {}, tune: 0.5, conf: 0.5, tuneAuto: 0, fatigue: S.fatigue, scoutCred: 1 };
     const W = S.season.wfaCmp.winner;
-    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true, school: true });
+    C.letter(S, 'The Woodie Flowers Award committee', 'Einstein: an invitation from the Woodie Flowers Award committee', 'The committee would like ' + W.name + ' and the team to be on Einstein for the Championship awards. The FIRST Impact Award and the Woodie Flowers Award are presented there, between the finals, and we would very much like you to be in the room.', 'Warm regards,\nThe Woodie Flowers Award committee', { note: 'Go to Einstein from Headquarters: the trip is part of the Championship and costs nothing.', prio: true, school: true, cc: C.ccMentor(W) });
   };
   C.wfaCele = function (S) {
     const c = S.season.wfaCmp, W = c.winner, m = S.mentors.find(x => x.id === W.mid) || { name: W.name, prof: W.prof, ten: 0, exp: 0, role: 'design' };
@@ -2436,6 +2558,67 @@
       (b.cash ? '• Grant: there is nothing in the workshop the board could upgrade, so it sends ' + U.money(b.cash) + ' in cash instead, for the program to spend as it sees fit.\n' : '') +
       '\nKeep it up. The students have earned it.', 'With thanks,\n' + board(S), { note: 'Program Support ' + Math.round(S.support) + ' (' + (dSup >= 0 ? '+' : '') + Math.round(dSup) + ' this season). Room is never taken back; the next step needs Program Support ' + ((Sh.nextSpace(S) || {}).sup || 'to stay this high') + '.' });
   }
+  // ======================= Team disputes (3.5) =======================
+  // In season the team falls out with itself once or twice (D.DISPUTE.n), in weeks drawn when the build starts and
+  // moved by nothing else. A dispute is a decision that Continue waits for, like a shop incident: leave it for a small
+  // sure loss, or step in and take a chance (settled at once, so the window can say how it went: S.lastOutcome).
+  // A week's number in the season: build weeks 1 to 7, then competition weeks 8 to 14.
+  C.disputeSlot = S => (S.phase === 'build' ? S.week : S.phase === 'comp' ? 7 + S.week : 0);
+  const fillNames = (t, n) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (n && n[k] != null ? n[k] : m));
+  C.disputeNames = function (S) {
+    const dt = C.driveTeam(S), f = st => (st && st.name ? st.name.split(' ')[0] : null), lead = leadMentor(S), pool = G.R.shuffle(S.students.slice());
+    return { driver: f(dt.driver) || 'the driver', operator: f(dt.operator) || 'the operator', coach: dt.coach ? f(dt.coach) : (S.mentors.find(m => m.role === 'coach') || { name: C.leadName(S) }).name, // a mentor coaches: the Drive Coach, else you tech: dt.tech ? f(dt.tech) : f(pool[3]) || 'the pit lead',
+      mentor: S.mentors.length ? G.R.pick(S.mentors).name : 'a mentor', a: f(pool[0]) || 'one student', b: f(pool[1]) || 'another student', c: f(pool[2]) || 'a third student' };
+  };
+  C.rollDispute = function (S) {
+    if (S.dispute || !S.season || !['build', 'comp'].includes(S.phase) || !D.DISPUTES) return;
+    const slot = C.disputeSlot(S), r = G.R;
+    if (!S.season.disputes) { // how many this season and in which weeks: with two, one in the build weeks and one in the competition weeks
+      const n = r.int(D.DISPUTE.n[0], D.DISPUTE.n[1]), at = n >= 2 ? [r.int(2, 7), r.int(9, 13)] : [r.int(2, 13)];
+      S.season.disputes = { at: at.filter(x => x >= slot), done: [] }; // a season already under way (an older save): the weeks still to come
+    }
+    const P = S.season.disputes;
+    if (!P.at.includes(slot) || P.done.includes(slot)) return;
+    P.done.push(slot);
+    const seen = S.disputeSeen || [], all = D.DISPUTES.filter(d => !d.req || d.req(S)), fresh = all.filter(d => !seen.includes(d.id)), pool = fresh.length ? fresh : all;
+    if (!pool.length) return;
+    const d = r.wpick(pool, x => x.w || 1), names = C.disputeNames(S), body = fillNames(d.body, names);
+    S.disputeSeen = seen.concat([d.id]).slice(-8);
+    S.dispute = { id: d.id, title: d.title, body, names, opts: d.opts.map(o => ({ label: o.label, desc: o.desc, cost: o.cost || 0 })) };
+    C.inbox(S, 'Team dispute: ' + d.title, body + '\n\nA decision is needed before you continue.', 'staff', { prio: true });
+  };
+  // what a result does to the team: every effect is applied and named (for the window and the Inbox)
+  const FX_ATTR = { drive: 'driving', aware: 'awareness', comp: 'composure', mech: 'mechanism', hp: 'human player', strat: 'strategy' };
+  const FX_ROLE = { driver: 'Driver', operator: 'Operator', hp: 'Human player', coach: 'Drive coach', tech: 'Technician' };
+  C.applyFx = function (S, fx, why) {
+    const out = [], sgn = v => (v > 0 ? '+' : '−') + Math.abs(v);
+    if (!fx) return out;
+    if (fx.mods) { G.Shop.addMods(S, fx.mods, why); const t = G.Shop.modsText(fx.mods); if (t) out.push(t + ' this week'); }
+    if (fx.morale) { S.morale = U.clamp(S.morale + fx.morale, 0, 100); out.push('Morale ' + sgn(fx.morale)); }
+    if (fx.fatigue) { S.fatigue = U.clamp((S.fatigue == null ? D.FATIGUE_BASE : S.fatigue) + fx.fatigue, 5, 100); out.push('Fatigue ' + sgn(fx.fatigue)); }
+    if (fx.skill) { const dt = C.driveTeam(S); fx.skill.forEach(k => { const st = dt[k[0]]; if (!st || !st.id) return; st.attr[k[1]] = U.clamp(st.attr[k[1]] + k[2], 1, 99); out.push(FX_ROLE[k[0]] + ' ' + st.name.split(' ')[0] + ': ' + FX_ATTR[k[1]] + ' ' + sgn(k[2])); }); }
+    if (fx.support) { S.support = U.clamp(S.support + fx.support, 0, 100); out.push('Program Support ' + sgn(fx.support)); }
+    if (fx.rep) { C.addRep(S, fx.rep); out.push('Reputation ' + sgn(fx.rep)); }
+    if (fx.sat && S.sponsors.length) { S.sponsors.forEach(sp => { sp.sat = U.clamp(sp.sat + fx.sat, 0, 100); }); out.push('Sponsor satisfaction ' + sgn(fx.sat)); }
+    return out;
+  };
+  C.resolveDispute = function (S, idx) {
+    const cur = S.dispute;
+    if (!cur) return null;
+    const d = D.DISPUTES.find(x => x.id === cur.id), o = d && d.opts[idx];
+    if (!o) { S.dispute = null; return null; }
+    const cost = o.cost || 0;
+    { const e = C.afford(S, cost); if (e) return e; }
+    if (cost) C.spend(S, cost, 'Team: ' + d.title);
+    const bad = !!o.risk && G.R.chance(o.risk.p), res = o.risk ? (bad ? o.risk.bad : o.risk.good) : o;
+    const fx = (cost ? ['Paid ' + U.money(cost)] : []).concat(C.applyFx(S, res.fx, d.title)), text = fillNames(res.text, cur.names);
+    if (!fx.length) fx.push('No loss');
+    S.lastOutcome = { kind: 'dispute', title: d.title, choice: o.label, text, effects: fx, bad, risk: !!o.risk };
+    S.lastDispute = { id: d.id, tq: S.turnSeq || 0, bad };
+    C.inbox(S, 'Decision: ' + d.title, 'You chose: ' + o.label + '. ' + text + '\n\n' + fx.join(' · ') + '.', 'staff');
+    S.dispute = null;
+    return null;
+  };
   // Rare: a very satisfied sponsor donates equipment, one facility level of a kind that fits what they do, if the workshop has room
   C.rollDonation = function (S) {
     const Sh = G.Shop, rng = G.R, DN = D.DONATION;
@@ -2443,13 +2626,13 @@
     for (const sp of rng.shuffle(S.sponsors.slice())) {
       const w = U.clamp((sp.sat - DN.sat) / (100 - DN.sat), 0, 1); // the happier the sponsor, the likelier
       if (!w || !rng.chance(DN.chance * w)) continue;
-      const cap = DN.cap[sp.slot] || 9000, opts = (DN.types[sp.type] || []).filter(id => { const c = Sh.upgradeCost(S, id); return c != null && c <= cap && !Sh.spaceBlock(S, id); });
+      const cap = (DN.capType || {})[sp.type] || DN.cap[sp.slot] || 9000, opts = (DN.types[sp.type] || []).filter(id => { const c = Sh.upgradeCost(S, id); return c != null && c <= cap && !Sh.spaceBlock(S, id); });
       if (!opts.length) continue;
       const id = rng.pick(opts), it = Sh.item(id), l0 = Sh.lvl(S, id), value = Sh.upgradeCost(S, id);
       if (Sh.upgrade(S, id, { gift: true })) continue;
       S.season.donated = true; sp.sat = Math.min(100, sp.sat + 2);
       const L = { kind: 'donation', sponsor: sp.name, type: sp.typeName, id, name: it.name, level: it.levels[l0].name, lvl: l0 + 1, value, sqft: Sh.sizeOf(id, l0 + 1) - Sh.sizeOf(id, l0), month: C.dateLabel(S),
-        intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name)]) };
+        intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name).replace('{lead}', C.leadName(S) + ', lead mentor')]) };
       C.letter(S, sp.name + ' (' + sp.typeName + ')', 'Donation from ' + sp.name + ': ' + L.level, 'We are proud to sponsor your team, and we would like to do a little more: please accept a ' + L.level + ' for your workshop. Our people have seen what your students do with what they have. We think they will do even more with this.\n\nIt should arrive this week. Send us a picture when it is running.', 'With best wishes,\n' + sp.name,
         { note: it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '. Sponsors donate when they are happy with the partnership and the workshop has room: about one a year with every slot filled and no activity skipped.' });
       (S.launchQueue = S.launchQueue || []).push(L);
@@ -2515,12 +2698,15 @@
       if (sp.exp === 'High' && C.highExpect(S) && !(s.events.some(e => e.won) || s.champsQualified)) sp.sat = Math.max(0, sp.sat - 12); // top programs are expected to win
       sp.seasonsLeft--;
       if (sp.seasonsLeft <= 0) {
-        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
+        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); const oldBase = sp.base; sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250;
+          if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'renew', { oldBase, met: sp.goals.map(g => !!g.met) }); // (3.5) a title sponsor writes
+          else C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
         else left.push(sp);
       }
     });
     S.sponsors = S.sponsors.filter(x => !left.includes(x));
-    if (left.length) C.inbox(S, 'Sponsors leaving', left.map(x => x.name).join(', ') + ' did not renew. Look for new offers in October.', 'money');
+    left.forEach(sp => C.sponsorLeft(S, sp)); // (3.5) not on this October's list: back next year at the earliest
+    if (left.length) C.inbox(S, 'Sponsors leaving', left.map(x => x.name).join(', ') + ' did not renew. ' + (left.length > 1 ? 'They' : 'It') + ' will not be back on the list for a year. Look for new offers in October.', 'money');
     // mentors
     const gone = [];
     S.mentors.forEach(m => { C.mentorMeta(S, m); m.ten++; m.exp++; });
@@ -2996,6 +3182,10 @@
   C.migrate = function (S) {
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
+    if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3)); // (3.5) a save from before the lead mentor had a name: one is given (Mentors page to change it)
+    { const RN = { 'Jordan Valley Water Engineering': 'Rift Valley Water Engineering' }, fix = t => (typeof t === 'string' ? Object.keys(RN).reduce((x, k) => x.split(k).join(RN[k]), t) : t); // (3.5) a sponsor renamed
+      (S.sponsors || []).concat(S.offers || []).forEach(x => { if (RN[x.name]) { x.name = RN[x.name]; x.obligations = (x.obligations || []).map(fix); } });
+      (S.activities || []).forEach(a => { a.sponsor = fix(a.sponsor); a.text = fix(a.text); }); }
     if (G.World.on(S) && S.teams && !G.World.elites(S).length && S.wseason) G.World.eliteSetup(S, G.R, S.wseason.cy); // 3.1: elite teams in a world from before
     if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {

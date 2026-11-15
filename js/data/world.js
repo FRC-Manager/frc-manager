@@ -268,11 +268,12 @@
   // that a team with every sponsor slot filled that never skips a sponsor activity averages about one donation a year
   // (measured over 60 automated careers: 1.0 a year overall, about 0.45 in the first year while the partnerships are new,
   // 1.0 to 1.4 from the third year; lower for teams whose sponsors expect wins they do not get).
-  D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 },
-    types: { tech: ['laptops', 'ebench', 'printer', 'cad'], eng: ['cnc', 'printer', 'ebench', 'cad'], mfg: ['cnc', 'lathe', 'weld', 'shelf'], soft: ['laptops', 'ebench', 'cad'], uni: ['meeting', 'pfield', 'laptops', 'cad'], local: ['pitcart', 'charger', 'meeting', 'lounge', 'shelf', 'honors'], found: ['ftc', 'meeting', 'lounge'] },
+  // capType: the printer maker gives any level of its own trade, the industrial printer included (a partner's cap is below it).
+  D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 }, capType: { maker: 12000 },
+    types: { maker: ['printer', 'ebench'], tech: ['laptops', 'ebench', 'printer', 'cad'], eng: ['cnc', 'printer', 'ebench', 'cad'], mfg: ['cnc', 'lathe', 'weld', 'shelf'], soft: ['laptops', 'ebench', 'cad'], uni: ['meeting', 'pfield', 'laptops', 'cad'], local: ['pitcart', 'charger', 'meeting', 'lounge', 'shelf', 'honors'], found: ['ftc', 'meeting', 'lounge'] },
     intro: ['A truck backed up to the shop door this morning. Nobody had ordered anything.', 'The email subject was "Clearing out a lab. Interested?" It took the team four seconds to answer.', 'Their engineers visited last month, looked around the shop and went very quiet. Now we know why.', 'It arrived on a pallet with a bow on it. An actual bow.'],
     talk: [['We upgraded ours and could not stand the thought of it sitting in a warehouse.', '{s}'], ['Consider it an investment. We hire from teams like yours.', 'a manager at {s}'], ['Do we need to write a thank-you card? We are writing forty.', 'your team captain'],
-      ['Somebody measure the door. Twice.', 'your lead mentor'], ['I have already put the logo on it. Larger than last year.', 'your business lead'], ['It still has the plastic film on the screen. Nobody is allowed to peel it without a ceremony.', 'a student']] };
+      ['Somebody measure the door. Twice.', '{lead}'], ['I have already put the logo on it. Larger than last year.', 'your business lead'], ['It still has the plastic film on the screen. Nobody is allowed to peel it without a ceremony.', 'a student']] };
   D.BATT_LIMIT = [10, 10, 20]; // max batteries by Battery Station level (0, 1, 2)
   D.PROJ_CAP = 80;             // hours one project can absorb per week (×4 per offseason month, ±25% by priority)
   // Testing hours (practice field time, like a wind tunnel): split between development testing and driver practice
@@ -556,13 +557,13 @@
 
   // ---------- Sponsors ----------
   D.SPONSOR_NAMES = {
-    tech: ['Vantage Systems', 'Nimbus Data', 'Quantix Labs', 'Helios Microdevices', 'Aurora Networks', 'Stratos Cloud'],
-    local: ['Riverside Credit Union', 'Maple Street Pizza', 'Lakeside Hardware', 'Bluebird Diner', 'Corner Book Co.', 'Hometown Auto Repair'],
-    eng: ['Arcwell Engineering', 'Stonebridge Consulting', 'Meridian Structures', 'Clearpath Civil'],
-    mfg: ['Kestrel Machine Works', 'Ironclad Fabrication', 'Precision Plate Co.', 'Northstar Tooling'],
-    uni: ['Northbridge University', 'Lakeview Technical College', 'Eastgate Polytechnic'],
-    soft: ['Helix Software', 'Bytewise Labs', 'Cobalt Code', 'Pinecone Apps'],
-    found: ['Bright Futures Foundation', 'STEM Forward Fund', 'Next Generation Trust']
+    tech: ['Vantage Systems', 'Nimbus Data', 'Quantix Labs', 'Helios Microdevices', 'Aurora Networks', 'Stratos Cloud', 'Polaris Semiconductors', 'Zenith Dynamics', 'Corelight Sensors', 'Atlas Automation', 'Orbit Analytics', 'Vertex Instruments'],
+    local: ['Riverside Credit Union', 'Maple Street Pizza', 'Lakeside Hardware', 'Bluebird Diner', 'Corner Book Co.', 'Hometown Auto Repair', 'Sunrise Bakery', 'Elm Street Bicycles', 'Family Dental Care', 'Parkside Grocery', 'Oak Hill Insurance', 'Main Street Print Shop'],
+    eng: ['Arcwell Engineering', 'Stonebridge Consulting', 'Meridian Structures', 'Clearpath Civil', 'Summit Design Group', 'Keystone Geotechnical', 'Brightline Power Engineering', 'Harbor Point Consulting'],
+    mfg: ['Kestrel Machine Works', 'Ironclad Fabrication', 'Precision Plate Co.', 'Northstar Tooling', 'Anvil Metalworks', 'Granite Gear Co.', 'Redline Plastics', 'Westbrook Welding'],
+    uni: ['Northbridge University', 'Lakeview Technical College', 'Eastgate Polytechnic', 'Riverton State University', 'Summit Community College', 'Westfield Institute of Technology'],
+    soft: ['Helix Software', 'Bytewise Labs', 'Cobalt Code', 'Pinecone Apps', 'Gridline Software', 'Quill Apps', 'Sparrow Code', 'Stackwell Labs'],
+    found: ['Bright Futures Foundation', 'STEM Forward Fund', 'Next Generation Trust', 'Open Doors Education Fund', 'Tomorrow\'s Builders Foundation', 'Launchpad Youth Trust']
   };
   D.SPONSOR_TYPES = {
     tech: { name: 'Tech corporation', title: true, f: 1.08, money: [8000, 16000], exp: 'High', goals: ['champs', 'win', 'playoffs2', 'avgRP'], perks: ['bonusBoost'], oblig: [2, 3] },
@@ -571,8 +572,15 @@
     mfg: { name: 'Manufacturing company', title: true, f: 0.95, money: [3000, 8000], exp: 'Medium', goals: ['quality', 'playoffs1', 'award'], perks: ['fabSpeed', 'partsDiscount'], oblig: [1, 2] },
     uni: { name: 'University', title: false, f: 0.9, money: [1000, 3500], exp: 'Low', goals: ['outreach', 'impactAward'], perks: ['xpBonus'], oblig: [1, 1] },
     soft: { name: 'Software company', title: false, f: 1.1, money: [1500, 5000], exp: 'Medium', goals: ['autoAward', 'avgRP', 'playoffs1'], perks: ['progSpeed'], oblig: [1, 1] },
-    found: { name: 'Foundation grant', title: false, grant: true, f: 1, money: [2500, 5000], exp: 'Low', goals: ['outreach'], perks: [], oblig: [0, 0] }
+    found: { name: 'Foundation grant', title: false, grant: true, f: 1, money: [2500, 5000], exp: 'Low', goals: ['outreach'], perks: [], oblig: [0, 0] },
+    // (3.5) special: never drawn at random. Only D.SPONSOR_MAKER's company is of this type.
+    maker: { name: '3D printer maker', title: false, special: true, f: 1, money: [2500, 5000], exp: 'Medium', goals: ['techAward', 'quality', 'playoffs1'], perks: [], oblig: [1, 1] }
   };
+  // (3.5) Corvane Labs, the printer maker of the 'printfarm' story (the CX1 Carbon, on sale since January 2022). From
+  // the 2022 offseason one of the six partner offers of a list may be theirs, for any team anywhere: chance per list,
+  // from: the first season such a list is for (the list of October 2022 is for the 2023 season). It is a partner like
+  // any other, except that what it donates is its own trade: a Prototyping Lab or Electronics Workbench level.
+  D.SPONSOR_MAKER = { name: 'Corvane Labs', type: 'maker', from: 2023, chance: 0.5 };
   D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
   D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };
   // contract terms by slot (3.1.5): len, the seasons an offer runs; renew, the seasons a renewal adds; keep, the share of

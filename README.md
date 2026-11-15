@@ -2,7 +2,7 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-> **This is the 3.5 beta (version 3.4.5):** ten fantasy games, random careers that mix them in, a custom career builder, and a world simulation that covers every part of the world with teams in it.
+> **This is the 3.5 beta (version 3.4.6):** ten fantasy games, random careers that mix them in, a custom career builder, and a world simulation that covers every part of the world with teams in it.
 > **▶ [Play the beta in your browser](https://frc-manager.github.io/frc-manager-beta/)**. The beta keeps its own saves and never touches the stable game's. The stable release, 3.1.5, is at [frc-manager.github.io/frc-manager](https://frc-manager.github.io/frc-manager/) ([repository](https://github.com/FRC-Manager/frc-manager)).
 
 **▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager-beta/)** — no download needed. Your saves stay in your browser.
@@ -15,7 +15,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order or with your own list of games, as a regional or a district team) or **Single Season Challenge** (one game, real or fantasy, plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.4.5**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.4.6**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -60,6 +60,9 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 **The program**
 
 - **Program Support** from the school keeps the team alive; **reputation** brings sponsors, recruits and harder goals.
+- **You are the lead mentor**, under a name of your own. Letters to the team are addressed to you; a title sponsor writes when it signs and when it renews.
+- **Sponsors** come from your home, 830 of them, each with a line that says what it does. One that leaves stays away for a year.
+- **Team disputes and shop incidents** stop the week for a decision: a small sure loss, a gamble, or sometimes a way to pay it off. The result shows as soon as you choose.
 - **Outreach over several seasons** wins the Impact Award. Feeder programs shape who joins: an outreach mentor and reputation open more of them, and your own FTC teams play their own season beside yours, in the Inbox with the FTC kickoff, the World Championship and the vendors' FTC launches.
 - **One mentor a season** can be nominated by the students for the Woodie Flowers Award: a Finalist at a regional or District Championship, then one winner in the world on Einstein.
 - **Fatigue**: leave about a tenth of the week idle in season, or tired students make mistakes at events.
@@ -96,6 +99,8 @@ js/data/seasons-fantasy.js   the ten fantasy games
 js/data/eras.js       the calendar: price index, technology by year, Championship formats, the lost season, stories
 js/data/world.js      regions, regionals, sponsors, mentors, equipment, activities, research, scenarios
 js/data/world-areas.js   the world's thirteen areas: travel, real team numbers, strength and top-100 tables for 2016 to 2026, local names, offseason events
+js/data/sponsors.js   what every sponsor does (one line each) and the texts of a title sponsor's letters
+js/data/disputes.js   team disputes: the arguments a team has with itself in season, their choices and results
 js/data/parts.js      parts library: vendors, part categories, kit of parts, game elements
 js/sim/engine.js      match engine (10 ticks/s), shared by live view, quick sim and AI matches
 js/sim/rules.js       per-season scoring, ranking points and robot behaviour (2022–2026)

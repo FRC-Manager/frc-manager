@@ -130,7 +130,7 @@
   };
   function kpi(v, l, cls) { return '<div class="kpi"><span class="v ' + (cls || '') + '">' + h(v) + '</span><span class="l">' + l + '</span></div>'; }
   // Inbox items that wait for you: messages with a reply still open, a shop incident, sponsor activities due
-  UI.actionable = S => S.inbox.filter(m => G.News.replyOptions(S, m).length).length + (S.incident ? 1 : 0) + G.Career.dueActivities(S).length;
+  UI.actionable = S => S.inbox.filter(m => G.News.replyOptions(S, m).length).length + (S.incident ? 1 : 0) + (S.dispute ? 1 : 0) + G.Career.dueActivities(S).length;
   function sidebar(cur) {
     const S = G.S;
     if (S.event) {
@@ -159,6 +159,7 @@
       else if (ev && ev.def) btns += '<button class="btn primary" data-act="goEvent">Go to ' + h(ev.def.name) + '</button>' + (ev.def.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip this event</button>' : '');
       if (G.Career.dueActivities(S).length) btns += '<button class="btn" data-act="activities">Resolve sponsor activities</button>';
       if (S.incident) btns += '<button class="btn" data-act="incident">Resolve shop incident</button>';
+      if (S.dispute) btns += '<button class="btn" data-act="dispute">Settle team dispute</button>';
       if (G.Career.needReg(S)) btns += '<button class="btn" data-act="closeAndGo" data-arg="calendar">Open Calendar</button>';
       UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
       return;
@@ -174,6 +175,7 @@
     UI.render();
     if (G.Career.dueActivities(S).length) UI.A.activities();
     else if (S.incident) UI.A.incident();
+    else if (S.dispute) UI.A.dispute();
     else if (S.launchQueue && S.launchQueue.length) UI.launchModal();
     else UI.regReminder();
   };
@@ -429,14 +431,43 @@
   };
   UI.A.resolveInc = function (i) {
     if (UI.err(G.Shop.resolve(G.S, Number(i)))) return;
+    UI.closeModal(); UI.render(); UI.A.outcome();
+  };
+  // ---------------- team disputes (3.5) ----------------
+  UI.A.dispute = function () {
+    const S = G.S, d = S.dispute;
+    if (!d) { UI.closeModal(); return; }
+    UI.modal('<div class="xs info b">TEAM DISPUTE</div><h2>' + h(d.title) + '</h2><p class="muted">' + h(d.body) + '</p><div class="col">' +
+      d.opts.map((o, i) => '<button class="btn" data-act="resolveDisp" data-arg="' + i + '" style="text-align:left;white-space:normal"><b>' + h(o.label) + (o.cost ? ' · ' + U.money(o.cost) : '') + '</b><div class="xs muted">' + h(o.desc) + '</div></button>').join('') +
+      '</div><p class="xs dim mt">What it costs development lasts this week only. ' + UI.q('team', 'Team disputes') + '</p>', { lock: true });
+  };
+  UI.A.resolveDisp = function (i) {
+    if (UI.err(G.Career.resolveDispute(G.S, Number(i)))) return;
+    UI.closeModal(); UI.render(); UI.A.outcome();
+  };
+  // what a choice led to (a shop incident or a team dispute): shown in the same window as soon as it is made
+  UI.A.outcome = function () {
+    const S = G.S, r = S.lastOutcome;
+    if (!r) { UI.A.outcomeOk(); return; }
+    const head = r.kind === 'dispute' ? ['TEAM DISPUTE', 'info'] : ['SHOP INCIDENT', 'warn'], verdict = r.risk ? (r.bad ? UI.tag('It went wrong', 'bad') : UI.tag('It worked', 'good')) : '';
+    UI.modal('<div class="xs ' + head[1] + ' b">' + head[0] + ' · OUTCOME</div><h2>' + h(r.title) + '</h2>' +
+      '<p class="muted">You chose: <b>' + h(r.choice) + '</b> ' + verdict + '</p>' + (r.text ? '<p>' + h(r.text) + '</p>' : '') +
+      '<div class="row wrap outcome-fx">' + r.effects.map(e => UI.tag(e, /^No loss$|\+\d+%| condition \+|Fatigue −/.test(e) ? 'good' : /^Paid /.test(e) ? '' : 'warn')).join(' ') + '</div>' +
+      '<div class="row mt"><span class="xs muted">Also in your Inbox.</span><span class="sp"></span><button class="btn primary" data-act="outcomeOk">OK</button></div>', { lock: true });
+  };
+  UI.A.outcomeOk = function () {
+    const S = G.S; delete S.lastOutcome;
     UI.closeModal(); UI.render();
-    if (G.Career.dueActivities(G.S).length) UI.A.activities();
+    if (G.Career.dueActivities(S).length) UI.A.activities();
+    else if (S.incident) UI.A.incident();
+    else if (S.dispute) UI.A.dispute();
   };
   UI.devBanner = function (S) {
     let o = '';
     if (S.devMods && G.Shop.modsText(S.devMods.mods)) o += '<div class="warnbox mb">This turn: ' + h(G.Shop.modsText(S.devMods.mods)) + ' (' + h(S.devMods.notes.join(', ')) + ')' + (S.phase === 'off' ? ', for about one week of the month' : '') + '.</div>';
     if (S.pendingRisk) o += '<div class="warnbox mb">Risk this turn: ' + h(S.pendingRisk.title) + ' — ' + h(S.pendingRisk.desc || '') + '.</div>';
     if (S.incident) o += '<div class="warnbox mb"><b>Shop incident:</b> ' + h(S.incident.title) + ' <button class="btn sm" data-act="incident">Decide</button></div>';
+    if (S.dispute) o += '<div class="warnbox mb"><b>Team dispute:</b> ' + h(S.dispute.title) + ' <button class="btn sm" data-act="dispute">Decide</button></div>';
     const unit = S.phase === 'off' ? 'month' : 'week';
     const boosts = (S.boosts || []).map(b => G.Shop.boostText(b) + ' (' + h(b.title) + ', ' + b.turns + ' ' + unit + (b.turns > 1 ? 's' : '') + ' left)')
       .concat((S.guests || []).map(g => 'guest mentor ' + h(g.m.name) + ' from ' + h(g.m.guest) + ' (' + g.turns + ' ' + unit + (g.turns > 1 ? 's' : '') + ' left)'));
@@ -527,7 +558,7 @@
       '<button class="btn" data-act="resAct" data-arg="' + a.id + '|hours">Send a team group <span class="xs muted">(+satisfaction, −30 build hours this turn)</span></button>' +
       '<button class="btn bad" data-act="resAct" data-arg="' + a.id + '|skip">Skip it <span class="xs muted">(−15 sponsor satisfaction)</span></button></div>', { lock: true });
   };
-  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); if (G.S.incident) UI.A.incident(); } };
+  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); if (G.S.incident) UI.A.incident(); else if (G.S.dispute) UI.A.dispute(); } };
 
   // =====================================================================
   // HQ
@@ -635,7 +666,7 @@
       let body = '';
       if (open) {
         body = (m.robot && m.robot.look ? '<div class="mb revpic">' + UI.sideCanvas(m.robot.look, 'blue', m.robot.num, 480, 270) + '</div>' : '') + // a reveal: the robot's picture (at most 480 px wide, so it stays sharp)
-          (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div><div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '') + // an email: its header
+          (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div>' + (m.mail.cc ? '<div><span>Cc</span>' + h(m.mail.cc) + '</div>' : '') + '<div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '') + // an email: its header
           '<div class="mb' + (m.mail ? ' mailbody' : '') + '">' + h(m.body) + '</div>' +
           (m.note ? '<div class="xs muted mb msgnote">' + UI.icon('info', 12) + ' ' + h(m.note) + '</div>' : ''); // what a letter means in the game
         if (m.series && UI.festSeriesBox) body += UI.festSeriesBox(m.series, m.seriesTag); // the Festival's result, as in the pop-up
@@ -1359,8 +1390,10 @@
     const S = G.S;
     const hd = '<tr><th>Name</th><th>Role</th><th>Rating</th><th class="num">Skill</th><th>Specialty</th><th class="num">Hours</th><th class="num">Cost/season</th><th class="num">Seasons</th><th></th></tr>';
     let o = '<h1>Mentors</h1><div class="sub">Costs cover recruiting, travel and training; charged at hire and each Kickoff.</div>';
+    // (3.5) the lead mentor is you: the name letters are addressed to
+    o += '<div class="row mb"><label class="row sm" title="You. Letters to the team are addressed to this name, and it is used wherever the game speaks of the lead mentor.">' + UI.icon('team', 14) + ' Lead mentor (you): <input class="inp sm" style="width:220px" maxlength="40" value="' + h(G.Career.leadName(S)) + '" data-chg="leadName"></label></div>';
     o += '<div class="grid g3 mb">' + D.MENTOR_ROLES.map(r => '<div class="card flat"><b>' + h(r.name) + '</b><div class="xs muted">' + h(r.desc) + '</div></div>').join('') + '</div>';
-    o += UI.card('Your mentors ' + UI.tag(S.mentors.length + '/8', S.mentors.length >= 8 ? 'warn' : ''), S.mentors.length ? '<table class="t">' + hd + S.mentors.map(m => mentorRow(m, '<button class="btn sm bad" data-act="releaseM" data-arg="' + m.id + '">Release</button>')).join('') + '</table>' : '<p class="muted">No mentors.</p>');
+    o += UI.card('Your mentors ' + UI.tag(S.mentors.length + '/8', S.mentors.length >= 8 ? 'warn' : ''), S.mentors.length ? '<table class="t">' + hd + S.mentors.map(m => mentorRow(m, G.Career.canUnhire(S, m) ? '<button class="btn sm" data-act="unhireM" data-arg="' + m.id + '" title="Hired this turn: take it back for everything it cost, until you press Continue">Undo hire</button>' : '<button class="btn sm bad" data-act="releaseM" data-arg="' + m.id + '">Release</button>')).join('') + '</table>' : '<p class="muted">No mentors.</p>');
     if (S.guests && S.guests.length) o += '<div class="mt">' + UI.card('Guest mentors ' + UI.tag('temporary · extra slots', 'good'), '<table class="t">' + hd + S.guests.map(g => mentorRow(Object.assign({}, g.m, { contract: '—' }), UI.tag(g.turns + (S.phase === 'off' ? ' mo' : ' wk') + ' left · ' + g.m.guest, 'info'))).join('') + '</table>') + '</div>';
     o += '<div class="mt">' + UI.card('Mentor market', S.market.length ? '<table class="t">' + hd + S.market.map(m => mentorRow(m, '<button class="btn sm primary" data-act="hireM" data-arg="' + m.id + '">Hire</button>')).join('') + '</table>' : '<p class="muted">No candidates right now. The market refreshes in August.</p>', mentorSearchBtn(S)) + '</div>';
     return o;
@@ -1372,7 +1405,9 @@
     return '<span class="xs muted">' + left + ' of ' + D.MENTOR_SEARCH.max + ' searches left</span> <button class="btn sm" data-act="searchM" ' + (left > 0 ? 'title="Ads, calls to alumni and a booth at a maker fair: a new list of candidates (it replaces this one)"' : 'disabled title="Next new candidates: next August"') + '>Search for more mentors · ' + U.money(D.MENTOR_SEARCH.cost) + '</button>';
   }
   UI.A.searchM = () => { if (!UI.err(G.Career.searchMentors(G.S))) { UI.toast('New mentor candidates found', 'good'); UI.render(); } };
-  UI.A.hireM = id => { if (!UI.err(G.Career.hireMentor(G.S, id))) UI.render(); };
+  UI.A.hireM = id => { if (!UI.err(G.Career.hireMentor(G.S, id))) { UI.toast('Mentor hired. You can undo it until you press Continue.', 'good'); UI.render(); } };
+  UI.A.leadName = v => { const t = String(v || '').trim().slice(0, 40); if (t) G.S.team.lead = t; UI.render(); };
+  UI.A.unhireM = id => { if (!UI.err(G.Career.unhireMentor(G.S, id))) { UI.toast('Hire undone: the mentor is back on the market', 'good'); UI.render(); } };
   UI.A.releaseM = id => UI.confirm('Release mentor?', 'Morale −5. No refund.', 'Release', () => { G.Career.releaseMentor(G.S, id); UI.render(); });
 
   // =====================================================================
@@ -1471,6 +1506,7 @@
   // FINANCE
   // =====================================================================
   // Sponsor money at a glance: this season (base paid, bonuses reached and still possible) and next season (expected base, bonus ceiling)
+  const spDesc = sp => (D.sponsorDesc && D.sponsorDesc(sp.name) ? '<div class="xs sp-desc">' + h(D.sponsorDesc(sp.name)) + '</div>' : ''); // (3.5) what the company does
   UI.sponsorSummary = function (S) {
     const C = G.Career, nx = C.sponsorNext(S), inS = C.inSeason(S), now = inS ? Object.assign({ year: S.year }, C.sponsorSeason(S)) : S.lastSponsor || null;
     const num = (v, lbl) => '<div><div class="hnum">' + v + '</div><div class="l">' + lbl + '</div></div>', pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -1516,7 +1552,7 @@
     const anyOpen = ['title', 'partner', 'grant'].some(k => sl[k].n < sl[k].max && S.offers.some(of => of.slot === k));
     o += UI.card('Sponsors ' + slTag('title', 'Title') + ' ' + slTag('partner', 'Partners') + ' ' + slTag('grant', 'Grant'), S.sponsors.length ? S.sponsors.map(sp =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
-      '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
+      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div>' +
       (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' :
         C.canEndSponsor(S, sp) ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="endSp" data-arg="' + sp.id + '" title="Ends the contract and frees its slot for another offer. Only in the autumn, while new offers are open.">End sponsorship · reputation −' + C.endSponsorCost(sp) + '</button></div>' : '') + '</div>').join('') +
@@ -1524,7 +1560,7 @@
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
-      '<div class="xs muted">' + h(of.typeName) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
+      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span>' + (sl[of.slot].n >= sl[of.slot].max ? '<span class="xs muted">' + (of.slot === 'partner' ? 'Partner slots full' : 'You already have a ' + (of.slot === 'title' ? 'title sponsor' : 'grant')) + '</span>' : '<button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button>') + '</div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>',
       '<button class="btn sm" data-act="autoSp" ' + (anyOpen ? '' : 'disabled') + ' title="Signs the best-value offer for every open slot. You can undo any of them until you press Continue.">Auto-pick best</button>');
