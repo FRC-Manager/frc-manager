@@ -173,6 +173,9 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.1', title: 'Beta of 3.5: menu pages keep their place', notes: [
+      'On the New Career, Single Season Challenge and the other menu pages, clicking a choice no longer sends the page back to the top: it stays where you were, as the game pages do.'
+    ] },
     { v: '3.4.0', title: 'Beta of 3.5: ten fantasy games and custom careers', notes: [
       'This is a beta. It keeps its own saves and settings, apart from the stable game\'s, so trying it cannot harm a career you are playing there. A save exported from the stable game can be imported here.',
       'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',

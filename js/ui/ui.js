@@ -17,7 +17,9 @@
   UI.render = function () {
     const app = document.getElementById('app');
     const scr = UI.S[UI.screen] || UI.S.menu;
-    const was = document.getElementById('main'), keep = UI.shown === UI.screen ? { m: was ? was.scrollTop : 0, w: window.scrollY || 0 } : null;
+    // what scrolls: the main column of a game page, or the whole of a full-screen menu page (new game, guide, notes…)
+    const scroller = () => document.getElementById('main') || document.querySelector('.menu-wrap');
+    const was = scroller(), keep = UI.shown === UI.screen ? { m: was ? was.scrollTop : 0, w: window.scrollY || 0 } : null;
     UI.jobs = [];
     if (UI.applyTheme) UI.applyTheme(G.S && G.S.team && UI.screen !== 'menu' && UI.screen !== 'newgame' ? G.S.team : UI.screen === 'newgame' && UI.st.ng ? UI.st.ng : null);
     let body;
@@ -26,7 +28,7 @@
     if (scr.full) app.innerHTML = UI.era(body);
     else app.innerHTML = UI.era(topbar() + '<div class="shell">' + sidebar(scr.nav || UI.screen) + '<div class="main" id="main">' + body + '</div></div>');
     UI.shown = UI.screen;
-    if (keep) { const mn = document.getElementById('main'); if (mn && keep.m) mn.scrollTop = keep.m; if (keep.w) window.scrollTo(0, keep.w); }
+    if (keep) { const mn = scroller(); if (mn && keep.m) mn.scrollTop = keep.m; if (keep.w) window.scrollTo(0, keep.w); } // a click that redraws the page you are on keeps your place
     UI.jobs.forEach(f => { try { f(); } catch (e) { console.error(e); } });
     if (scr.after) scr.after();
     if (!UI.verChecked && UI.versionCheck) { UI.verChecked = true; setTimeout(UI.versionCheck, 350); } // "Updated to vX" once per new version

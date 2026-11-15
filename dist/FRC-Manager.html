@@ -725,7 +725,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.4.0';
+  G.VERSION = '3.4.1';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -20007,7 +20007,9 @@ window.G = window.G || {};
   UI.render = function () {
     const app = document.getElementById('app');
     const scr = UI.S[UI.screen] || UI.S.menu;
-    const was = document.getElementById('main'), keep = UI.shown === UI.screen ? { m: was ? was.scrollTop : 0, w: window.scrollY || 0 } : null;
+    // what scrolls: the main column of a game page, or the whole of a full-screen menu page (new game, guide, notes…)
+    const scroller = () => document.getElementById('main') || document.querySelector('.menu-wrap');
+    const was = scroller(), keep = UI.shown === UI.screen ? { m: was ? was.scrollTop : 0, w: window.scrollY || 0 } : null;
     UI.jobs = [];
     if (UI.applyTheme) UI.applyTheme(G.S && G.S.team && UI.screen !== 'menu' && UI.screen !== 'newgame' ? G.S.team : UI.screen === 'newgame' && UI.st.ng ? UI.st.ng : null);
     let body;
@@ -20016,7 +20018,7 @@ window.G = window.G || {};
     if (scr.full) app.innerHTML = UI.era(body);
     else app.innerHTML = UI.era(topbar() + '<div class="shell">' + sidebar(scr.nav || UI.screen) + '<div class="main" id="main">' + body + '</div></div>');
     UI.shown = UI.screen;
-    if (keep) { const mn = document.getElementById('main'); if (mn && keep.m) mn.scrollTop = keep.m; if (keep.w) window.scrollTo(0, keep.w); }
+    if (keep) { const mn = scroller(); if (mn && keep.m) mn.scrollTop = keep.m; if (keep.w) window.scrollTo(0, keep.w); } // a click that redraws the page you are on keeps your place
     UI.jobs.forEach(f => { try { f(); } catch (e) { console.error(e); } });
     if (scr.after) scr.after();
     if (!UI.verChecked && UI.versionCheck) { UI.verChecked = true; setTimeout(UI.versionCheck, 350); } // "Updated to vX" once per new version
@@ -23393,6 +23395,9 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.1', title: 'Beta of 3.5: menu pages keep their place', notes: [
+      'On the New Career, Single Season Challenge and the other menu pages, clicking a choice no longer sends the page back to the top: it stays where you were, as the game pages do.'
+    ] },
     { v: '3.4.0', title: 'Beta of 3.5: ten fantasy games and custom careers', notes: [
       'This is a beta. It keeps its own saves and settings, apart from the stable game\'s, so trying it cannot harm a career you are playing there. A save exported from the stable game can be imported here.',
       'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',
