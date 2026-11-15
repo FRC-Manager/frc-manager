@@ -92,6 +92,7 @@
       if (cust) {
         // (3.5) the custom career: pick the games, see the years they fall in, then play them as listed or shuffled
         n.games = (n.games || []).filter(g => G.Seasons[g]).slice(0, nS);
+        if (n.shuffle !== 'yes') n.shuffle = 'no'; // "As listed" is the default, and shows as chosen
         const pk = n.games, shuf = n.shuffle === 'yes', fitMsg = pk.length ? G.Career.gamesFit(pk, cal, !shuf) : '';
         const gcard = y => { const i = pk.indexOf(y); return '<div class="choice ' + (i >= 0 ? 'on' : '') + '" data-act="ngGame" data-arg="' + y + '"><div class="xs muted">' + (G.isFantasy(y) ? 'FANTASY' : y) + (i >= 0 ? ' · ' + (shuf ? 'picked' : 'season ' + (i + 1)) : '') + '</div><div class="b">' + h(G.Seasons[y].name) + '</div></div>'; };
         o += '<h3 class="mt">Games <span class="sm muted" style="font-weight:400">· pick up to ' + nS + ', one for each year from ' + n.start + ' to 2026. The career ends after your last game.</span></h3>' +
@@ -173,6 +174,10 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.2', title: 'Beta of 3.5: two display fixes', notes: [
+      'Custom career: "As listed" is the default way to play your games, and it now shows as chosen from the start.',
+      'Inventory, Your robots: the Control system card names who made each part, so Sterling parts say Sterling and no longer Apex.'
+    ] },
     { v: '3.4.1', title: 'Beta of 3.5: menu pages keep their place', notes: [
       'On the New Career, Single Season Challenge and the other menu pages, clicking a choice no longer sends the page back to the top: it stays where you were, as the game pages do.'
     ] },

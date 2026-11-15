@@ -594,13 +594,14 @@
     return (pcache[k] = profile(S, which === 'prac' ? 'prac' : 'comp'));
   };
   function profile(S, side) {
-    const a = P.alloc(S), out = { motor: 0, enc: 0, swerve: 0, ctrl: 0, health: 1, mixed: false, vendors: {}, short: 0 };
+    const a = P.alloc(S), out = { motor: 0, enc: 0, swerve: 0, ctrl: 0, health: 1, mixed: false, vendors: {}, brands: {}, short: 0 };
     let hs = 0, hn = 0;
     const lists = a[side], need = a.need[side], short = side === 'prac' ? a.pshort : a.short;
     ['motor', 'enc', 'swerve', 'ctrl'].forEach(cat => {
       const nd = need[cat] || 0, got = lists[cat] || [];
       if (nd) out[cat] = got.reduce((s, it) => s + PROD[it.p].perf, 0) / nd;
-      got.forEach(it => { const v = PROD[it.p].v; out.vendors[v] = (out.vendors[v] || 0) + 1; });
+      // vendors: by slot (what counts as mixed). brands: by maker, for display (Sterling parts sit in the premium slot)
+      got.forEach(it => { const v = PROD[it.p].v, b = P.brand(PROD[it.p]); out.vendors[v] = (out.vendors[v] || 0) + 1; out.brands[b] = (out.brands[b] || 0) + 1; });
       out.short += short[cat] || 0;
     });
     { const nd = need.wcd || 0, got = lists.wcd || []; out.wcd = nd ? got.reduce((s, it) => s + PROD[it.p].perf, 0) / nd : 0; out.short += short.wcd || 0; } // drive sets: no part of the control system
