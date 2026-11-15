@@ -2,7 +2,7 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-> **This is the 3.5 beta (version 3.4.3):** ten fantasy games, random careers that mix them in, a custom career builder, and a world simulation that covers every part of the world with teams in it.
+> **This is the 3.5 beta (version 3.4.4):** ten fantasy games, random careers that mix them in, a custom career builder, and a world simulation that covers every part of the world with teams in it.
 > **▶ [Play the beta in your browser](https://frc-manager.github.io/frc-manager-beta/)**. The beta keeps its own saves and never touches the stable game's. The stable release, 3.1.5, is at [frc-manager.github.io/frc-manager](https://frc-manager.github.io/frc-manager/) ([repository](https://github.com/FRC-Manager/frc-manager)).
 
 **▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager-beta/)** — no download needed. Your saves stay in your browser.
@@ -15,7 +15,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order or with your own list of games, as a regional or a district team) or **Single Season Challenge** (one game, real or fantasy, plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.4.3**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.4.4**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -48,7 +48,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 - **Parts are real.** Control system parts (motors, encoders, hubs), drivetrain parts and kits come from the Inventory, wear out, and sell out in season. What everybody wants sells out first. Stock up before Kickoff. A vision company, planetary gearboxes and servo kits arrive over the decade.
 - **Elite designs.** Seven games offer mechanisms only the best teams build: a little better than the next best, and much harder.
 - **Elite teams.** A few programs at the top of the sport, close to maxed out. How many each area has follows the real top 100 teams in the world, season by season. Every Championship division has them; a world title takes a robot and drive team at their level.
-- **The whole world.** Twelve areas, from the West to Asia Pacific, each following the real seasons of 2016 to 2026: its teams, their numbers, their strength and the cities that host its regionals. An event in another part of the world is a flight overseas.
+- **The whole world.** Thirteen areas, from the West to Asia Pacific, each following the real seasons of 2016 to 2026: its teams, their numbers, their strength and the cities that host its regionals. An event in another part of the world is a flight overseas.
 - **Published robots.** From 2018 a veteran team publishes a simple robot for every game, and from 2022 a vendor publishes a competitive one. Copy one for a quicker first build and drivers who know it from the simulator, then make it your own.
 
 **Matches**

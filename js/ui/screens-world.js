@@ -196,7 +196,7 @@
     o += '<div class="xs muted mt mb">Drag to move, scroll or + to zoom, click a circle to zoom in. Team strength is the world simulation\'s rating. ' + UI.q('world', 'The map') + '</div>';
     // ---- the same numbers as a table: one row per area and district
     const areas = [];
-    D.REGIONS.forEach(r => { if (G.World.legacy(S) && !Object.values(S.teams).some(t => t.region === r)) return; areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }); });
+    D.REGIONS.forEach(r => { if ((G.World.legacy(S) || !G.World.regionOpen(r, cy)) && !Object.values(S.teams).some(t => !t.home && t.region === r)) return; areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }); });
     dists.forEach(d => areas.push({ key: 'd:' + d.id, name: d.name, kind: 'District', f: t => t.home === d.id, ev: e => e.dist === d.id, d }));
     const all = Object.values(S.teams), mineA = S.team.home ? 'd:' + S.team.home : 'r:' + S.team.region;
     o += UI.card('Areas and districts ' + UI.tag(cy + '', ''), '<div style="overflow-x:auto"><table class="t tight"><tr><th>Area</th><th>Kind</th><th class="num">Teams</th><th class="num" title="Average strength (the world simulation\'s rating)">Avg strength</th><th class="num">Rookies</th><th class="num">Events</th><th class="num" title="Teams that have qualified for the Championship so far">Qualified</th></tr>' +

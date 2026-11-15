@@ -64,18 +64,24 @@
       o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
     // (3.5) the home list: the areas of North America, the rest of the world, and the districts of the start year
+    // (3.4.4) an area that is all one formed district is not a home for a regional team: its district is
+    const ngOpen = r => n.mode !== 'career' || G.World.regionOpen(r, n.start);
+    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) n.school = UI.ngSchool(n); }
     const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
-      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA').map(ngOpt).join('') + '</optgroup>' +
-        '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA').map(ngOpt).join('') + '</optgroup>' +
+      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
+        '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
       '</div>';
     if (n.mode === 'career') {
       const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff), A = D.WORLD_AREAS[n.region], sites = D.sitesOf(n.region, n.start), far = D.overseas(n.region, 'Midwest');
+      // a district still to form in this area: all of it (your team joins), or part of it (you choose then)
+      const fut = d ? null : D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0];
+      const futTxt = !fut ? '' : G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. ' : 'In ' + fut.from + ' part of it forms the ' + h(fut.name) + ': you choose then whether to join. ';
       o += '<div class="hint mt"><b>Competition:</b> about ' + pv.teams + ' teams in ' + n.start + ', average strength about ' + pv.avg + ', and ' + (pv.elite ? pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world.' : 'no ' + UI.eliteTag() + ' team calls this area home this season.') +
         ' The numbers follow the real season. ' + UI.q('world', 'Elite teams') + '</div>';
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
-        : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + 'Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
+        : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + futTxt + 'Register for one to four regionals. Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
       // travel from an area outside North America: its own regionals this first season, and what is overseas
       if (far || A) o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your district events are close to home. ' : A ? (sites.length ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + sites.length + ' regional' + (sites.length > 1 ? 's' : '') + ' (' + h(sites.filter((x, i, a) => a.indexOf(x) === i).join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') : '') +
         (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
@@ -193,6 +199,12 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
+      'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
+      'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',
+      'The New Career page says what lies ahead for your home: a district that takes in the whole area, one that forms in part of it and asks you, or none.',
+      'A career saved in 3.4.3 is converted when it loads: a team from the old Middle East\'s regional cities is an Anatolia team now.'
+    ] },
     { v: '3.4.3', title: 'Beta of 3.5: the whole world', notes: [
       'The world simulation covers every part of the world with teams in it. Twelve areas: the West, Southwest, Midwest, Northeast and Southeast, the North, Central America, South America, Europe, the Middle East, East Asia and Asia Pacific. Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East.',
       'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the team numbers they carry by the thousand, their average strength, and the cities that host its regionals. Some seasons an area has no regional of its own.',

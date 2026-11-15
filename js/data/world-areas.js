@@ -8,18 +8,18 @@
 
   // ---------- areas, neighbours and travel ----------
   D.US_REGIONS = ['West', 'Southwest', 'Midwest', 'Northeast', 'Southeast'];
-  D.REGIONS = D.US_REGIONS.concat(['North', 'Central America', 'South America', 'Europe', 'Middle East', 'East Asia', 'Asia Pacific']);
+  D.REGIONS = D.US_REGIONS.concat(['North', 'Central America', 'South America', 'Europe', 'Anatolia', 'Middle East', 'East Asia', 'Asia Pacific']);
   D.REGION_OLD = { Canada: 'North' }; // names from before 3.5 (old saves)
   // a drive away
   D.ADJ = {
     West: ['Southwest'], Southwest: ['West', 'Midwest', 'Southeast', 'Central America'], Midwest: ['Southwest', 'Northeast', 'Southeast', 'North'],
     Northeast: ['Midwest', 'Southeast', 'North'], Southeast: ['Southwest', 'Midwest', 'Northeast'], North: ['Midwest', 'Northeast'],
-    'Central America': ['Southwest'], 'South America': [], Europe: [], 'Middle East': [], 'East Asia': [], 'Asia Pacific': []
+    'Central America': ['Southwest'], 'South America': [], Europe: [], Anatolia: [], 'Middle East': [], 'East Asia': [], 'Asia Pacific': []
   };
   // the part of the world an area is in: a flight inside it is an ordinary one, a flight out of it goes overseas
-  D.GROUP = { West: 'NA', Southwest: 'NA', Midwest: 'NA', Northeast: 'NA', Southeast: 'NA', North: 'NA', 'Central America': 'NA', 'South America': 'SA', Europe: 'EME', 'Middle East': 'EME', 'East Asia': 'EA', 'Asia Pacific': 'AP' };
+  D.GROUP = { West: 'NA', Southwest: 'NA', Midwest: 'NA', Northeast: 'NA', Southeast: 'NA', North: 'NA', 'Central America': 'NA', 'South America': 'SA', Europe: 'EME', Anatolia: 'EME', 'Middle East': 'EME', 'East Asia': 'EA', 'Asia Pacific': 'AP' };
   // where an area's teams go when they have to travel far (the world simulation's teams; yours go where you send them)
-  D.NEAR = { 'South America': ['Central America', 'Southeast'], 'Central America': ['South America'], Europe: ['Middle East', 'Northeast'], 'Middle East': ['Europe'], 'East Asia': ['Asia Pacific', 'West'], 'Asia Pacific': ['East Asia', 'West'] };
+  D.NEAR = { 'South America': ['Central America', 'Southeast'], 'Central America': ['South America'], Europe: ['Anatolia', 'Northeast'], Anatolia: ['Europe', 'Middle East'], 'Middle East': ['Anatolia', 'Europe'], 'East Asia': ['Asia Pacific', 'West'], 'Asia Pacific': ['East Asia', 'West'] };
   D.overseas = (home, region) => (D.GROUP[home] || 'NA') !== (D.GROUP[region] || 'NA');
   D.TRAVEL.intl = { name: 'Fly overseas', cost: 15000 };
   D.INTL_KNOCKS = [6, 12];  // condition lost by a robot shipped overseas (an ordinary flight: 4 to 9)
@@ -28,14 +28,15 @@
   // how likely a team of `home` is to enter an event in `region`
   D.goW = (home, region) => (home === region ? 3 : (D.ADJ[home] || []).includes(region) ? 1.1 : (D.NEAR[home] || []).includes(region) ? 0.5 : D.overseas(home, region) ? 0.03 : 0.2);
   // the Championship's half of the world in the years with two Championships (1: the northern one)
-  D.SIDE1 = ['Midwest', 'Northeast', 'North', 'Europe', 'Middle East'];
+  D.SIDE1 = ['Midwest', 'Northeast', 'North', 'Europe', 'Anatolia', 'Middle East'];
 
   // ---------- the areas outside the United States ----------
   // Their teams follow the real numbers (D.NUMS), about one team in the game for every 2.2 real ones, so that an area
   // can fill its own events. sites: the cities that host a regional each season, about one for every two real ones
   // (none in a season the area really had none). names: what a regional in that city is called.
   D.SCALE = 1 / 2.2;
-  D.EXPLICIT = ['North', 'trillium', 'Central America', 'South America', 'Europe', 'Middle East', 'levant', 'East Asia', 'Asia Pacific'];
+  // (the Middle East has no zone of its own: all of its cities are the Levant District's, before and after it forms)
+  D.EXPLICIT = ['North', 'trillium', 'Central America', 'South America', 'Europe', 'Anatolia', 'levant', 'East Asia', 'Asia Pacific'];
   D.WORLD_AREAS = {
     North: { sites: { 2016: ['Toronto', 'Waterloo', 'Windsor', 'Montreal'], 2017: ['Montreal'], 2018: ['Montreal', 'Victoria'], 2019: ['Montreal', 'Calgary'], 2020: ['Montreal', 'Victoria'], 2022: ['Montreal'], 2023: ['Victoria'], 2024: ['Montreal'], 2025: ['Vancouver'], 2026: ['Montreal'] },
       names: { Toronto: ['Maple Leaf'], Waterloo: ['Grand River'], Windsor: ['Border Lakes'], Montreal: ['Laurentian'], Victoria: ['Pacific Rainforest'], Vancouver: ['Coast Mountains'], Calgary: ['Rocky Summit'] },
@@ -47,10 +48,13 @@
       names: { Brasilia: ['Central Plateau'], 'Sao Paulo': ['Tropic Line'] }, first: 2023,
       about: 'A handful of veteran teams, then dozens of new ones from 2023, when its first regional arrives.' },
     Europe: { sites: {}, names: {},
-      about: 'A few scattered teams and no regional at all: the nearest are a flight away in the Middle East.' },
-    'Middle East': { sites: { 2016: ['Tel Aviv'], 2018: ['Istanbul'], 2019: ['Istanbul'], 2020: ['Istanbul'], 2022: ['Istanbul', 'Izmir'], 2023: ['Istanbul', 'Izmir'], 2024: ['Istanbul', 'Istanbul'], 2025: ['Istanbul', 'Istanbul', 'Ankara'], 2026: ['Istanbul', 'Istanbul', 'Istanbul', 'Ankara'] },
-      names: { 'Tel Aviv': ['Coastal Plain'], Istanbul: ['Two Continents', 'Tulip Gardens', 'Strait Lights'], Izmir: ['Aegean Breeze'], Ankara: ['Steppe Winds'] }, first: 2018,
-      about: 'The fastest-growing area in the world: a dozen teams in 2016, about a hundred ten years later.' },
+      about: 'A few scattered teams and no regional at all: the nearest are a flight away in Anatolia.' },
+    Anatolia: { sites: { 2018: ['Istanbul'], 2019: ['Istanbul'], 2020: ['Istanbul'], 2022: ['Istanbul', 'Izmir'], 2023: ['Istanbul', 'Izmir'], 2024: ['Istanbul', 'Istanbul'], 2025: ['Istanbul', 'Istanbul', 'Ankara'], 2026: ['Istanbul', 'Istanbul', 'Istanbul', 'Ankara'] },
+      names: { Istanbul: ['Two Continents', 'Tulip Gardens', 'Strait Lights'], Izmir: ['Aegean Breeze'], Ankara: ['Steppe Winds'] }, first: 2018,
+      about: 'The fastest-growing area in the world: a dozen teams in 2016, about a hundred ten years later. No regional of its own before 2018, and no district.' },
+    // every city of the Middle East is one of the Levant District's: its teams play one regional in 2016 and district events from 2017
+    'Middle East': { sites: { 2016: ['Tel Aviv'] }, names: { 'Tel Aviv': ['Coastal Plain'] },
+      about: 'A small coast where every team is an hour from every other, and the level is high.' },
     'East Asia': { sites: { 2017: ['Shenzhen'], 2018: ['Shanghai'], 2020: ['Taichung', 'Beijing'], 2022: ['Taipei'], 2025: ['Taipei'], 2026: ['Shanghai'] },
       names: { Shenzhen: ['Pearl Delta'], Shanghai: ['Great River Delta'], Taichung: ['Island Peaks'], Beijing: ['Jade Capital'], Taipei: ['Jade Mountain'] }, first: 2017,
       about: 'Coastal megacities and an island of makers; the numbers rise, fall and rise again.' },
@@ -82,12 +86,12 @@
     'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College'],
     'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology'],
     Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School'],
-    'Middle East': ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
+    Anatolia: ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
     levant: ['Carmel Technological High School', 'Coastal Plain Science High School', 'Desert Blossom High School', 'Galilee Regional School', 'Sharon Youth Village School'],
     'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School'],
     'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School']
   };
-  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West;
+  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West; D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic'],
       local: ['Pacific Surf Shop', 'Orchard Street Tacos', 'Vineyard Credit Union', 'Golden Poppy Bakery', 'Sierra Outfitters', 'Coastline Auto'], eng: ['Seismic Structures', 'Baycrest Engineering', 'High Desert Aerospace', 'Solaris Energy Engineering'],
@@ -118,7 +122,7 @@
       eng: ['Atlantic Offshore Engineering', 'Planalto Hydro Engineering'], mfg: ['Serra Mining & Steel', 'Paulista Auto Assembly', 'Pampa Agro Machinery', 'Rio Doce Metals'], uni: ['Industrial Learning Institute', 'Federal University of the Plateau', 'Technological Institute of the Valley'], found: ['Industry Social Foundation', 'Futuro Jovem Trust'] },
     Europe: { tech: ['Lowlands Lithography', 'Alpine Precision Instruments', 'Baltic Embedded Systems', 'Rhone Avionics'], soft: ['Tulip Software', 'Nordlys Apps'], local: ['Canal Street Bakery', 'Old Town Bicycle Shop', 'Market Square Cafe', 'Harbour Cooperative Bank'],
       eng: ['Delta Water Engineering', 'Channel Rail Engineering'], mfg: ['Vistula Machine Works', 'Thames Composites', 'Bohemia Motor Works'], uni: ['Lowlands University of Technology', 'Vistula Polytechnic', 'Alpine Federal Institute'], found: ['Continental STEM Foundation', 'Bridge Builders Trust'] },
-    'Middle East': { tech: ['Anatolia Defence Electronics', 'Crescent Aerospace', 'Bosphorus Telecom', 'Sky Anatolia Airlines'], soft: ['Tulip Era Software', 'Cay Code'], local: ['Simit Corner Bakery', 'Grand Bazaar Hardware', 'Ocakbasi Kebab House', 'Tea Garden Cafe'],
+    Anatolia: { tech: ['Anatolia Defence Electronics', 'Crescent Aerospace', 'Bosphorus Telecom', 'Sky Anatolia Airlines'], soft: ['Tulip Era Software', 'Cay Code'], local: ['Simit Corner Bakery', 'Grand Bazaar Hardware', 'Ocakbasi Kebab House', 'Tea Garden Cafe'],
       eng: ['Strait Bridge Engineering', 'Plateau Energy Engineering'], mfg: ['Marmara Home Appliances', 'Taurus Automotive', 'Black Sea Steel', 'Aegean Textiles'], uni: ['Bosphorus Technical University', 'Anatolian Institute of Technology', 'Aegean University'], found: ['Anatolian Education Foundation', 'Young Engineers Trust'] },
     levant: { tech: ['Carmel Semiconductor', 'Negev Solar Systems', 'Galilee Medical Devices', 'Iron Sky Defence Systems', 'Coastal Cyber Labs'], soft: ['Startup Alley Software', 'Sabra Apps'], local: ['Falafel Corner', 'Shuk Spice Market', 'Kibbutz Dairy', 'Olive Press Cafe'],
       eng: ['Jordan Valley Water Engineering', 'Coastal Plain Engineering'], mfg: ['Desert Drip Irrigation', 'Sharon Plastics', 'Harbor Chemicals'], uni: ['Carmel Institute of Technology', 'Desert University', 'Coastal College of Engineering'], found: ['Bright Negev Foundation', 'Galilee Youth Fund'] },
@@ -127,7 +131,7 @@
     'Asia Pacific': { tech: ['Southern Sky Telecom', 'Reef Ocean Systems', 'Koala Biotech', 'Monsoon Software Services'], soft: ['Kookaburra Code', 'Billabong Apps'], local: ['Surf Club Cafe', 'Corner Milk Bar', 'Bush Tucker Bakery', 'Wattle Hardware'],
       eng: ['Great Dividing Engineering', 'Red Centre Mining Engineering'], mfg: ['Outback Mining Equipment', 'Iron Ore West Machinery', 'Ute Motor Works', 'Harbour Shipwrights'], uni: ['Harbour City University', 'Outback Institute of Technology', 'Coral Coast University'], found: ['Down Under STEM Fund', 'Wattle Foundation'] }
   };
-  D.SPONSOR_BY.sierra = D.SPONSOR_BY.West;
+  D.SPONSOR_BY.sierra = D.SPONSOR_BY.West; D.SPONSOR_BY['Middle East'] = D.SPONSOR_BY.levant;
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
@@ -153,13 +157,13 @@
     'Central America': { 2016: [0,0,1,11,20,12,11,0,0,0,0,0], 2017: [0,0,1,9,19,14,28,0,0,0,0,0], 2018: [0,0,1,11,18,13,31,9,0,0,0,0], 2019: [0,0,1,11,15,11,22,20,0,0,0,0], 2020: [0,0,1,11,17,11,23,18,11,0,0,0], 2022: [0,0,1,9,15,11,17,12,13,0,0,0], 2023: [0,0,1,9,16,10,17,13,13,14,0,0], 2024: [0,0,1,10,15,10,17,13,9,15,0,0], 2025: [0,0,1,10,17,10,15,11,9,13,8,0], 2026: [0,0,1,10,17,10,15,10,8,12,7,8] },
     'South America': { 2016: [1,4,1,0,0,3,1,0,0,0,0,0], 2017: [1,4,1,0,0,3,2,0,0,0,0,0], 2018: [1,4,1,0,0,2,5,1,0,0,0,0], 2019: [1,4,1,0,0,2,4,8,0,0,0,0], 2020: [1,4,1,0,0,2,2,7,3,0,0,0], 2022: [0,3,0,0,0,1,2,5,1,0,0,0], 2023: [0,3,0,0,0,1,2,6,5,29,0,0], 2024: [0,3,0,0,0,1,2,6,3,43,0,0], 2025: [0,3,0,0,0,1,2,6,3,40,17,0], 2026: [0,3,0,0,0,1,2,6,4,39,13,3] },
     Europe: { 2016: [0,2,0,2,1,5,1,0,0,0,0,0], 2017: [0,2,0,1,1,5,3,0,0,0,0,0], 2018: [0,2,0,1,1,5,5,2,0,0,0,0], 2019: [0,2,0,1,1,5,5,6,0,0,0,0], 2020: [0,2,0,1,1,5,4,5,4,0,0,0], 2022: [0,2,0,0,1,3,3,2,1,0,0,0], 2023: [0,1,0,0,1,4,3,2,2,6,0,0], 2024: [0,2,0,0,1,3,3,2,2,8,0,0], 2025: [0,1,0,0,1,3,1,3,1,7,4,0], 2026: [0,1,0,0,1,3,1,3,0,7,2,3] },
-    'Middle East': { 2016: [0,0,1,2,1,6,10,0,0,0,0,0], 2017: [0,0,1,2,1,4,22,0,0,0,0,0], 2018: [0,0,1,2,2,5,23,20,0,0,0,0], 2019: [0,0,1,2,2,4,24,50,0,0,0,0], 2020: [0,0,1,2,2,4,21,39,41,0,0,0], 2022: [0,0,1,1,2,4,16,26,57,0,0,0], 2023: [0,0,1,1,2,4,18,22,46,32,0,0], 2024: [0,0,1,2,2,4,17,22,34,56,0,0], 2025: [0,0,1,2,2,4,19,17,36,46,65,0], 2026: [0,0,1,2,2,4,19,17,31,38,59,35] },
+    Anatolia: { 2016: [0,0,1,2,1,6,10,0,0,0,0,0], 2017: [0,0,1,2,1,4,22,0,0,0,0,0], 2018: [0,0,1,2,2,5,23,20,0,0,0,0], 2019: [0,0,1,2,2,4,24,50,0,0,0,0], 2020: [0,0,1,2,2,4,21,39,41,0,0,0], 2022: [0,0,1,1,2,4,16,26,57,0,0,0], 2023: [0,0,1,1,2,4,18,22,46,32,0,0], 2024: [0,0,1,2,2,4,17,22,34,56,0,0], 2025: [0,0,1,2,2,4,19,17,36,46,65,0], 2026: [0,0,1,2,2,4,19,17,31,38,59,35] },
     levant: { 2016: [0,12,7,9,13,16,5,0,0,0,0,0], 2017: [0,12,6,9,11,15,11,0,0,0,0,0], 2018: [0,12,6,9,11,14,10,8,0,0,0,0], 2019: [0,11,6,9,11,14,8,7,0,0,0,0], 2020: [0,10,6,9,9,13,8,7,5,0,0,0], 2022: [0,10,5,8,8,11,6,5,3,0,0,0], 2023: [0,10,6,8,8,11,6,5,2,2,0,0], 2024: [0,10,6,8,8,11,6,5,2,5,0,0], 2025: [0,10,6,8,8,11,5,5,2,5,2,0], 2026: [0,9,6,8,8,11,5,5,2,5,4,7] },
     'East Asia': { 2016: [0,0,0,0,2,27,10,0,0,0,0,0], 2017: [0,0,0,0,1,17,34,0,0,0,0,0], 2018: [0,0,0,0,1,17,45,24,0,0,0,0], 2019: [0,0,0,0,1,12,21,37,0,0,0,0], 2020: [0,0,0,0,2,14,25,31,27,0,0,0], 2022: [0,0,0,0,1,8,18,18,35,0,0,0], 2023: [0,0,0,0,1,0,8,10,16,3,0,0], 2024: [0,0,0,0,1,3,11,11,16,13,0,0], 2025: [0,0,0,0,1,5,18,15,17,13,14,0], 2026: [0,0,0,0,1,6,19,11,15,9,15,12] },
     'Asia Pacific': { 2016: [0,0,0,1,11,17,12,0,0,0,0,0], 2017: [0,0,0,1,10,15,29,0,0,0,0,0], 2018: [0,0,0,1,9,11,27,8,0,0,0,0], 2019: [0,0,0,1,9,10,17,20,0,0,0,0], 2020: [0,0,0,1,9,8,15,16,4,0,0,0], 2022: [0,0,0,1,8,7,9,9,8,0,0,0], 2023: [0,0,0,1,7,7,10,7,2,7,0,0], 2024: [0,0,0,1,7,7,7,5,3,12,0,0], 2025: [0,0,0,1,7,7,8,6,2,10,9,0], 2026: [0,0,0,1,6,6,8,6,2,9,7,3] },
   };
   // the lowest team number each zone has had
-  D.NUM_MIN = { West: 359, Southwest: 31, Midwest: 45, Northeast: 11, Southeast: 16, lakeshore: 1, harbor: 23, evergreen: 360, mesa: 57, sierra: 4, North: 296, trillium: 188, 'Central America': 2283, 'South America': 383, Europe: 1797, 'Middle East': 2905, levant: 1573, 'East Asia': 4253, 'Asia Pacific': 3132 };
+  D.NUM_MIN = { West: 359, Southwest: 31, Midwest: 45, Northeast: 11, Southeast: 16, lakeshore: 1, harbor: 23, evergreen: 360, mesa: 57, sierra: 4, North: 296, trillium: 188, 'Central America': 2283, 'South America': 383, Europe: 1797, Anatolia: 2905, levant: 1573, 'East Asia': 4253, 'Asia Pacific': 3132 };
   // the real top 100 teams by rating (match13 xP), by zone and season (2020: the mean of 2019 and 2022)
   D.TOP100 = {
     West: { 2016: 3, 2017: 2, 2018: 3, 2019: 4, 2020: 3, 2022: 2, 2023: 1, 2024: 3, 2025: 3, 2026: 3 },
@@ -177,7 +181,7 @@
     'Central America': { 2016: 0, 2017: 0, 2018: 1, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 1 },
     'South America': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 0, 2025: 0, 2026: 0 },
     Europe: { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 1, 2024: 1, 2025: 1, 2026: 1 },
-    'Middle East': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 2 },
+    Anatolia: { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 2 },
     levant: { 2016: 3, 2017: 3, 2018: 3, 2019: 1, 2020: 2.5, 2022: 4, 2023: 2, 2024: 2, 2025: 6, 2026: 2 },
     'East Asia': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 0, 2025: 0, 2026: 1 },
     'Asia Pacific': { 2016: 0, 2017: 1, 2018: 1, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 1, 2025: 0, 2026: 0 },
@@ -200,7 +204,7 @@
     'Central America': { sd: 0.81, z: { 2016: -0.71, 2017: -0.73, 2018: -0.88, 2019: -0.56, 2022: -0.74, 2023: -0.58, 2024: -0.37, 2025: -0.31, 2026: -0.26 } },
     'South America': { sd: 0.70, z: { 2016: -0.27, 2017: -0.09, 2018: -0.08, 2019: -0.32, 2022: -0.24, 2023: -0.53, 2024: -0.39, 2025: -0.53, 2026: -0.42 } },
     Europe: { sd: 0.83, z: { 2016: -0.38, 2017: -0.19, 2018: -0.33, 2019: -0.45, 2022: -0.23, 2023: -0.29, 2024: -0.13, 2025: -0.41, 2026: -0.1 } },
-    'Middle East': { sd: 0.70, z: { 2016: -0.85, 2017: -0.78, 2018: -0.75, 2019: -0.41, 2022: -0.73, 2023: -0.73, 2024: -0.64, 2025: -0.78, 2026: -0.39 } },
+    Anatolia: { sd: 0.70, z: { 2016: -0.85, 2017: -0.78, 2018: -0.75, 2019: -0.41, 2022: -0.73, 2023: -0.73, 2024: -0.64, 2025: -0.78, 2026: -0.39 } },
     levant: { sd: 1.03, z: { 2016: -0.14, 2017: 0.28, 2018: 0.17, 2019: 0.14, 2022: 0.38, 2023: 0.45, 2024: 0.21, 2025: 0.47, 2026: 0.3 } },
     'East Asia': { sd: 0.78, z: { 2016: -0.68, 2017: -0.74, 2018: -0.85, 2019: -0.4, 2022: -0.52, 2023: -0.18, 2024: -0.21, 2025: -0.13, 2026: 0.05 } },
     'Asia Pacific': { sd: 0.98, z: { 2016: -0.46, 2017: -0.53, 2018: -0.41, 2019: -0.31, 2022: -0.34, 2023: -0.32, 2024: -0.15, 2025: -0.26, 2026: -0.24 } },

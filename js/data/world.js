@@ -41,7 +41,7 @@
     North: ['Northern Lights', 'Maple Leaf', 'Lakehead', 'Prairie North', 'Laurentian', 'Rocky Summit'],
     // (3.5) overseas: a single season's catalogue draws from these (a career's regionals are named by their city, world-areas.js)
     'Central America': ['Saddle Mountain', 'Desert Lagoon', 'Valley of the Volcanoes'], 'South America': ['Central Plateau', 'Tropic Line'], Europe: ['Lowland Canals'],
-    'Middle East': ['Two Continents', 'Tulip Gardens', 'Aegean Breeze', 'Steppe Winds'], 'East Asia': ['Pearl Delta', 'Great River Delta', 'Jade Mountain'], 'Asia Pacific': ['Blue Mountains', 'Coral Sea']
+    Anatolia: ['Two Continents', 'Tulip Gardens', 'Aegean Breeze', 'Steppe Winds'], 'Middle East': ['Coastal Plain'], 'East Asia': ['Pearl Delta', 'Great River Delta', 'Jade Mountain'], 'Asia Pacific': ['Blue Mountains', 'Coral Sea']
   };
 
   // Build a season's regional catalogue (a single season, without the world simulation): 5 events per week x 6 weeks.

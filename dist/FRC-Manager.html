@@ -725,7 +725,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.4.3';
+  G.VERSION = '3.4.4';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -2280,7 +2280,7 @@ window.G = window.G || {};
     North: ['Northern Lights', 'Maple Leaf', 'Lakehead', 'Prairie North', 'Laurentian', 'Rocky Summit'],
     // (3.5) overseas: a single season's catalogue draws from these (a career's regionals are named by their city, world-areas.js)
     'Central America': ['Saddle Mountain', 'Desert Lagoon', 'Valley of the Volcanoes'], 'South America': ['Central Plateau', 'Tropic Line'], Europe: ['Lowland Canals'],
-    'Middle East': ['Two Continents', 'Tulip Gardens', 'Aegean Breeze', 'Steppe Winds'], 'East Asia': ['Pearl Delta', 'Great River Delta', 'Jade Mountain'], 'Asia Pacific': ['Blue Mountains', 'Coral Sea']
+    Anatolia: ['Two Continents', 'Tulip Gardens', 'Aegean Breeze', 'Steppe Winds'], 'Middle East': ['Coastal Plain'], 'East Asia': ['Pearl Delta', 'Great River Delta', 'Jade Mountain'], 'Asia Pacific': ['Blue Mountains', 'Coral Sea']
   };
 
   // Build a season's regional catalogue (a single season, without the world simulation): 5 events per week x 6 weeks.
@@ -2914,18 +2914,18 @@ window.G = window.G || {};
 
   // ---------- areas, neighbours and travel ----------
   D.US_REGIONS = ['West', 'Southwest', 'Midwest', 'Northeast', 'Southeast'];
-  D.REGIONS = D.US_REGIONS.concat(['North', 'Central America', 'South America', 'Europe', 'Middle East', 'East Asia', 'Asia Pacific']);
+  D.REGIONS = D.US_REGIONS.concat(['North', 'Central America', 'South America', 'Europe', 'Anatolia', 'Middle East', 'East Asia', 'Asia Pacific']);
   D.REGION_OLD = { Canada: 'North' }; // names from before 3.5 (old saves)
   // a drive away
   D.ADJ = {
     West: ['Southwest'], Southwest: ['West', 'Midwest', 'Southeast', 'Central America'], Midwest: ['Southwest', 'Northeast', 'Southeast', 'North'],
     Northeast: ['Midwest', 'Southeast', 'North'], Southeast: ['Southwest', 'Midwest', 'Northeast'], North: ['Midwest', 'Northeast'],
-    'Central America': ['Southwest'], 'South America': [], Europe: [], 'Middle East': [], 'East Asia': [], 'Asia Pacific': []
+    'Central America': ['Southwest'], 'South America': [], Europe: [], Anatolia: [], 'Middle East': [], 'East Asia': [], 'Asia Pacific': []
   };
   // the part of the world an area is in: a flight inside it is an ordinary one, a flight out of it goes overseas
-  D.GROUP = { West: 'NA', Southwest: 'NA', Midwest: 'NA', Northeast: 'NA', Southeast: 'NA', North: 'NA', 'Central America': 'NA', 'South America': 'SA', Europe: 'EME', 'Middle East': 'EME', 'East Asia': 'EA', 'Asia Pacific': 'AP' };
+  D.GROUP = { West: 'NA', Southwest: 'NA', Midwest: 'NA', Northeast: 'NA', Southeast: 'NA', North: 'NA', 'Central America': 'NA', 'South America': 'SA', Europe: 'EME', Anatolia: 'EME', 'Middle East': 'EME', 'East Asia': 'EA', 'Asia Pacific': 'AP' };
   // where an area's teams go when they have to travel far (the world simulation's teams; yours go where you send them)
-  D.NEAR = { 'South America': ['Central America', 'Southeast'], 'Central America': ['South America'], Europe: ['Middle East', 'Northeast'], 'Middle East': ['Europe'], 'East Asia': ['Asia Pacific', 'West'], 'Asia Pacific': ['East Asia', 'West'] };
+  D.NEAR = { 'South America': ['Central America', 'Southeast'], 'Central America': ['South America'], Europe: ['Anatolia', 'Northeast'], Anatolia: ['Europe', 'Middle East'], 'Middle East': ['Anatolia', 'Europe'], 'East Asia': ['Asia Pacific', 'West'], 'Asia Pacific': ['East Asia', 'West'] };
   D.overseas = (home, region) => (D.GROUP[home] || 'NA') !== (D.GROUP[region] || 'NA');
   D.TRAVEL.intl = { name: 'Fly overseas', cost: 15000 };
   D.INTL_KNOCKS = [6, 12];  // condition lost by a robot shipped overseas (an ordinary flight: 4 to 9)
@@ -2934,14 +2934,15 @@ window.G = window.G || {};
   // how likely a team of `home` is to enter an event in `region`
   D.goW = (home, region) => (home === region ? 3 : (D.ADJ[home] || []).includes(region) ? 1.1 : (D.NEAR[home] || []).includes(region) ? 0.5 : D.overseas(home, region) ? 0.03 : 0.2);
   // the Championship's half of the world in the years with two Championships (1: the northern one)
-  D.SIDE1 = ['Midwest', 'Northeast', 'North', 'Europe', 'Middle East'];
+  D.SIDE1 = ['Midwest', 'Northeast', 'North', 'Europe', 'Anatolia', 'Middle East'];
 
   // ---------- the areas outside the United States ----------
   // Their teams follow the real numbers (D.NUMS), about one team in the game for every 2.2 real ones, so that an area
   // can fill its own events. sites: the cities that host a regional each season, about one for every two real ones
   // (none in a season the area really had none). names: what a regional in that city is called.
   D.SCALE = 1 / 2.2;
-  D.EXPLICIT = ['North', 'trillium', 'Central America', 'South America', 'Europe', 'Middle East', 'levant', 'East Asia', 'Asia Pacific'];
+  // (the Middle East has no zone of its own: all of its cities are the Levant District's, before and after it forms)
+  D.EXPLICIT = ['North', 'trillium', 'Central America', 'South America', 'Europe', 'Anatolia', 'levant', 'East Asia', 'Asia Pacific'];
   D.WORLD_AREAS = {
     North: { sites: { 2016: ['Toronto', 'Waterloo', 'Windsor', 'Montreal'], 2017: ['Montreal'], 2018: ['Montreal', 'Victoria'], 2019: ['Montreal', 'Calgary'], 2020: ['Montreal', 'Victoria'], 2022: ['Montreal'], 2023: ['Victoria'], 2024: ['Montreal'], 2025: ['Vancouver'], 2026: ['Montreal'] },
       names: { Toronto: ['Maple Leaf'], Waterloo: ['Grand River'], Windsor: ['Border Lakes'], Montreal: ['Laurentian'], Victoria: ['Pacific Rainforest'], Vancouver: ['Coast Mountains'], Calgary: ['Rocky Summit'] },
@@ -2953,10 +2954,13 @@ window.G = window.G || {};
       names: { Brasilia: ['Central Plateau'], 'Sao Paulo': ['Tropic Line'] }, first: 2023,
       about: 'A handful of veteran teams, then dozens of new ones from 2023, when its first regional arrives.' },
     Europe: { sites: {}, names: {},
-      about: 'A few scattered teams and no regional at all: the nearest are a flight away in the Middle East.' },
-    'Middle East': { sites: { 2016: ['Tel Aviv'], 2018: ['Istanbul'], 2019: ['Istanbul'], 2020: ['Istanbul'], 2022: ['Istanbul', 'Izmir'], 2023: ['Istanbul', 'Izmir'], 2024: ['Istanbul', 'Istanbul'], 2025: ['Istanbul', 'Istanbul', 'Ankara'], 2026: ['Istanbul', 'Istanbul', 'Istanbul', 'Ankara'] },
-      names: { 'Tel Aviv': ['Coastal Plain'], Istanbul: ['Two Continents', 'Tulip Gardens', 'Strait Lights'], Izmir: ['Aegean Breeze'], Ankara: ['Steppe Winds'] }, first: 2018,
-      about: 'The fastest-growing area in the world: a dozen teams in 2016, about a hundred ten years later.' },
+      about: 'A few scattered teams and no regional at all: the nearest are a flight away in Anatolia.' },
+    Anatolia: { sites: { 2018: ['Istanbul'], 2019: ['Istanbul'], 2020: ['Istanbul'], 2022: ['Istanbul', 'Izmir'], 2023: ['Istanbul', 'Izmir'], 2024: ['Istanbul', 'Istanbul'], 2025: ['Istanbul', 'Istanbul', 'Ankara'], 2026: ['Istanbul', 'Istanbul', 'Istanbul', 'Ankara'] },
+      names: { Istanbul: ['Two Continents', 'Tulip Gardens', 'Strait Lights'], Izmir: ['Aegean Breeze'], Ankara: ['Steppe Winds'] }, first: 2018,
+      about: 'The fastest-growing area in the world: a dozen teams in 2016, about a hundred ten years later. No regional of its own before 2018, and no district.' },
+    // every city of the Middle East is one of the Levant District's: its teams play one regional in 2016 and district events from 2017
+    'Middle East': { sites: { 2016: ['Tel Aviv'] }, names: { 'Tel Aviv': ['Coastal Plain'] },
+      about: 'A small coast where every team is an hour from every other, and the level is high.' },
     'East Asia': { sites: { 2017: ['Shenzhen'], 2018: ['Shanghai'], 2020: ['Taichung', 'Beijing'], 2022: ['Taipei'], 2025: ['Taipei'], 2026: ['Shanghai'] },
       names: { Shenzhen: ['Pearl Delta'], Shanghai: ['Great River Delta'], Taichung: ['Island Peaks'], Beijing: ['Jade Capital'], Taipei: ['Jade Mountain'] }, first: 2017,
       about: 'Coastal megacities and an island of makers; the numbers rise, fall and rise again.' },
@@ -2988,12 +2992,12 @@ window.G = window.G || {};
     'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College'],
     'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology'],
     Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School'],
-    'Middle East': ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
+    Anatolia: ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
     levant: ['Carmel Technological High School', 'Coastal Plain Science High School', 'Desert Blossom High School', 'Galilee Regional School', 'Sharon Youth Village School'],
     'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School'],
     'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School']
   };
-  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West;
+  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West; D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic'],
       local: ['Pacific Surf Shop', 'Orchard Street Tacos', 'Vineyard Credit Union', 'Golden Poppy Bakery', 'Sierra Outfitters', 'Coastline Auto'], eng: ['Seismic Structures', 'Baycrest Engineering', 'High Desert Aerospace', 'Solaris Energy Engineering'],
@@ -3024,7 +3028,7 @@ window.G = window.G || {};
       eng: ['Atlantic Offshore Engineering', 'Planalto Hydro Engineering'], mfg: ['Serra Mining & Steel', 'Paulista Auto Assembly', 'Pampa Agro Machinery', 'Rio Doce Metals'], uni: ['Industrial Learning Institute', 'Federal University of the Plateau', 'Technological Institute of the Valley'], found: ['Industry Social Foundation', 'Futuro Jovem Trust'] },
     Europe: { tech: ['Lowlands Lithography', 'Alpine Precision Instruments', 'Baltic Embedded Systems', 'Rhone Avionics'], soft: ['Tulip Software', 'Nordlys Apps'], local: ['Canal Street Bakery', 'Old Town Bicycle Shop', 'Market Square Cafe', 'Harbour Cooperative Bank'],
       eng: ['Delta Water Engineering', 'Channel Rail Engineering'], mfg: ['Vistula Machine Works', 'Thames Composites', 'Bohemia Motor Works'], uni: ['Lowlands University of Technology', 'Vistula Polytechnic', 'Alpine Federal Institute'], found: ['Continental STEM Foundation', 'Bridge Builders Trust'] },
-    'Middle East': { tech: ['Anatolia Defence Electronics', 'Crescent Aerospace', 'Bosphorus Telecom', 'Sky Anatolia Airlines'], soft: ['Tulip Era Software', 'Cay Code'], local: ['Simit Corner Bakery', 'Grand Bazaar Hardware', 'Ocakbasi Kebab House', 'Tea Garden Cafe'],
+    Anatolia: { tech: ['Anatolia Defence Electronics', 'Crescent Aerospace', 'Bosphorus Telecom', 'Sky Anatolia Airlines'], soft: ['Tulip Era Software', 'Cay Code'], local: ['Simit Corner Bakery', 'Grand Bazaar Hardware', 'Ocakbasi Kebab House', 'Tea Garden Cafe'],
       eng: ['Strait Bridge Engineering', 'Plateau Energy Engineering'], mfg: ['Marmara Home Appliances', 'Taurus Automotive', 'Black Sea Steel', 'Aegean Textiles'], uni: ['Bosphorus Technical University', 'Anatolian Institute of Technology', 'Aegean University'], found: ['Anatolian Education Foundation', 'Young Engineers Trust'] },
     levant: { tech: ['Carmel Semiconductor', 'Negev Solar Systems', 'Galilee Medical Devices', 'Iron Sky Defence Systems', 'Coastal Cyber Labs'], soft: ['Startup Alley Software', 'Sabra Apps'], local: ['Falafel Corner', 'Shuk Spice Market', 'Kibbutz Dairy', 'Olive Press Cafe'],
       eng: ['Jordan Valley Water Engineering', 'Coastal Plain Engineering'], mfg: ['Desert Drip Irrigation', 'Sharon Plastics', 'Harbor Chemicals'], uni: ['Carmel Institute of Technology', 'Desert University', 'Coastal College of Engineering'], found: ['Bright Negev Foundation', 'Galilee Youth Fund'] },
@@ -3033,7 +3037,7 @@ window.G = window.G || {};
     'Asia Pacific': { tech: ['Southern Sky Telecom', 'Reef Ocean Systems', 'Koala Biotech', 'Monsoon Software Services'], soft: ['Kookaburra Code', 'Billabong Apps'], local: ['Surf Club Cafe', 'Corner Milk Bar', 'Bush Tucker Bakery', 'Wattle Hardware'],
       eng: ['Great Dividing Engineering', 'Red Centre Mining Engineering'], mfg: ['Outback Mining Equipment', 'Iron Ore West Machinery', 'Ute Motor Works', 'Harbour Shipwrights'], uni: ['Harbour City University', 'Outback Institute of Technology', 'Coral Coast University'], found: ['Down Under STEM Fund', 'Wattle Foundation'] }
   };
-  D.SPONSOR_BY.sierra = D.SPONSOR_BY.West;
+  D.SPONSOR_BY.sierra = D.SPONSOR_BY.West; D.SPONSOR_BY['Middle East'] = D.SPONSOR_BY.levant;
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
@@ -3059,13 +3063,13 @@ window.G = window.G || {};
     'Central America': { 2016: [0,0,1,11,20,12,11,0,0,0,0,0], 2017: [0,0,1,9,19,14,28,0,0,0,0,0], 2018: [0,0,1,11,18,13,31,9,0,0,0,0], 2019: [0,0,1,11,15,11,22,20,0,0,0,0], 2020: [0,0,1,11,17,11,23,18,11,0,0,0], 2022: [0,0,1,9,15,11,17,12,13,0,0,0], 2023: [0,0,1,9,16,10,17,13,13,14,0,0], 2024: [0,0,1,10,15,10,17,13,9,15,0,0], 2025: [0,0,1,10,17,10,15,11,9,13,8,0], 2026: [0,0,1,10,17,10,15,10,8,12,7,8] },
     'South America': { 2016: [1,4,1,0,0,3,1,0,0,0,0,0], 2017: [1,4,1,0,0,3,2,0,0,0,0,0], 2018: [1,4,1,0,0,2,5,1,0,0,0,0], 2019: [1,4,1,0,0,2,4,8,0,0,0,0], 2020: [1,4,1,0,0,2,2,7,3,0,0,0], 2022: [0,3,0,0,0,1,2,5,1,0,0,0], 2023: [0,3,0,0,0,1,2,6,5,29,0,0], 2024: [0,3,0,0,0,1,2,6,3,43,0,0], 2025: [0,3,0,0,0,1,2,6,3,40,17,0], 2026: [0,3,0,0,0,1,2,6,4,39,13,3] },
     Europe: { 2016: [0,2,0,2,1,5,1,0,0,0,0,0], 2017: [0,2,0,1,1,5,3,0,0,0,0,0], 2018: [0,2,0,1,1,5,5,2,0,0,0,0], 2019: [0,2,0,1,1,5,5,6,0,0,0,0], 2020: [0,2,0,1,1,5,4,5,4,0,0,0], 2022: [0,2,0,0,1,3,3,2,1,0,0,0], 2023: [0,1,0,0,1,4,3,2,2,6,0,0], 2024: [0,2,0,0,1,3,3,2,2,8,0,0], 2025: [0,1,0,0,1,3,1,3,1,7,4,0], 2026: [0,1,0,0,1,3,1,3,0,7,2,3] },
-    'Middle East': { 2016: [0,0,1,2,1,6,10,0,0,0,0,0], 2017: [0,0,1,2,1,4,22,0,0,0,0,0], 2018: [0,0,1,2,2,5,23,20,0,0,0,0], 2019: [0,0,1,2,2,4,24,50,0,0,0,0], 2020: [0,0,1,2,2,4,21,39,41,0,0,0], 2022: [0,0,1,1,2,4,16,26,57,0,0,0], 2023: [0,0,1,1,2,4,18,22,46,32,0,0], 2024: [0,0,1,2,2,4,17,22,34,56,0,0], 2025: [0,0,1,2,2,4,19,17,36,46,65,0], 2026: [0,0,1,2,2,4,19,17,31,38,59,35] },
+    Anatolia: { 2016: [0,0,1,2,1,6,10,0,0,0,0,0], 2017: [0,0,1,2,1,4,22,0,0,0,0,0], 2018: [0,0,1,2,2,5,23,20,0,0,0,0], 2019: [0,0,1,2,2,4,24,50,0,0,0,0], 2020: [0,0,1,2,2,4,21,39,41,0,0,0], 2022: [0,0,1,1,2,4,16,26,57,0,0,0], 2023: [0,0,1,1,2,4,18,22,46,32,0,0], 2024: [0,0,1,2,2,4,17,22,34,56,0,0], 2025: [0,0,1,2,2,4,19,17,36,46,65,0], 2026: [0,0,1,2,2,4,19,17,31,38,59,35] },
     levant: { 2016: [0,12,7,9,13,16,5,0,0,0,0,0], 2017: [0,12,6,9,11,15,11,0,0,0,0,0], 2018: [0,12,6,9,11,14,10,8,0,0,0,0], 2019: [0,11,6,9,11,14,8,7,0,0,0,0], 2020: [0,10,6,9,9,13,8,7,5,0,0,0], 2022: [0,10,5,8,8,11,6,5,3,0,0,0], 2023: [0,10,6,8,8,11,6,5,2,2,0,0], 2024: [0,10,6,8,8,11,6,5,2,5,0,0], 2025: [0,10,6,8,8,11,5,5,2,5,2,0], 2026: [0,9,6,8,8,11,5,5,2,5,4,7] },
     'East Asia': { 2016: [0,0,0,0,2,27,10,0,0,0,0,0], 2017: [0,0,0,0,1,17,34,0,0,0,0,0], 2018: [0,0,0,0,1,17,45,24,0,0,0,0], 2019: [0,0,0,0,1,12,21,37,0,0,0,0], 2020: [0,0,0,0,2,14,25,31,27,0,0,0], 2022: [0,0,0,0,1,8,18,18,35,0,0,0], 2023: [0,0,0,0,1,0,8,10,16,3,0,0], 2024: [0,0,0,0,1,3,11,11,16,13,0,0], 2025: [0,0,0,0,1,5,18,15,17,13,14,0], 2026: [0,0,0,0,1,6,19,11,15,9,15,12] },
     'Asia Pacific': { 2016: [0,0,0,1,11,17,12,0,0,0,0,0], 2017: [0,0,0,1,10,15,29,0,0,0,0,0], 2018: [0,0,0,1,9,11,27,8,0,0,0,0], 2019: [0,0,0,1,9,10,17,20,0,0,0,0], 2020: [0,0,0,1,9,8,15,16,4,0,0,0], 2022: [0,0,0,1,8,7,9,9,8,0,0,0], 2023: [0,0,0,1,7,7,10,7,2,7,0,0], 2024: [0,0,0,1,7,7,7,5,3,12,0,0], 2025: [0,0,0,1,7,7,8,6,2,10,9,0], 2026: [0,0,0,1,6,6,8,6,2,9,7,3] },
   };
   // the lowest team number each zone has had
-  D.NUM_MIN = { West: 359, Southwest: 31, Midwest: 45, Northeast: 11, Southeast: 16, lakeshore: 1, harbor: 23, evergreen: 360, mesa: 57, sierra: 4, North: 296, trillium: 188, 'Central America': 2283, 'South America': 383, Europe: 1797, 'Middle East': 2905, levant: 1573, 'East Asia': 4253, 'Asia Pacific': 3132 };
+  D.NUM_MIN = { West: 359, Southwest: 31, Midwest: 45, Northeast: 11, Southeast: 16, lakeshore: 1, harbor: 23, evergreen: 360, mesa: 57, sierra: 4, North: 296, trillium: 188, 'Central America': 2283, 'South America': 383, Europe: 1797, Anatolia: 2905, levant: 1573, 'East Asia': 4253, 'Asia Pacific': 3132 };
   // the real top 100 teams by rating (match13 xP), by zone and season (2020: the mean of 2019 and 2022)
   D.TOP100 = {
     West: { 2016: 3, 2017: 2, 2018: 3, 2019: 4, 2020: 3, 2022: 2, 2023: 1, 2024: 3, 2025: 3, 2026: 3 },
@@ -3083,7 +3087,7 @@ window.G = window.G || {};
     'Central America': { 2016: 0, 2017: 0, 2018: 1, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 1 },
     'South America': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 0, 2025: 0, 2026: 0 },
     Europe: { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 1, 2024: 1, 2025: 1, 2026: 1 },
-    'Middle East': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 2 },
+    Anatolia: { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 2, 2025: 1, 2026: 2 },
     levant: { 2016: 3, 2017: 3, 2018: 3, 2019: 1, 2020: 2.5, 2022: 4, 2023: 2, 2024: 2, 2025: 6, 2026: 2 },
     'East Asia': { 2016: 0, 2017: 0, 2018: 0, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 0, 2025: 0, 2026: 1 },
     'Asia Pacific': { 2016: 0, 2017: 1, 2018: 1, 2019: 0, 2020: 0, 2022: 0, 2023: 0, 2024: 1, 2025: 0, 2026: 0 },
@@ -3106,7 +3110,7 @@ window.G = window.G || {};
     'Central America': { sd: 0.81, z: { 2016: -0.71, 2017: -0.73, 2018: -0.88, 2019: -0.56, 2022: -0.74, 2023: -0.58, 2024: -0.37, 2025: -0.31, 2026: -0.26 } },
     'South America': { sd: 0.70, z: { 2016: -0.27, 2017: -0.09, 2018: -0.08, 2019: -0.32, 2022: -0.24, 2023: -0.53, 2024: -0.39, 2025: -0.53, 2026: -0.42 } },
     Europe: { sd: 0.83, z: { 2016: -0.38, 2017: -0.19, 2018: -0.33, 2019: -0.45, 2022: -0.23, 2023: -0.29, 2024: -0.13, 2025: -0.41, 2026: -0.1 } },
-    'Middle East': { sd: 0.70, z: { 2016: -0.85, 2017: -0.78, 2018: -0.75, 2019: -0.41, 2022: -0.73, 2023: -0.73, 2024: -0.64, 2025: -0.78, 2026: -0.39 } },
+    Anatolia: { sd: 0.70, z: { 2016: -0.85, 2017: -0.78, 2018: -0.75, 2019: -0.41, 2022: -0.73, 2023: -0.73, 2024: -0.64, 2025: -0.78, 2026: -0.39 } },
     levant: { sd: 1.03, z: { 2016: -0.14, 2017: 0.28, 2018: 0.17, 2019: 0.14, 2022: 0.38, 2023: 0.45, 2024: 0.21, 2025: 0.47, 2026: 0.3 } },
     'East Asia': { sd: 0.78, z: { 2016: -0.68, 2017: -0.74, 2018: -0.85, 2019: -0.4, 2022: -0.52, 2023: -0.18, 2024: -0.21, 2025: -0.13, 2026: 0.05 } },
     'Asia Pacific': { sd: 0.98, z: { 2016: -0.46, 2017: -0.53, 2018: -0.41, 2019: -0.31, 2022: -0.34, 2023: -0.32, 2024: -0.15, 2025: -0.26, 2026: -0.24 } },
@@ -12572,6 +12576,10 @@ window.G = window.G || {};
     // world: a v3 career simulates every team and event (regionals and districts); a single season keeps the simple pool
     if (S.cal && o.mode === 'career' && G.World && !o.noWorld) {
       if (S.team.home && !(D.DISTRICT[S.team.home] && D.DISTRICT[S.team.home].from <= cal[0])) S.team.home = null;
+      // (3.4.4) an area that is all one district: a team there is in the district once it has formed, and before
+      // that it stands in the district's cities and joins with everybody else
+      if (!S.team.home && !G.World.regionOpen(S.team.region, cal[0])) S.team.home = D.DISTRICTS.find(d => d.region === S.team.region && d.from <= cal[0] && G.World.wholeArea(d)).id;
+      if (!S.team.home) { const dz = G.World.soleDistrict(S.team.region, cal[0]); if (dz) S.team.z = dz.id; }
       if (S.team.home) { S.team.region = D.DISTRICT[S.team.home].region; if (!scen) S.maxEvents = 3; }
       G.World.setup(S, rng);
     } else {
@@ -13453,7 +13461,7 @@ window.G = window.G || {};
     }
     if (mo === 'Oct') {
       // a team that chose to join a new district plays there from the season now being planned
-      if (S.team.homeNext) { S.team.home = S.team.homeNext; delete S.team.homeNext; if (!S.scenario) S.maxEvents = Math.min(S.maxEvents, 3); }
+      if (S.team.homeNext) { S.team.home = S.team.homeNext; delete S.team.homeNext; delete S.team.z; if (!S.scenario) S.maxEvents = Math.min(S.maxEvents, 3); }
       C.genOffers(S);
       if (G.World.on(S)) G.World.plan(S, rng); else S.regionals = D.makeRegionals(S.order[S.upcoming] || S.year, rng, S.team.region);
       S.registered = []; S.scrimmage = false;
@@ -14462,7 +14470,13 @@ window.G = window.G || {};
     S.storySeen = S.storySeen || {};
     D.DISTRICTS.filter(d => d.from === cy && !S.storySeen['dist_' + d.id]).forEach(d => {
       const I = G.World.formInfo(S, d, cy);
-      if (!S.team.home && S.team.region === d.region) {
+      if (!S.team.home && S.team.region === d.region && G.World.wholeArea(d)) {
+        // (3.4.4) the district takes in the whole area: nothing to choose, the team is in it from next season
+        S.storySeen['dist_' + d.id] = 1; S.team.homeNext = d.id; S.districtOffer = { id: d.id, cy, stage: 'done', join: true, auto: true };
+        C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
+          means: ['Your team is in it: from ' + cy + ' you play district events, not regionals.', 'One fee covers two district events; registration opens in October (Calendar).', 'The points list decides who plays the District Championship in week 7 and who goes on to the Championship: about ' + I.slots + ' of the district\'s ' + I.n + ' teams.'] });
+        C.inbox(S, 'You join the ' + d.name, 'From the ' + cy + ' season every team of ' + D.regionThe(d.region) + ' plays in the ' + d.name + ', yours included. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship.', 'event');
+      } else if (!S.team.home && S.team.region === d.region) {
         S.storySeen['dist_' + d.id] = 1;
         S.districtOffer = { id: d.id, cy, stage: 'choose' };
         C.inbox(S, I.title, I.body.join('\n\n') + '\n\nYour school is inside the new district\'s borders. Decide whether to join it or stay a regional team (Headquarters).', 'event');
@@ -15266,6 +15280,7 @@ window.G = window.G || {};
   }
   C.migrate = function (S) {
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
+    if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (G.World.on(S) && S.teams && !G.World.elites(S).length && S.wseason) G.World.eliteSetup(S, G.R, S.wseason.cy); // 3.1: elite teams in a world from before
     if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {
@@ -18146,8 +18161,8 @@ window.G = window.G || {};
       'The province on the northern shores of the great lakes has more teams than most states, and for years five regionals have not been enough for them. Its volunteers have watched the district across the lake for a long time, and this winter they signed the last venue.',
       'From {cy} those teams play as the Trillium District: about {n} teams and {ev} two-day events in gyms and college halls. One registration fee buys two events, and a provincial championship in week 7 sends the best of the points list to the Championship. The rest of the North keeps its regionals.'] },
     levant: { title: 'A district on the eastern shore', body: [
-      'One regional a year for sixty teams: on the eastern shore of the Mediterranean, most students have played a single event a season, however good the robot. The organisers have now booked the same two arenas four times over.',
-      'From {cy} those teams play as the Levant District: about {n} teams and {ev} two-day events, none of them more than an hour or two from home. One registration fee buys two events, and a District Championship in week 7 sends the best of the points list to the Championship. The other teams of the Middle East are left without a regional of their own for now.'] }
+      'One regional a year for sixty teams: in the Middle East most students have played a single event a season, however good the robot. The organisers have now booked the same two arenas four times over.',
+      'From {cy} the whole area plays as the Levant District: about {n} teams and {ev} two-day events, none of them more than an hour or two from home. One registration fee buys two events, and a District Championship in week 7 sends the best of the points list to the Championship. The area\'s regional is no more.'] }
   };
   D.DISTRICT_TALK = [['Two events for one fee, and both within a two-hour drive. Our travel budget just doubled.', 'a coach in the new district'], ['I will miss the big arena. I will not miss the hotel bill.', 'a mentor in the new district'],
     ['Twelve qualification matches an event. The drivers will finally get enough field time.', 'a drive coach'], ['Fewer regionals out there means fuller ones here. Register early.', 'a regional team next door'], ['Every match is worth points now. No more coasting through Friday.', '{t}']];
@@ -18167,9 +18182,25 @@ window.G = window.G || {};
   W.on = S => !!(S && S.cal && S.world);
   // a world from before 3.5 (North America only) plays its season out as it was; it grows when the next one is planned
   W.legacy = S => !!(S && S.world && (S.world.v || 1) < 2);
+  // 3.4.4: the Middle East of 3.4.3 was two areas in one. Its regional teams and their regionals are Anatolia's now;
+  // the Levant District's cities (and the 2016 regional there) stay the Middle East.
+  W.splitMiddleEast = function (S) {
+    if (!S.world || S.world.v !== 2) return;
+    const old = 'Middle East', lev = t => t.home === 'levant' || t.z === 'levant';
+    Object.values(S.teams || {}).forEach(t => { if (t.region === old && !lev(t)) t.region = 'Anatolia'; });
+    if (S.team.region === old && !lev(S.team)) S.team.region = 'Anatolia';
+    [S.wseason && S.wseason.events, S.regionals].forEach(l => (l || []).forEach(e => { if (e.region === old && !e.dist && e.hub !== 'Tel Aviv') e.region = 'Anatolia'; }));
+    S.world.v = 3;
+  };
   W.districtsAt = cy => D.DISTRICTS.filter(d => d.from <= cy);
   W.districtsOf = (S, cy) => D.DISTRICTS.filter(d => d.from <= cy && !(d.real && W.legacy(S)));
   W.sizeOf = (d, cy) => (d.real ? D.areaTeams(d.id, cy) : Math.round(d.teams * curve(cy)));
+  // A district that takes in every city of its area (the Levant District and the Middle East): its area's teams all
+  // join it the season it forms, yours too, and after that the area has no regional teams. A team that wants to stay
+  // out of it starts somewhere else.
+  W.wholeArea = d => !G.Geo.HUBS.some(x => x.r === d.region && x.d !== d.id);
+  W.soleDistrict = (region, cy) => D.DISTRICTS.find(d => d.region === region && d.from > cy && W.wholeArea(d)) || null; // ... still to form
+  W.regionOpen = (region, cy) => !D.DISTRICTS.some(d => d.region === region && d.from <= cy && W.wholeArea(d)); // regional teams can still call the area home
   // the District Championship field: a small district plays a smaller one
   W.dcmpSize = (d, cy) => (d.real ? Math.min(d.dcmp, Math.max(12, Math.round(W.sizeOf(d, cy) * 0.55))) : d.dcmp);
   W.usTotal = cy => Math.round(D.WORLD_TEAMS * curve(cy));
@@ -18280,7 +18311,7 @@ window.G = window.G || {};
     D.EXPLICIT.forEach(z => {
       const d = D.DISTRICT[z], formed = !!d && d.from <= cy, region = d ? d.region : z, want = D.blockTargets(z, cy);
       const inZone = t => (d ? (formed ? t.home === z : !t.home && t.z === z) : !t.home && !t.z && t.region === z);
-      const have = want.map(() => []), me = S.team, mine = d ? formed && me.home === z : !me.home && me.region === z;
+      const have = want.map(() => []), me = S.team, mine = d ? (formed ? me.home === z : !me.home && me.z === z) : !me.home && !me.z && me.region === z;
       Object.values(S.teams).forEach(t => { if (inZone(t)) have[Math.min(11, Math.floor(t.num / 1000))].push(t); });
       want.forEach((w, b) => {
         let n = have[b].length + (mine && Math.min(11, Math.floor(me.num / 1000)) === b ? 1 : 0);
@@ -18302,7 +18333,7 @@ window.G = window.G || {};
   }
   W.setup = function (S, rng) {
     const cy = S.cal[0];
-    S.teams = {}; S.world = { v: 2 };
+    S.teams = {}; S.world = { v: 3 };
     // the United States: its districts, then every area's regional teams from the area's own cities and from the
     // cities of a district still to form
     W.districtsAt(cy).filter(d => !d.real).forEach(d => { const n = W.sizeOf(d, cy) - (S.team.home === d.id ? 1 : 0); for (let i = 0; i < n; i++) addTeam(S, rng, { region: d.region, home: d.id }); });
@@ -18340,7 +18371,7 @@ window.G = window.G || {};
   // outside the United States are filled to their real numbers.
   function upgrade(S, rng, cy) {
     const zone = {}; Object.values(S.teams).forEach(t => { zone[t.num] = W.zoneOf(t, cy); }); // by the old cities, while the world still counts as old
-    S.world.v = 2;
+    S.world.v = 3;
     Object.values(S.teams).forEach(t => {
       const d = D.DISTRICT[zone[t.num]]; if (t.home || !d) return;
       if (d.from <= cy) { if (d.real) t.home = d.id; } else t.z = d.id;
@@ -18918,7 +18949,7 @@ window.G = window.G || {};
   // circles do not cover them); the third number is the zoom from which a name shows (the areas of North America
   // only when the map is close enough to tell them apart)
   Geo.LABEL = { West: [-115.6, 38.6, 3], Southwest: [-108.7, 37.6, 3], Midwest: [-99.5, 44.6, 3], Northeast: [-64.5, 41.0, 3], Southeast: [-90.0, 32.0, 3], North: [-100, 55.5, 3],
-    'Central America': [-114, 10.5, 1], 'South America': [-61, -9, 1], Europe: [3, 57.5, 1], 'Middle East': [54, 23, 1], 'East Asia': [137, 23.5, 1], 'Asia Pacific': [134, -24.5, 1],
+    'Central America': [-114, 10.5, 1], 'South America': [-61, -9, 1], Europe: [3, 57.5, 1], Anatolia: [35.5, 44.3, 1], 'Middle East': [45, 27.5, 1], 'East Asia': [137, 23.5, 1], 'Asia Pacific': [134, -24.5, 1],
     lakeshore: [-85.0, 47.0, 4], harbor: [-70.15, 45.65, 4, 'start'], evergreen: [-119.5, 42.35, 4], mesa: [-102.3, 30.8, 4], sierra: [-120.6, 40.9, 4], trillium: [-81.5, 47.6, 4], levant: [33.9, 32.6, 4, 'end'] };
   // the Championship cities
   Geo.CITY = { 'St. Louis': [-90.2, 38.63], Houston: [-95.37, 29.76], Detroit: [-83.1, 42.36] };
@@ -18984,10 +19015,9 @@ window.G = window.G || {};
     ['Nice', 'Europe', null, 7.1, 43.75, 0.3, 0.15], ['Warsaw', 'Europe', null, 21.0, 52.2, 0.5, 0.6], ['Lublin', 'Europe', null, 22.6, 51.0, 0.5, 0.6], ['Krakow', 'Europe', null, 19.9, 50.05, 0.3, 0.5], ['Zurich', 'Europe', null, 8.8, 47.2, 0.4, 0.4],
     ['Rijeka', 'Europe', null, 14.6, 45.5, 0.3, 0.2], ['Sofia', 'Europe', null, 23.3, 42.7, 0.2, 0.4], ['Cluj', 'Europe', null, 23.6, 46.75, 0.2, 0.5], ['Athens', 'Europe', null, 23.6, 38.1, 0.15, 0.15], ['Stockholm', 'Europe', null, 17.8, 59.3, 0.15, 0.3],
     ['Kyiv', 'Europe', null, 30.5, 50.45, 0.15, 0.5],
-    ['Istanbul', 'Middle East', null, 28.95, 41.03, 6, 0.3], ['Ankara', 'Middle East', null, 32.85, 39.93, 1.2, 0.6], ['Izmir', 'Middle East', null, 27.3, 38.42, 0.8, 0.3], ['Kocaeli', 'Middle East', null, 29.95, 40.7, 0.7, 0.3],
-    ['Eskisehir', 'Middle East', null, 30.5, 39.78, 0.45, 0.5], ['Antalya', 'Middle East', null, 30.7, 37.05, 0.4, 0.2], ['Bursa', 'Middle East', null, 29.05, 40.15, 0.35, 0.3], ['Mugla', 'Middle East', null, 28.4, 37.25, 0.25, 0.3],
-    ['Diyarbakir', 'Middle East', null, 40.2, 37.9, 0.25, 0.7], ['Adana', 'Middle East', null, 35.3, 37.05, 0.2, 0.3], ['Antakya', 'Middle East', null, 36.25, 36.25, 0.2, 0.15], ['Konya', 'Middle East', null, 32.5, 37.87, 0.15, 0.6],
-    ['Baku', 'Middle East', null, 49.75, 40.5, 0.08, 0.1],
+    ['Istanbul', 'Anatolia', null, 28.95, 41.03, 6, 0.3], ['Ankara', 'Anatolia', null, 32.85, 39.93, 1.2, 0.6], ['Izmir', 'Anatolia', null, 27.3, 38.42, 0.8, 0.3], ['Kocaeli', 'Anatolia', null, 29.95, 40.7, 0.7, 0.3],
+    ['Eskisehir', 'Anatolia', null, 30.5, 39.78, 0.45, 0.5], ['Antalya', 'Anatolia', null, 30.7, 37.05, 0.4, 0.2], ['Bursa', 'Anatolia', null, 29.05, 40.15, 0.35, 0.3], ['Mugla', 'Anatolia', null, 28.4, 37.25, 0.25, 0.3],
+    ['Diyarbakir', 'Anatolia', null, 40.2, 37.9, 0.25, 0.7], ['Adana', 'Anatolia', null, 35.3, 37.05, 0.2, 0.3], ['Antakya', 'Anatolia', null, 36.25, 36.25, 0.2, 0.15], ['Konya', 'Anatolia', null, 32.5, 37.87, 0.15, 0.6],
     ['Tel Aviv', 'Middle East', 'levant', 34.8, 32.07, 3, 0.1], ['Herzliya', 'Middle East', 'levant', 34.87, 32.17, 1, 0.08], ['Netanya', 'Middle East', 'levant', 34.9, 32.32, 0.8, 0.1], ['Modi\'in', 'Middle East', 'levant', 35.0, 31.9, 0.8, 0.12],
     ['Rehovot', 'Middle East', 'levant', 34.82, 31.89, 0.6, 0.1], ['Jerusalem', 'Middle East', 'levant', 35.15, 31.78, 0.8, 0.08], ['Haifa', 'Middle East', 'levant', 35.03, 32.78, 1, 0.08], ['Binyamina', 'Middle East', 'levant', 34.97, 32.52, 0.6, 0.08],
     ['Afula', 'Middle East', 'levant', 35.3, 32.62, 0.6, 0.15], ['Be\'er Sheva', 'Middle East', 'levant', 34.8, 31.25, 1, 0.2], ['Ashkelon', 'Middle East', 'levant', 34.62, 31.67, 0.4, 0.08],
@@ -23875,18 +23905,24 @@ window.G = window.G || {};
       o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
     // (3.5) the home list: the areas of North America, the rest of the world, and the districts of the start year
+    // (3.4.4) an area that is all one formed district is not a home for a regional team: its district is
+    const ngOpen = r => n.mode !== 'career' || G.World.regionOpen(r, n.start);
+    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) n.school = UI.ngSchool(n); }
     const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
-      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA').map(ngOpt).join('') + '</optgroup>' +
-        '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA').map(ngOpt).join('') + '</optgroup>' +
+      '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
+        '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
       '</div>';
     if (n.mode === 'career') {
       const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff), A = D.WORLD_AREAS[n.region], sites = D.sitesOf(n.region, n.start), far = D.overseas(n.region, 'Midwest');
+      // a district still to form in this area: all of it (your team joins), or part of it (you choose then)
+      const fut = d ? null : D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0];
+      const futTxt = !fut ? '' : G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. ' : 'In ' + fut.from + ' part of it forms the ' + h(fut.name) + ': you choose then whether to join. ';
       o += '<div class="hint mt"><b>Competition:</b> about ' + pv.teams + ' teams in ' + n.start + ', average strength about ' + pv.avg + ', and ' + (pv.elite ? pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world.' : 'no ' + UI.eliteTag() + ' team calls this area home this season.') +
         ' The numbers follow the real season. ' + UI.q('world', 'Elite teams') + '</div>';
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
-        : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + 'Register for one to four regionals (bigger events, more travel). Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
+        : '<b>Regional team in ' + h(D.regionThe(n.region)) + '.</b> ' + (A ? h(A.about) + ' ' : '') + futTxt + 'Register for one to four regionals. Qualify for the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or ' + (G.Era.wildcards(Number(n.start) || 0) ? 'on a wildcard as a finalist (the Regional Pool begins in 2025).' : 'through the Regional Pool.')) + '</div>';
       // travel from an area outside North America: its own regionals this first season, and what is overseas
       if (far || A) o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your district events are close to home. ' : A ? (sites.length ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + sites.length + ' regional' + (sites.length > 1 ? 's' : '') + ' (' + h(sites.filter((x, i, a) => a.indexOf(x) === i).join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') : '') +
         (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
@@ -24004,6 +24040,12 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
+      'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
+      'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',
+      'The New Career page says what lies ahead for your home: a district that takes in the whole area, one that forms in part of it and asks you, or none.',
+      'A career saved in 3.4.3 is converted when it loads: a team from the old Middle East\'s regional cities is an Anatolia team now.'
+    ] },
     { v: '3.4.3', title: 'Beta of 3.5: the whole world', notes: [
       'The world simulation covers every part of the world with teams in it. Twelve areas: the West, Southwest, Midwest, Northeast and Southeast, the North, Central America, South America, Europe, the Middle East, East Asia and Asia Pacific. Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East.',
       'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the team numbers they carry by the thousand, their average strength, and the cities that host its regionals. Some seasons an area has no regional of its own.',
@@ -24944,7 +24986,7 @@ window.G = window.G || {};
     o += '<div class="xs muted mt mb">Drag to move, scroll or + to zoom, click a circle to zoom in. Team strength is the world simulation\'s rating. ' + UI.q('world', 'The map') + '</div>';
     // ---- the same numbers as a table: one row per area and district
     const areas = [];
-    D.REGIONS.forEach(r => { if (G.World.legacy(S) && !Object.values(S.teams).some(t => t.region === r)) return; areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }); });
+    D.REGIONS.forEach(r => { if ((G.World.legacy(S) || !G.World.regionOpen(r, cy)) && !Object.values(S.teams).some(t => !t.home && t.region === r)) return; areas.push({ key: 'r:' + r, name: r, kind: 'Regional teams', f: t => !t.home && t.region === r, ev: e => !e.dist && e.region === r }); });
     dists.forEach(d => areas.push({ key: 'd:' + d.id, name: d.name, kind: 'District', f: t => t.home === d.id, ev: e => e.dist === d.id, d }));
     const all = Object.values(S.teams), mineA = S.team.home ? 'd:' + S.team.home : 'r:' + S.team.region;
     o += UI.card('Areas and districts ' + UI.tag(cy + '', ''), '<div style="overflow-x:auto"><table class="t tight"><tr><th>Area</th><th>Kind</th><th class="num">Teams</th><th class="num" title="Average strength (the world simulation\'s rating)">Avg strength</th><th class="num">Rookies</th><th class="num">Events</th><th class="num" title="Teams that have qualified for the Championship so far">Qualified</th></tr>' +
@@ -25410,12 +25452,13 @@ window.G = window.G || {};
         'Before practice day there is a <b>mentor conference</b>: the mentors of the teams there each give a talk on one knowledge area. Choose 2 of the 4; each adds a little know-how (+25 XP) in its area.'] }
     ] },
     { id: 'world', icon: 'map', name: 'World map & scouting', desc: 'Where everyone is, and how every team is doing', secs: [
-      { icon: 'map', t: 'The world\'s areas', li: ['Teams come from twelve areas: the <b>West, Southwest, Midwest, Northeast and Southeast</b> and the <b>North</b> in North America, then <b>Central America, South America, Europe, the Middle East, East Asia</b> and <b>Asia Pacific</b>. An area is a part of the world, not a country.',
-        'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the numbers they carry, how strong they are on average, and how many of the best teams in the world come from there. The Middle East grows from a handful of teams to about a hundred; East Asia rises, falls and rises again; South America takes off in 2023.',
-        'Outside the United States an area\'s regionals are held in the cities that really hosted one that season (the events keep made-up names). Some seasons an area has none: Europe never does, South America not before 2023, East Asia not in 2016, 2019, 2023 or 2024, the Middle East\'s regional teams not in 2017. The New Career page says what your home holds in your first season, and the Inbox tells you each October.',
+      { icon: 'map', t: 'The world\'s areas', li: ['Teams come from thirteen areas: the <b>West, Southwest, Midwest, Northeast and Southeast</b> and the <b>North</b> in North America, then <b>Central America, South America, Europe, Anatolia, the Middle East, East Asia</b> and <b>Asia Pacific</b>. An area is a part of the world, not a country.',
+        'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the numbers they carry, how strong they are on average, and how many of the best teams in the world come from there. Anatolia grows from a handful of teams to about a hundred; East Asia rises, falls and rises again; South America takes off in 2023.',
+        'Outside the United States an area\'s regionals are held in the cities that really hosted one that season (the events keep made-up names). Some seasons an area has none: Europe never does, South America not before 2023, Anatolia not before 2018, East Asia not in 2016, 2019, 2023 or 2024. The New Career page says what your home holds in your first season, and the Inbox tells you each October.',
         'Two districts lie outside the United States, both from 2017: the <b>Trillium District</b> in the North and the <b>Levant District</b> in the Middle East. In 2016 their teams still play regionals.',
+        'The Levant District takes in the whole Middle East: a team that starts there in 2016 joins it in 2017, with no choice to make, and from 2017 the area is on the home list only as the district. Anatolia has no district. Where a district forms in part of an area (Trillium, Mesa, Sierra), a regional team there is asked whether to join. The New Career page says which applies to your home.',
         'Your default team number and school name follow your home: an established team gets a number its area\'s teams really carry (East Asia\'s oldest are in the 4000s and 5000s), and sponsors are named after the industries of the place.'] },
-      { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices: <b>Local</b>, <b>Drive</b> (your own area, or the one next door), <b>Fly</b> (the same part of the world) and <b>Fly overseas</b> (another part of the world: North America, South America, Europe and the Middle East, East Asia, Asia Pacific).',
+      { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices: <b>Local</b>, <b>Drive</b> (your own area, or the one next door), <b>Fly</b> (the same part of the world) and <b>Fly overseas</b> (another part of the world: North America; South America; Europe, Anatolia and the Middle East; East Asia; Asia Pacific).',
         'A flight overseas costs ' + U.money(D.TRAVEL.intl.cost) + ' for a team of 25 (an ordinary flight ' + U.money(D.TRAVEL.fly.cost) + '), and more for a bigger team. The robot crosses the ocean in a crate and arrives ' + D.INTL_KNOCKS[0] + ' to ' + D.INTL_KNOCKS[1] + '% worse for wear (an ordinary flight: 4 to 9%), and the team comes home a little more tired.',
         'The <b>team trailer</b> turns ordinary flights into long drives. It cannot cross an ocean: a flight overseas stays a flight.',
         'The Championship is in the middle of North America: an ordinary flight from anywhere on that continent, Central America included, and a flight overseas for everyone else. Summit Champs in California is the same.',
@@ -25484,7 +25527,7 @@ window.G = window.G || {};
         '<b>Bonus RP</b>: an extra ranking point for a task in the match, such as enough climb points. <b>Ranking points (RP)</b> order the teams after qualifications.',
         '<b>Bracket</b>: the playoffs. <b>Single elimination</b> (through 2022): best-of-three series, lose one and you are out. <b>Double elimination</b> (from 2023): a second loss ends your event.',
         '<b>Custom career</b>: a career whose games you choose yourself, real and fantasy, played as listed or shuffled. <b>Fantasy game</b>: one of ten fictional games in the 2026 match format; as a single season it is the 2027 game.',
-        '<b>Area</b>: where a team comes from: one of twelve parts of the world, six of them in North America. <b>Flight overseas</b>: travel to an event in another part of the world: dearer than an ordinary flight, harder on the robot, and no trip for the team trailer.',
+        '<b>Area</b>: where a team comes from: one of thirteen parts of the world, seven of them in North America. <b>Flight overseas</b>: travel to an event in another part of the world: dearer than an ordinary flight, harder on the robot, and no trip for the team trailer.',
         '<b>Championship</b>: the season\'s last event, by invitation. It is played in <b>divisions</b>; the division winners meet on <b>Einstein</b>.',
         '<b>Strength</b>: the world simulation\'s rating of a team (50 is average), shown on the World map. <b>Elite team</b>: one of the few programs at the top of the sport, close to maxed out; marked with a rose Elite tag. <b>Robot strength</b> (practice day): the points your robot adds to an alliance. <b>Reveal</b>: how a team first shows its new robot, around Week 0: a video, a render or one picture on the forum (or, for a team that never reveals, a photo someone took at a scrimmage that leaks). <b>District</b>: an area whose teams play local two-day events for <b>district points</b> and then a <b>District Championship</b>. Everyone else is a <b>regional</b> team.',
         '<b>Festival of Champions</b>: July 2017 only. The winners of the two Championships play a best of five.',

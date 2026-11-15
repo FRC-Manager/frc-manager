@@ -274,6 +274,10 @@
     // world: a v3 career simulates every team and event (regionals and districts); a single season keeps the simple pool
     if (S.cal && o.mode === 'career' && G.World && !o.noWorld) {
       if (S.team.home && !(D.DISTRICT[S.team.home] && D.DISTRICT[S.team.home].from <= cal[0])) S.team.home = null;
+      // (3.4.4) an area that is all one district: a team there is in the district once it has formed, and before
+      // that it stands in the district's cities and joins with everybody else
+      if (!S.team.home && !G.World.regionOpen(S.team.region, cal[0])) S.team.home = D.DISTRICTS.find(d => d.region === S.team.region && d.from <= cal[0] && G.World.wholeArea(d)).id;
+      if (!S.team.home) { const dz = G.World.soleDistrict(S.team.region, cal[0]); if (dz) S.team.z = dz.id; }
       if (S.team.home) { S.team.region = D.DISTRICT[S.team.home].region; if (!scen) S.maxEvents = 3; }
       G.World.setup(S, rng);
     } else {
@@ -1155,7 +1159,7 @@
     }
     if (mo === 'Oct') {
       // a team that chose to join a new district plays there from the season now being planned
-      if (S.team.homeNext) { S.team.home = S.team.homeNext; delete S.team.homeNext; if (!S.scenario) S.maxEvents = Math.min(S.maxEvents, 3); }
+      if (S.team.homeNext) { S.team.home = S.team.homeNext; delete S.team.homeNext; delete S.team.z; if (!S.scenario) S.maxEvents = Math.min(S.maxEvents, 3); }
       C.genOffers(S);
       if (G.World.on(S)) G.World.plan(S, rng); else S.regionals = D.makeRegionals(S.order[S.upcoming] || S.year, rng, S.team.region);
       S.registered = []; S.scrimmage = false;
@@ -2164,7 +2168,13 @@
     S.storySeen = S.storySeen || {};
     D.DISTRICTS.filter(d => d.from === cy && !S.storySeen['dist_' + d.id]).forEach(d => {
       const I = G.World.formInfo(S, d, cy);
-      if (!S.team.home && S.team.region === d.region) {
+      if (!S.team.home && S.team.region === d.region && G.World.wholeArea(d)) {
+        // (3.4.4) the district takes in the whole area: nothing to choose, the team is in it from next season
+        S.storySeen['dist_' + d.id] = 1; S.team.homeNext = d.id; S.districtOffer = { id: d.id, cy, stage: 'done', join: true, auto: true };
+        C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
+          means: ['Your team is in it: from ' + cy + ' you play district events, not regionals.', 'One fee covers two district events; registration opens in October (Calendar).', 'The points list decides who plays the District Championship in week 7 and who goes on to the Championship: about ' + I.slots + ' of the district\'s ' + I.n + ' teams.'] });
+        C.inbox(S, 'You join the ' + d.name, 'From the ' + cy + ' season every team of ' + D.regionThe(d.region) + ' plays in the ' + d.name + ', yours included. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship.', 'event');
+      } else if (!S.team.home && S.team.region === d.region) {
         S.storySeen['dist_' + d.id] = 1;
         S.districtOffer = { id: d.id, cy, stage: 'choose' };
         C.inbox(S, I.title, I.body.join('\n\n') + '\n\nYour school is inside the new district\'s borders. Decide whether to join it or stay a regional team (Headquarters).', 'event');
@@ -2968,6 +2978,7 @@
   }
   C.migrate = function (S) {
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
+    if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (G.World.on(S) && S.teams && !G.World.elites(S).length && S.wseason) G.World.eliteSetup(S, G.R, S.wseason.cy); // 3.1: elite teams in a world from before
     if (S.equip && S.equip.kb && S.kbFor == null) S.kbFor = C.kbCycle(S); // v2.9.3: an existing Knowledge Base is up to date for now
     if (!S.programs) {

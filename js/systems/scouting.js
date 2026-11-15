@@ -137,7 +137,7 @@
   // circles do not cover them); the third number is the zoom from which a name shows (the areas of North America
   // only when the map is close enough to tell them apart)
   Geo.LABEL = { West: [-115.6, 38.6, 3], Southwest: [-108.7, 37.6, 3], Midwest: [-99.5, 44.6, 3], Northeast: [-64.5, 41.0, 3], Southeast: [-90.0, 32.0, 3], North: [-100, 55.5, 3],
-    'Central America': [-114, 10.5, 1], 'South America': [-61, -9, 1], Europe: [3, 57.5, 1], 'Middle East': [54, 23, 1], 'East Asia': [137, 23.5, 1], 'Asia Pacific': [134, -24.5, 1],
+    'Central America': [-114, 10.5, 1], 'South America': [-61, -9, 1], Europe: [3, 57.5, 1], Anatolia: [35.5, 44.3, 1], 'Middle East': [45, 27.5, 1], 'East Asia': [137, 23.5, 1], 'Asia Pacific': [134, -24.5, 1],
     lakeshore: [-85.0, 47.0, 4], harbor: [-70.15, 45.65, 4, 'start'], evergreen: [-119.5, 42.35, 4], mesa: [-102.3, 30.8, 4], sierra: [-120.6, 40.9, 4], trillium: [-81.5, 47.6, 4], levant: [33.9, 32.6, 4, 'end'] };
   // the Championship cities
   Geo.CITY = { 'St. Louis': [-90.2, 38.63], Houston: [-95.37, 29.76], Detroit: [-83.1, 42.36] };
@@ -203,10 +203,9 @@
     ['Nice', 'Europe', null, 7.1, 43.75, 0.3, 0.15], ['Warsaw', 'Europe', null, 21.0, 52.2, 0.5, 0.6], ['Lublin', 'Europe', null, 22.6, 51.0, 0.5, 0.6], ['Krakow', 'Europe', null, 19.9, 50.05, 0.3, 0.5], ['Zurich', 'Europe', null, 8.8, 47.2, 0.4, 0.4],
     ['Rijeka', 'Europe', null, 14.6, 45.5, 0.3, 0.2], ['Sofia', 'Europe', null, 23.3, 42.7, 0.2, 0.4], ['Cluj', 'Europe', null, 23.6, 46.75, 0.2, 0.5], ['Athens', 'Europe', null, 23.6, 38.1, 0.15, 0.15], ['Stockholm', 'Europe', null, 17.8, 59.3, 0.15, 0.3],
     ['Kyiv', 'Europe', null, 30.5, 50.45, 0.15, 0.5],
-    ['Istanbul', 'Middle East', null, 28.95, 41.03, 6, 0.3], ['Ankara', 'Middle East', null, 32.85, 39.93, 1.2, 0.6], ['Izmir', 'Middle East', null, 27.3, 38.42, 0.8, 0.3], ['Kocaeli', 'Middle East', null, 29.95, 40.7, 0.7, 0.3],
-    ['Eskisehir', 'Middle East', null, 30.5, 39.78, 0.45, 0.5], ['Antalya', 'Middle East', null, 30.7, 37.05, 0.4, 0.2], ['Bursa', 'Middle East', null, 29.05, 40.15, 0.35, 0.3], ['Mugla', 'Middle East', null, 28.4, 37.25, 0.25, 0.3],
-    ['Diyarbakir', 'Middle East', null, 40.2, 37.9, 0.25, 0.7], ['Adana', 'Middle East', null, 35.3, 37.05, 0.2, 0.3], ['Antakya', 'Middle East', null, 36.25, 36.25, 0.2, 0.15], ['Konya', 'Middle East', null, 32.5, 37.87, 0.15, 0.6],
-    ['Baku', 'Middle East', null, 49.75, 40.5, 0.08, 0.1],
+    ['Istanbul', 'Anatolia', null, 28.95, 41.03, 6, 0.3], ['Ankara', 'Anatolia', null, 32.85, 39.93, 1.2, 0.6], ['Izmir', 'Anatolia', null, 27.3, 38.42, 0.8, 0.3], ['Kocaeli', 'Anatolia', null, 29.95, 40.7, 0.7, 0.3],
+    ['Eskisehir', 'Anatolia', null, 30.5, 39.78, 0.45, 0.5], ['Antalya', 'Anatolia', null, 30.7, 37.05, 0.4, 0.2], ['Bursa', 'Anatolia', null, 29.05, 40.15, 0.35, 0.3], ['Mugla', 'Anatolia', null, 28.4, 37.25, 0.25, 0.3],
+    ['Diyarbakir', 'Anatolia', null, 40.2, 37.9, 0.25, 0.7], ['Adana', 'Anatolia', null, 35.3, 37.05, 0.2, 0.3], ['Antakya', 'Anatolia', null, 36.25, 36.25, 0.2, 0.15], ['Konya', 'Anatolia', null, 32.5, 37.87, 0.15, 0.6],
     ['Tel Aviv', 'Middle East', 'levant', 34.8, 32.07, 3, 0.1], ['Herzliya', 'Middle East', 'levant', 34.87, 32.17, 1, 0.08], ['Netanya', 'Middle East', 'levant', 34.9, 32.32, 0.8, 0.1], ['Modi\'in', 'Middle East', 'levant', 35.0, 31.9, 0.8, 0.12],
     ['Rehovot', 'Middle East', 'levant', 34.82, 31.89, 0.6, 0.1], ['Jerusalem', 'Middle East', 'levant', 35.15, 31.78, 0.8, 0.08], ['Haifa', 'Middle East', 'levant', 35.03, 32.78, 1, 0.08], ['Binyamina', 'Middle East', 'levant', 34.97, 32.52, 0.6, 0.08],
     ['Afula', 'Middle East', 'levant', 35.3, 32.62, 0.6, 0.15], ['Be\'er Sheva', 'Middle East', 'levant', 34.8, 31.25, 1, 0.2], ['Ashkelon', 'Middle East', 'levant', 34.62, 31.67, 0.4, 0.08],

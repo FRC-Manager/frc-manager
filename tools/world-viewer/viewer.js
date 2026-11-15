@@ -53,7 +53,7 @@
     const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), v = V.view;
     v.cx = (x0 + x1) / 2; v.cy = (y0 + y1) / 2; v.k = Math.min(Geo.W / ((x1 - x0) * (pad || 1.3) + 14), Geo.VH / ((y1 - y0) * (pad || 1.3) + 14), kmax || 30); clamp();
   };
-  const VIEWS = [['World', null], ['North America', 'NA'], ['South America', 'SA'], ['Europe and Middle East', 'EME'], ['East Asia', 'EA'], ['Asia Pacific', 'AP']];
+  const VIEWS = [['World', null], ['North America', 'NA'], ['South America', 'SA'], ['Europe, Anatolia, Middle East', 'EME'], ['East Asia', 'EA'], ['Asia Pacific', 'AP']];
   const viewGroup = g => { if (!g) { V.view = { k: 1, cx: Geo.W / 2, cy: Geo.H / 2 }; clamp(); } else fit(Geo.HUBS.filter(x => D.GROUP[x.r] === g && x.n !== 'Honolulu').map(x => Geo.xy(x.lon, x.lat)), 1.15, 12); };
   function drawMap() {
     clamp();

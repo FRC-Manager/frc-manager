@@ -46,8 +46,8 @@
       'The province on the northern shores of the great lakes has more teams than most states, and for years five regionals have not been enough for them. Its volunteers have watched the district across the lake for a long time, and this winter they signed the last venue.',
       'From {cy} those teams play as the Trillium District: about {n} teams and {ev} two-day events in gyms and college halls. One registration fee buys two events, and a provincial championship in week 7 sends the best of the points list to the Championship. The rest of the North keeps its regionals.'] },
     levant: { title: 'A district on the eastern shore', body: [
-      'One regional a year for sixty teams: on the eastern shore of the Mediterranean, most students have played a single event a season, however good the robot. The organisers have now booked the same two arenas four times over.',
-      'From {cy} those teams play as the Levant District: about {n} teams and {ev} two-day events, none of them more than an hour or two from home. One registration fee buys two events, and a District Championship in week 7 sends the best of the points list to the Championship. The other teams of the Middle East are left without a regional of their own for now.'] }
+      'One regional a year for sixty teams: in the Middle East most students have played a single event a season, however good the robot. The organisers have now booked the same two arenas four times over.',
+      'From {cy} the whole area plays as the Levant District: about {n} teams and {ev} two-day events, none of them more than an hour or two from home. One registration fee buys two events, and a District Championship in week 7 sends the best of the points list to the Championship. The area\'s regional is no more.'] }
   };
   D.DISTRICT_TALK = [['Two events for one fee, and both within a two-hour drive. Our travel budget just doubled.', 'a coach in the new district'], ['I will miss the big arena. I will not miss the hotel bill.', 'a mentor in the new district'],
     ['Twelve qualification matches an event. The drivers will finally get enough field time.', 'a drive coach'], ['Fewer regionals out there means fuller ones here. Register early.', 'a regional team next door'], ['Every match is worth points now. No more coasting through Friday.', '{t}']];
@@ -67,9 +67,25 @@
   W.on = S => !!(S && S.cal && S.world);
   // a world from before 3.5 (North America only) plays its season out as it was; it grows when the next one is planned
   W.legacy = S => !!(S && S.world && (S.world.v || 1) < 2);
+  // 3.4.4: the Middle East of 3.4.3 was two areas in one. Its regional teams and their regionals are Anatolia's now;
+  // the Levant District's cities (and the 2016 regional there) stay the Middle East.
+  W.splitMiddleEast = function (S) {
+    if (!S.world || S.world.v !== 2) return;
+    const old = 'Middle East', lev = t => t.home === 'levant' || t.z === 'levant';
+    Object.values(S.teams || {}).forEach(t => { if (t.region === old && !lev(t)) t.region = 'Anatolia'; });
+    if (S.team.region === old && !lev(S.team)) S.team.region = 'Anatolia';
+    [S.wseason && S.wseason.events, S.regionals].forEach(l => (l || []).forEach(e => { if (e.region === old && !e.dist && e.hub !== 'Tel Aviv') e.region = 'Anatolia'; }));
+    S.world.v = 3;
+  };
   W.districtsAt = cy => D.DISTRICTS.filter(d => d.from <= cy);
   W.districtsOf = (S, cy) => D.DISTRICTS.filter(d => d.from <= cy && !(d.real && W.legacy(S)));
   W.sizeOf = (d, cy) => (d.real ? D.areaTeams(d.id, cy) : Math.round(d.teams * curve(cy)));
+  // A district that takes in every city of its area (the Levant District and the Middle East): its area's teams all
+  // join it the season it forms, yours too, and after that the area has no regional teams. A team that wants to stay
+  // out of it starts somewhere else.
+  W.wholeArea = d => !G.Geo.HUBS.some(x => x.r === d.region && x.d !== d.id);
+  W.soleDistrict = (region, cy) => D.DISTRICTS.find(d => d.region === region && d.from > cy && W.wholeArea(d)) || null; // ... still to form
+  W.regionOpen = (region, cy) => !D.DISTRICTS.some(d => d.region === region && d.from <= cy && W.wholeArea(d)); // regional teams can still call the area home
   // the District Championship field: a small district plays a smaller one
   W.dcmpSize = (d, cy) => (d.real ? Math.min(d.dcmp, Math.max(12, Math.round(W.sizeOf(d, cy) * 0.55))) : d.dcmp);
   W.usTotal = cy => Math.round(D.WORLD_TEAMS * curve(cy));
@@ -180,7 +196,7 @@
     D.EXPLICIT.forEach(z => {
       const d = D.DISTRICT[z], formed = !!d && d.from <= cy, region = d ? d.region : z, want = D.blockTargets(z, cy);
       const inZone = t => (d ? (formed ? t.home === z : !t.home && t.z === z) : !t.home && !t.z && t.region === z);
-      const have = want.map(() => []), me = S.team, mine = d ? formed && me.home === z : !me.home && me.region === z;
+      const have = want.map(() => []), me = S.team, mine = d ? (formed ? me.home === z : !me.home && me.z === z) : !me.home && !me.z && me.region === z;
       Object.values(S.teams).forEach(t => { if (inZone(t)) have[Math.min(11, Math.floor(t.num / 1000))].push(t); });
       want.forEach((w, b) => {
         let n = have[b].length + (mine && Math.min(11, Math.floor(me.num / 1000)) === b ? 1 : 0);
@@ -202,7 +218,7 @@
   }
   W.setup = function (S, rng) {
     const cy = S.cal[0];
-    S.teams = {}; S.world = { v: 2 };
+    S.teams = {}; S.world = { v: 3 };
     // the United States: its districts, then every area's regional teams from the area's own cities and from the
     // cities of a district still to form
     W.districtsAt(cy).filter(d => !d.real).forEach(d => { const n = W.sizeOf(d, cy) - (S.team.home === d.id ? 1 : 0); for (let i = 0; i < n; i++) addTeam(S, rng, { region: d.region, home: d.id }); });
@@ -240,7 +256,7 @@
   // outside the United States are filled to their real numbers.
   function upgrade(S, rng, cy) {
     const zone = {}; Object.values(S.teams).forEach(t => { zone[t.num] = W.zoneOf(t, cy); }); // by the old cities, while the world still counts as old
-    S.world.v = 2;
+    S.world.v = 3;
     Object.values(S.teams).forEach(t => {
       const d = D.DISTRICT[zone[t.num]]; if (t.home || !d) return;
       if (d.from <= cy) { if (d.real) t.home = d.id; } else t.z = d.id;
