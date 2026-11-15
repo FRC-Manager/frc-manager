@@ -472,10 +472,11 @@
   UI.gameBriefModal = function (year) {
     const Sz = G.Seasons[year]; if (!Sz) return;
     const rel = Object.keys(Sz.relevance).filter(k => Sz.relevance[k] > 0).sort((a, b) => Sz.relevance[b] - Sz.relevance[a]);
-    UI.modal('<div class="xs muted">KICKOFF BRIEFING · ' + year + '</div><h2 style="font-size:28px">' + year + ' ' + h(Sz.name) + '</h2><p class="acc b">' + h(Sz.tagline) + '</p>' + UI.gameBrief(year) +
+    const fan = G.isFantasy(year);
+    UI.modal('<div class="xs muted">KICKOFF BRIEFING · ' + (fan ? 'FANTASY GAME' : year) + '</div><h2 style="font-size:28px">' + (fan ? '' : year + ' ') + h(Sz.name) + '</h2><p class="acc b">' + h(Sz.tagline) + '</p>' + UI.gameBrief(year) +
       '<h3 class="mt">The robot</h3><div class="row wrap gap4">' + Sz.subs.map(sd => UI.tag(sd.name + (sd.optional ? ' (optional)' : ''))).join(' ') + '</div>' +
       '<h3 class="mt">What this game rewards</h3><div class="row wrap gap4">' + rel.map(k => '<span class="tag">' + h(D.AREA[k].name) + ' <span class="acc">' + '★'.repeat(Sz.relevance[k]) + '</span></span>').join(' ') + '</div>' +
-      '<div class="row mt"><span class="xs muted">In a career this game is played in ' + year + ' (real order) or in ' + (Sz.drawIn ? Sz.drawIn.join(' or ') + ' (random order: tank drives only, so never in the swerve years)' : 'any year (random order)') + '.</span><span class="sp"></span><button class="btn" data-act="closeModal">Close</button><button class="btn primary" data-act="playSeason" data-arg="' + year + '">Play this season ▶</button></div>',
+      '<div class="row mt"><span class="xs muted">' + (fan ? 'A fantasy game: in a career it is played when a random-order career includes fantasy seasons, or in a custom career. As a single season it is the ' + G.FANTASY_CY + ' game.' : 'In a career this game is played in ' + year + ' (real order) or in ' + (Sz.drawIn ? Sz.drawIn.join(' or ') + ' (random order: tank drives only, so never in the swerve years)' : 'any year (random order)') + '.') + '</span><span class="sp"></span><button class="btn" data-act="closeModal">Close</button><button class="btn primary" data-act="playSeason" data-arg="' + year + '">Play this season ▶</button></div>',
       { wide: true, after: () => { const c = document.getElementById('kfield'); G.Render.preview(c, year); } });
   };
   UI.kickoffModal = function () {

@@ -9,13 +9,16 @@
   UI.S.menu = { full: true, html() {
     const auto = G.Save.meta('auto');
     return '<div class="menu-wrap"><div class="menu-box"><div class="logo">FRC <span>MANAGER</span></div><div class="muted mb">Run a FIRST Robotics Competition team through ten seasons, from 2016 to 2026. Unofficial fan game.</div>' +
+      (G.BETA ? '<div class="hint mb">' + UI.tag(G.BETA.toUpperCase(), 'acc') + ' Version ' + h(G.VERSION) + '. The beta keeps its own saves and never touches the stable game\'s. To bring a career over, use <b>☰ → Export save</b> there and <b>Load / import</b> here.</div>' : '') +
       '<div class="grid g3 mt">' +
-      '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Start in any year from 2016 and play through 2026: up to ten seasons, in real or random order. Build a program that learns from every robot.</div></div>' +
-      '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one of the ten games and a scenario. Graded S to D.</div></div>' +
+      '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Start in any year from 2016 and play through 2026: up to ten seasons, in real or random order, or a career of your own from the real games and ten fantasy ones. Build a program that learns from every robot.</div></div>' +
+      '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one of the ten real games or the ten fantasy games, and a scenario. Graded S to D.</div></div>' +
       '<div class="choice" data-act="continueGame" ' + (auto ? '' : 'style="opacity:.5"') + '><div class="lg b">Continue</div><div class="sm muted">' + (auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + (auto.cy || auto.year) + ' · ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet') + '</div></div>' +
       '</div><div class="row mt wrap"><button class="btn" data-act="nav" data-arg="load">Load / import</button><button class="btn" data-act="nav" data-arg="help">How to play</button><button class="btn" data-act="nav" data-arg="notes">What\'s new in v' + h(G.VERSION) + '</button></div>' +
       '<div class="grid g5 mt">' + G.SEASON_YEARS.map(y => '<div class="card flat seasoncard" data-act="seasonCard" data-arg="' + y + '" title="Open this game\'s Kickoff briefing"><div class="xs muted">' + y + '</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
-      '<p class="xs dim mt">Version ' + h(G.VERSION) + ' · Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</p></div></div>';
+      '<h3 class="mt">Fantasy games <span class="sm muted" style="font-weight:400">· ten fictional games in the 2026 match format: a single season (as the ' + G.FANTASY_CY + ' game), a random-order career or a custom career</span></h3>' +
+      '<div class="grid g5">' + G.FANTASY_YEARS.map(y => '<div class="card flat seasoncard" data-act="seasonCard" data-arg="' + y + '" title="Open this game\'s Kickoff briefing"><div class="xs muted">FANTASY</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
+      '<p class="xs dim mt">Version ' + h(G.VERSION) + (G.BETA ? ' (' + h(G.BETA) + ')' : '') + ' · Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</p></div></div>';
   }, after() { document.querySelectorAll('canvas[data-prev]').forEach(c => G.Render.preview(c, Number(c.dataset.prev))); } };
   // a season card opens that game's Kickoff briefing, with a way straight into a Single Season Challenge of it
   UI.A.seasonCard = y => UI.gameBriefModal(Number(y));
@@ -28,7 +31,7 @@
   // the suggested team number for the start year: a rookie gets a number from that year's rookie block, an established or
   // powerhouse team one at least a year older. It follows the start year and profile until the player types a number.
   UI.ngAutoNum = function (n) {
-    const cy = n.mode === 'single' ? n.year : n.start, rng = G.makeRng((Date.now() ^ (cy * 7919)) & 0xffffff);
+    const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, rng = G.makeRng((Date.now() ^ (cy * 7919)) & 0xffffff);
     if (n.profile === 'rookie') { const b = D.numBlock(cy); return rng.int(b[0], b[1]); }
     const top = (D.NUM_FROM[cy - 1] || D.NUM_FROM[cy] || 11000) - 1; // at least a season older than this year's rookies
     return n.profile === 'powerhouse' ? rng.int(100, Math.min(top, 3500)) : rng.int(1000, top);
@@ -44,12 +47,13 @@
     const n = UI.st.ng;
     const inp = (k, lbl, type) => '<label class="f">' + lbl + '<input class="inp" type="' + (type || 'text') + '" value="' + h(n[k]) + '" data-chg="ng" data-k="' + k + '"></label>';
     const choice = (k, v, title, desc) => '<div class="choice ' + (n[k] === v ? 'on' : '') + '" data-act="ngSet" data-arg="' + k + '|' + v + '"><div class="b">' + title + '</div>' + (desc ? '<div class="xs muted">' + desc + '</div>' : '') + '</div>';
-    const starts = G.startYears(n.order); if (!starts.includes(n.start)) n.start = starts[0];
+    const starts = n.order === 'custom' ? G.CAL_YEARS.slice() : G.startYears(n.order); if (!starts.includes(n.start)) n.start = starts[0];
     if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) n.home = null; // that district does not exist yet in the start year
-    const ngPx = U.pxOf(n.mode === 'single' ? n.year : n.start); // amounts on this page: in the first season's dollars
+    const ngPx = U.pxOf(n.mode === 'single' ? G.singleCy(n.year) : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
       o += '<h3 class="mt">Season</h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' + G.SEASON_YEARS.map(y => choice('year', y, y + ' ' + G.Seasons[y].name, G.Seasons[y].tagline)).join('') + '</div>';
+      o += '<h3 class="mt">Fantasy games <span class="sm muted" style="font-weight:400">· fictional games in the 2026 match format, played as the ' + G.FANTASY_CY + ' season</span></h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' + G.FANTASY_YEARS.map(y => choice('year', y, G.Seasons[y].name, G.Seasons[y].tagline)).join('') + '</div>';
       o += '<h3 class="mt">Scenario</h3><div class="grid g4">' + D.SCENARIOS.map(s => choice('scenario', s.id, s.name, U.infl(s.goalText, ngPx) + ' (' + D.PROFILES[s.profile].name + ')')).join('') + '</div>';
     }
     o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') +
@@ -73,11 +77,31 @@
     o += '<h3 class="mt">Difficulty</h3><div class="grid g3">' + choice('diff', 'easy', 'Easy', 'Weaker opponents and fewer, weaker elite teams, fewer faults, more sponsor money.') + choice('diff', 'normal', 'Normal', 'The intended experience: a title takes an elite-level robot and drive team.') + choice('diff', 'hard', 'Hard', 'Stronger opponents and more, stronger elite teams, more faults, stingy sponsors.') + '</div>';
     if (n.mode === 'career') o += '<label class="row mt"><input type="checkbox" data-chg="ngNoFail" ' + (n.noFail ? 'checked' : '') + '> No-fail mode <span class="sm muted">(the program can\'t be cut when Program Support hits 0; you can change it later in Settings)</span></label>';
     if (n.mode === 'career') {
-      const cal = G.calFrom(n.start), nS = cal.length;
-      o += '<h3 class="mt">Season order</h3><div class="grid g2">' + choice('order', 'real', 'Real order', 'Every year plays its own game.') + choice('order', 'random', 'Random order', 'The games are shuffled: the next one is a surprise at each Kickoff. Technology, vendors, prices and events still follow the calendar year.') + '</div>';
-      o += '<h3 class="mt">Start year <span class="sm muted" style="font-weight:400">· the career runs through 2026' + (cal.includes(2020) && cal.includes(2022) ? ' (no 2021 season)' : '') + '</span></h3><div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">' +
-        starts.map(y => choice('start', y, String(y), (n.order === 'real' && G.Seasons[y] ? G.Seasons[y].name + ' · ' : '') + G.calFrom(y).length + ' season' + (G.calFrom(y).length === 1 ? '' : 's'))).join('') + '</div>' +
-        '<div class="hint mt">' + nS + ' season' + (nS === 1 ? '' : 's') + ': ' + cal[0] + (nS > 1 ? ' to ' + cal[nS - 1] : '') + '. Money is shown in each year\'s own dollars: prices and budgets rise a little every year.</div>';
+      const cal = G.calFrom(n.start), nS = cal.length, cust = n.order === 'custom', g5 = '<div class="grid g4" style="grid-template-columns:repeat(5,minmax(0,1fr))">';
+      o += '<h3 class="mt">Season order</h3><div class="grid g3">' + choice('order', 'real', 'Real order', 'Every year plays its own game.') + choice('order', 'random', 'Random order', 'The games are shuffled: the next one is a surprise at each Kickoff. Technology, vendors, prices and events still follow the calendar year.') +
+        choice('order', 'custom', 'Custom career', 'Choose the games yourself, from the ten real ones and the ten fantasy ones, and play them as listed or shuffled.') + '</div>';
+      o += '<h3 class="mt">Start year <span class="sm muted" style="font-weight:400">· ' + (cust ? 'your games are played one a year from here' : 'the career runs through 2026') + (cal.includes(2020) && cal.includes(2022) ? ' (no 2021 season)' : '') + '</span></h3>' + g5 +
+        starts.map(y => choice('start', y, String(y), (n.order === 'real' && G.Seasons[y] ? G.Seasons[y].name + ' · ' : '') + (cust ? 'up to ' : '') + G.calFrom(y).length + ' season' + (G.calFrom(y).length === 1 ? '' : 's'))).join('') + '</div>';
+      if (n.order === 'random') {
+        // (3.5) how many of the seasons are fantasy games
+        const mx = Math.min(nS, G.FANTASY_YEARS.length); n.fantasy = Math.min(Number(n.fantasy) || 0, mx);
+        o += '<h3 class="mt">Fantasy seasons <span class="sm muted" style="font-weight:400">· how many of the ' + nS + ' season' + (nS === 1 ? ' is a fantasy game' : 's are fantasy games') + '</span></h3><div class="row wrap gap4">' +
+          Array.from({ length: mx + 1 }, (x, k) => '<button class="btn ' + (n.fantasy === k ? 'primary' : '') + '" data-act="ngSet" data-arg="fantasy|' + k + '">' + (k ? k : 'None') + '</button>').join('') + '</div>' +
+          '<div class="hint mt">' + (n.fantasy ? n.fantasy + ' of the ' + nS + ' season' + (nS === 1 ? '' : 's') + ' will be fantasy game' + (n.fantasy === 1 ? '' : 's') + ', drawn from the ten and shuffled in with the real ones. Which, and when, you find out at each Kickoff.' : 'Real games only. Fantasy games are fictional games in the 2026 match format: you can look at them on the main menu.') + '</div>';
+      }
+      if (cust) {
+        // (3.5) the custom career: pick the games, see the years they fall in, then play them as listed or shuffled
+        n.games = (n.games || []).filter(g => G.Seasons[g]).slice(0, nS);
+        const pk = n.games, shuf = n.shuffle === 'yes', fitMsg = pk.length ? G.Career.gamesFit(pk, cal, !shuf) : '';
+        const gcard = y => { const i = pk.indexOf(y); return '<div class="choice ' + (i >= 0 ? 'on' : '') + '" data-act="ngGame" data-arg="' + y + '"><div class="xs muted">' + (G.isFantasy(y) ? 'FANTASY' : y) + (i >= 0 ? ' · ' + (shuf ? 'picked' : 'season ' + (i + 1)) : '') + '</div><div class="b">' + h(G.Seasons[y].name) + '</div></div>'; };
+        o += '<h3 class="mt">Games <span class="sm muted" style="font-weight:400">· pick up to ' + nS + ', one for each year from ' + n.start + ' to 2026. The career ends after your last game.</span></h3>' +
+          g5 + G.SEASON_YEARS.map(gcard).join('') + '</div><div class="xs muted mt mb">Fantasy games</div>' + g5 + G.FANTASY_YEARS.map(gcard).join('') + '</div>';
+        o += '<h3 class="mt">Play them</h3><div class="grid g2">' + choice('shuffle', 'no', 'As listed', 'In the order below. You know what is coming every year.') + choice('shuffle', 'yes', 'Random order', 'Your games are shuffled: the next one is a surprise at each Kickoff.') + '</div>';
+        if (pk.length) o += '<table class="t mt"><tr><th style="width:90px">' + (shuf ? '' : 'Year') + '</th><th>Game</th><th></th></tr>' + pk.map((y, i) => '<tr><td class="b">' + (shuf ? '' : cal[i]) + '</td><td>' + h(G.Seasons[y].name) + ' <span class="xs muted">' + (G.isFantasy(y) ? 'fantasy' : y) + '</span></td><td class="num">' +
+          (shuf ? '' : '<button class="btn sm" data-act="ngGameMove" data-arg="' + i + '|-1" ' + (i ? '' : 'disabled') + ' title="Play it a year earlier">▲</button> <button class="btn sm" data-act="ngGameMove" data-arg="' + i + '|1" ' + (i < pk.length - 1 ? '' : 'disabled') + ' title="Play it a year later">▼</button> ') +
+          '<button class="btn sm" data-act="ngGame" data-arg="' + y + '" title="Take it out">✕</button></td></tr>').join('') + '</table>';
+        o += '<div class="hint mt">' + (pk.length ? pk.length + ' season' + (pk.length === 1 ? '' : 's') + ': ' + cal[0] + (pk.length > 1 ? ' to ' + cal[pk.length - 1] : '') + (shuf ? ', in random order' : '') + '. ' : 'Pick at least one game. ') + 'STRONGHOLD allows tank drives only, so it can be played in 2016 or 2017 and in no other year.' + (fitMsg ? ' <b class="warn">' + h(fitMsg) + '</b>' : '') + '</div>';
+      } else o += '<div class="hint mt">' + nS + ' season' + (nS === 1 ? '' : 's') + ': ' + cal[0] + (nS > 1 ? ' to ' + cal[nS - 1] : '') + '. Money is shown in each year\'s own dollars: prices and budgets rise a little every year.</div>';
     }
     o += '<div class="row mt"><span class="sp"></span><button class="btn primary lg" data-act="startGame">Start ▶</button></div></div></div>';
     return o;
@@ -88,14 +112,28 @@
     n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
     if (k === 'num') n.numAuto = false; // the player's own number stays
   };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
+  // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
+  UI.A.ngGame = y => {
+    const n = UI.st.ng, g = Number(y), l = n.games = n.games || [], i = l.indexOf(g), room = G.calFrom(n.start).length;
+    if (i >= 0) l.splice(i, 1);
+    else if (l.length >= room) return UI.toast('From ' + n.start + ' to 2026 there is room for ' + room + ' season' + (room === 1 ? '' : 's') + '. Take a game out, or start earlier.', 'bad');
+    else l.push(g);
+    UI.render();
+  };
+  UI.A.ngGameMove = arg => { const [i, d] = arg.split('|').map(Number), l = UI.st.ng.games || [], j = i + d; if (j < 0 || j >= l.length) return; const t = l[i]; l[i] = l[j]; l[j] = t; UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
   UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
     if (!String(n.name).trim()) return UI.toast('Give your team a name', 'bad');
     const scen = n.mode === 'single' ? D.SCENARIOS.find(s => s.id === n.scenario) : null;
+    const cust = n.mode === 'career' && n.order === 'custom';
+    if (cust) {
+      if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
+      const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
+    }
     G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
-      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
+      profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
     if (G.S.phase === 'kickoff') UI.kickoffModal();
@@ -135,6 +173,14 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.0', title: 'Beta of 3.5: ten fantasy games and custom careers', notes: [
+      'This is a beta. It keeps its own saves and settings, apart from the stable game\'s, so trying it cannot harm a career you are playing there. A save exported from the stable game can be imported here.',
+      'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',
+      'Single Season Challenge: any fantasy game, played as the 2027 season.',
+      'Random-order careers: choose how many of the seasons are fantasy games. They are drawn from the ten and shuffled in with the real ones.',
+      'Custom career: pick the start year and the games yourself, real and fantasy, and play them as listed or shuffled. The career ends after your last game. STRONGHOLD stays in 2016 or 2017.',
+      'How to play: "Fantasy games and custom careers" under The decade, and a line on each fantasy game under Matches.'
+    ] },
     { v: '3.1.5', title: 'Suggestions at any effort, stronger elites, sponsor terms', notes: [
       'The Design Office\'s suggested build or upgrade can be started thorough or rush too, with the hours each takes on its button.',
       'Normal and Hard: a few more elite teams (at the start of a career 28 instead of 24 on Normal, 44 instead of 38 on Hard), and stronger ones: better drivers and human players, slightly better robots, and extremely high reliability (about 95, where it was about 88). Easy is unchanged.',
@@ -468,7 +514,7 @@
       'Regionals, Championship qualification, live 2D matches with coach calls, alliance selection and double-elimination playoffs.'
     ] }
   ];
-  const SEEN_KEY = 'frcm_seen_version';
+  const SEEN_KEY = G.BETA ? 'frcm_beta_seen_version' : 'frcm_seen_version';
   UI.S.notes = { full: true, html() {
     return '<div class="menu-wrap"><div class="menu-box" style="max-width:820px"><div class="row"><div class="logo" style="font-size:28px">What\'s new</div><span class="tag acc" style="margin-left:10px">v' + h(G.VERSION) + '</span><span class="sp"></span><button class="btn" data-act="back">Back</button></div>' +
       '<p class="muted">Version notes for FRC Manager. Saves from earlier versions keep working.</p>' +

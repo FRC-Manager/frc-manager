@@ -66,10 +66,14 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.1.5';
+  G.VERSION = '3.4.0';
+  // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
+  // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
+  // touches the stable game's. '' for a stable release.
+  G.BETA = '3.5 beta';
 
   // ---------- Save system ----------
-  const KEY = 'frcm_save_';
+  const KEY = G.BETA ? 'frcm_beta_save_' : 'frcm_save_', SET_KEY = G.BETA ? 'frcm_beta_settings' : 'frcm_settings';
   const Save = G.Save = {};
   Save.slots = ['auto', '1', '2', '3'];
   Save.write = function (slot) {
@@ -121,7 +125,7 @@ window.G = window.G || {};
     fr.readAsText(file);
   };
   Save.settings = function () {
-    try { return JSON.parse(localStorage.getItem('frcm_settings') || '{}'); } catch (e) { return {}; }
+    try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; }
   };
-  Save.saveSettings = function (o) { try { localStorage.setItem('frcm_settings', JSON.stringify(o)); } catch (e) { } };
+  Save.saveSettings = function (o) { try { localStorage.setItem(SET_KEY, JSON.stringify(o)); } catch (e) { } };
 })();

@@ -458,6 +458,7 @@
           ctx.beginPath();
           if (pc.shape === 'box') { ctx.fillStyle = pc.col; ctx.fillRect(ox - q, -q, 2 * q, 2 * q); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(ox - q, -q, 2 * q, 2 * q); }
           else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * 0.5); ctx.stroke(); }
+          else if (pc.shape === 'bar') { const oy = (i - (n - 1) / 2) * q * 1.1; ctx.fillStyle = pc.col; ctx.fillRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); } // a long piece carried across the robot
           else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = '#1a1e23'; ctx.fill(); }
           else { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
         }

@@ -2,17 +2,20 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-**▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
+> **This is the 3.5 beta (version 3.4.0):** ten fantasy games, random careers that mix them in, and a custom career builder.
+> **▶ [Play the beta in your browser](https://frc-manager.github.io/frc-manager-beta/)**. The beta keeps its own saves and never touches the stable game's. The stable release, 3.1.5, is at [frc-manager.github.io/frc-manager](https://frc-manager.github.io/frc-manager/) ([repository](https://github.com/FRC-Manager/frc-manager)).
+
+**▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager-beta/)** — no download needed. Your saves stay in your browser.
 
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1® or Frontier Developments. Sponsors, regionals, offseason events and opponent teams are fictional or randomly generated.
 
 ## How to play
 
-1. Play [online](https://frc-manager.github.io/frc-manager/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
-2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order, as a regional or a district team) or **Single Season Challenge** (one game plus a scenario, graded S–D).
+1. Play [online](https://frc-manager.github.io/frc-manager-beta/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
+2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order or with your own list of games, as a regional or a district team) or **Single Season Challenge** (one game, real or fantasy, plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.1**. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.4.0**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -32,6 +35,7 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 **The career**
 
 - **Ten seasons, 2016 to 2026**, one real game a year. Start in any year, in real or shuffled order, as a regional or a district team. Shuffled games still play in the year's technology; FIRST STRONGHOLD, a tank-drive game, is only drawn in 2016 or 2017.
+- **Ten fantasy games** beside the real ones: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules and Design Office. Play one as a single season (the 2027 game), mix some into a random-order career, or build a **custom career** from any games you like, played as listed or shuffled.
 - **The calendar matters.** Motors, swerve, vision, vendors, prices, Stop Build Day (2016 to 2019) and the playoff and Championship formats all change with the year. Big changes arrive as pop-ups; rumours of them reach the Inbox first.
 - **The lost season is the game's own timeline.** In the game the 2020 season is played to the end and 2021 is skipped. In reality the 2020 season was stopped part-way through, its Championships were never held, and 2021 was played from home.
 - **The world is simulated.** Between 740 and 930 teams, numbered as in that year of FRC, play every event of the season, so standings, district points and Championship places are real results, not dice. The World page puts every team and event on a map and keeps a scouting table of every team's season (OPR with its auto, teleop and endgame split), updated every week.
@@ -87,12 +91,14 @@ css/style.css         UI styling
 js/core.js            RNG, utilities, save system
 js/data/seasons.js    the 2022–2026 games: subsystems, concepts, AI robot archetypes
 js/data/seasons-classic.js   the 2016–2020 games
+js/data/seasons-fantasy.js   the ten fantasy games
 js/data/eras.js       the calendar: price index, technology by year, Championship formats, the lost season, stories
 js/data/world.js      regions, regionals, sponsors, mentors, equipment, activities, research, scenarios
 js/data/parts.js      parts library: vendors, part categories, kit of parts, game elements
 js/sim/engine.js      match engine (10 ticks/s), shared by live view, quick sim and AI matches
 js/sim/rules.js       per-season scoring, ranking points and robot behaviour (2022–2026)
 js/sim/rules-classic.js   the same for 2016–2020
+js/sim/rules-fantasy.js   the same for the fantasy games
 js/sim/ai.js          capability builder + persistent AI team pool
 js/sim/event.js       schedule, rankings, OPR, alliance selection, playoffs, awards
 js/systems/robot.js   the two robots, development projects, knowledge, driver familiarity, wear and repairs
@@ -105,6 +111,7 @@ js/systems/parts.js   parts inventory, vendor releases, stock, allocation, wear,
 js/systems/news.js    news, team chatter and inbox replies
 js/render/draw.js     2D fields, robots (top-down and side profile), effects
 js/render/draw-classic.js   the 2016–2020 fields and game pieces
+js/render/draw-fantasy.js   the fantasy games' fields and game pieces
 js/ui/ui.js           main screens (HQ, Garage, Design Office, Team, Workshop, Finance, Calendar, History) and pop-ups
 js/ui/screens-event.js   events: practice, matches, bracket, Championship pages, celebrations
 js/ui/screens-menu.js    main menu, new game, settings, version notes, season review

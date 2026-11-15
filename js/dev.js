@@ -273,7 +273,7 @@
     opts = opts || {};
     const log = [];
     const C = G.Career, S0 = opts.resume ? G.S : C.newGame({ mode: opts.mode || 'career', team: { num: 4321, name: 'Test Bots', school: 'Test HS', c1: '#f5b800', c2: '#111111', region: opts.region || 'Midwest', home: opts.home || null },
-      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, noWorld: opts.noWorld, settings: opts.settings });
+      profile: opts.profile || 'established', diff: opts.diff || 'normal', order: opts.order || 'real', year: opts.year || 2024, scenario: opts.scenario || null, seed: opts.seed, start: opts.start, cal: opts.cal, games: opts.games, fantasy: opts.fantasy, shuffle: opts.shuffle, noWorld: opts.noWorld, settings: opts.settings });
     const S = G.S;
     if (opts.max) { if (opts.reserve == null) opts.reserve = 25000; if (opts.robot2 == null) opts.robot2 = 3; if (opts.copies == null) opts.copies = true; }
     let guard = 0;

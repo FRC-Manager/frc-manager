@@ -135,7 +135,8 @@
     const i = S.order.indexOf(gy);
     return i < 0 ? gy : Math.min.apply(null, S.order) + i;
   };
-  C.isFictional = S => !!(S && S.orderMode === 'random' && S.order && S.order.length > 1);
+  // a timeline of its own: the games shuffled, or a custom career whose games are not all in their own years
+  C.isFictional = S => !!(S && S.order && S.order.length > 1 && (S.orderMode === 'random' || (S.orderMode === 'custom' && S.cal && S.order.some((g, i) => g !== S.cal[i]))));
   // Calendar year of the season being played (before the first Kickoff: of the first season). Technology, vendors,
   // prices and formats follow this year, whatever game is being played.
   C.cy = function (S) { if (!S) return null; if (S.cal && S.cal.length) return S.cal[Math.min(S.cal.length - 1, Math.max(0, S.si))]; return C.calYear(S); };
@@ -172,8 +173,14 @@
   // tank drives only: later it would contradict every swerve-era recap and find no drive sets on sale after 2022).
   // Drawn anywhere else, it gives its place to a game the shuffle left out, or, in a ten-season career where nothing is
   // left out, trades places with the game drawn for one of its years.
-  C.drawGames = function (rng, cal) {
-    const all = rng.shuffle(G.SEASON_YEARS.slice()), order = all.slice(0, cal.length), spare = all.slice(cal.length);
+  // nFan (3.5): that many of the seasons are fantasy games, picked at random and shuffled in with the real ones.
+  C.drawGames = function (rng, cal, nFan) {
+    const nF = Math.max(0, Math.min(nFan || 0, cal.length, (G.FANTASY_YEARS || []).length));
+    let order, spare;
+    if (nF) {
+      const fan = rng.shuffle(G.FANTASY_YEARS.slice()).slice(0, nF), real = rng.shuffle(G.SEASON_YEARS.slice());
+      order = rng.shuffle(fan.concat(real.slice(0, cal.length - nF))); spare = real.slice(cal.length - nF);
+    } else { const all = rng.shuffle(G.SEASON_YEARS.slice()); order = all.slice(0, cal.length); spare = all.slice(cal.length); }
     const fits = (gy, i) => { const d = G.Seasons[gy].drawIn; return !d || d.includes(cal[i]); };
     order.forEach((gy, i) => {
       if (fits(gy, i)) return;
@@ -184,23 +191,47 @@
     });
     return order;
   };
+  // A custom career (3.5) in random order: the player's own games shuffled over the calendar, each kept to the years it
+  // may be played in (a game with drawIn trades places with one drawn for one of its years).
+  C.placeGames = function (rng, games, cal) {
+    const order = rng.shuffle(games.slice()), fits = (gy, i) => { const d = G.Seasons[gy].drawIn; return !d || d.includes(cal[i]); };
+    order.forEach((gy, i) => {
+      if (fits(gy, i)) return;
+      const slots = order.map((x, j) => j).filter(j => j !== i && fits(gy, j) && fits(order[j], i));
+      if (slots.length) { const j = rng.pick(slots); order[i] = order[j]; order[j] = gy; }
+    });
+    return order;
+  };
+  // Can these games be played on this calendar: as listed (ordered), or in some order? '' or what is in the way.
+  C.gamesFit = function (games, cal, ordered) {
+    for (let i = 0; i < games.length; i++) {
+      const Sz = G.Seasons[games[i]], d = Sz && Sz.drawIn; if (!d) continue;
+      if (ordered ? !d.includes(cal[i]) : !cal.slice(0, games.length).some(y => d.includes(y)))
+        return Sz.name + ' can only be played in ' + d.join(' or ') + ': it allows tank drives only, which would not fit the swerve years.';
+    }
+    return '';
+  };
   C.newGame = function (o) {
     const seed = o.seed || ((Date.now() ^ Math.floor(Math.random() * 1e9)) & 0x7fffffff); // o.seed: dev tests only
     G.R = new G.Rng(seed);
     const rng = G.R, P = D.PROFILES[o.profile];
     // The calendar (v3): one season a year from the start year to 2026, except 2021. Real order plays each year's own
     // game; random order shuffles the games (technology, vendors, formats and events still follow the calendar).
-    let cal = o.mode === 'single' ? [o.year] : G.calFrom(o.start || (G.startYears(o.order).includes(2022) ? 2022 : G.startYears(o.order)[0]));
+    // A fantasy game (3.5) has no year of its own: as a single season it is the 2027 game. A custom career plays the
+    // player's own list of games from the start year, as listed or shuffled, and ends when the list does.
+    const custom = o.mode !== 'single' && o.order === 'custom' && o.games && o.games.length;
+    let cal = o.mode === 'single' ? [G.singleCy(o.year)] : G.calFrom(o.start || (G.startYears(o.order).includes(2022) ? 2022 : G.startYears(o.order)[0]));
     if (o.cal) cal = o.cal.slice(); // dev tests: any calendar under today's games
     let order;
     if (o.mode === 'single') order = [o.year];
-    else if (o.order === 'random') order = C.drawGames(rng, cal);
+    else if (custom) { cal = cal.slice(0, o.games.length); order = o.shuffle ? C.placeGames(rng, o.games, cal) : o.games.slice(0, cal.length); }
+    else if (o.order === 'random') order = C.drawGames(rng, cal, o.fantasy);
     else order = cal.every(y => G.Seasons[y]) ? cal.slice() : G.SEASON_YEARS.slice(0, cal.length);
-    if (o.games) order = o.games.slice(); // dev tests
+    if (o.games && !custom) order = o.games.slice(); // dev tests
     cal = cal.slice(0, order.length);
     const scen = o.scenario ? D.SCENARIOS.find(s => s.id === o.scenario) : null;
     const S = G.S = {
-      v: 1, mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: o.order || 'real',
+      v: 1, mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: custom ? (o.shuffle ? 'random' : 'custom') : o.order || 'real', customGames: !!custom,
       settings: Object.assign({ noFail: false }, o.settings || {}), scenario: scen ? scen.id : null, maxEvents: scen && scen.maxEvents ? scen.maxEvents : 4,
       order, cal, pxY: cal[0], si: -1, upcoming: 0, year: order[0], phase: 'off', month: 5, week: 0, preseason: o.mode === 'career',
       money: scen && scen.money ? scen.money : P.money, ledger: [], morale: scen && scen.morale ? scen.morale : 65, support: P.support, rep: P.rep,

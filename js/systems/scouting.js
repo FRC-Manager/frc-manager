@@ -232,7 +232,7 @@
     const cal = Sc.curve(S), out = {}; if (!cal) return out;
     const rng = G.makeRng(hashStr(e.id + ':' + (S.wseason.cy || 0)));
     const wm = e.kind === 'dcmp' ? 1.03 : 0.85 + 0.03 * ((e.week || 1) - 1), dm = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1, k = Math.pow(wm * dm, 1 / 1.3);
-    const capE = Sc.END_MAX[cal.gy] || 30;
+    const capE = Sc.END_MAX[cal.gy] || (G.Seasons[cal.gy] || {}).endMax || 30; // the fantasy games carry their own (season.endMax)
     teams.forEach(t => {
       const p = Sc.at(cal, st[t] * k).map(v => v * Sc.MIX), f = Sc.style(t, cal.gy);
       // the team's own style moves points between the periods; its total stays what its strength gives. A robot never

@@ -410,7 +410,7 @@
   // The first number given to each season's rookies, from FRC Events (Team 5800 is a 2016 rookie, 6300 a 2017 one, and
   // so on; rounded to 50). A career's teams at the start are numbered below the start year's first rookie, and every
   // season's rookies take that season's block. The 2021 rookies, who never played a 2021 season, join the 2022 class.
-  D.NUM_FROM = { 2015: 5350, 2016: 5750, 2017: 6250, 2018: 6750, 2019: 7300, 2020: 8000, 2021: 8450, 2022: 8650, 2023: 8900, 2024: 9350, 2025: 9800, 2026: 10800, 2027: 11400 };
+  D.NUM_FROM = { 2015: 5350, 2016: 5750, 2017: 6250, 2018: 6750, 2019: 7300, 2020: 8000, 2021: 8450, 2022: 8650, 2023: 8900, 2024: 9350, 2025: 9800, 2026: 10800, 2027: 11400, 2028: 12000 };
   D.numTop = cy => (D.NUM_FROM[cy] ? D.NUM_FROM[cy] - 1 : 10999);                 // established teams: 1 to this
   D.numBlock = cy => (D.NUM_FROM[cy] && D.NUM_FROM[cy + 1] ? [D.NUM_FROM[cy === 2022 ? 2021 : cy], D.NUM_FROM[cy + 1] - 1] : [1, 11999]);
   // older programs are a little stronger: the oldest 18% of the numbers (below 2000 of 11,000 before numbers followed the year)

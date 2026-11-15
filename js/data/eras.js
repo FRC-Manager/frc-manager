@@ -6,7 +6,7 @@
 
   // Price index by calendar year, from US consumer prices (2026 = 1). Every amount in the game is kept in 2026 dollars
   // and shown in the dollars of the career's current year (U.money). 2021 has no season but the pandemic year uses it.
-  D.PRICE_IDX = { 2015: 0.72, 2016: 0.73, 2017: 0.74, 2018: 0.76, 2019: 0.77, 2020: 0.78, 2021: 0.82, 2022: 0.88, 2023: 0.92, 2024: 0.95, 2025: 0.97, 2026: 1 };
+  D.PRICE_IDX = { 2015: 0.72, 2016: 0.73, 2017: 0.74, 2018: 0.76, 2019: 0.77, 2020: 0.78, 2021: 0.82, 2022: 0.88, 2023: 0.92, 2024: 0.95, 2025: 0.97, 2026: 1, 2027: 1.03 };
 
   // ---------- Technology by calendar year (each row changes what it names, from that season on) ----------
   // swerve: cots = modules are sold; else team-built: hours x, reliability +rel, stat ceilings x ceil, extra materials,
@@ -65,6 +65,9 @@
         2026: { drive: 'swerve', frame: 'std', intake: 'wide', hopper: 'large', scorer: 'hood', endgame: 'l1' }
       } }
   ];
+
+  // the fantasy games (3.5) carry their published designs in their own file (season.ref)
+  Object.keys(G.Seasons).forEach(y => { const rf = G.Seasons[y] && G.Seasons[y].ref; if (rf) D.REFBOTS.forEach(b => { if (rf[b.id]) b.picks[y] = rf[b.id]; }); });
 
   const Era = G.Era = {};
   // Careers from before v3.0 have no calendar: they keep the v2.5 rules exactly.

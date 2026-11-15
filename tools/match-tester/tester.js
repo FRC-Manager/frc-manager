@@ -12,7 +12,7 @@
   // ---------------- the robots ----------------
   // The parts of the day: the game's own year (motors, swerve modules, cameras) or today's parts for every game
   const eraOf = G.Era.of;
-  function setEra() { G.Era.of = T.era === 'own' ? () => G.Era.at(T.year) : eraOf; }
+  function setEra() { G.Era.of = T.era === 'own' ? () => G.Era.at(G.singleCy(T.year)) : eraOf; } // a fantasy game's own year is 2027
   // Six teams of any strength, each with a random strategy (role, pace, target, endgame), not the season's meta
   function makeSetup(year, seed) {
     const rng = G.makeRng(seed), Sz = G.Seasons[year];
@@ -159,7 +159,7 @@
   // ---------------- controls ----------------
   function init() {
     $('ver').textContent = 'v' + G.VERSION;
-    $('year').innerHTML = G.SEASON_YEARS.map(y => '<option value="' + y + '">' + y + ' ' + esc(G.Seasons[y].name) + '</option>').join('');
+    $('year').innerHTML = G.allGames().map(y => '<option value="' + y + '">' + (G.isFantasy(y) ? 'Fantasy: ' : y + ' ') + esc(G.Seasons[y].name) + '</option>').join('');
     // #2017-4242 plays that match; -modern for today's parts; @67 jumps straight to 67 s in (paused there)
     const hm = /^#(\d{4})-(\d+)(-modern)?(?:@([\d.]+))?$/.exec(location.hash);
     if (hm && G.Seasons[Number(hm[1])]) { T.year = Number(hm[1]); T.seed = Number(hm[2]); T.era = hm[3] ? 'modern' : 'own'; T.jump = hm[4] ? Number(hm[4]) : 0; } else T.seed = Math.floor(Math.random() * 999999) + 1;
