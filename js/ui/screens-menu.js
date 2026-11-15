@@ -135,6 +135,11 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1.5', title: 'Suggestions at any effort, stronger elites, sponsor terms', notes: [
+      'The Design Office\'s suggested build or upgrade can be started thorough or rush too, with the hours each takes on its button.',
+      'Normal and Hard: a few more elite teams (at the start of a career 28 instead of 24 on Normal, 44 instead of 38 on Hard), and stronger ones: better drivers and human players, slightly better robots, and extremely high reliability (about 95, where it was about 88). Easy is unchanged.',
+      'Sponsors: title sponsors and grants sign for two to four seasons, and grants can now be renewed too. Partners prefer shorter deals (one to three seasons), renew one season at a time and move on a little more often.'
+    ] },
     { v: '3.1.4', title: 'Fixes', notes: [
       'Fixed a crash on practice day at events when packed parts or an upgrade waiting to be installed met full storage. Working out the robot\'s strength with the packed parts fitted no longer takes stored units apart either: only fitting them for real does.',
       'In a random-order career the Apex CAD Sprint picks its game from the past among the games this career has already played, with the year it played them, so it never names a game still to come.'

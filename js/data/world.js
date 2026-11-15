@@ -478,12 +478,15 @@
     { z: 'Southwest', n: 1, name: 'the Southwest' }, { z: 'West', n: 1, name: 'the Mountain West' }
   ];
   D.ELITE = { b: [92, 97], fresh: [90, 93], lo: 89, hi: 98, fade: 0.03, dyn: 0.45, minAge: 5, promoteAt: 82, q: [0.95, 0.99], bonus: 6, drv: [93, 98], div: 1, ein: 2 }; // off: tests only (no elite teams)
-  // by difficulty: how many (n: share of each zone's count, at least one per area always), how good, how many your
-  // Championship division is sure to have (div) and how many lead each of the other alliances on Einstein (ein)
+  // by difficulty: how many (n: share of each zone's count, at least one per area always; plus: extra places in the
+  // biggest zones), how good, how many your Championship division is sure to have (div) and how many lead each of the
+  // other alliances on Einstein (ein). 3.1.5: normal and hard got a few more elite teams (normal had 24 with the
+  // defaults, now 28; hard 38 → 44), stronger: drv is the driver's (and composure's) range, hp the human player's, and rel
+  // the reliability their robots run at (extremely high; without it, the robot's quality decides as for everyone else)
   D.ELITE_DIFF = {
     easy: { n: 0.5, b: [89, 93], fresh: [88, 91], q: [0.9, 0.95], bonus: 0, drv: [88, 93], div: 0, ein: 1 },
-    normal: {},
-    hard: { n: 1.5, b: [93, 98], fresh: [91, 94], q: [0.97, 0.99], bonus: 9, drv: [95, 99], div: 2, ein: 2 }
+    normal: { plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1 }, b: [93, 97], fresh: [91, 94], q: [0.96, 0.99], bonus: 7, drv: [95, 99], hp: [94, 98], rel: 97 },
+    hard: { n: 1.5, plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1, evergreen: 1, Canada: 1 }, b: [94, 98], fresh: [92, 95], q: [0.975, 0.995], bonus: 10, drv: [97, 99], hp: [96, 99], rel: 98, div: 2, ein: 2 }
   };
   D.REF_AI = { anyFloor: 0.2, bpShare: 0.35, bpBoost: 0.04 }; // AI teams copy too: the weakest that would fall below the floor build the Anybot (quality raised to it); a share of the lower middle build the Blueprint (its concepts, +0.04 quality)
   D.REF_STEP = 0.25; // a copied published design starts as a version 2: its stats this share of the way from a first build to the ceiling
@@ -570,6 +573,10 @@
   };
   D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
   D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };
+  // contract terms by slot (3.1.5): len, the seasons an offer runs; renew, the seasons a renewal adds; keep, the share of
+  // satisfaction that is the renewal chance. Titles and grants sign for two to four seasons; partners prefer shorter deals
+  // (one to three), renew a season at a time and a little less readily, so they change more often.
+  D.SPONSOR_TERMS = { title: { len: [2, 4], renew: [2, 3], keep: 1 }, partner: { len: [1, 3], renew: [1, 1], keep: 0.85 }, grant: { len: [2, 4], renew: [2, 3], keep: 1 } };
   D.PERKS = {
     bonusBoost: { name: 'Performance bonuses +50%' },
     tempMentor: { name: 'Engineering volunteers: +1 temporary 3★ Design Mentor' },

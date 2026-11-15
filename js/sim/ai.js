@@ -176,7 +176,9 @@
       year, arch: arch.name, ref: ref ? ref.id : null, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
       autoTier: el ? 3 : U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
       drv: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97)),
-      elite: el, ebonus: el ? E.bonus : 0
+      elite: el, ebonus: el ? E.bonus : 0,
+      // (3.1.5) an elite team's human player (its own range) and the reliability its robots run at, by difficulty
+      hp: el && E.hp ? rng.int(E.hp[0], E.hp[1]) : null, erel: el && E.rel != null ? E.rel : null
     };
     if (el) S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.02, 0.02); }); // no weak spot
     return team.rb;
@@ -199,7 +201,10 @@
       if (rb.elite) Object.keys(stats).forEach(k => { stats[k] = Math.min(99, stats[k] + (rb.ebonus == null ? D.ELITE.bonus : rb.ebonus)); }); // years of know-how: past the plain concept's ceiling, like a maxed-out team
       if (era.aiMotor) { if (sd.id === 'drive' && stats.speed != null) stats.speed = Math.max(5, Math.round(stats.speed + 9 * era.aiMotor)); if (stats.scoreSpd != null) stats.scoreSpd = Math.max(5, Math.round(stats.scoreSpd + 7 * era.aiMotor)); }
       const tbRel = sd.id === 'drive' && cid === 'swerve' && !era.swerve.cots ? era.swerve.rel : 0;
-      subs[sd.id] = { concept: cid, ver: rb.elite ? 6 + Math.floor(qq * 3) : 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel + (rb.elite ? 5 : 0), 30, 97)), w: c.w };
+      // reliability: an elite team's from its level (3.1.5: extremely high on Normal and Hard; a little less on complex
+      // mechanisms, and a team-built swerve is still fragile), everyone else's from its quality
+      const rel = rb.elite && rb.erel != null ? U.clamp(rb.erel - 0.5 * c.cx + rng.norm(0, 1) + tbRel, 85, 99) : U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel + (rb.elite ? 5 : 0), 30, 97);
+      subs[sd.id] = { concept: cid, ver: rb.elite ? 6 + Math.floor(qq * 3) : 1 + Math.floor(qq * 3), stats, rel: Math.round(rel), w: c.w };
     });
     const extra = { autoTier: rb.autoTier, visionLvl: rb.visionLvl, parts: { motors: qe > 0.6 ? 2 : qe > 0.35 ? 1 : 0, sensors: qe > 0.5 ? 1 : 0 } };
     const elite = !!rb.elite;
@@ -208,7 +213,7 @@
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,
-      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: elite ? Math.max(90, d - 3) : Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: elite ? Math.min(99, d + 2) : d },
+      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: elite ? (rb.hp || Math.max(90, d - 3)) : Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: elite ? Math.min(99, d + 2) : d },
       plan: { role: rb.role }, tune: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), conf: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), cond: 100, batt: 1, hidden: 0, elite,
       arch: rb.arch, power: G.Cap.power(year, cap)
     };

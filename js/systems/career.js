@@ -312,7 +312,8 @@
       for (let i = 0; i < (slot === 'grant' ? 0 : Math.min(nOb, obPool.length)); i++) obligations.push(obPool[i].text.replace('{s}', name));
       const perk = T.perks.length && rng.chance(slot === 'title' ? 0.9 : 0.6) ? rng.pick(T.perks) : (slot !== 'grant' && rng.chance(0.15) ? 'travelDiscount' : null);
       const exp = high && slot !== 'grant' ? 'High' : T.exp;
-      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length: slot === 'grant' ? 1 : rng.int(1, 3), goals, obligations, perk, exp };
+      const TM = D.SPONSOR_TERMS[slot], length = rng.int(TM.len[0], TM.len[1]); // titles and grants 2–4 seasons, partners 1–3 (3.1.5)
+      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length, goals, obligations, perk, exp };
     };
     for (let i = 0; i < 3; i++) offers.push(make('title'));
     for (let i = 0; i < 6; i++) offers.push(make('partner'));
@@ -379,10 +380,9 @@
     S.sponsors.forEach(sp => {
       const gb = U.sum(sp.goals.map(g => goalPay(sp, g)));
       if (settled || sp.seasonsLeft >= 2) { r.contract += Math.round(sp.base * biz); r.contractN++; r.bonus += gb; }
-      else if (sp.slot === 'grant') r.ending.push(sp.name);
       else {
-        // the same sums as the season review: renewal chance = satisfaction, new base 90%..130% of the old one
-        const p = U.clamp(sp.sat / 100, 0, 1), nb = Math.round(Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250 * biz);
+        // the same sums as the season review: renewal chance = satisfaction (a partner's a little less), new base 90%..130% of the old one
+        const p = C.renewChance(sp), nb = Math.round(Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250 * biz);
         r.renew.push({ name: sp.name, chance: p, base: nb, bonus: gb }); r.renewBase += nb; r.renewBonus += gb; r.expected += p * nb;
       }
     });
@@ -391,6 +391,9 @@
     r.open = ['title', 'partner', 'grant'].map(k => ({ k, n: sl[k].max - sl[k].n })).filter(x => x.n > 0);
     return r;
   };
+  // A deal in its last season renews with this chance at the season review: its satisfaction, a partner's a little less
+  // (partners prefer short deals and move on more often, 3.1.5)
+  C.renewChance = sp => U.clamp((sp.sat / 100) * ((D.SPONSOR_TERMS[sp.slot] || {}).keep || 1), 0, 1);
   // How good an offer looks: yearly money, contract length, likely bonuses and perks, minus obligations and risky expectations
   C.offerValue = function (S, o) {
     const strong = C.highExpect(S) || S.rep >= 60;
@@ -2430,7 +2433,7 @@
       if (sp.exp === 'High' && C.highExpect(S) && !(s.events.some(e => e.won) || s.champsQualified)) sp.sat = Math.max(0, sp.sat - 12); // top programs are expected to win
       sp.seasonsLeft--;
       if (sp.seasonsLeft <= 0) {
-        if (sp.slot !== 'grant' && G.R.chance(sp.sat / 100)) { sp.seasonsLeft = G.R.int(1, 2); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, 'Sponsor renewed: ' + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season(s) at ' + U.money(sp.base) + '.', 'money'); }
+        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
         else left.push(sp);
       }
     });

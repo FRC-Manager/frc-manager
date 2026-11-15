@@ -805,7 +805,7 @@
     o += UI.refSoonCard(S);
     // this season's published designs (from Build Week 2): copy a whole robot, or single subsystems in the concept chooser
     { const rs = G.Robot.refs(S); if (rs.length) o += '<div class="card mt"><div class="ct">' + UI.icon('design', 16) + ' Published designs this season<span class="sp"></span><button class="btn sm" data-act="refShow">Show the robots</button></div><div class="row wrap gap4">' + rs.map(r => '<span class="tag" style="border-color:' + r.color + '">' + h(r.name) + ' · ' + h(r.by) + '</span>').join('') + '<span class="xs muted">Copy a whole robot, or single subsystems from the concept chooser ("Copy the …"): cheaper first builds that start as version 2. Upgrades are your own work.</span></div></div>'; }
-    if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row mt"><button class="btn sm primary" data-act="startSuggest">Start it</button></div></div>';
+    if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row wrap gap4 mt">' + suggestBtns(S, sg) + '</div></div>';
     // active projects
     const plan = C.hoursPlan(S);
     const slotUsed = G.Robot.slotUsed(S), slotMax = G.Robot.slots(S);
@@ -973,7 +973,16 @@
   }
   UI.A.overtime = v => { G.S.overtime = v; UI.render(); };
   UI.A.robotNick = v => { if (G.S.robot) { G.S.robot.nick = String(v || '').trim().slice(0, 28); G.Save.write('auto'); } };
-  UI.A.startSuggest = () => { const sg = G.Robot.suggest(G.S); if (!sg) return; if (!UI.err(G.Robot.startProject(G.S, sg.spec))) { UI.toast('Started: ' + sg.title, 'good'); UI.render(); } };
+  // the suggested project, at standard effort or (a build or an upgrade) thorough or rush (3.1.5)
+  function suggestBtns(S, sg) {
+    const Rb = G.Robot, efforts = ['build', 'upgrade'].includes(sg.spec.type) ? ['thorough', 'rush'] : [];
+    return '<button class="btn sm primary" data-act="startSuggest" data-arg="std">Start it</button>' + efforts.map(e => {
+      const q = Rb.quote(S, Object.assign({}, sg.spec, { effort: e }));
+      return '<button class="btn sm" data-act="startSuggest" data-arg="' + e + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : 'title="' + h(Rb.EFFORT[e].name + ': ' + q.hours + ' h · ' + U.money(q.cost)) + '"') + '>Start it (' + Rb.EFFORT[e].name.toLowerCase() + ') · ' + q.hours + ' h</button>';
+    }).join('');
+  }
+  UI.A.startSuggest = e => { const sg = G.Robot.suggest(G.S); if (!sg) return; const eff = ['thorough', 'rush'].includes(e) && ['build', 'upgrade'].includes(sg.spec.type) ? e : 'std', spec = Object.assign({}, sg.spec, { effort: eff });
+    if (!UI.err(G.Robot.startProject(G.S, spec))) { UI.toast('Started: ' + sg.title + (eff !== 'std' ? ' (' + G.Robot.EFFORT[eff].name.toLowerCase() + ')' : ''), 'good'); UI.render(); } };
   // ---------------- team hours: where this turn's hours go ----------------
   const PCOL = ['#f5b800', '#3ecf8e', '#4aa3ff', '#c77dff', '#ff8a5c', '#5ce1e6', '#ffd24d', '#9be15d'];
   UI.projEta = function (S, p, plan) {
@@ -1478,7 +1487,7 @@
       if (!nx.settled) {
         li.push('Under contract: <b>' + U.money(nx.contract) + '</b> from ' + pl(nx.contractN, 'sponsor') + (nx.bonus ? ', bonuses up to ' + U.money(nx.bonus) : '') + '.');
         if (nx.renew.length) li.push('Up for renewal after this season: ' + nx.renew.map(r => h(r.name) + ' (<b class="' + (r.chance >= 0.6 ? 'good' : r.chance >= 0.4 ? 'warn' : 'bad') + '">' + Math.round(r.chance * 100) + '%</b> chance, then ' + U.money(r.base) + ')').join(', ') + '. The chance is their satisfaction at the season review (every missed goal costs 8 points), and satisfied sponsors also pay more.');
-        if (nx.ending.length) li.push('Ends after this season: ' + nx.ending.map(h).join(', ') + ' (grants run for one season).');
+        if (nx.ending.length) li.push('Ends after this season: ' + nx.ending.map(h).join(', ') + '.');
         li.push('New offers for open slots arrive in October.');
       } else li.push(nx.open.length ? 'Open slots: ' + nx.open.map(x => pl(x.n, x.k === 'partner' ? 'partner' : x.k)).join(', ') + (S.offers.length ? '. Offers are waiting below.' : '. New offers arrive in October.') : 'Every sponsor slot is filled.');
       if (nx.biz) li.push('Base amounts include +10% from your business mentor.');

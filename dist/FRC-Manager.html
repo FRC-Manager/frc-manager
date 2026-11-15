@@ -725,7 +725,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.1.4';
+  G.VERSION = '3.1.5';
 
   // ---------- Save system ----------
   const KEY = 'frcm_save_';
@@ -2029,12 +2029,15 @@ window.G = window.G || {};
     { z: 'Southwest', n: 1, name: 'the Southwest' }, { z: 'West', n: 1, name: 'the Mountain West' }
   ];
   D.ELITE = { b: [92, 97], fresh: [90, 93], lo: 89, hi: 98, fade: 0.03, dyn: 0.45, minAge: 5, promoteAt: 82, q: [0.95, 0.99], bonus: 6, drv: [93, 98], div: 1, ein: 2 }; // off: tests only (no elite teams)
-  // by difficulty: how many (n: share of each zone's count, at least one per area always), how good, how many your
-  // Championship division is sure to have (div) and how many lead each of the other alliances on Einstein (ein)
+  // by difficulty: how many (n: share of each zone's count, at least one per area always; plus: extra places in the
+  // biggest zones), how good, how many your Championship division is sure to have (div) and how many lead each of the
+  // other alliances on Einstein (ein). 3.1.5: normal and hard got a few more elite teams (normal had 24 with the
+  // defaults, now 28; hard 38 → 44), stronger: drv is the driver's (and composure's) range, hp the human player's, and rel
+  // the reliability their robots run at (extremely high; without it, the robot's quality decides as for everyone else)
   D.ELITE_DIFF = {
     easy: { n: 0.5, b: [89, 93], fresh: [88, 91], q: [0.9, 0.95], bonus: 0, drv: [88, 93], div: 0, ein: 1 },
-    normal: {},
-    hard: { n: 1.5, b: [93, 98], fresh: [91, 94], q: [0.97, 0.99], bonus: 9, drv: [95, 99], div: 2, ein: 2 }
+    normal: { plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1 }, b: [93, 97], fresh: [91, 94], q: [0.96, 0.99], bonus: 7, drv: [95, 99], hp: [94, 98], rel: 97 },
+    hard: { n: 1.5, plus: { sierra: 1, lakeshore: 1, mesa: 1, harbor: 1, evergreen: 1, Canada: 1 }, b: [94, 98], fresh: [92, 95], q: [0.975, 0.995], bonus: 10, drv: [97, 99], hp: [96, 99], rel: 98, div: 2, ein: 2 }
   };
   D.REF_AI = { anyFloor: 0.2, bpShare: 0.35, bpBoost: 0.04 }; // AI teams copy too: the weakest that would fall below the floor build the Anybot (quality raised to it); a share of the lower middle build the Blueprint (its concepts, +0.04 quality)
   D.REF_STEP = 0.25; // a copied published design starts as a version 2: its stats this share of the way from a first build to the ceiling
@@ -2121,6 +2124,10 @@ window.G = window.G || {};
   };
   D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
   D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };
+  // contract terms by slot (3.1.5): len, the seasons an offer runs; renew, the seasons a renewal adds; keep, the share of
+  // satisfaction that is the renewal chance. Titles and grants sign for two to four seasons; partners prefer shorter deals
+  // (one to three), renew a season at a time and a little less readily, so they change more often.
+  D.SPONSOR_TERMS = { title: { len: [2, 4], renew: [2, 3], keep: 1 }, partner: { len: [1, 3], renew: [1, 1], keep: 0.85 }, grant: { len: [2, 4], renew: [2, 3], keep: 1 } };
   D.PERKS = {
     bonusBoost: { name: 'Performance bonuses +50%' },
     tempMentor: { name: 'Engineering volunteers: +1 temporary 3★ Design Mentor' },
@@ -6829,7 +6836,9 @@ window.G = window.G || {};
       year, arch: arch.name, ref: ref ? ref.id : null, role: arch.defense ? 'defend' : arch.feed ? 'feed' : 'score', choice, q, jit,
       autoTier: el ? 3 : U.clamp(Math.floor(q * 4 + rng.norm(0, 0.6)), 0, 3), visionLvl: era.vision.cam ? Math.min(era.vision.max, q > 0.72 ? 2 : q > 0.45 ? 1 : 0) : (q > 0.8 ? 1 : 0),
       drv: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(30 + 60 * q + rng.norm(0, 8), 15, 97)), comp: el ? rng.int(E.drv[0], E.drv[1]) : Math.round(U.clamp(35 + 50 * q + rng.norm(0, 10), 15, 97)),
-      elite: el, ebonus: el ? E.bonus : 0
+      elite: el, ebonus: el ? E.bonus : 0,
+      // (3.1.5) an elite team's human player (its own range) and the reliability its robots run at, by difficulty
+      hp: el && E.hp ? rng.int(E.hp[0], E.hp[1]) : null, erel: el && E.rel != null ? E.rel : null
     };
     if (el) S.subs.forEach(sd => { jit[sd.id] = rng.range(-0.02, 0.02); }); // no weak spot
     return team.rb;
@@ -6852,7 +6861,10 @@ window.G = window.G || {};
       if (rb.elite) Object.keys(stats).forEach(k => { stats[k] = Math.min(99, stats[k] + (rb.ebonus == null ? D.ELITE.bonus : rb.ebonus)); }); // years of know-how: past the plain concept's ceiling, like a maxed-out team
       if (era.aiMotor) { if (sd.id === 'drive' && stats.speed != null) stats.speed = Math.max(5, Math.round(stats.speed + 9 * era.aiMotor)); if (stats.scoreSpd != null) stats.scoreSpd = Math.max(5, Math.round(stats.scoreSpd + 7 * era.aiMotor)); }
       const tbRel = sd.id === 'drive' && cid === 'swerve' && !era.swerve.cots ? era.swerve.rel : 0;
-      subs[sd.id] = { concept: cid, ver: rb.elite ? 6 + Math.floor(qq * 3) : 1 + Math.floor(qq * 3), stats, rel: Math.round(U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel + (rb.elite ? 5 : 0), 30, 97)), w: c.w };
+      // reliability: an elite team's from its level (3.1.5: extremely high on Normal and Hard; a little less on complex
+      // mechanisms, and a team-built swerve is still fragile), everyone else's from its quality
+      const rel = rb.elite && rb.erel != null ? U.clamp(rb.erel - 0.5 * c.cx + rng.norm(0, 1) + tbRel, 85, 99) : U.clamp(52 + 42 * qq - c.cx * 2 + rng.norm(0, 4) + tbRel + (rb.elite ? 5 : 0), 30, 97);
+      subs[sd.id] = { concept: cid, ver: rb.elite ? 6 + Math.floor(qq * 3) : 1 + Math.floor(qq * 3), stats, rel: Math.round(rel), w: c.w };
     });
     const extra = { autoTier: rb.autoTier, visionLvl: rb.visionLvl, parts: { motors: qe > 0.6 ? 2 : qe > 0.35 ? 1 : 0, sensors: qe > 0.5 ? 1 : 0 } };
     const elite = !!rb.elite;
@@ -6861,7 +6873,7 @@ window.G = window.G || {};
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,
-      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: elite ? Math.max(90, d - 3) : Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: elite ? Math.min(99, d + 2) : d },
+      drv: { drive: d, comp: cp, aware: d, mech: Math.round((d + cp) / 2), hp: elite ? (rb.hp || Math.max(90, d - 3)) : Math.round(U.clamp(30 + 55 * qe, 20, 95)), strat: elite ? Math.min(99, d + 2) : d },
       plan: { role: rb.role }, tune: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), conf: elite ? 0.95 : U.clamp(0.4 + qe * 0.5, 0, 1), cond: 100, batt: 1, hidden: 0, elite,
       arch: rb.arch, power: G.Cap.power(year, cap)
     };
@@ -9564,7 +9576,8 @@ window.G = window.G || {};
       for (let i = 0; i < (slot === 'grant' ? 0 : Math.min(nOb, obPool.length)); i++) obligations.push(obPool[i].text.replace('{s}', name));
       const perk = T.perks.length && rng.chance(slot === 'title' ? 0.9 : 0.6) ? rng.pick(T.perks) : (slot !== 'grant' && rng.chance(0.15) ? 'travelDiscount' : null);
       const exp = high && slot !== 'grant' ? 'High' : T.exp;
-      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length: slot === 'grant' ? 1 : rng.int(1, 3), goals, obligations, perk, exp };
+      const TM = D.SPONSOR_TERMS[slot], length = rng.int(TM.len[0], TM.len[1]); // titles and grants 2–4 seasons, partners 1–3 (3.1.5)
+      return { id: U.uid('o'), name, type: tk, typeName: T.name, slot, base, length, goals, obligations, perk, exp };
     };
     for (let i = 0; i < 3; i++) offers.push(make('title'));
     for (let i = 0; i < 6; i++) offers.push(make('partner'));
@@ -9631,10 +9644,9 @@ window.G = window.G || {};
     S.sponsors.forEach(sp => {
       const gb = U.sum(sp.goals.map(g => goalPay(sp, g)));
       if (settled || sp.seasonsLeft >= 2) { r.contract += Math.round(sp.base * biz); r.contractN++; r.bonus += gb; }
-      else if (sp.slot === 'grant') r.ending.push(sp.name);
       else {
-        // the same sums as the season review: renewal chance = satisfaction, new base 90%..130% of the old one
-        const p = U.clamp(sp.sat / 100, 0, 1), nb = Math.round(Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250 * biz);
+        // the same sums as the season review: renewal chance = satisfaction (a partner's a little less), new base 90%..130% of the old one
+        const p = C.renewChance(sp), nb = Math.round(Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250 * biz);
         r.renew.push({ name: sp.name, chance: p, base: nb, bonus: gb }); r.renewBase += nb; r.renewBonus += gb; r.expected += p * nb;
       }
     });
@@ -9643,6 +9655,9 @@ window.G = window.G || {};
     r.open = ['title', 'partner', 'grant'].map(k => ({ k, n: sl[k].max - sl[k].n })).filter(x => x.n > 0);
     return r;
   };
+  // A deal in its last season renews with this chance at the season review: its satisfaction, a partner's a little less
+  // (partners prefer short deals and move on more often, 3.1.5)
+  C.renewChance = sp => U.clamp((sp.sat / 100) * ((D.SPONSOR_TERMS[sp.slot] || {}).keep || 1), 0, 1);
   // How good an offer looks: yearly money, contract length, likely bonuses and perks, minus obligations and risky expectations
   C.offerValue = function (S, o) {
     const strong = C.highExpect(S) || S.rep >= 60;
@@ -11682,7 +11697,7 @@ window.G = window.G || {};
       if (sp.exp === 'High' && C.highExpect(S) && !(s.events.some(e => e.won) || s.champsQualified)) sp.sat = Math.max(0, sp.sat - 12); // top programs are expected to win
       sp.seasonsLeft--;
       if (sp.seasonsLeft <= 0) {
-        if (sp.slot !== 'grant' && G.R.chance(sp.sat / 100)) { sp.seasonsLeft = G.R.int(1, 2); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, 'Sponsor renewed: ' + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season(s) at ' + U.money(sp.base) + '.', 'money'); }
+        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250; C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
         else left.push(sp);
       }
     });
@@ -14487,6 +14502,9 @@ window.G = window.G || {};
     { id: 'c12refbp', req: S => S.phase === 'comp' && lastEv(S) && lastEv(S).refs && lastEv(S).refs.bp >= 2, title: 'Same intake, different team', body: S => student(S) + ' fixed a Blueprint team\'s intake in the queue with a spare from our cart. ' + (S.season.copied && Object.values(S.season.copied).includes('bp') ? 'It is the same part as ours.' : 'Theirs is the Apex design and ours is not, but the bolts are the same.') },
     // 3.1.3: Summit Champs, before and after
     { id: 'c313chal', cd: 20, req: S => off(S) && S.projects.some(p => p.type === 'vchal'), title: 'Contest weekend', body: S => { const c = G.Career.chal(S.projects.find(p => p.type === 'vchal').ch); return c.id === 'cad' ? student(S) + ' has been in CAD since Friday for the ' + c.name + '. The robot has ' + R().int(900, 2400) + ' parts and one rule: "nothing goes in that we could not buy this afternoon". ' + student2(S, '') + ' is in charge of snacks and fillets.' : c.id === 'code' ? 'The ' + c.name + ' leaderboard is on the shop TV. ' + student(S) + ' refreshes it every ' + R().int(4, 9) + ' minutes and has stopped pretending not to.' : student(S) + ' has wired the ' + c.name + ' board three times this weekend. The third time every wire has a label at both ends, and ' + student2(S, '') + ' cried a little.'; } },
+    { id: 'c315elite', cd: 160, req: S => S.phase === 'comp' && S.diff !== 'easy' && G.World.on(S) && G.World.elites(S).length > 0, title: 'Not one fault', body: S => { const t = R().pick(G.World.elites(S)); return student(S) + ' scouted Team ' + t.num + ' ' + t.name + ' all weekend: ' + R().int(10, 14) + ' matches, not one fault, and their human player did not miss a throw. ' + student2(S, '') + ' wants to know what they eat.'; } },
+    { id: 'c315partners', cd: 200, req: S => off(S) && month(S) === 'Oct' && S.sponsors.filter(s => s.slot === 'partner').length < G.Career.partnerSlots(S) && (S.history || []).length >= 2, title: 'The partner board', body: S => 'The partner list on the shop whiteboard changed again: ' + student(S) + ' wiped off ' + R().pick(['two names', 'a name', 'three names']) + ' and left room for the new ones. ' + mentor(S) + ' says partners like one-season deals, so October is when the team finds out who its friends are.' },
+    { id: 'c315grant', cd: 200, req: S => off(S) && (S.inbox || []).slice(0, 15).some(m => /^Grant renewed:/.test(m.title)), title: 'The grant report', body: S => student(S) + ' wrote the grant report for the foundation: ' + R().int(6, 14) + ' pages, a photo of every outreach event and one chart nobody understands. The grant was renewed. ' + student2(S, '') + ' says the chart did it.' },
     { id: 'c313code', cd: 120, req: S => off(S) && S.projects.some(p => p.type === 'code'), title: 'The beta', body: S => student(S) + ' installed the beta of next season\'s control system release on ' + R().int(2, 5) + ' laptops and keeps a list of what broke in the code library. It is ' + R().int(11, 38) + ' lines long. ' + student2(S, '') + ' has crossed out the first ' + R().int(4, 9) + '.' },
     { id: 'c313codeok', cd: 200, req: S => ['kickoff', 'build'].includes(S.phase) && S.week <= 1 && G.Career.codeCurrent(S), title: 'It compiled', body: S => 'Kickoff day, two hours after the game reveal: the robot code built on the new release on the first try. ' + student(S) + ' took a screenshot of the build log for the team chat. Nobody else on the forum is that calm today.' },
     { id: 'c313rd', cd: 120, req: S => off(S) && !S.preseason && ['May', 'Jun', 'Jul'].includes(month(S)) && S.projects.some(p => p.type === 'research'), title: 'The R&D whiteboard', body: S => 'The whiteboard by the shop door says "R&D" at the top again, with ' + R().int(9, 17) + ' ideas under it and ' + R().int(2, 4) + ' circled. ' + student(S) + ' wrote "before Kickoff" under the circled ones and underlined it twice.' },
@@ -15123,7 +15141,8 @@ window.G = window.G || {};
 
   // ---------- elite teams (D.ELITE_ZONES, D.ELITE, by difficulty D.ELITE_DIFF) ----------
   W.eliteCfg = S => Object.assign({ n: 1 }, D.ELITE, D.ELITE_DIFF[(S && S.diff) || 'normal'] || {});
-  const zoneN = (S, z) => Math.max(0, Math.round(z.n * W.eliteCfg(S).n));
+  const zoneN = (S, z) => { const E = W.eliteCfg(S); return Math.max(0, Math.round(z.n * E.n) + ((E.plus || {})[z.z] || 0)); };
+  W.eliteTarget = S => D.ELITE_ZONES.reduce((t, z) => t + zoneN(S, z), 0); // the elite places of a world, by difficulty
   // the zone a team comes from: its city's district (formed or not) or its area
   W.zoneOf = function (t, cy) { const hb = G.Geo.hub(G.Geo.teamPos(t.num, t.region, t.home, cy).hub); return hb ? hb.d || hb.r : t.home || t.region; };
   W.areaOf = t => t.home || t.region;
@@ -15172,8 +15191,8 @@ window.G = window.G || {};
   // what a home area looks like before the world exists (New Career page): its elite teams and average strength
   W.preview = function (cy, region, home, diff) {
     const formed = id => !!D.DISTRICT[id] && D.DISTRICT[id].from <= cy, area = home || region, d = home ? D.DISTRICT[home] : null;
-    const mult = W.eliteCfg({ diff: diff || 'normal' }).n;
-    const elite = D.ELITE_ZONES.reduce((s, z) => { const zd = D.DISTRICT[z.z], a = zd ? (formed(z.z) ? z.z : zd.region) : z.z; return s + (a === area ? Math.round(z.n * mult) : 0); }, 0);
+    const S0 = { diff: diff || 'normal' }; // the same places per zone as a real world (extra places included)
+    const elite = D.ELITE_ZONES.reduce((s, z) => { const zd = D.DISTRICT[z.z], a = zd ? (formed(z.z) ? z.z : zd.region) : z.z; return s + (a === area ? zoneN(S0, z) : 0); }, 0);
     return { elite: Math.max(1, elite), avg: Math.round(D.WORLD_STR + 1.5 + (d ? (d.str - 3) * 3 + 2 : 0)) };
   };
 
@@ -17496,7 +17515,7 @@ window.G = window.G || {};
     o += UI.refSoonCard(S);
     // this season's published designs (from Build Week 2): copy a whole robot, or single subsystems in the concept chooser
     { const rs = G.Robot.refs(S); if (rs.length) o += '<div class="card mt"><div class="ct">' + UI.icon('design', 16) + ' Published designs this season<span class="sp"></span><button class="btn sm" data-act="refShow">Show the robots</button></div><div class="row wrap gap4">' + rs.map(r => '<span class="tag" style="border-color:' + r.color + '">' + h(r.name) + ' · ' + h(r.by) + '</span>').join('') + '<span class="xs muted">Copy a whole robot, or single subsystems from the concept chooser ("Copy the …"): cheaper first builds that start as version 2. Upgrades are your own work.</span></div></div>'; }
-    if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row mt"><button class="btn sm primary" data-act="startSuggest">Start it</button></div></div>';
+    if (sg) o += '<div class="card hl mt"><div class="ct">Suggested this week<span class="sp"></span>' + UI.tag(sg.quote.hours + ' h · ' + U.money(sg.quote.cost)) + '</div><div class="b">' + h(sg.title) + '</div><div class="sm muted">' + h(sg.reason) + '</div><div class="row wrap gap4 mt">' + suggestBtns(S, sg) + '</div></div>';
     // active projects
     const plan = C.hoursPlan(S);
     const slotUsed = G.Robot.slotUsed(S), slotMax = G.Robot.slots(S);
@@ -17664,7 +17683,16 @@ window.G = window.G || {};
   }
   UI.A.overtime = v => { G.S.overtime = v; UI.render(); };
   UI.A.robotNick = v => { if (G.S.robot) { G.S.robot.nick = String(v || '').trim().slice(0, 28); G.Save.write('auto'); } };
-  UI.A.startSuggest = () => { const sg = G.Robot.suggest(G.S); if (!sg) return; if (!UI.err(G.Robot.startProject(G.S, sg.spec))) { UI.toast('Started: ' + sg.title, 'good'); UI.render(); } };
+  // the suggested project, at standard effort or (a build or an upgrade) thorough or rush (3.1.5)
+  function suggestBtns(S, sg) {
+    const Rb = G.Robot, efforts = ['build', 'upgrade'].includes(sg.spec.type) ? ['thorough', 'rush'] : [];
+    return '<button class="btn sm primary" data-act="startSuggest" data-arg="std">Start it</button>' + efforts.map(e => {
+      const q = Rb.quote(S, Object.assign({}, sg.spec, { effort: e }));
+      return '<button class="btn sm" data-act="startSuggest" data-arg="' + e + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : 'title="' + h(Rb.EFFORT[e].name + ': ' + q.hours + ' h · ' + U.money(q.cost)) + '"') + '>Start it (' + Rb.EFFORT[e].name.toLowerCase() + ') · ' + q.hours + ' h</button>';
+    }).join('');
+  }
+  UI.A.startSuggest = e => { const sg = G.Robot.suggest(G.S); if (!sg) return; const eff = ['thorough', 'rush'].includes(e) && ['build', 'upgrade'].includes(sg.spec.type) ? e : 'std', spec = Object.assign({}, sg.spec, { effort: eff });
+    if (!UI.err(G.Robot.startProject(G.S, spec))) { UI.toast('Started: ' + sg.title + (eff !== 'std' ? ' (' + G.Robot.EFFORT[eff].name.toLowerCase() + ')' : ''), 'good'); UI.render(); } };
   // ---------------- team hours: where this turn's hours go ----------------
   const PCOL = ['#f5b800', '#3ecf8e', '#4aa3ff', '#c77dff', '#ff8a5c', '#5ce1e6', '#ffd24d', '#9be15d'];
   UI.projEta = function (S, p, plan) {
@@ -18169,7 +18197,7 @@ window.G = window.G || {};
       if (!nx.settled) {
         li.push('Under contract: <b>' + U.money(nx.contract) + '</b> from ' + pl(nx.contractN, 'sponsor') + (nx.bonus ? ', bonuses up to ' + U.money(nx.bonus) : '') + '.');
         if (nx.renew.length) li.push('Up for renewal after this season: ' + nx.renew.map(r => h(r.name) + ' (<b class="' + (r.chance >= 0.6 ? 'good' : r.chance >= 0.4 ? 'warn' : 'bad') + '">' + Math.round(r.chance * 100) + '%</b> chance, then ' + U.money(r.base) + ')').join(', ') + '. The chance is their satisfaction at the season review (every missed goal costs 8 points), and satisfied sponsors also pay more.');
-        if (nx.ending.length) li.push('Ends after this season: ' + nx.ending.map(h).join(', ') + ' (grants run for one season).');
+        if (nx.ending.length) li.push('Ends after this season: ' + nx.ending.map(h).join(', ') + '.');
         li.push('New offers for open slots arrive in October.');
       } else li.push(nx.open.length ? 'Open slots: ' + nx.open.map(x => pl(x.n, x.k === 'partner' ? 'partner' : x.k)).join(', ') + (S.offers.length ? '. Offers are waiting below.' : '. New offers arrive in October.') : 'Every sponsor slot is filled.');
       if (nx.biz) li.push('Base amounts include +10% from your business mentor.');
@@ -20046,6 +20074,11 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.1.5', title: 'Suggestions at any effort, stronger elites, sponsor terms', notes: [
+      'The Design Office\'s suggested build or upgrade can be started thorough or rush too, with the hours each takes on its button.',
+      'Normal and Hard: a few more elite teams (at the start of a career 28 instead of 24 on Normal, 44 instead of 38 on Hard), and stronger ones: better drivers and human players, slightly better robots, and extremely high reliability (about 95, where it was about 88). Easy is unchanged.',
+      'Sponsors: title sponsors and grants sign for two to four seasons, and grants can now be renewed too. Partners prefer shorter deals (one to three seasons), renew one season at a time and move on a little more often.'
+    ] },
     { v: '3.1.4', title: 'Fixes', notes: [
       'Fixed a crash on practice day at events when packed parts or an upgrade waiting to be installed met full storage. Working out the robot\'s strength with the packed parts fitted no longer takes stored units apart either: only fitting them for real does.',
       'In a random-order career the Apex CAD Sprint picks its game from the past among the games this career has already played, with the year it played them, so it never names a game still to come.'
@@ -21300,7 +21333,7 @@ window.G = window.G || {};
         'The World page shows the district standings (district teams), every event\'s results, a map and season scouting of every team. The world grows as the real one did: more teams, more districts and fewer regionals every few years.'] }
     ] },
     { id: 'design', icon: 'design', name: 'Design & hours', desc: 'Concepts, projects, extra hours, fatigue', secs: [
-      { icon: 'design', t: 'Concepts and projects', li: ['Pick a <b>concept</b> for each subsystem at Kickoff, then run <b>upgrades</b> with a focus stat and an effort level.', '<b>Effort</b> trades hours for the result. <b>Rush</b>: 60% of the hours, a weaker result, a risk of hidden faults, and 15% more materials (scrapped parts, overnight shipping). <b>Thorough</b>: 140% of the hours, a better and more reliable result, and 10% less material. Extra hours (below) add to any of the three.', 'The first one of a new concept or version is a <b>prototype</b> (+10% materials) and goes on the competition robot.', 'Each project absorbs up to 80 h a week (±25% by priority). Project slots come from mentors and facilities; fabrication (copies) and program projects (the Impact and Woodie Flowers essays, pit crew training, bumper standards, the Knowledge Base, the code library and vendor contest entries) need none.', 'A project started this turn can be <b>undone</b> for everything it cost until you press Continue: builds, upgrades, research, copies, a test chassis. After that it can only be cancelled, for part of its materials.', 'Keep the robot under <b>125 lb</b>.'] },
+      { icon: 'design', t: 'Concepts and projects', li: ['Pick a <b>concept</b> for each subsystem at Kickoff, then run <b>upgrades</b> with a focus stat and an effort level.', '<b>Effort</b> trades hours for the result. <b>Rush</b>: 60% of the hours, a weaker result, a risk of hidden faults, and 15% more materials (scrapped parts, overnight shipping). <b>Thorough</b>: 140% of the hours, a better and more reliable result, and 10% less material. Extra hours (below) add to any of the three. The Design Office\'s <b>suggested</b> build or upgrade can be started at any of them.', 'The first one of a new concept or version is a <b>prototype</b> (+10% materials) and goes on the competition robot.', 'Each project absorbs up to 80 h a week (±25% by priority). Project slots come from mentors and facilities; fabrication (copies) and program projects (the Impact and Woodie Flowers essays, pit crew training, bumper standards, the Knowledge Base, the code library and vendor contest entries) need none.', 'A project started this turn can be <b>undone</b> for everything it cost until you press Continue: builds, upgrades, research, copies, a test chassis. After that it can only be cancelled, for part of its materials.', 'Keep the robot under <b>125 lb</b>.'] },
       { icon: 'design', t: 'Published designs', li: ['At the start of Build Week 2 of every season a complete robot for that year\'s game is published (its makers spend Build Week 1 building it): the <b>Anybot</b> (the Gearwrights\' simple robot on the kit chassis, from the 2018 season) and the <b>Apex Blueprint</b> (a competitive design on swerve, from 2022; any vendor\'s parts fit). A window shows both robots, and the Design Office keeps them all season.', 'Before they are out, the Design Office says so, with what copying the whole robot would save against a week of your team\'s hours. The choice is yours: start your own design at Kickoff, or wait. A team that waits can build a test chassis (Garage), write code, run program projects, or simply rest: idle hours lower fatigue, so Week 2 can be an overtime week. A test chassis and program projects take no project slot; code projects do, so a long one started in Week 1 may still hold a slot the copy needs in Week 2 (a subsystem without a free slot waits, and you copy it when one frees up). The smaller the team, the more waiting pays, because the copy saves more hours than the week costs.', 'Copy a whole robot, or single subsystems from the concept chooser (<b>Copy the …</b>). Only the first build of each copied subsystem is cheaper: Anybot −50% hours and −20% materials, Blueprint −35% and −10%. It has no first-build penalty, starts as version 2, is more reliable (+6 / +4), and the drivers start at 60% / 55% familiarity: each design comes with build videos, practice drills and a model for the driving simulators, so they practise while it is built. The simulator model and the drills are of the whole robot, and its parts were proven together: copy only part of it and the drivers start lower and the reliability bonus is smaller (about half for one subsystem of three). It teaches half the know-how.', 'Mechanism kits and GridTube work on a copy as on your own build, and the savings multiply: a copied intake with its kit takes about a quarter of the hours of designing it yourself without one. They do not change the copy\'s stats or reliability. A copy takes the same parts as your own design: the Blueprint\'s drivetrain runs on 4 swerve modules, and every subsystem needs its motors and encoders. The window counts the shelf for the whole robot: a subsystem it can\'t cover shows <b>short of …</b> with a <b>Buy</b> button, and the build button says how many subsystems will start (<b>Build 3 of 4 subsystems</b>). What doesn\'t start waits until you buy the parts; copy it then from the window or the concept chooser.', 'Upgrades after that are your own work, at the usual cost. The other teams copy them too: the weakest teams build the Anybot, so nearly every robot at an event can play the game, and some of the middle build the Blueprint. The season recap and the History page count the copies at your events.'] },
       { icon: 'arm', t: 'End effector, lift and intake', li: ['In 2018, 2019, 2023 and 2025 the robot has an <b>End Effector</b>: the claw or gripper at the end of the lift, built on the <b>End Effectors</b> knowledge area. Its <b>Grip</b> decides how surely it takes, holds and lets go of a game piece: a poor one costs placements and a little time on every score, a developed one gives both back.', 'In those games the ground intake is <b>optional</b>. Without one the end effector collects the pieces itself, from the human player (and in 2018 off the floor): slower than a good intake, but it saves the weight, the hours and the money.', 'A robot needs both a lift and an end effector to score. From August 2021 a gripper kit speeds the build, and a pneumatics or servo kit helps too.'] },
       { icon: 'atom', t: 'Knowledge each concept needs', li: ['Each concept has <b>core areas</b> (★). A turret shooter is a flywheel shooter on a turret, so it needs both Turret and Flywheel Shooter knowledge.', 'Any core area at Level 0 on a complex concept means a first-time penalty. Build hours and ceilings use the average of the core areas.'] },
@@ -21384,7 +21417,7 @@ window.G = window.G || {};
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Outside programs (FLL, camps, clubs, other schools\' FTC) are capped: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. Your own FTC teams don\'t count: the FTC Team Space limits them. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
-      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review.', 'Offers arrive in October. A title sponsor pays about three times a partner.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A satisfied sponsor sometimes <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier: about one donation a year with every slot filled and no sponsor activity skipped.'] },
+      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review (a partner\'s a little lower).', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October. A title sponsor pays about three times a partner.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A satisfied sponsor sometimes <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier: about one donation a year with every slot filled and no sponsor activity skipped.'] },
       { icon: 'money', t: 'Debt', li: ['From Kickoff to the Championship you can spend into debt (down to −' + U.money(D.DEBT_LIMIT) + ').', 'The school clears it at the season review, at a cost in Program Support and reputation: the bigger the debt, the bigger the cost, and half as much again for each season in a row that ends in debt. A strong season can be worth it.', 'In the offseason you can only spend cash you have.'] },
       { icon: 'fund', t: 'STEM support fund', li: ['When the balance is under ' + U.money(D.STEM_FUND.below) + ', apply for up to ' + U.money(D.STEM_FUND.max) + ' (twice a program year). Each application costs ' + D.STEM_FUND.rep + ' reputation.'] }
     ] },
@@ -21403,6 +21436,7 @@ window.G = window.G || {};
         'Every area and district has at least one; California has the most, then Michigan, and the rest are spread like the real ones. The New Career page says how many your home has.',
         'They last. Their strength moves a point or two a year; now and then one drops back to a local powerhouse, and a team that has been strong for years can join them (never a young team). They never fold. The Inbox has an Elite watch note when the list changes.',
         'Every Championship division has elite teams, yours included, and on Einstein the other alliances are led by them. Winning it all takes a robot and a drive team at their level, and winning twice in a row is rare.',
+        'Their robots almost never break down, and their drivers and human players are among the best anywhere.',
         'Difficulty: on Easy there are about half as many and they are a little weaker, and your division is not sure to have one; on Hard there are half again as many, stronger, and your division has at least two.',
         'Around Week 0 (Build Week 5 to Competition Week 2) the robots are revealed: every elite team near you posts one, three or four famous ones from elsewhere come through because everyone watches them, and a local rival about as strong as you posts one too. So does your own team. Each comes with a picture of the robot (and the others with a button to show the team on the map).',
         'Every team reveals its own way, year after year: a render that stays on screen as long as its team number, a film, a teaser, raw practice footage, a live stream, or one picture on the forum with no words. Some never reveal at all: then a photo someone took from the stands at a scrimmage leaks instead.'] },

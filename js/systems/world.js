@@ -155,7 +155,8 @@
 
   // ---------- elite teams (D.ELITE_ZONES, D.ELITE, by difficulty D.ELITE_DIFF) ----------
   W.eliteCfg = S => Object.assign({ n: 1 }, D.ELITE, D.ELITE_DIFF[(S && S.diff) || 'normal'] || {});
-  const zoneN = (S, z) => Math.max(0, Math.round(z.n * W.eliteCfg(S).n));
+  const zoneN = (S, z) => { const E = W.eliteCfg(S); return Math.max(0, Math.round(z.n * E.n) + ((E.plus || {})[z.z] || 0)); };
+  W.eliteTarget = S => D.ELITE_ZONES.reduce((t, z) => t + zoneN(S, z), 0); // the elite places of a world, by difficulty
   // the zone a team comes from: its city's district (formed or not) or its area
   W.zoneOf = function (t, cy) { const hb = G.Geo.hub(G.Geo.teamPos(t.num, t.region, t.home, cy).hub); return hb ? hb.d || hb.r : t.home || t.region; };
   W.areaOf = t => t.home || t.region;
@@ -204,8 +205,8 @@
   // what a home area looks like before the world exists (New Career page): its elite teams and average strength
   W.preview = function (cy, region, home, diff) {
     const formed = id => !!D.DISTRICT[id] && D.DISTRICT[id].from <= cy, area = home || region, d = home ? D.DISTRICT[home] : null;
-    const mult = W.eliteCfg({ diff: diff || 'normal' }).n;
-    const elite = D.ELITE_ZONES.reduce((s, z) => { const zd = D.DISTRICT[z.z], a = zd ? (formed(z.z) ? z.z : zd.region) : z.z; return s + (a === area ? Math.round(z.n * mult) : 0); }, 0);
+    const S0 = { diff: diff || 'normal' }; // the same places per zone as a real world (extra places included)
+    const elite = D.ELITE_ZONES.reduce((s, z) => { const zd = D.DISTRICT[z.z], a = zd ? (formed(z.z) ? z.z : zd.region) : z.z; return s + (a === area ? zoneN(S0, z) : 0); }, 0);
     return { elite: Math.max(1, elite), avg: Math.round(D.WORLD_STR + 1.5 + (d ? (d.str - 3) * 3 + 2 : 0)) };
   };
 
