@@ -275,6 +275,12 @@
     } else S.team.home = null;
     // the cities its school points to: the school picked on the New Career page (the name may have been edited since), else by the name
     if (S.team.place === undefined) S.team.place = (D.schoolAt && D.schoolAt(S.team.school)) || null;
+    // ... and, for a regional team, the district still to form whose cities those are (the team stands there with
+    // the area's other teams, and is asked when the district forms). The New Career page says which; else by the
+    // school and the team number (D.startZone). A single season has no districts: every city of the area is open.
+    { const worldOn = !!(S.cal && o.mode === 'career' && G.World && !o.noWorld), dz = worldOn && !S.team.home ? G.World.soleDistrict(S.team.region, cal[0]) : null, zs = D.zonesAhead(S.team.region, cal[0], !worldOn);
+      const z = S.team.home ? null : dz ? dz.id : S.team.z !== undefined && (!S.team.z || zs.some(d => d.id === S.team.z)) ? S.team.z : D.startZone(S.team.num, S.team.region, cal[0], !worldOn, S.team.school, S.team.place);
+      if (z) S.team.z = z; else delete S.team.z; }
     // equipment / knowledge
     P.equip.forEach(e => { if (e === 'printer') S.equip.printer = 1; else if (e !== 'field') S.equip[e] = true; });
     G.Parts.setup(S, rng); // starting parts inventory, vendor release plan, stock
@@ -368,20 +374,33 @@
     Object.keys(gone).forEach(n => { if (gone[n] < round) delete gone[n]; });
     const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone)));
     S.sponsors.map(s => s.name).concat(Object.keys(gone)).forEach(n => { const now = (D.SPONSOR_RENAMED || {})[n]; if (now) used.add(now); }); // a sponsor of an earlier version, under its old name: the same company
-    const free = t => D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)); // (3.5) names with the flavour of the team's home
+    // (3.5) Every company has a city (D.SPONSOR_AT), and a team hears from the companies around it: mostly those
+    // close to its own city, then the rest of its land, now and then one from a land next door (D.sponsorRings).
+    // (A team whose city cannot be told goes by its home's list, as before.)
+    const city = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : '', known = !!(city && D.sponsorRings && G.Geo.hub(city));
+    const rings = t => (known ? D.sponsorRings(t, city, used) : { near: D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)).map(n => ({ name: n, w: 1 })), land: [], abroad: [] });
+    const atHome = t => { const r = rings(t); return r.near.length + r.land.length; }; // the companies of that kind in the team's own land that are free
+    const fits = (slot, t) => (slot === 'title' ? !!D.SPONSOR_TYPES[t].title : slot === 'grant' ? !!D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant);
     // (3.5) an international company (D.SPONSOR_NAMES): they sponsor teams everywhere, as partners only. Any that is
     // not on this list, among your sponsors or away for a year.
     const intl = () => { const l = []; Object.keys(D.SPONSOR_NAMES).forEach(t => D.SPONSOR_NAMES[t].forEach(n => { if (!used.has(n)) l.push({ name: n, type: t }); })); return l.length ? rng.pick(l) : null; };
     const make = (slot, special) => {
       let tk = special ? special.type : slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
-      let pool = special ? [special.name] : free(tk);
-      if (!pool.length) { // every company of that kind in the home is taken: another kind that fits the slot; failing that, a partner offer comes from abroad
-        const alt = types.filter(t => t !== tk && (slot === 'title' ? D.SPONSOR_TYPES[t].title : slot === 'grant' ? D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant) && free(t).length);
-        if (alt.length) { tk = rng.pick(alt); pool = free(tk); }
-        else { const g = slot === 'partner' ? intl() : null; if (!g) return null; tk = g.type; pool = [g.name]; }
+      let name = special ? special.name : null;
+      if (!name && !atHome(tk)) { // every company of that kind in the team's own land is taken, or it has none: another kind that fits the slot
+        const alt = types.filter(t => t !== tk && fits(slot, t) && atHome(t));
+        if (alt.length) tk = rng.pick(alt);
+        else { // nobody at home is left: a partner offer comes from an international company, a title from a land next door (a grant never crosses a border)
+          const g = slot === 'partner' ? intl() : null;
+          if (g) { tk = g.type; name = g.name; }
+          else { const far = []; types.filter(t => fits(slot, t)).forEach(t => rings(t).abroad.forEach(c => far.push({ name: c.name, w: c.w, type: t })));
+            if (!far.length && slot === 'title' && known && D.sponsorFar) D.sponsorFar(types.filter(t => fits(slot, t)), city, used).forEach(c => far.push(c)); // ... and, so that there is always a title to sign, from farther still
+            if (!far.length) return null; const c = rng.wpick(far, x => x.w); tk = c.type; name = c.name; }
+        }
       }
+      if (!name) name = D.sponsorDraw ? D.sponsorDraw(rng, rings(tk)) : (rng.pick(rings(tk).near) || {}).name;
+      if (!name) return null;
       const T = D.SPONSOR_TYPES[tk];
-      const name = rng.pick(pool);
       used.add(name);
       let base = D.SPONSOR_BASE[slot] * (T.f || 1) * perf * money * rng.range(0.94, 1.06);
       base = Math.round(base / 250) * 250;
@@ -403,7 +422,11 @@
     for (let i = 0; i < 3; i++) offers.push(make('title'));
     // (3.5) ... and any of the other partner offers may come from an international company, far less often than from the home
     const IN = D.SPONSOR_INTL;
-    for (let i = 0; i < 6; i++) offers.push(make('partner', i === mk ? MK : IN && rng.chance(IN.chance) ? intl() : null));
+    // (3.5) In a land with few companies of its own they turn up more often: they make up for the partner offers the
+    // land cannot fill (own: its free companies that could be partners; left: the partner offers still to make).
+    const ownLeft = () => (known ? types.filter(t => fits('partner', t)).reduce((n, t) => n + atHome(t), 0) : 99);
+    for (let i = 0; i < 6; i++) { const left = 6 - i, own = IN ? ownLeft() : 0, p = !IN ? 0 : own >= left ? IN.chance : 1 - (own / left) * (1 - IN.chance);
+      offers.push(make('partner', i === mk ? MK : IN && rng.chance(p) ? intl() : null)); }
     for (let i = 0; i < rng.int(1, 2); i++) offers.push(make('grant'));
     S.offers = offers.filter(Boolean);
     if (MK && S.mode === 'career' && !S.makerSeen && S.offers.some(o => o.type === MK.type)) { // its first offer: a note in the Inbox
@@ -411,7 +434,7 @@
       C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams all over the world, and one of this autumn\'s partner offers is theirs. It is an international company and a partner like the others (+' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review, as all of them bring), with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
     }
     { const io = S.mode === 'career' && !S.intlSeen && S.offers.find(o => o.slot === 'partner' && !(MK && o.type === MK.type) && D.sponsorIntl && D.sponsorIntl(o.name)); // the first offer from abroad (the printer maker has its own note): a note in the Inbox
-      if (io) { S.intlSeen = 1; C.inbox(S, 'An international company on the list', io.name + ' sponsors teams all over the world, and one of this autumn\'s partner offers is theirs. Companies of that size never take a title: they are partners like the others, marked International on the list, and they turn up far less often than the companies of your home. A name known all over the world does bring one small thing of its own: +' + D.SPONSOR_INTL.rep + ' reputation at every season review while it is on your robot.', 'money', { note: 'Finance: Sponsor offers.' }); }
+      if (io) { S.intlSeen = 1; C.inbox(S, 'An international company on the list', io.name + ' sponsors teams all over the world, and one of this autumn\'s partner offers is theirs. Companies of that size never take a title: they are partners like the others, marked International on the list, and they turn up far less often than the companies around you. A name known all over the world does bring one small thing of its own: +' + D.SPONSOR_INTL.rep + ' reputation at every season review while it is on your robot.', 'money', { note: 'Finance: Sponsor offers.' }); }
     }
   };
   // your international partners (D.sponsorIntl: the general list's giants and the printer maker), each worth a little reputation a season
@@ -455,12 +478,17 @@
   };
   // ---------- a title sponsor's letters (3.5) ----------
   // The company's side of the contract: always the same person in the same post for the same company.
-  // (its people carry the names of your home; an international company's keep the international mix)
-  C.sponsorWho = sp => (D.sponsorIntl && D.sponsorIntl(sp.name) ? 'intl' : undefined);
+  // (its people carry the names of the company's own city, the one nearest to you; an international company's keep
+  // the international mix; a company with no city, your home's)
+  C.sponsorWho = function (sp) {
+    if (D.sponsorIntl && D.sponsorIntl(sp.name)) return 'intl';
+    const hub = D.sponsorCity ? D.sponsorCity(sp.name, G.S && G.Geo && G.Geo.cityOf ? G.Geo.cityOf(G.S) : '') : '';
+    return hub ? { hub } : undefined;
+  };
   C.sponsorContact = function (sp) {
     if (sp.contact) return sp.contact; // set on the day it signs
-    const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL;
-    return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(M.roles[sp.type] || M.roles.eng) };
+    const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL, roles = (M && (M.roles[sp.type] || M.roles.eng)) || ['Partnerships Manager']; // (a page without the letters' texts still signs sponsors)
+    return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(roles) };
   };
   const lcFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
   const listAnd = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
@@ -472,7 +500,7 @@
     const colleague = D.personName(r, C.sponsorWho(sp)).split(' ')[0];
     const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
     const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1;
-    const type = M.roles[sp.type] ? sp.type : 'eng', P = [];
+    const type = M.close[sp.type] && M.ps[sp.type] && M.tradeType[sp.type] ? sp.type : 'eng', P = []; // the three kinds of company that take a title
     info = info || {};
     if (kind === 'renew') {
       const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt);
@@ -1862,7 +1890,7 @@
     const w = games.filter(g => g.won).length, l = games.length - w, won = m.winner === pa;
     const dt = C.driveTeam(S), driver = dt.driver && dt.driver.name ? dt.driver.name : 'Your driver', coach = C.coachName(S);
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '' },
+    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '', city: G.Geo.cityOf(S) },
       alliance: ev.alliances[pa].map(t => ({ num: t, name: nm(t) })), opp: ev.alliances[1 - pa].map(t => ({ num: t, name: nm(t) })), games, w, l, driver, coach, sponsor,
       comeback: won && games.length > 3 && !games[0].won && !games[1].won, letSlip: !won && games.length > 3 && games[0].won && games[1].won, sweep: games.length === 3 };
     const pool = won ? [
@@ -1993,7 +2021,7 @@
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
     const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
     const CHw = S.cal ? C.champs(S) : null; // two Championships (2017 to 2020): the city goes into the title
-    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '' },
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) },
       alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
       driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
       lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
@@ -2038,7 +2066,7 @@
     const speakers = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2).map(x => x.name);
     const biz = C.allMentors(S).filter(x => x.role === 'biz').sort((a, b) => b.skill - a.skill)[0];
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '' }, score: ci.score, speakers, mentor: biz ? biz.name : null,
+    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) }, score: ci.score, speakers, mentor: biz ? biz.name : null,
       outreach: s.outreach || 0, points: Math.round(s.impact || 0), programs: (S.programs || []).length, seasons: S.history.length + 1,
       winner: { num: ci.winner, name: nm(ci.winner) }, finalists: ci.finalists.map(n => ({ num: n, name: nm(n) })) };
     const pool = kind === 'winner' ? [
@@ -2097,17 +2125,21 @@
   // None of this uses the game's random numbers (each draw has its own seed), so the season plays out as before.
   const hashS = s => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const wRng = key => G.makeRng(hashS(key) || 11);
-  C.makeProf = function (role, r) {
+  // S0, team: the career and the team the mentor belongs to (yours when not given)
+  C.makeProf = function (role, r, S0, team) {
     const p = r.pick(D.PROFESSIONS[role] || D.PROFESSIONS.design), k = p[2];
-    const tm = (G.S && G.S.team) || {}; // (3.5) where the mentor works carries the flavour of the team's home
-    return { t: p[0], area: p[1], at: k === 'school' ? D.schoolName(r, tm.home, tm.region) : r.pick(D.sponsorPool(k, tm.home, tm.region)) };
+    const S = S0 || G.S, tm = team || (S && S.team) || {}; // (3.5) the mentor works near the team: at a school of its part of the home, or at a company of its city or its land
+    if (k === 'school') return { t: p[0], area: p[1], at: D.schoolName(r, tm.home || tm.z, tm.region) };
+    let city = ''; try { city = S && tm.num != null && G.Geo && G.Geo.posOf ? G.Geo.posOf(S, tm, G.Geo.cyOf(S)).hub : ''; } catch (e) { city = ''; }
+    const at = (city && D.sponsorDraw && D.sponsorDraw(r, D.sponsorRings(k, city), true)) || r.pick(D.sponsorPool(k, tm.home, tm.region));
+    return { t: p[0], area: p[1], at };
   };
   C.profLine = p => (p ? p.t + (p.at ? ' at ' + p.at : '') : 'Mentor');
   // a mentor's background: profession, years in FIRST and seasons with this team (filled in once from the mentor's own id)
   C.mentorMeta = function (S, m) {
     if (m.prof && m.exp != null && m.ten != null) return m;
     const r = wRng('mentor:' + m.id + ':' + m.name);
-    if (!m.prof) m.prof = C.makeProf(m.role, r);
+    if (!m.prof) m.prof = C.makeProf(m.role, r, S);
     if (m.exp == null) m.exp = r.int(1, 4 + (m.stars || 2) * 3);
     if (m.ten == null) m.ten = S.profile === 'rookie' && !S.history.length ? 0 : Math.min(m.exp, r.int(0, 5));
     return m;
@@ -2149,7 +2181,7 @@
     field.sort((a, b) => b.v - a.v);
     const roles = Object.keys(D.PROFESSIONS);
     return field.slice(0, slots).map(x => x.me ? { e: e.id, ename: e.name, team: me, me: true, mid: x.mid, name: mine.name, prof: mine.prof, v: x.v }
-      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r, S.teams[x.team]), prof: C.makeProf(r.pick(roles), r), v: x.v });
+      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r, S.teams[x.team]), prof: C.makeProf(r.pick(roles), r, S, S.teams[x.team]), v: x.v });
   };
   // judge an event: record its Finalists in the world's books, and tell the team about its own essay
   C.wffaJudge = function (S, e, teams, attending) {
@@ -2196,7 +2228,7 @@
     const w = S.season.wfa || {}, cy = C.calYear(S), writers = (w.writers || C.wfaWriters(S).map(s => s.name)).slice(0, 2);
     const role = (D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor';
     const past = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = past.slice(0, 4).concat(past.includes(1996) && !past.slice(0, 4).includes(1996) ? [1996] : []);
-    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '' }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
+    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
       students: S.studentsCount || S.students.length, past: pick.map(y => Object.assign({ year: y }, D.REAL_WFA[y])), real: D.REAL_WFA[cy] ? Object.assign({ year: cy }, D.REAL_WFA[cy]) : null };
     d.quotes = [
       writers[0] ? ['We wrote it in the library after practice for three weeks. Every sentence was something ' + m.name + ' actually said to one of us.', writers[0] + ', who wrote the essay'] : null,
@@ -2237,7 +2269,7 @@
     if (S.wfaPast) return;
     const r = wRng('wfapast:' + S.team.num + ':' + (S.cal ? S.cal[0] : S.year)), ts = Object.keys(S.teams || {}).map(Number), roles = Object.keys(D.PROFESSIONS);
     S.wfaPast = [];
-    for (let i = 0; i < D.WFA.past && ts.length; i++) { const team = r.pick(ts); S.wfaPast.push({ name: D.personName(r, S.teams[team]), team, prof: C.makeProf(r.pick(roles), r), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) }); }
+    for (let i = 0; i < D.WFA.past && ts.length; i++) { const team = r.pick(ts); S.wfaPast.push({ name: D.personName(r, S.teams[team]), team, prof: C.makeProf(r.pick(roles), r, S, S.teams[team]), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) }); }
   };
 
   // ======================= The state of the art moves on (offseason) =======================
@@ -2375,13 +2407,14 @@
         C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
           means: ['Your team is in it: from ' + cy + ' you play district events, not regionals.', 'One fee covers two district events; registration opens in October (Calendar).', 'The points list decides who plays the District Championship in week 7 and who goes on to the Championship: about ' + I.slots + ' of the district\'s ' + I.n + ' teams.'] });
         C.inbox(S, 'You join the ' + d.name, 'From the ' + cy + ' season every team of ' + D.regionThe(d.region) + ' plays in the ' + d.name + ', yours included. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship.', 'event');
-      } else if (!S.team.home && S.team.region === d.region) {
+      } else if (!S.team.home && S.team.region === d.region && G.World.inside(S, d, C.cy(S))) { // (3.5) a team that stands in the district's cities
         S.storySeen['dist_' + d.id] = 1;
         S.districtOffer = { id: d.id, cy, stage: 'choose' };
         C.inbox(S, I.title, I.body.join('\n\n') + '\n\nYour school is inside the new district\'s borders. Decide whether to join it or stay a regional team (Headquarters).', 'event');
         (S.launchQueue = S.launchQueue || []).push({ kind: 'district' });
       } else C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
-        means: [S.team.home ? 'Your own district is not affected.' : 'You are not in its area: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ', so teams from there will turn up at events elsewhere.', 'More Championship places are now decided by district points.'] });
+        means: S.team.home || S.team.region !== d.region ? [S.team.home ? 'Your own district is not affected.' : 'You are not in its area: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ', so teams from there will turn up at events elsewhere.', 'More Championship places are now decided by district points.']
+          : ['Your school is outside its borders: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ': look at the neighbouring areas too when registration opens in October.', 'More Championship places are now decided by district points.'] });
     });
   };
   // join the new district (from the season it forms) or stay a regional team
@@ -2631,7 +2664,8 @@
   const fillNames = (t, n) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (n && n[k] != null ? n[k] : m));
   C.disputeNames = function (S) {
     const dt = C.driveTeam(S), f = st => (st && st.name ? st.name.split(' ')[0] : null), lead = leadMentor(S), pool = G.R.shuffle(S.students.slice());
-    return { driver: f(dt.driver) || 'the driver', operator: f(dt.operator) || 'the operator', coach: dt.coach ? f(dt.coach) : (S.mentors.find(m => m.role === 'coach') || { name: C.leadName(S) }).name, // a mentor coaches: the Drive Coach, else you tech: dt.tech ? f(dt.tech) : f(pool[3]) || 'the pit lead',
+    return { driver: f(dt.driver) || 'the driver', operator: f(dt.operator) || 'the operator', coach: dt.coach ? f(dt.coach) : (S.mentors.find(m => m.role === 'coach') || { name: C.leadName(S) }).name, // a mentor coaches: the Drive Coach, else you
+      tech: dt.tech ? f(dt.tech) : f(pool[3]) || 'the pit lead',
       mentor: S.mentors.length ? G.R.pick(S.mentors).name : 'a mentor', a: f(pool[0]) || 'one student', b: f(pool[1]) || 'another student', c: f(pool[2]) || 'a third student' };
   };
   C.rollDispute = function (S) {
@@ -3284,6 +3318,9 @@
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team);
+    // (3.5) The city a team stands in is settled for good (S.team.place). A save from before that keeps the city it
+    // has today; a world from before 3.5 settles it when it grows (G.World: upgrade).
+    if (S.team && S.team.place === undefined && G.Geo && !(G.World && G.World.legacy(S))) { try { S.team.place = [G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub]; } catch (e) { /* no map for this save: it goes by the school's name */ } }
     // (3.5) people are named after their home now. A sponsor signed before that keeps the contact its letters had.
     (S.sponsors || []).forEach(sp => { if (!sp.contact && D.SPONSOR_MAIL) { const r = G.makeRng(hashS('contact:' + sp.name) || 7); sp.contact = { name: D.personName(r, 'intl'), role: r.pick(D.SPONSOR_MAIL.roles[sp.type] || D.SPONSOR_MAIL.roles.eng) }; } }); // (3.5) a save from before the lead mentor had a name: one is given (Mentors page to change it)
     { const RN = { 'Jordan Valley Water Engineering': 'Rift Valley Water Engineering' }, fix = t => (typeof t === 'string' ? Object.keys(RN).reduce((x, k) => x.split(k).join(RN[k]), t) : t); // (3.5) a sponsor renamed

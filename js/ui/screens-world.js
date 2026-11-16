@@ -36,7 +36,7 @@
   // (3.5) the map is the whole world: zoom 1 shows all of it, about 5 one part of the world, up to KMAX a single city.
   // It opens on the part of the world your team is in.
   const KMAX = 64;
-  const MS = () => (UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, type: 'all', smin: 0, smax: 100, wk: 'all' });
+  const MS = () => { const st = UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, city: true, type: 'all', smin: 0, smax: 100, wk: 'all' }; if (st.city === undefined) st.city = true; return st; };
   const clampView = st => {
     st.k = U.clamp(st.k, 1, KMAX);
     const vw = G.Geo.W / st.k, vh = G.Geo.VH / st.k;
@@ -105,7 +105,7 @@
     const opt = (v, cur, label) => '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>';
     let o = '<div class="row wrap wm-f mb">' +
       flab('Show', '<div class="segs">' + [['both', 'Teams and events'], ['teams', 'Teams'], ['events', 'Events']].map(x => '<button class="btn sm ' + (st.show === x[0] ? 'sel' : '') + '" data-act="wmShow" data-arg="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>') +
-      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
+      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships'], ['city', 'Cities']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
       flab('Filter by team type', '<select class="inp fsel" data-chg="wmType">' + opt('all', st.type, 'All types') + opt('district', st.type, 'District teams') + opt('regional', st.type, 'Regional teams') + opt('rookie', st.type, 'Rookies') + opt('qual', st.type, 'Championship qualified') + opt('elite', st.type, 'Elite teams') + '</select>') +
       flab('Filter by strength', '<select class="inp fsel" data-chg="wmSmin" title="Weakest team shown">' + [0, 20, 30, 40, 50, 60, 70, 80].map(v => opt(v, st.smin, v)).join('') + '</select><span class="xs muted">to</span>' +
       '<select class="inp fsel" data-chg="wmSmax" title="Strongest team shown">' + [30, 40, 50, 60, 70, 80, 90, 100].map(v => opt(v, st.smax, v)).join('') + '</select>') +
@@ -174,6 +174,21 @@
       });
     }
     if (st.dist) svg += dists.map(d => label(d.id, d.short + ' District', 11, '#c3c2b7', ' font-weight="700"')).join(''); // district names above the circles
+    // ---- (3.5) the cities teams come from, named once the map is magnified. As on any map, the big cities come
+    // first: the cities with the most teams this season, as many as the zoom has room for, and a name only where it
+    // does not run into one already placed. A city with no team this season has no name.
+    if (st.city !== false && k >= 2) {
+      const cnt = {}; Object.values(S.teams).forEach(t => { const hb = Geo.posOf(S, t, cy).hub; cnt[hb] = (cnt[hb] || 0) + 1; });
+      { const mh = Geo.posOf(S, S.team, cy).hub; cnt[mh] = (cnt[mh] || 0) + 1; }
+      const fs = 10.5 / k, placed = [], most = k >= 28 ? 1e9 : Math.round(8 + k * 4);
+      Geo.HUBS.filter(hb => cnt[hb.n]).map(hb => { const p = Geo.xy(hb.lon, hb.lat); return { n: hb.n, x: p[0], y: p[1], c: cnt[hb.n] }; })
+        .filter(c => c.x > vx && c.x < vx + vw && c.y > vy && c.y < vy + vh).sort((a, b) => b.c - a.c || (a.n < b.n ? -1 : 1)).slice(0, most).forEach(c => {
+          const w = c.n.length * fs * 0.58, ty = c.y + Math.min(R(c.c), 13 / k) + fs, box = [c.x - w / 2 - 3 / k, ty - fs, c.x + w / 2 + 3 / k, ty + fs * 0.45];
+          if (placed.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) return;
+          placed.push(box);
+          svg += '<text x="' + c.x.toFixed(1) + '" y="' + ty.toFixed(2) + '" font-size="' + px(10.5) + '" fill="#c3ccd6" text-anchor="middle" class="wm-lbl wm-halo wm-city" stroke-width="' + px(3) + '">' + h(c.n) + '</text>';
+        });
+    }
     svg += champs;
     // ---- the marked team: a gold ring and its number, a dashed line from yours
     if (mk) { const x = mk.xy[0], y = mk.xy[1], r = 9 / k;

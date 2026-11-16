@@ -2,20 +2,17 @@
 
 A lightweight 2D management game about running a *FIRST* Robotics Competition team across the 2016–2026 seasons, inspired by the F1 Manager series. You don't drive the robot: you build the program behind it.
 
-> **This is the 3.5 beta (version 3.4.7):** ten fantasy games, random careers that mix them in, a custom career builder, and a world simulation that covers every part of the world with teams in it.
-> **▶ [Play the beta in your browser](https://frc-manager.github.io/frc-manager-beta/)**. The beta keeps its own saves and never touches the stable game's. The stable release, 3.1.5, is at [frc-manager.github.io/frc-manager](https://frc-manager.github.io/frc-manager/) ([repository](https://github.com/FRC-Manager/frc-manager)).
-
-**▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager-beta/)** — no download needed. Your saves stay in your browser.
+**▶ [Play FRC Manager in your browser](https://frc-manager.github.io/frc-manager/)** — no download needed. Your saves stay in your browser.
 
 > Unofficial fan-made game. Not affiliated with or endorsed by *FIRST*®, Formula 1® or Frontier Developments. Sponsors, regionals, offseason events and opponent teams are fictional or randomly generated.
 
 ## How to play
 
-1. Play [online](https://frc-manager.github.io/frc-manager-beta/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
+1. Play [online](https://frc-manager.github.io/frc-manager/), or download the project and open `index.html` in Chrome, Edge or Firefox (double-click it). There is nothing to install, and the downloaded copy works offline.
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order or with your own list of games, as a regional or a district team) or **Single Season Challenge** (one game, real or fantasy, plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.4.7**, the beta of 3.5. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.5**. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -61,8 +58,8 @@ The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the
 
 - **Program Support** from the school keeps the team alive; **reputation** brings sponsors, recruits and harder goals.
 - **You are the lead mentor**, under a name of your own. Letters to the team are addressed to you; a title sponsor writes when it signs and when it renews.
-- **Sponsors** come from your home, and now and then a partner offer comes from an international company: 812 sponsors in all, each with a line that says what it does. One that leaves stays away for a year.
-- **People and schools belong to a place**: a team stands in a real city of its home, a school named after a place stands there, and everybody is named as people of that city usually are.
+- **Sponsors** have a city each: most offers come from companies close to your team, some from the rest of its country, now and then one from a neighbouring country or from an international company. More than a thousand sponsors in all, each with a line that says what it does. One that leaves stays away for a year.
+- **People belong to a place**: everybody is named as people of their part of the world usually are, first name and family name together.
 - **An Elite tag of your own**: a season that ranks among the world's best by OPR, in a year you reach the Championship, marks your team Elite for the next one.
 - **Team disputes and shop incidents** stop the week for a decision: a small sure loss, a gamble, or sometimes a way to pay it off. The result shows as soon as you choose.
 - **Outreach over several seasons** wins the Impact Award. Feeder programs shape who joins: an outreach mentor and reputation open more of them, and your own FTC teams play their own season beside yours, in the Inbox with the FTC kickoff, the World Championship and the vendors' FTC launches.

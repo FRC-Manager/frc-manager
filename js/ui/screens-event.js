@@ -947,8 +947,9 @@
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
   const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
   const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
-  // the team's school or organisation, under its name in every celebration (an older snapshot takes today's)
-  const wcSchool = (d, t) => { const s = (d.team && d.team.school) || (G.S && G.S.team && G.S.team.num === d.team.num ? G.S.team.school : ''); return s ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(s) + '</div>' : ''; };
+  // the team's school or organisation and its city, under its name in every celebration (an older snapshot takes today's)
+  const wcSchool = (d, t) => { const mine = !!(G.S && G.S.team && d.team && G.S.team.num === d.team.num), s = (d.team && d.team.school) || (mine ? G.S.team.school : ''), c = (d.team && d.team.city) || (mine ? G.Geo.cityOf(G.S) : ''), txt = [s, c].filter(Boolean).join(' · ');
+    return txt ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(txt) + '</div>' : ''; };
   // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
   UI.worldChampModal = function (d, replay) {
     if (!d) return;

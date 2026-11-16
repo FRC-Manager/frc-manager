@@ -729,11 +729,11 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.4.7';
+  G.VERSION = '3.5';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
-  G.BETA = '3.5 beta';
+  G.BETA = '';
 
   // ---------- Save system ----------
   const KEY = G.BETA ? 'frcm_beta_save_' : 'frcm_save_', SET_KEY = G.BETA ? 'frcm_beta_settings' : 'frcm_settings';
@@ -3070,6 +3070,62 @@ window.G = window.G || {};
     'Klang Valley International School': ['Kuala Lumpur'], 'Pasig River Science High School': ['Manila'],
     'Harbour City Grammar School': ['Sydney'], 'Blue Gum Secondary College': ['Melbourne'], 'Outback Community High School': ['Coonabarabran'], 'Coral Coast State High School': ['Brisbane']
   };
+  // A school of its own for every city of the map: each of these stands in that one city and nowhere else, so that
+  // any city a home's teams come from can be chosen by its school. (The lists above keep the schools that point to a
+  // wider place, or to nowhere in particular; what a school of an earlier version pointed to is never changed, so
+  // that no team of an older save moves.) home: { city: school }.
+  D.SCHOOL_IN = {
+    West: { 'Las Vegas': 'Palo Verde High School', Reno: 'Truckee Meadows High School', Boise: 'Treasure Valley High School', Missoula: 'Bitterroot Valley High School', 'Idaho Falls': 'Teton View High School', Honolulu: 'Trade Winds Academy' },
+    evergreen: { Seattle: 'Elliott Bay High School', Tacoma: 'Commencement Bay High School', Everett: 'Port Gardner High School', Portland: 'Rose City High School', Salem: 'Cherry City High School', Eugene: 'Emerald Valley High School',
+      Spokane: 'Lilac City High School', Bend: 'Three Sisters High School', Yakima: 'Hop Valley High School' },
+    sierra: { 'Los Angeles': 'Griffith Heights High School', 'Orange County': 'Citrus Coast High School', 'San Diego': 'Cabrillo Shores High School', 'Inland Empire': 'Inland Valley Technical High School', 'San Francisco Bay': 'Bayshore Technical High School',
+      'San Jose': 'Orchard Valley High School', Sacramento: 'Confluence High School', Fresno: 'Raisin Valley High School', 'Santa Barbara': 'Channel View High School', Bakersfield: 'Grapevine Pass High School' },
+    Southwest: { Phoenix: 'Valley of the Sun High School', Tucson: 'Old Pueblo High School', Albuquerque: 'Sandia Peak High School', Denver: 'Platte River High School', 'Colorado Springs': 'Red Rock Garden High School',
+      'Salt Lake City': 'Wasatch Front High School', 'Oklahoma City': 'Land Run High School', Tulsa: 'Oil Capital High School', 'Las Cruces': 'Pecan Valley High School' },
+    mesa: { Houston: 'Bayou City High School', Dallas: 'Trinity River High School', 'Fort Worth': 'Cowtown Technical High School', Austin: 'Barton Hills High School', 'San Antonio': 'Alamo Heights Academy', 'El Paso': 'Sun City High School',
+      Lubbock: 'Llano Estacado High School', 'Corpus Christi': 'Coastal Bend High School' },
+    Midwest: { Chicago: 'Windy City Technical High School', Milwaukee: 'Cream City High School', Madison: 'Four Lakes High School', Minneapolis: 'Mill City High School', Indianapolis: 'Circle City High School', Columbus: 'Scioto River High School',
+      Cleveland: 'North Coast High School', Cincinnati: 'Queen City Technical High School', 'St. Louis': 'Mound City High School', 'Kansas City': 'Fountain City High School', 'Des Moines': 'Raccoon River High School', Omaha: 'Gate City High School',
+      Fargo: 'Red River Valley High School', Duluth: 'Twin Ports High School', Wichita: 'Air Capital High School', Billings: 'Rimrock High School', Marquette: 'Superior Shore High School' },
+    lakeshore: { Detroit: 'Motor City Technical High School', 'Ann Arbor': 'Tree Town High School', 'Grand Rapids': 'River Rapids High School', Lansing: 'Red Cedar High School', Kalamazoo: 'Celery Flats High School', Flint: 'Vehicle City High School',
+      Saginaw: 'Bay Timber High School', 'Traverse City': 'Grand Traverse High School', Muskegon: 'Port City High School', 'Port Huron': 'Blue Water High School' },
+    Northeast: { 'New York': 'Brooklyn Bridge Technical High School', 'North Jersey': 'Meadowlands Technical High School', 'Central Jersey': 'Pine Barrens Regional High School', Philadelphia: 'Boathouse Row High School', Pittsburgh: 'Steel City High School',
+      Buffalo: 'Niagara Frontier High School', Rochester: 'Flower City High School', Syracuse: 'Salt City High School', Albany: 'Patroon Creek High School', 'Long Island': 'Great South Bay High School', Baltimore: 'Chesapeake Academy',
+      Harrisburg: 'Midstate Technical High School', Wilmington: 'Christina River High School' },
+    harbor: { Boston: 'Minuteman Regional High School', Worcester: 'Quinsigamond Lake High School', Hartford: 'Charter Oak High School', 'New Haven': 'Elm City High School', Providence: 'Narragansett Bay High School', Manchester: 'Granite Hills High School',
+      'Portland, Maine': 'Head Light High School', Burlington: 'Lake Champlain Academy', Springfield: 'Hoop City High School', Bangor: 'Lumber Capital High School' },
+    Southeast: { Atlanta: 'Peachtree Academy', Raleigh: 'Oak City High School', Charlotte: 'Crown Town High School', Orlando: 'Space Coast High School', Miami: 'Biscayne Bay High School', Tampa: 'Cigar City High School', Jacksonville: 'Bold City High School',
+      Nashville: 'Music City High School', Richmond: 'Fall Line High School', 'Northern Virginia': 'Beltway Technical High School', Norfolk: 'Hampton Roads Maritime High School', 'New Orleans': 'Crescent City High School', Birmingham: 'Magic City High School',
+      Louisville: 'Derby City High School', Columbia: 'Palmetto Ridge High School', Knoxville: 'Marble City High School', 'Little Rock': 'Rock Ridge High School', Memphis: 'Blues City High School' },
+    North: { Montreal: 'Mount Royal Collegiate', Sherbrooke: 'Eastern Townships Secondary School', 'Quebec City': 'Cap Diamant College', 'Trois-Rivieres': 'Saint-Maurice College', Vancouver: 'Burrard Inlet Secondary School', Victoria: 'Garden City Secondary School',
+      Kelowna: 'Okanagan Lake Secondary School', Calgary: 'Bow River High School', Lethbridge: 'Coulee Winds High School', Edmonton: 'River Valley Composite High School', Winnipeg: 'The Forks Collegiate', Regina: 'Wascana Lake Collegiate' },
+    trillium: { Toronto: 'Don Valley Collegiate Institute', Mississauga: 'Credit River Secondary School', Brampton: 'Flower Town Secondary School', Markham: 'Rouge River Collegiate', Hamilton: 'Bayfront Technical Secondary School', London: 'Forest City Secondary School',
+      Windsor: 'Ambassador Collegiate', Waterloo: 'Grand River Collegiate Institute', 'St. Catharines': 'Twelve Mile Creek Secondary School', Kingston: 'Limestone City Collegiate', Ottawa: 'Rideau Canal Collegiate', Barrie: 'Kempenfelt Bay Secondary School',
+      Oshawa: 'Oshawa Creek Collegiate', Sarnia: 'Chemical Valley Secondary School', 'North Bay': 'Nipissing Shores Secondary School', Sudbury: 'Nickel City Secondary School', 'Owen Sound': 'Scenic City Secondary School' },
+    'Central America': { Monterrey: 'Cerro de la Silla Preparatory', Torreon: 'Laguna Technical Institute', 'Mexico City': 'Twin Volcanoes College', Toluca: 'Nevado Technical Institute', Guadalajara: 'Agave Hills College', 'San Luis Potosi': 'Potosi Silver College',
+      Chihuahua: 'Copper Canyon Preparatory', Hermosillo: 'Sonoran Sun Preparatory', Saltillo: 'Sarape Technical Institute', Leon: 'Leather Capital College', Queretaro: 'Aqueduct College', Puebla: 'Talavera College', Tampico: 'Gulf Port Technical School',
+      Reynosa: 'Rio Bravo Technical Preparatory', Durango: 'Scorpion Hills Preparatory', Morelia: 'Cantera Rosa College', Culiacan: 'Humaya River Institute', Merida: 'Yucatan Sun College', 'Santo Domingo': 'Ozama Polytechnic School', 'Panama City': 'Two Oceans Bilingual Academy' },
+    'South America': { 'Sao Paulo': 'Paulista Avenue Technical School', 'Sao Jose dos Campos': 'Aeronautics Valley Technical School', Campinas: 'Swallows Institute of Technology', 'Rio de Janeiro': 'Sugarloaf College', Brasilia: 'Pilot Plan School',
+      Cuiaba: 'Pantanal Gate Technical School', Goiania: 'Cerrado Flower Institute', 'Porto Alegre': 'Guaiba Shore College', Joinville: 'City of Princes Technical School', Curitiba: 'Araucaria Pines College', 'Belo Horizonte': 'Curral Ridge School',
+      Salvador: 'All Saints Bay College', Fortaleza: 'Green Sea Institute', Recife: 'Reef City Technical School', Natal: 'Dunes Institute', Manaus: 'Meeting of Waters School', Belem: 'Mango Trees College', Vitoria: 'Island Bay Technical School',
+      'Campo Grande': 'Morena Plains School', Santiago: 'Cordillera Scientific Lyceum', Cali: 'Cauca Valley Technical Institute', Medellin: 'Eternal Spring Institute' },
+    Europe: { 'Greater London': 'Thames Reach Sixth Form College', Eindhoven: 'City of Light Lyceum', Groningen: 'Martini Tower Lyceum', Prague: 'Vltava Technical Gymnasium', Lyon: 'Rhone Valley Lycee', Nice: 'Azure Coast Lycee', Warsaw: 'Royal Route Lyceum',
+      Lublin: 'Castle Hill Lyceum', Krakow: 'Wawel Hill Lyceum', Zurich: 'Alpine Cantonal School', Rijeka: 'Kvarner Bay Technical School', Sofia: 'Vitosha Mathematics High School', Cluj: 'Transylvanian Hills National College', Athens: 'Attica Model Lyceum',
+      Stockholm: 'Lake Malaren Technical Gymnasium', Kyiv: 'Dnipro Riverside Lyceum' },
+    Anatolia: { Istanbul: 'Bosphorus Science High School', Ankara: 'Citadel Science High School', Izmir: 'Clock Tower Anatolian High School', Kocaeli: 'Gulf Shore Technical High School', Eskisehir: 'Porsuk River Science High School',
+      Antalya: 'Turquoise Coast Anatolian High School', Bursa: 'Uludag Slopes Science High School', Mugla: 'Blue Voyage Anatolian High School', Diyarbakir: 'Basalt Walls Science High School', Adana: 'Stone Bridge Anatolian High School',
+      Antakya: 'Orontes Valley High School', Konya: 'Seljuk Plains Science High School' },
+    levant: { 'Tel Aviv': 'White City Technological High School', Herzliya: 'Marina Heights High School', Netanya: 'Sharon Cliffs High School', 'Modi\'in': 'Maccabee Hills High School', Rehovot: 'Orchard Science High School', Jerusalem: 'Judean Hills High School',
+      Haifa: 'Bay Terraces High School', Binyamina: 'Vineyard Valley Regional School', Afula: 'Galilee Regional School', 'Be\'er Sheva': 'Desert Blossom High School', Ashkelon: 'Southern Dunes High School' },
+    'East Asia': { Shanghai: 'Huangpu River Experimental High School', Shenzhen: 'Special Zone Science High School', Beijing: 'Western Hills High School', Suzhou: 'Classical Gardens High School', Hangzhou: 'West Lake Foreign Language School',
+      Guangzhou: 'Five Rams Middle School', Qingdao: 'Laoshan Bay High School', Zhengzhou: 'Central Plains No. 1 High School', Wuhan: 'Yellow Crane High School', Jinan: 'City of Springs High School', Nanjing: 'Purple Mountain High School',
+      Kunming: 'Spring City High School', Chengdu: 'Brocade River High School', 'Hong Kong': 'Kowloon Bay Secondary School', Taipei: 'Basin View Senior High School', Taichung: 'Dadu Plateau Senior High School', Chiayi: 'Alishan Forest Senior High School',
+      Tainan: 'Old Fort Senior High School', Kaohsiung: 'Love River Senior High School', Tokyo: 'Sumida River Technical High School', Seoul: 'Han River Science High School' },
+    'Asia Pacific': { Sydney: 'Harbour City Grammar School', Wollongong: 'Steel Coast High School', Newcastle: 'Nobbys Head High School', 'Port Macquarie': 'Koala Coast High School', Coonabarabran: 'Outback Community High School', Canberra: 'Bush Capital College',
+      Melbourne: 'Blue Gum Secondary College', Perth: 'Swan River Senior High School', Adelaide: 'River Torrens College', Brisbane: 'Coral Coast State High School', Mumbai: 'Seven Islands Public School', Delhi: 'Yamuna Bank Public School',
+      Singapore: 'Lion City Secondary School', Auckland: 'Long White Cloud College', 'Ho Chi Minh City': 'Saigon River High School for the Gifted', 'Kuala Lumpur': 'Klang Valley International School', Manila: 'Pasig River Science High School' }
+  };
+  Object.keys(D.SCHOOL_IN).forEach(h => Object.keys(D.SCHOOL_IN[h]).forEach(c => { const s = D.SCHOOL_IN[h][c]; if (!D.SCHOOL_BY[h].includes(s)) D.SCHOOL_BY[h].push(s); D.SCHOOL_AT[s] = [c]; }));
   D.schoolAt = name => D.SCHOOL_AT[String(name == null ? '' : name).trim()] || null;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems', 'Sierra Photonics', 'Cupola Space Systems', 'El Camino Microdevices', 'Tidepool Robotics', 'Pacific Quantum Works', 'Joshua Tree Avionics'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic', 'Cable Car Software', 'Poppy Field Games', 'Marina Analytics', 'Eucalyptus Code'],
@@ -3113,7 +3169,63 @@ window.G = window.G || {};
   D.SPONSOR_BY.sierra = D.SPONSOR_BY.West; D.SPONSOR_BY['Middle East'] = D.SPONSOR_BY.levant;
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
-  D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
+  // A default school for a home. A school is as likely as the teams of its cities are many (each city's share of the
+  // home's teams, split between the schools that stand there), so a team made with the default follows the real map;
+  // a school that points nowhere counts as an average one.
+  D.schoolWeights = function (l) {
+    const Geo = G.Geo, W = {}; if (!Geo || !Geo.hub) { l.forEach(s => { W[s] = 1; }); return W; }
+    const at = s => (D.SCHOOL_AT[s] || []).filter(c => Geo.hub(c)), own = {}, taken = {};
+    l.forEach(s => { const a = at(s); if (a.length === 1) (own[a[0]] = own[a[0]] || []).push(s); }); // the home's cities: each has a school of its own here
+    const cities = Object.keys(own), mean = cities.length ? cities.reduce((t, c) => t + Geo.hub(c).w, 0) / cities.length : 1;
+    // a school of several cities (the team stands in any of them), or of none in this home (the team is placed as the map is): half an average school
+    l.forEach(s => { const a = at(s); if (a.length === 1) return; const here = a.filter(c => own[c]);
+      if (!here.length) { W[s] = mean * 0.5; return; }
+      W[s] = 0.5 * here.reduce((t, c) => t + Geo.hub(c).w, 0) / here.length; here.forEach(c => { taken[c] = (taken[c] || 0) + W[s] / here.length; }); });
+    // a city's own schools share what is left of the city's weight
+    cities.forEach(c => { const w = Math.max(0.15 * Geo.hub(c).w, Geo.hub(c).w - (taken[c] || 0)); own[c].forEach(s => { W[s] = w / own[c].length; }); });
+    return W;
+  };
+  // ---------- an area before its districts ----------
+  // Until a district forms, its cities are part of the area: a regional team of the area can come from any of them,
+  // as the area's other teams do (they carry the district as their zone, t.z), and so can its school. The districts
+  // of an area that are still to form in season cy; all: the game has no districts at all (a single season), so
+  // every district's cities belong to the area. Without a season, none: the area's own list, as before.
+  D.zonesAhead = (region, cy, all) => (cy == null && !all ? [] : (D.DISTRICTS || []).filter(d => d.region === region && (all || d.from > cy)));
+  // the schools a new team of a home can be given: a district's own, or the area's with those of the districts ahead
+  D.schoolList = function (home, region, cy, all) {
+    if (D.SCHOOL_BY[home]) return D.SCHOOL_BY[home];
+    const own = D.SCHOOL_BY[region]; if (!own) return [];
+    const more = D.zonesAhead(region, cy, all).map(d => D.SCHOOL_BY[d.id]).filter(l => l && l !== own); if (!more.length) return own;
+    const out = own.slice(); more.forEach(l => l.forEach(s => { if (!out.includes(s)) out.push(s); })); return out;
+  };
+  // the district ahead that these cities lie in (null: the area's own cities)
+  const zoneOfCities = (cities, region, ds) => { const hubs = (cities || []).map(c => G.Geo.hub(c)).filter(x => x && x.r === region); if (!hubs.length) return undefined; const z = hubs.map(hb => ds.find(d => d.id === hb.d)); return z.every(Boolean) ? z[0].id : null; };
+  // the district ahead that a school of the lists stands in: by its cities, else by the list it is on (null: the
+  // area's own cities; undefined: not a school of the lists)
+  D.schoolZone = function (name, region, cy, all) {
+    const ds = D.zonesAhead(region, cy, all), s = String(name == null ? '' : name).trim(); if (!ds.length) return null;
+    const z = zoneOfCities(D.SCHOOL_AT[s], region, ds); if (z !== undefined) return z;
+    if ((D.SCHOOL_BY[region] || []).includes(s)) return null;
+    const d = ds.find(x => (D.SCHOOL_BY[x.id] || []).includes(s)); return d ? d.id : undefined;
+  };
+  // The zone a new regional team stands in: where its school points (place: the cities of the school it picked,
+  // whatever the school is called now), else where a school of that name stands, else one drawn by the zones' real
+  // numbers of teams, as the area's other teams are (always the same for the same team number).
+  D.startZone = function (num, region, cy, all, school, place) {
+    const ds = D.zonesAhead(region, cy, all); if (!ds.length) return null;
+    let z = zoneOfCities(place, region, ds); if (z !== undefined) return z;
+    z = D.schoolZone(school, region, cy, all); if (z !== undefined) return z;
+    const zs = [{ z: null, n: D.realTeams(region, cy) }].concat(ds.map(d => ({ z: d.id, n: D.realTeams(d.id, cy) })));
+    return G.makeRng((((Number(num) || 1) * 40503) ^ 0x51ed27) >>> 0 || 5).wpick(zs, x => x.n + 0.01).z;
+  };
+  // ... and the weights of such a list: each zone's schools share the zone's real number of teams
+  D.schoolWeightsBy = function (l, region, cy, all) {
+    if (!D.zonesAhead(region, cy, all).length) return D.schoolWeights(l);
+    const by = {}, W = {}; l.forEach(s => { const z = D.schoolZone(s, region, cy, all) || ''; (by[z] = by[z] || []).push(s); });
+    Object.keys(by).forEach(z => { const w = D.schoolWeights(by[z]), tot = by[z].reduce((t, s) => t + w[s], 0) || 1, n = D.realTeams(z || region, cy) || 1; by[z].forEach(s => { W[s] = n * w[s] / tot; }); });
+    return W;
+  };
+  D.schoolName = (rng, home, region, cy, all) => { const l = D.schoolList(home, region, cy, all); if (!l.length) return rng.pick(D.SCHOOLS) + ' High School'; const W = D.SCHOOL_BY[home] ? D.schoolWeights(l) : D.schoolWeightsBy(l, region, cy, all); return rng.wpick(l, s => W[s]); };
   D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region] || D.SPONSOR_BY.Midwest; return a[type] || a.eng; }; // a home's own companies (the international ones are D.SPONSOR_NAMES)
 
   // ---------- people's names ----------
@@ -4354,6 +4466,573 @@ window.G = window.G || {};
     'Launchpad Youth Trust': 'Gives new teams their first grant.'
   };
   D.sponsorDesc = name => D.SPONSOR_DESC[name] || D.SPONSOR_DESC_OLD[name] || '';
+
+  // ---------- where every company is ----------
+  // (3.5) Each company works in a city of the map (G.Geo.HUBS): the one its line above points to. A local business
+  // may have shops in several cities under one name. An international company (D.SPONSOR_NAMES) and the printer
+  // maker have their head office here. [city, names separated by |].
+  D.SPONSOR_IN = [
+    // West and Sierra
+    ['San Francisco Bay', 'Golden Gate Robotics|Redwood Cloud|Mission Bay Systems|Bayview Software|Fogline Apps|Cable Car Software|Golden Poppy Bakery|Boardwalk Burrito Co.|Lighthouse Point Cafe|Seismic Structures|Baycrest Engineering|Redwood Mill Works|Bay Shipyard Fabrication|Bayside Community College|Coastal Futures Foundation|Redwood STEM Alliance'],
+    ['San Jose', 'Sandhill Semiconductors|Skyline Microsystems|El Camino Microdevices|Orchard Street Tacos|Golden Poppy Bakery|Silicon Foundry Works|Valley Innovators Trust'],
+    ['Los Angeles', 'Cupola Space Systems|Sunset Logic|Marina Analytics|Boardwalk Burrito Co.|Pacific Surf Shop|Coastline Auto|Foothill Bike Shop|Canyon Rim Geotechnical|Harborline Fabrication|Pacific Coast Institute of Technology|Pacific Makers Foundation'],
+    ['Orange County', 'Poppy Field Games|Pacific Surf Shop|Coastline Auto|Citrus Grove Market|Pacific Precision Machining'],
+    ['San Diego', 'Tidepool Robotics|Loma Code Labs|Eucalyptus Code|Lighthouse Point Cafe|Pacific Surf Shop|Coastline Auto|Boardwalk Burrito Co.|Golden Coast University'],
+    ['Inland Empire', 'Joshua Tree Avionics|Citrus Grove Market|Foothill Bike Shop|Desert Sun Solar Panels|Sunrise Valley Education Trust'],
+    ['Sacramento', 'Foothill Bike Shop|Orchard Street Tacos|Vineyard Credit Union|Golden Poppy Bakery|Sierra Outfitters|Golden State Transit Engineering|Golden State STEM Fund'],
+    ['Fresno', 'Vineyard Credit Union|Orchard Street Tacos|Sierra Outfitters|Central Valley Farm Equipment|High Sierra Community College'],
+    ['Santa Barbara', 'Pacific Quantum Works|Coastline Auto|Pacific Surf Shop|Lighthouse Point Cafe|Pacific Offshore Wind Engineering|Redwood State Polytechnic'],
+    ['Bakersfield', 'High Desert Aerospace|Mojave Composites|Vineyard Credit Union|Citrus Grove Market'],
+    ['Las Vegas', 'Palo Verde Devices|Silver State Credit Union|Solaris Energy Engineering'],
+    ['Reno', 'Sierra Photonics|Sierra Outfitters|Silver State Credit Union|Sagebrush Feed & Supply|Tahoe Water Engineering|Sierra State University'],
+    ['Boise', 'Sagebrush Feed & Supply'], ['Idaho Falls', 'Sagebrush Feed & Supply'], ['Missoula', 'Sagebrush Feed & Supply'],
+    // Evergreen
+    ['Seattle', 'Rainier Cloud|Puget Devices|Emerald Software|Ferry Dock Software|Pike Street Coffee|Evergreen Credit Union|Rainy Day Books|Harbor Fish Market|Northwest Aerostructures|Cascade Fastener Co.|Cascadia Institute of Technology|Evergreen Futures Fund'],
+    ['Tacoma', 'Salish Sea Sonar|Sound Logic|Pike Street Coffee|Evergreen Credit Union|Harbor Fish Market|Sound Composites|Evergreen Boat Works|Puget State University|Olympic Peninsula College'],
+    ['Everett', 'Evergreen Avionics|Olympic Aerospace|Pike Street Coffee|Harbor Fish Market|Glacier Peak Civil'],
+    ['Portland', 'Cascade Networks|Willamette Semiconductor|Mossy Rock Games|Drizzle Cloud|Rainy Day Books|Evergreen Credit Union|Trailhead Bike Works|Columbia Hydro Engineering|Columbia River Aluminum|Cascade Makers Foundation'],
+    ['Salem', 'Evergreen Credit Union|Mount View Credit Union|Big Timber Sawmill Equipment|Tall Timber Youth Trust'],
+    ['Eugene', 'Tall Fir Robotics|Salmon Run Outfitters|Rainy Day Books|Mount View Credit Union|Timberline Machine|Willamette Valley University'],
+    ['Spokane', 'Huckleberry Games|Mount View Credit Union|Salmon Run Outfitters|Orchard Hill Farm Stand|Trailhead Bike Works|Inland Rail Engineering'],
+    ['Bend', 'Salmon Run Outfitters|Trailhead Bike Works'],
+    ['Yakima', 'Orchard Hill Farm Stand|Mount View Credit Union|Northwest STEM Trust'],
+    // Southwest
+    ['Phoenix', 'Saguaro Semiconductor|Painted Desert Photonics|Roadrunner Auto|Cactus Wren Diner|Four Corners Credit Union|Canyon Civil|Mesa Solar Engineering|Desert Tooling Co.|Sonoran State University|Desert Bloom Foundation'],
+    ['Tucson', 'Red Rock Optics|Cactus Wren Diner|Adobe Hardware|Roadrunner Auto|Copper State Mining Engineering|Copper Canyon Smelting|Sunset Mesa Makers Trust'],
+    ['Albuquerque', 'Rio Grande Sensors|Pueblo Code|Four Corners Credit Union|Adobe Hardware|Green Chili Grill|Turquoise Trail Trading Post|Rio Grande Institute of Technology|Four Corners Youth Fund'],
+    ['Denver', 'Front Range Aerospace|Mesa Verde Systems|Mile High Apps|Four Corners Credit Union|Green Chili Grill|Mountain Pass Ski Shop|Divide Tunnel Engineering|Rocky Mountain Fabrication|Aspen Ridge Ski Lifts|Front Range School of Mines'],
+    ['Colorado Springs', 'Pikes Peak Space Systems|Green Chili Grill|Mountain Pass Ski Shop|Rockies STEM Fund'],
+    ['Salt Lake City', 'Wasatch Data Centers|Slickrock Apps|Four Corners Credit Union|Mountain Pass Ski Shop|Great Basin Water Engineering|Wasatch State University'],
+    ['Oklahoma City', 'Tumbleweed Software|Sooner Feed Store|High Plains Energy Engineering|Oil Patch Pump Works'],
+    ['Tulsa', 'Sooner Feed Store|Sunbelt Machine Works|Red Earth Technical College'],
+    ['Las Cruces', 'Adobe Hardware|Roadrunner Auto|Green Chili Grill|High Desert Technical College'],
+    // Mesa
+    ['Houston', 'Gulf Coast Space Systems|Mission Control Systems|Armadillo Software|Bluebonnet Credit Union|Kolache Corner Bakery|Pecan Street Tacos|Gulf Shrimp Shack|Space City Engineering|Ship Channel Engineering|Brazos Machine Works|Derrick Iron Works|Gulf Coast University|Piney Woods State College'],
+    ['Dallas', 'Lone Star Instruments|Silicon Prairie Devices|Mockingbird Apps|Bluebonnet Credit Union|Lone Star Tire|Longhorn Structures|Lone Star STEM Fund'],
+    ['Fort Worth', 'Trinity Telecom|Stockyard Boot Co.|Bluebonnet Credit Union|Lone Star Tire|Wildcatter Drilling Engineering|Wide Sky Futures Trust'],
+    ['Austin', 'Bluebonnet Semiconductor|Roadrunner Code Works|Hill Country Barbecue|Bluebonnet Credit Union|Kolache Corner Bakery|Pecan Street Tacos|Hill Country College|Bluebonnet Makers Fund'],
+    ['San Antonio', 'Alamo Networks|Prickly Pear Apps|Hill Country Barbecue|Rio Hardware|Pecan Street Tacos|Alamo City Institute of Technology'],
+    ['El Paso', 'Rio Hardware|Lone Star Tire|Rio Bravo Trailer Works|Pecos Valley University|Big Bend Education Foundation'],
+    ['Lubbock', 'Pecos Wind Systems|Lone Star Tire|Permian Energy Engineering|Caprock Wind Engineering|Panhandle Steel|Texas Plains Tech'],
+    ['Corpus Christi', 'Gulf Shrimp Shack|Rio Hardware|Gulf Refinery Fabrication|Coastal Bend Polymers'],
+    // Midwest
+    ['Chicago', 'Lakeshore Drive Analytics|Cornerstone Hardware|Riverboat Pizza|Windy City Structures|Lakefront Tool & Die|Prairie State University'],
+    ['Milwaukee', 'Heartland Controls|Cheese Curd Corner|Dairyland Creamery|Lakefront Technical College'],
+    ['Madison', 'Badger State Medical Imaging|Dairyland Creamery|Cheese Curd Corner'],
+    ['Minneapolis', 'Twin Cities Medical Devices|North Loop Code|Dairyland Creamery|Prairie Rose Bakery|Lock and Dam Engineering|Flour Mill Machinery|Twin Rivers State University'],
+    ['Indianapolis', 'Hoosier Hardware|Main Street Diner|Heartland Institute of Technology|Crossroads Youth Trust'],
+    ['Columbus', 'Cornerstone Hardware|Main Street Diner|Buckeye Technical University'],
+    ['Cleveland', 'Buckeye Polymer Labs|Cornerstone Hardware|Rust Belt Stamping|Rubber City Tire Works|Great Lakes Futures Foundation'],
+    ['Cincinnati', 'Cornerstone Hardware|Riverboat Pizza|Bridgeworks Engineering|Queen City Machine Tools'],
+    ['St. Louis', 'Great River Automation|Gateway Aerospace|Riverboat Pizza|Cornerstone Hardware|Gateway Community College'],
+    ['Kansas City', 'Main Street Diner|Cornerstone Hardware|Midland Agri-Systems|Heartland STEM Fund'],
+    ['Des Moines', 'Hawkeye Precision Agriculture|Main Street Diner|Farmers Cooperative Bank|Corn Belt Tractor Works'],
+    ['Omaha', 'Silo Software|Main Street Diner|Farmers Cooperative Bank|Great Plains Wind Engineering|Prairie Makers Foundation'],
+    ['Fargo', 'Grain Elevator Software|Farmers Cooperative Bank|Prairie Rose Bakery'],
+    ['Duluth', 'Cheese Curd Corner|Iron Range Mining Engineering'],
+    ['Wichita', 'Prairie Avionics|Main Street Diner|Farmers Cooperative Bank|Combine Harvester Co.'],
+    ['Billings', 'Prairie Rose Bakery|Farmers Cooperative Bank'],
+    ['Marquette', 'Ironwood Machine|Up North Hardware|Pasty Shop North|Copper Country Foundry|Great Lakes Technological University|Copper Country Technological University'],
+    // Lakeshore
+    ['Detroit', 'Motor City Mobility|Arsenal Robotics|Dashboards & Co.|Coney Corner Diner|Lighthouse Credit Union|Powertrain Engineering Group|Crash Lab Engineering|Assembly Line Tooling|Motor City College of Engineering|Automotive Heritage Foundation'],
+    ['Ann Arbor', 'Wolverine Autonomy|Cruise Control Code|Coney Corner Diner|Cider Mill Donuts|Electric Drive Engineering'],
+    ['Grand Rapids', 'Mitten Software|Tulip Town Bakery|Cider Mill Donuts|Peninsula Die & Mold|Furniture City Works|Grand Valley Institute of Engineering'],
+    ['Lansing', 'Great Lakes Battery Systems|Cider Mill Donuts|Peninsula State University|Lakeshore STEM Fund'],
+    ['Kalamazoo', 'Tulip Town Bakery|Cider Mill Donuts|Three Rivers Axle|Cereal City Packaging'],
+    ['Flint', 'Coney Corner Diner|Lighthouse Credit Union|Proving Ground Engineering|Motor Heritage Youth Trust'],
+    ['Saginaw', 'Lighthouse Credit Union|Up North Hardware|Bay Fishing Charters|Saginaw Bay Castings'],
+    ['Traverse City', 'Mackinac Sensors|Petoskey Stone Apps|Cherry Orchard Market|Up North Hardware|Pasty Shop North|Straits Structures|Two Peninsulas Education Fund'],
+    ['Muskegon', 'Lighthouse Credit Union|Tulip Town Bakery|Lakeshore Stamping'],
+    ['Port Huron', 'Huron Shore Lidar|Lighthouse Credit Union|Bay Fishing Charters|Blue Water Bridge Engineering|Thumb Area Community College'],
+    // Northeast
+    ['New York', 'Midtown Software|Exchange Street Analytics|Subway Map Software|Brownstone Bagels|Corner Deli & Co.|Liberty Structures|Skyscraper Structures|Empire STEM Fund'],
+    ['North Jersey', 'Turnpike Apps|Brownstone Bagels|Corner Deli & Co.|Tunnel & Tube Engineering'],
+    ['Central Jersey', 'Garden State Pharma Systems|Boardwalk Games|Boardwalk Pizza|Diner on Route 9|Garden State Glass'],
+    ['Philadelphia', 'Pretzel Wagon|Keystone Credit Union|Corner Deli & Co.|Tidewater Naval Engineering|Lehigh Valley Cement Works|Delaware Valley University|Liberty Futures Foundation'],
+    ['Pittsburgh', 'Keystone Robotics|Three Rivers Data|Keystone Credit Union|Steel Valley Works|Three Rivers Youth Foundation'],
+    ['Buffalo', 'Niagara Wing House|Erie Canal Castings'],
+    ['Rochester', 'Empire Photonics|Niagara Wing House|Empire Institute of Technology'],
+    ['Syracuse', 'Finger Lakes Optics|Niagara Wing House|Finger Lakes College of Engineering'],
+    ['Albany', 'Diner on Route 9|Hudson Bridge Engineering|Mohawk Valley Turbines|Hudson Polytechnic'],
+    ['Long Island', 'Harbor Light Radar|Brownstone Bagels|Boardwalk Pizza|Harbor Lights Education Fund'],
+    ['Baltimore', 'Chesapeake Defense Systems|Crab Shack on the Bay|Chesapeake Institute of Technology'],
+    ['Harrisburg', 'Turnpike Telecom|Keystone Credit Union|Pretzel Wagon|Anthracite Energy Engineering|Susquehanna Machine|Keystone State University'],
+    ['Wilmington', 'Delaware Valley Chem Systems|Corner Deli & Co.|Crab Shack on the Bay'],
+    // Harbor
+    ['Boston', 'Bay State Biotech|Minuteman Defense Systems|Kendall Lab Instruments|Beacon Hill Software|Old North Software|Lobster Shack|Whale Watch Outfitters|Saltbox Hardware|Charles River Engineering|Commonwealth Institute of Technology|Mayflower STEM Fund'],
+    ['Worcester', 'Town Common Bookshop|Cider Donut Barn|Village Green Creamery|Blackstone Valley Textiles|Harbor Polytechnic'],
+    ['Hartford', 'Nutmeg Aerospace|Town Common Bookshop|Village Green Creamery|Clocktower Instruments'],
+    ['New Haven', 'Submarine Base Systems|Village Green Creamery|Saltbox Hardware|Yankee Precision|New Harbor Foundation'],
+    ['Providence', 'Cape Ocean Robotics|Clam Chowder Games|Whale Watch Outfitters|Saltbox Hardware|Seacoast Wind Engineering|Ocean State Institute of Technology'],
+    ['Manchester', 'Granite State Sensors|Covered Bridge Hardware|Maple Sugar Diner|Cider Donut Barn|Notch Road Civil|White Mountain College'],
+    ['Portland, Maine', 'Lighthouse Code|Lobster Shack|Old Port Marine Engineering|Shipyard Fabrication'],
+    ['Burlington', 'Covered Bridge Hardware|Maple Sugar Diner|Green Mountain College|Town Meeting Youth Trust'],
+    ['Springfield', 'Pioneer Valley Optics|Town Common Bookshop|Cider Donut Barn|Mill River Machine|Pioneer Valley Polytechnic'],
+    ['Bangor', 'Lobster Shack|Whale Watch Outfitters|Down East Boat Builders|Lighthouse Education Fund'],
+    // Southeast
+    ['Atlanta', 'Peachtree Logistics Tech|Sweet Tea Cafe|Peach Stand Market|Peach State Carpet Mills|Southern Futures Foundation'],
+    ['Raleigh', 'Research Triangle Biosystems|Triangle Software|Biscuit Barn|Smokehouse Barbecue Pit|Piedmont Furniture Works'],
+    ['Charlotte', 'Piedmont Semiconductors|Biscuit Barn|Smokehouse Barbecue Pit|Appalachian Tunnel Engineering|Carolina Textile Machinery'],
+    ['Orlando', 'Space Coast Launch Systems|Cape Launch Telemetry|Sunshine Apps|Orange Grove Stand|Sunshine Coast Polytechnic|Space Coast STEM Fund'],
+    ['Miami', 'Orange Grove Stand|Hurricane Coast Structures'],
+    ['Tampa', 'Gator Byte Apps|Orange Grove Stand'],
+    ['Jacksonville', 'Magnolia Credit Union|Orange Grove Stand|Gulf Stream Aerostructures|Gulf Coast Technical College'],
+    ['Nashville', 'Music City Health Systems|Sweet Tea Cafe|Biscuit Barn'],
+    ['Richmond', 'Magnolia Credit Union|Biscuit Barn|Blue Ridge State University'],
+    ['Northern Virginia', 'Magnolia Credit Union|Biscuit Barn'],
+    ['Norfolk', 'Magnolia Credit Union|Tidewater Shipbuilding Engineering|Tidewater Youth Trust'],
+    ['New Orleans', 'Bayou Bait & Tackle|Crawfish Corner|Delta Levee Engineering|Bayou Petrochemical Fabrication|Bayou State University'],
+    ['Birmingham', 'Rocket City Avionics|Sweet Tea Cafe|Magnolia Credit Union|Magnolia Motors Assembly'],
+    ['Louisville', 'Bluegrass Logistics Automation|Biscuit Barn|Smokehouse Barbecue Pit|Bluegrass Auto Assembly|Bluegrass Institute of Technology'],
+    ['Columbia', 'Lowcountry Software|Sweet Tea Cafe|Peach Stand Market|Palmetto Institute of Technology'],
+    ['Knoxville', 'Biscuit Barn|Blue Ridge Power Engineering'],
+    ['Little Rock', 'Sweet Tea Cafe|Smokehouse Barbecue Pit|Magnolia Makers Foundation'],
+    ['Memphis', 'Magnolia Credit Union|Smokehouse Barbecue Pit'],
+    // North
+    ['Montreal', 'Laurentian Aerospace|Mont-Royal AI Labs|Mile End Games|Poutine Corner|St. Lawrence Hydro Engineering|Polytechnic of the St. Lawrence|Laurentian Technical College|Northern Makers Foundation'],
+    ['Sherbrooke', 'Poutine Corner|Timber Trail Outfitters|Sugar Shack on the Hill|Snowplough Works'],
+    ['Quebec City', 'Poutine Corner|Sugar Shack on the Hill|Laurentian Dam Engineering|Maple Rail Works|Saguenay Aluminum Smelters'],
+    ['Trois-Rivieres', 'Poutine Corner|Sugar Shack on the Hill|Boreal Paper Machinery'],
+    ['Vancouver', 'Pacific Rim Hydrogen|Fraser Valley Fuel Cells|Whistler Peak Games|Seawall Bike Rental|Coast Mountain Engineering|Pacific Coast University|Great North Youth Trust'],
+    ['Victoria', 'Snowbird Software|Seawall Bike Rental'],
+    ['Kelowna', 'Timber Trail Outfitters|Coast Mountain University'],
+    ['Calgary', 'Great Plains Satellite|Chinook Credit Union|Hockey Night Sports|Stampede Western Wear|Tundra Pipeline Engineering|Rocky Mountain Institute of Technology'],
+    ['Lethbridge', 'Chinook Wind Systems|Chinook Credit Union|Prairie Polytechnic'],
+    ['Edmonton', 'Northern Lights Telecom|Chinook Credit Union|Hockey Night Sports|Oil Sands Engineering|Rocky Mountain Fabricators|Aurora Youth Foundation'],
+    ['Winnipeg', 'Toque Software|Hockey Night Sports|Timber Trail Outfitters|Bannock & Bean Cafe|Prairie Grain Elevators Ltd.|True North STEM Fund'],
+    ['Regina', 'Prairie Sky Avionics|Hockey Night Sports|Bannock & Bean Cafe|Prairie Potash Engineering'],
+    // Trillium
+    ['Toronto', 'Trillium Telecom|Streetcar Software|Double-Double Cafe|Peameal Sandwich Counter|Transit Line Engineering|Lakeshore Polytechnic|Trillium STEM Foundation'],
+    ['Mississauga', 'Double-Double Cafe|Rink Side Sports|Queensway Tool & Die|Golden Horseshoe Makers Fund'],
+    ['Brampton', 'Double-Double Cafe|Rink Side Sports'],
+    ['Markham', 'Double-Double Cafe|Rink Side Sports|Maple Auto Parts'],
+    ['Hamilton', 'Escarpment Robotics|Double-Double Cafe|Golden Horseshoe Steel|Steel Town Rolling Mills|Escarpment University'],
+    ['London', 'Double-Double Cafe|Trillium Credit Union'],
+    ['Windsor', 'Double-Double Cafe|Trillium Credit Union|Border City Stamping'],
+    ['Waterloo', 'Tri-Cities Quantum|Twin City Code Works|Farmers Market on King|Grand River Engineering|Grand River University'],
+    ['St. Catharines', 'Seaway Navigation Systems|Trillium Credit Union|Seaway Lock Engineering'],
+    ['Kingston', 'Trillium Credit Union|Butter Tart Bakery|Maple Syrup Shack|Seaway College'],
+    ['Ottawa', 'Capital Region Photonics|Double-Double Cafe|Maple Syrup Shack|Capital Region Institute of Technology'],
+    ['Barrie', 'Loon Lake Software|Cottage Country Hardware|Butter Tart Bakery'],
+    ['Oshawa', 'Lakeshore Nuclear Systems|Double-Double Cafe|Trillium Credit Union|Rink Side Sports'],
+    ['Sarnia', 'Trillium Credit Union|Great Lakes Youth Fund'],
+    ['North Bay', 'Cottage Country Hardware|Rink Side Sports'],
+    ['Sudbury', 'Double-Double Cafe|Rink Side Sports|Northern Shield Mining Engineering|Lakehead Rail Cars|Northern Shield College'],
+    ['Owen Sound', 'Dock Chair Apps|Cottage Country Hardware|Butter Tart Bakery|Loon Call Education Trust'],
+    // Central America
+    ['Monterrey', 'Norte Telecom|Ocelote Software|Ferreteria El Norte|Carniceria Don Beto|Sierra Cement & Steel|Regio Glass Works|Technological Institute of the North'],
+    ['Torreon', 'Ferreteria El Norte|Laguna Mining & Metals|Sierra Madre Youth Fund'],
+    ['Mexico City', 'Nopal Software|Jacaranda Apps|Taqueria La Esquina|Tortilleria La Reina|Cafe de Olla|Autonomous University of the Plateau|Futuro STEM Foundation'],
+    ['Toluca', 'Taqueria La Esquina|Tortilleria La Reina'],
+    ['Guadalajara', 'Colibri Apps|Mercado Agave|Agave Valley Bottling|Manos a la Obra Foundation'],
+    ['San Luis Potosi', 'Panaderia del Centro|Papeleria El Estudiante|Altiplano Engineering'],
+    ['Chihuahua', 'Monte Aerospace|Ferreteria El Norte|Carniceria Don Beto|Frontera Wire Harness'],
+    ['Hermosillo', 'Pacifico Solar Systems|Carniceria Don Beto|Desierto Copper Works'],
+    ['Saltillo', 'Ferreteria El Norte|Norte Appliance Works'],
+    ['Leon', 'Panaderia del Centro|Tortilleria La Reina|Bajio Auto Assembly|Polytechnic University of the Bajio'],
+    ['Queretaro', 'Quetzal Avionics|Taqueria La Esquina|Panaderia del Centro|Bajio Aerospace Castings'],
+    ['Puebla', 'Taqueria La Esquina|Cafe de Olla|Tres Volcanes Brewing'],
+    ['Tampico', 'Tortilleria La Reina|Papeleria El Estudiante|Golfo Energy Engineering|Institute of Technology of the Gulf'],
+    ['Reynosa', 'Sol Electronics|Ferreteria El Norte|Carniceria Don Beto'],
+    ['Durango', 'Tortilleria La Reina|Papeleria El Estudiante|Sierra Tunnel Engineering|Sierra Madre Polytechnic'],
+    ['Morelia', 'Panaderia del Centro|Cafe de Olla|Monarca Education Trust'],
+    ['Culiacan', 'Carniceria Don Beto|Papeleria El Estudiante'],
+    ['Merida', 'Cenote Data Centers|Panaderia del Centro|Papeleria El Estudiante'],
+    ['Panama City', 'Canal Zone Engineering|University of the Isthmus'],
+    // South America
+    ['Sao Paulo', 'Tucano Software|Padaria da Praca|Livraria Central|Lanchonete do Bairro|Paulista Auto Assembly|Industry Social Foundation'],
+    ['Sao Jose dos Campos', 'Cruzeiro Aerospace|Bandeira Avionics|Padaria da Praca|Technological Institute of the Valley'],
+    ['Campinas', 'Padaria da Praca|Lanchonete do Bairro|Cafezal Coffee Machinery|Futuro Jovem Trust'],
+    ['Rio de Janeiro', 'Tropico Telecom|Lanchonete do Bairro|Livraria Central|Acai da Esquina|Atlantic Offshore Engineering'],
+    ['Brasilia', 'Livraria Central|Feira Livre Market|Planalto Hydro Engineering|Federal University of the Plateau'],
+    ['Cuiaba', 'Pantanal Agritech|Feira Livre Market|Semear Education Foundation'],
+    ['Goiania', 'Feira Livre Market'],
+    ['Porto Alegre', 'Churrascaria Gaucha|Banco Cooperativo do Sul|Pampa Agro Machinery'],
+    ['Joinville', 'Churrascaria Gaucha|Banco Cooperativo do Sul|Industrial Learning Institute'],
+    ['Curitiba', 'Capivara Code|Churrascaria Gaucha|Banco Cooperativo do Sul|Federal Technological University of the South'],
+    ['Belo Horizonte', 'Padaria da Praca|Livraria Central|Serra Mining & Steel|Minas Iron Works'],
+    ['Salvador', 'Sabia Software|Lanchonete do Bairro|Sorveteria Tropical'],
+    ['Fortaleza', 'Acai da Esquina|Sorveteria Tropical'],
+    ['Recife', 'Ipe Apps|Feira Livre Market|Sorveteria Tropical|Litoral Shipyards'],
+    ['Natal', 'Sorveteria Tropical|State University of the Coast'],
+    ['Manaus', 'Atlantica Satellite|Acai da Esquina|Sorveteria Tropical|Novo Horizonte Trust'],
+    ['Belem', 'Amazonia Energy Systems|Acai da Esquina'],
+    ['Vitoria', 'Lanchonete do Bairro|Pre-Salt Subsea Engineering|Rio Doce Metals'],
+    ['Campo Grande', 'Churrascaria Gaucha|Feira Livre Market|Cerrado Rail Engineering'],
+    ['Santiago', 'Andes Copper Works'], ['Medellin', 'Andean Polytechnic School'],
+    // Europe
+    ['Greater London', 'Channel Rail Engineering|Thames Composites'],
+    ['Eindhoven', 'Lowlands Lithography|Brabant Photonics|Stroopwafel Stand|Canal Street Bakery|Old Town Bicycle Shop|Delta Water Engineering|Brabant Technical University|Windmill Education Trust'],
+    ['Groningen', 'Tulip Software|Canal Street Bakery|Old Town Bicycle Shop|Stroopwafel Stand|Polder Engineering|Lowlands University of Technology'],
+    ['Prague', 'Bohemia Motor Works|Bridge Builders Trust'],
+    ['Lyon', 'Rhone Avionics|Corner Patisserie|Continental STEM Foundation'], ['Nice', 'Corner Patisserie'],
+    ['Warsaw', 'Pierogi Kitchen|Market Square Cafe|Vistula Polytechnic|Makers of Europe Foundation'],
+    ['Lublin', 'Pierogi Kitchen|Market Square Cafe'],
+    ['Krakow', 'Market Square Cafe|Pierogi Kitchen|Vistula Machine Works|Silesia Steel Works'],
+    ['Zurich', 'Alpine Precision Instruments|Alpine Cheese Dairy|Alpine Tunnel Engineering|Rhine Valley Machine Tools|Alpine Federal Institute'],
+    ['Rijeka', 'Adriatic Space Systems'], ['Sofia', 'Danube University of Technology'], ['Cluj', 'Danube Microelectronics|Carpathian Auto Parts'], ['Athens', 'Harbour Cooperative Bank'],
+    ['Stockholm', 'Baltic Embedded Systems|Nordic Battery Works|Nordlys Apps|Fjord Software|Nordic Institute of Technology'],
+    ['Kyiv', 'Kiosk Games'],
+    // Anatolia
+    ['Istanbul', 'Bosphorus Telecom|Sky Anatolia Airlines|Golden Horn Avionics|Tulip Era Software|Galata Software|Grand Bazaar Hardware|Simit Corner Bakery|Baklava House|Fish Market on the Pier|Strait Bridge Engineering|Metro Tunnel Engineering|Bosphorus Technical University|Young Engineers Trust|Seven Hills Education Trust'],
+    ['Ankara', 'Anatolia Defence Electronics|Crescent Aerospace|Simit Corner Bakery|Borek Bakery|Anatolian Tractor Works|Anatolian Institute of Technology|Capital Technical University|Anatolian Education Foundation'],
+    ['Izmir', 'Cay Code|Simit Corner Bakery|Tea Garden Cafe|Fish Market on the Pier|Aegean Textiles|Aegean University'],
+    ['Kocaeli', 'Marmara Satellite|Simit Corner Bakery|Borek Bakery|Black Sea Steel|Gulf Bay Shipyards|Marmara Institute of Technology'],
+    ['Eskisehir', 'Steppe Radar Systems|Simit Corner Bakery|Borek Bakery|Marmara Home Appliances|Central Plateau Ceramics'],
+    ['Antalya', 'Pomegranate Apps|Tea Garden Cafe|Fish Market on the Pier|Mediterranean University of Science'],
+    ['Bursa', 'Simit Corner Bakery|Tea Garden Cafe|Caravan Road Auto Parts|Crescent Youth Foundation'],
+    ['Mugla', 'Tea Garden Cafe|Fish Market on the Pier|Borek Bakery'],
+    ['Diyarbakir', 'Ocakbasi Kebab House|Baklava House|Copper Bazaar Crafts|Euphrates Dam Engineering'],
+    ['Adana', 'Ocakbasi Kebab House|Baklava House|Taurus Automotive'],
+    ['Antakya', 'Ocakbasi Kebab House|Baklava House'],
+    ['Konya', 'Cappadocia Drone Works|Tea Garden Cafe|Borek Bakery|Plateau Energy Engineering'],
+    // Levant
+    ['Tel Aviv', 'Coastal Cyber Labs|Startup Alley Software|Boulevard Software|Shakshuka Kitchen|Falafel Corner|Old Port Fish Grill|Light Rail Engineering Group'],
+    ['Herzliya', 'Sabra Apps|Shakshuka Kitchen|Sharon Plastics|Start-Up Youth Foundation'],
+    ['Netanya', 'Sharon Vision Systems|Falafel Corner|Coastal Plain Engineering|Coastal Pharma Manufacturing|Coastal College of Engineering'],
+    ['Modi\'in', 'Falafel Corner|Olive Branch Education Fund'],
+    ['Rehovot', 'Valley Agritech Labs|Bourekas Bakery|Sharon Institute of Science'],
+    ['Jerusalem', 'Hummus Bar Games|Shuk Spice Market|Bourekas Bakery|Rift Valley Water Engineering'],
+    ['Haifa', 'Carmel Semiconductor|Iron Sky Defence Systems|Olive Press Cafe|Old Port Fish Grill|Harbor Chemicals|Carmel Institute of Technology|Galilee Youth Fund'],
+    ['Binyamina', 'Carmel Bay Optics|Kibbutz Dairy|Olive Press Cafe'],
+    ['Afula', 'Galilee Medical Devices|Kibbutz Dairy|Galilee Tooling Works|Galilee Academic College'],
+    ['Be\'er Sheva', 'Negev Solar Systems|Salt Sea Minerals Tech|Bourekas Bakery|Date Palm Juice Bar|Desert Drip Irrigation|Southern Potash Works|Desert University|Bright Negev Foundation'],
+    ['Ashkelon', 'Red Sea Desalination Tech|Falafel Corner|Date Palm Juice Bar|Desert Pipeline Engineering|Negev University of Technology'],
+    // East Asia
+    ['Shanghai', 'Huaxin Semiconductor|Lucky Dumpling House|Stationery & Books No. 8|Eastern Shipbuilding Yard|Eastern University of Science and Technology'],
+    ['Shenzhen', 'Pearl Delta Drones|Moon Cake Bakery|Lotus Motors|Pearl Delta Polytechnic|Maker Youth Fund'],
+    ['Beijing', 'Ginkgo Games|Lucky Dumpling House|Stationery & Books No. 8|Northern Capital Institute of Aeronautics|Rising Dragon Education Foundation'],
+    ['Suzhou', 'Lucky Dumpling House|Grand Canal Engineering'],
+    ['Hangzhou', 'Koi Apps|Bamboo Cloud|Lucky Dumpling House'],
+    ['Guangzhou', 'Lantern Games|Moon Cake Bakery|Hot Pot Garden|Delta Bay Electronics Assembly'],
+    ['Qingdao', 'Lucky Dumpling House|Plum Blossom Appliances'],
+    ['Zhengzhou', 'Lucky Dumpling House|Stationery & Books No. 8|High Speed Rail Engineering Bureau|Dragon Gate Battery Works'],
+    ['Wuhan', 'Yellow Crane Telecom|Stationery & Books No. 8|Hot Pot Garden|Three Rivers Hydro Engineering'],
+    ['Jinan', 'Lucky Dumpling House|Stationery & Books No. 8|Silk Road Machine Tools'],
+    ['Nanjing', 'Great River Telecom|Lucky Dumpling House'],
+    ['Kunming', 'Stationery & Books No. 8|Hot Pot Garden|Jade River University of Technology'],
+    ['Chengdu', 'Panda Cloud|Hot Pot Garden'],
+    ['Hong Kong', 'Golden Harbour Displays|Moon Cake Bakery|Harbour City Engineering|Harbour Polytechnic University|Rising Tide Youth Fund'],
+    ['Taipei', 'Night Market Noodles|Bubble Tea Corner|Soy Milk Breakfast Shop|Hon Yuan Precision|Island Institute of Technology|Bamboo Shoots Education Foundation'],
+    ['Taichung', 'Bubble Tea Corner|Soy Milk Breakfast Shop'], ['Chiayi', 'Bubble Tea Corner|Soy Milk Breakfast Shop'],
+    ['Tainan', 'Jade Mountain Chipworks|Bubble Tea Corner|Night Market Noodles'],
+    ['Kaohsiung', 'Strait Island Semiconductor|Bubble Tea Corner|Night Market Noodles'],
+    ['Tokyo', 'Sakura Robotics|Kanto Precision Robotics|Paper Crane Software|Ramen Alley|Eastern Bullet Rail Works'],
+    ['Seoul', 'Han River Electronics'],
+    // Asia Pacific
+    ['Sydney', 'Southern Cross Quantum|Kookaburra Code|Surf Club Cafe|Wattle Hardware|Meat Pie Corner|Fish & Chips on the Wharf|Great Dividing Engineering|Harbour Shipwrights|Harbour City University|Down Under STEM Fund'],
+    ['Wollongong', 'Billabong Apps|Surf Club Cafe'],
+    ['Newcastle', 'Surf Club Cafe|Wattle Hardware|Wattle Foundation'],
+    ['Port Macquarie', 'Surf Club Cafe|Fish & Chips on the Wharf'],
+    ['Coonabarabran', 'Bush Tucker Bakery|Shearing Shed Machinery'],
+    ['Canberra', 'Corner Milk Bar|Bush Tucker Bakery|Wattle Hardware|High Country Hydro Engineering'],
+    ['Melbourne', 'Southern Sky Telecom|Koala Biotech|Corner Milk Bar|Wattle Hardware|Meat Pie Corner|Sunraysia Solar Works|Great Southern University of Technology'],
+    ['Perth', 'Surf Club Cafe|Wattle Hardware|Fish & Chips on the Wharf|Top End Gas Engineering|Outback Mining Equipment|Iron Ore West Machinery|Outback Institute of Technology|Kangaroo Paw Makers Fund'],
+    ['Adelaide', 'Wombat Software|Corner Milk Bar|Wattle Hardware|Meat Pie Corner|Red Centre Mining Engineering|Ute Motor Works'],
+    ['Brisbane', 'Reef Ocean Systems|Coral Sea Satellites|Surf Club Cafe|Wattle Hardware|Fish & Chips on the Wharf|Coral Coast University'],
+    ['Mumbai', 'Monsoon Software Services|Deccan Space Systems|Chai Corner|Bay of Bengal Steel|Deccan Institute of Technology'],
+    ['Delhi', 'Monsoon Games|Chai Corner'],
+    ['Singapore', 'Lion City Fintech Systems|Hawker Stall Kitchen|Lion City Polytechnic'],
+    ['Kuala Lumpur', 'Hawker Stall Kitchen'],
+    ['Auckland', 'Southern Alps Dairy Equipment|Southern Stars Youth Foundation'],
+    // the international companies' head offices
+    ['Seattle', 'Vantage Global Systems|Stratos Global Cloud'], ['Denver', 'Nimbus Data Group'], ['Zurich', 'Quantix Global Labs|Brightline Power Group'], ['San Jose', 'Helios Microdevices Corporation'],
+    ['Stockholm', 'Aurora Networks Worldwide'], ['San Diego', 'Polaris Semiconductor Group'], ['Orlando', 'Zenith Dynamics International'], ['Tokyo', 'Corelight Sensor Group'], ['Eindhoven', 'Atlas Automation Worldwide'],
+    ['San Francisco Bay', 'Orbit Analytics International|Bytewise Global'], ['Portland', 'Vertex Instruments Corporation'], ['Lyon', 'Arcwell Engineering Group'], ['Greater London', 'Stonebridge Global Consulting'],
+    ['Chicago', 'Meridian Structures International'], ['Hong Kong', 'Clearpath Civil Group'], ['Los Angeles', 'Summit Design Worldwide'], ['Vancouver', 'Keystone Geotechnical International'], ['Sydney', 'Harbor Point International'],
+    ['Taichung', 'Kestrel Machine Tools Worldwide'], ['Seoul', 'Ironclad Heavy Industries'], ['Cleveland', 'Precision Plate International'], ['Minneapolis', 'Northstar Tooling Group'], ['Pittsburgh', 'Anvil Metalworks International'],
+    ['Milwaukee', 'Granite Gear Corporation'], ['Guangzhou', 'Redline Plastics Worldwide'], ['Houston', 'Westbrook Welding Group'], ['Boston', 'Northbridge International University'], ['Toronto', 'Lakeview Open Technical College'],
+    ['Singapore', 'Eastgate World Polytechnic'], ['Melbourne', 'Riverton Global University'], ['Mumbai', 'Summit Open College'], ['Monterrey', 'Westfield International Institute'], ['Madison', 'Helix Software International'],
+    ['New York', 'Cobalt Code Group'], ['Salt Lake City', 'Pinecone Apps Worldwide'], ['Inland Empire', 'Gridline Global Software'], ['Austin', 'Quill Worldwide'], ['Tel Aviv', 'Sparrow Code International'], ['Prague', 'Stackwell Labs Corporation'],
+    ['Shenzhen', 'Corvane Labs'],
+    // more shops of the local businesses, so that every city has two of them nearby
+    ['Kelowna', 'Hockey Night Sports'], ['Lethbridge', 'Hockey Night Sports|Stampede Western Wear'], ['Cleveland', 'Main Street Diner'], ['Duluth', 'Dairyland Creamery'], ['Pittsburgh', 'Pretzel Wagon'],
+    ['Buffalo', 'Corner Deli & Co.'], ['Rochester', 'Corner Deli & Co.'], ['Syracuse', 'Corner Deli & Co.'], ['Orlando', 'Sweet Tea Cafe|Magnolia Credit Union'], ['Tampa', 'Sweet Tea Cafe|Magnolia Credit Union'], ['Miami', 'Magnolia Credit Union'],
+    ['Knoxville', 'Sweet Tea Cafe|Smokehouse Barbecue Pit'], ['Oklahoma City', 'Roadrunner Auto'], ['Tulsa', 'Roadrunner Auto'], ['Lubbock', 'Rio Hardware'], ['Torreon', 'Carniceria Don Beto'], ['Guadalajara', 'Taqueria La Esquina|Tortilleria La Reina'],
+    ['Hermosillo', 'Ferreteria El Norte'], ['Cuiaba', 'Churrascaria Gaucha'], ['Goiania', 'Churrascaria Gaucha'], ['Natal', 'Acai da Esquina'], ['Belem', 'Sorveteria Tropical'], ['Vitoria', 'Padaria da Praca'],
+    ['Qingdao', 'Stationery & Books No. 8'], ['Nanjing', 'Stationery & Books No. 8'], ['Chengdu', 'Stationery & Books No. 8'], ['Coonabarabran', 'Wattle Hardware'],
+    // foundations that work in several countries of their part of the world, so that no country depends on a single one
+    ['Greater London', 'Continental STEM Foundation|Makers of Europe Foundation'], ['Eindhoven', 'Continental STEM Foundation|Makers of Europe Foundation'], ['Prague', 'Continental STEM Foundation'], ['Lyon', 'Makers of Europe Foundation'],
+    ['Warsaw', 'Continental STEM Foundation|Bridge Builders Trust'], ['Zurich', 'Continental STEM Foundation|Makers of Europe Foundation'], ['Rijeka', 'Continental STEM Foundation|Bridge Builders Trust'], ['Sofia', 'Continental STEM Foundation|Bridge Builders Trust'],
+    ['Cluj', 'Continental STEM Foundation|Bridge Builders Trust'], ['Athens', 'Continental STEM Foundation|Bridge Builders Trust'], ['Stockholm', 'Continental STEM Foundation|Makers of Europe Foundation'], ['Kyiv', 'Continental STEM Foundation|Bridge Builders Trust'],
+    ['Taipei', 'Rising Tide Youth Fund'], ['Tokyo', 'Rising Tide Youth Fund'], ['Seoul', 'Rising Tide Youth Fund'], ['Hong Kong', 'Bamboo Shoots Education Foundation'],
+    ['Santo Domingo', 'Futuro STEM Foundation'], ['Panama City', 'Futuro STEM Foundation'], ['Sydney', 'Southern Stars Youth Foundation']
+  ];
+  // More companies, for the cities and the lands that had few of their own, so that a team there hears from its
+  // neighbours first: [home, city (or cities, separated by |), type, name, line].
+  D.SPONSOR_MORE = [
+    ['West', 'Honolulu', 'tech', 'Mauna Summit Optics', 'Builds instruments for the telescopes on a very tall volcano.'],
+    ['West', 'Honolulu', 'tech', 'Trade Wind Energy Systems', 'Builds battery banks for islands that run on sun and wind.'],
+    ['West', 'Honolulu', 'eng', 'Lava Rock Civil', 'Builds roads across lava fields, some of them still warm.'],
+    ['West', 'Honolulu', 'mfg', 'Outrigger Composites', 'Moulds racing canoes from carbon fibre.'],
+    ['West', 'Honolulu', 'soft', 'Rainbow Valley Apps', 'Makes a surf and tide app the whole island checks before work.'],
+    ['West', 'Honolulu', 'local', 'Shave Ice Corner', 'Shaves ice to snow and drowns it in syrup.'],
+    ['West', 'Honolulu', 'local', 'Plate Lunch Wagon', 'Serves two scoops of rice with everything.'],
+    ['West', 'Honolulu', 'uni', 'Pacific Islands University', 'Teaches ocean engineering a short walk from the reef.'],
+    ['West', 'Honolulu', 'found', 'Aloha Makers Fund', 'Pays for the flights, since every event is an ocean away.'],
+    ['West', 'Las Vegas', 'mfg', 'Neon Sign Works', 'Bends glass tubing into signs you can see from the next county.'],
+    ['West', 'Las Vegas', 'soft', 'High Roller Analytics', 'Works out the odds for people who would rather not gamble on them.'],
+    ['West', 'Las Vegas', 'local', 'Stagehand Supply Co.', 'Rents lights, rigging and fog machines to every show in town.'],
+    ['West', 'Las Vegas', 'uni', 'Desert Valley State University', 'Teaches hospitality engineering, which is mostly air conditioning.'],
+    ['West', 'Las Vegas|Reno', 'found', 'Silver State Makers Fund', 'Stocks school workshops from one end of the desert to the other.'],
+    ['West', 'Boise', 'tech', 'Treasure Valley Memory', 'Makes memory chips in a valley better known for potatoes.'],
+    ['West', 'Idaho Falls', 'eng', 'Snake River Reactor Engineering', 'Designs small reactors at a laboratory out in the sagebrush.'],
+    ['West', 'Boise', 'mfg', 'Spud Harvester Works', 'Builds the machines that dig, sort and wash potatoes.'],
+    ['West', 'Missoula', 'uni', 'Big Sky Technical College', 'Trains foresters, welders and smokejumper mechanics.'],
+    ['West', 'Missoula', 'local', 'Fly Shop on the Clark Fork', 'Ties flies and tells nobody where the trout are.'],
+    ['West', 'Idaho Falls|Boise', 'local', 'Huckleberry Shake Stand', 'Blends huckleberry milkshakes for everybody driving to the parks.'],
+    ['West', 'Boise', 'found', 'Sawtooth Youth Fund', 'Sends small-town teams over the passes to their events.'],
+    ['North', 'Vancouver', 'mfg', 'Burrard Dry Dock Works', 'Builds ferries and ice-class tugs at the inlet.'],
+    ['North', 'Vancouver|Victoria|Kelowna', 'local', 'Steam Clock Coffee Roasters', 'Roasts coffee beside a clock that whistles on the quarter hour.'],
+    // Central America
+    ['Central America', 'Santo Domingo', 'tech', 'Colonial Zone Telecom', 'Runs the island\'s mobile network from a very old quarter.'],
+    ['Central America', 'Santo Domingo', 'tech', 'Cibao Medical Devices', 'Makes surgical instruments in a free-trade park.'],
+    ['Central America', 'Santo Domingo', 'eng', 'Caribe Harbour Engineering', 'Builds cruise piers and breakwaters that outlast hurricanes.'],
+    ['Central America', 'Santo Domingo', 'mfg', 'Larimar Cable Works', 'Makes electrical cable, and is named after a sky-blue stone.'],
+    ['Central America', 'Santo Domingo', 'soft', 'Merengue Apps', 'Makes a music app that will not let you sit still.'],
+    ['Central America', 'Santo Domingo', 'local', 'Colmado La Esquina', 'Sells everything, delivers by motorbike and plays music all day.'],
+    ['Central America', 'Santo Domingo', 'local', 'Malecon Empanadas', 'Fries empanadas for the evening crowd on the seafront.'],
+    ['Central America', 'Santo Domingo', 'uni', 'Ozama Institute of Technology', 'Teaches engineering on the bank of the river.'],
+    ['Central America', 'Santo Domingo', 'found', 'Caribe Makers Fund', 'Buys tools for school workshops across the island.'],
+    ['Central America', 'Panama City', 'tech', 'Two Oceans Logistics Tech', 'Tracks every container that crosses from one ocean to the other.'],
+    ['Central America', 'Panama City', 'tech', 'Canopy Data Centers', 'Hosts servers where half a dozen undersea cables come ashore.'],
+    ['Central America', 'Panama City', 'mfg', 'Miraflores Marine Works', 'Repairs tugboats and lock gates.'],
+    ['Central America', 'Panama City', 'soft', 'Toucan Pay', 'Makes a payment app for a city of banks.'],
+    ['Central America', 'Panama City', 'local', 'Casco Viejo Coffee', 'Brews highland coffee in the old quarter.'],
+    ['Central America', 'Panama City', 'local', 'Raspado Cart', 'Shaves ice and pours condensed milk over it.'],
+    ['Central America', 'Panama City', 'found', 'Isthmus Youth Trust', 'Pays for school teams to travel, north or south.'],
+    // South America
+    ['South America', 'Santiago', 'tech', 'Atacama Sky Instruments', 'Builds detectors for telescopes in the driest desert there is.'],
+    ['South America', 'Santiago', 'tech', 'Cordillera Lithium Systems', 'Builds battery plants for the salt flats up north.'],
+    ['South America', 'Santiago', 'eng', 'Seismic Shield Engineering', 'Designs towers that ride out very large earthquakes.'],
+    ['South America', 'Santiago', 'soft', 'Condor Apps', 'Makes a banking app for a very long, very thin market.'],
+    ['South America', 'Santiago', 'local', 'Sopaipilla Cart', 'Fries pumpkin dough on the corner when it rains.'],
+    ['South America', 'Santiago', 'local', 'Mote con Huesillo Stand', 'Sells a peach drink you eat with a spoon.'],
+    ['South America', 'Santiago', 'uni', 'Cordillera Technical University', 'Teaches mining and astronomy with the mountains in every window.'],
+    ['South America', 'Santiago', 'found', 'Mapocho Education Trust', 'Funds science clubs along the river.'],
+    ['South America', 'Medellin', 'tech', 'Aburra Valley Robotics', 'Builds delivery robots that climb very steep streets.'],
+    ['South America', 'Cali', 'tech', 'Pacific Cane Biotech', 'Turns sugar cane into fuel, plastics and a few surprises.'],
+    ['South America', 'Medellin', 'eng', 'Metrocable Engineering', 'Builds cable cars that carry commuters up the hillsides.'],
+    ['South America', 'Medellin', 'mfg', 'Antioquia Textile Works', 'Weaves denim for half the continent.'],
+    ['South America', 'Medellin', 'soft', 'Guayacan Apps', 'Makes a delivery app that brings anything in ten minutes.'],
+    ['South America', 'Cali', 'local', 'Salsa Capital Dance Shoes', 'Makes dancing shoes for a city that never sits down.'],
+    ['South America', 'Medellin|Cali', 'local', 'Arepa Corner', 'Grills corn cakes from dawn, with cheese on request.'],
+    ['South America', 'Medellin', 'local', 'Bandeja Kitchen', 'Serves a platter that takes two people and an afternoon.'],
+    ['South America', 'Santiago|Cali|Medellin', 'found', 'Pacific Slope Youth Foundation', 'Funds school teams up and down a very long mountain coast.'],
+    ['South America', 'Cali', 'found', 'Cauca Valley Youth Fund', 'Sends valley teams to events over the mountains.'],
+    // Europe
+    ['Europe', 'Greater London', 'tech', 'Silicon Roundabout Labs', 'Builds financial software beside a very busy roundabout.'],
+    ['Europe', 'Greater London', 'tech', 'Thames Valley Semiconductors', 'Designs the processors inside nearly every phone.'],
+    ['Europe', 'Greater London', 'soft', 'Tube Map Apps', 'Tells commuters which line is delayed, and apologises for it.'],
+    ['Europe', 'Greater London', 'local', 'Pie & Mash Shop', 'Serves pie, mash and green sauce, as it has for a century.'],
+    ['Europe', 'Greater London', 'local', 'Black Cab Garage', 'Keeps the taxis running and knows every street by heart.'],
+    ['Europe', 'Greater London', 'uni', 'South Bank College of Engineering', 'Teaches engineering between a river and a railway viaduct.'],
+    ['Europe', 'Greater London', 'found', 'Royal Docks Youth Trust', 'Funds workshops in the old docklands.'],
+    ['Europe', 'Eindhoven', 'mfg', 'Brabant Truck Works', 'Builds lorries that haul most of what crosses the continent.'],
+    ['Europe', 'Prague', 'tech', 'Vltava Antivirus Labs', 'Hunts computer viruses for a few hundred million users.'],
+    ['Europe', 'Prague', 'tech', 'Golden Lane Microscopes', 'Builds electron microscopes that can see single atoms.'],
+    ['Europe', 'Prague', 'eng', 'Charles Bridge Engineering', 'Keeps very old stone bridges standing through very new floods.'],
+    ['Europe', 'Prague', 'soft', 'Astronomical Clock Games', 'Makes historical games, accurate to the last buckle.'],
+    ['Europe', 'Prague', 'local', 'Trdelnik Stand', 'Rolls sweet dough round a spit over charcoal.'],
+    ['Europe', 'Prague', 'local', 'Old Town Tram Cafe', 'Serves coffee in a tram that no longer goes anywhere.'],
+    ['Europe', 'Prague', 'uni', 'Bohemia Technical University', 'Has taught engineering since before steam.'],
+    ['Europe', 'Nice', 'tech', 'Azure Coast Microsystems', 'Designs chips in a science park among the pines.'],
+    ['Europe', 'Lyon', 'eng', 'Confluence Rail Engineering', 'Designs very fast trains and the lines they run on.'],
+    ['Europe', 'Lyon', 'mfg', 'Silk Hill Looms', 'Builds weaving machines in a city that once ran on silk.'],
+    ['Europe', 'Lyon', 'soft', 'Lumiere Games', 'Makes video games in the city where cinema began.'],
+    ['Europe', 'Nice', 'local', 'Socca Oven', 'Bakes chickpea pancakes in a wood oven by the market.'],
+    ['Europe', 'Lyon', 'local', 'Silk Weavers\' Bouchon', 'Serves sausages and dumplings on checked tablecloths.'],
+    ['Europe', 'Lyon', 'uni', 'Rhone Institute of Applied Sciences', 'Trains engineers who can also cook.'],
+    ['Europe', 'Warsaw', 'tech', 'Mazovia Space Robotics', 'Builds instruments that ride on other people\'s space probes.'],
+    ['Europe', 'Krakow', 'tech', 'Vistula Bend Automation', 'Builds control systems for steelworks and breweries.'],
+    ['Europe', 'Lublin', 'eng', 'Eastern Gate Rail Engineering', 'Rebuilds railway lines towards the eastern border.'],
+    ['Europe', 'Warsaw', 'soft', 'Witchwood Games', 'Makes enormous role-playing games, a few years late and worth it.'],
+    ['Europe', 'Lublin', 'local', 'Cebularz Bakery', 'Bakes onion flatbreads to a very old recipe.'],
+    ['Europe', 'Zurich', 'tech', 'Limmat Robotics', 'Builds drones that fly themselves through factories.'],
+    ['Europe', 'Zurich', 'soft', 'Lakeside Cryptography', 'Keeps bank secrets secret, with mathematics.'],
+    ['Europe', 'Zurich', 'local', 'Fondue Stube', 'Melts cheese in a pot and frowns on dropped bread.'],
+    ['Europe', 'Zurich', 'found', 'Glacier Education Trust', 'Funds school laboratories, punctually.'],
+    ['Europe', 'Rijeka', 'tech', 'Kvarner Electric Supercars', 'Builds electric cars that outrun aircraft on a runway.'],
+    ['Europe', 'Rijeka', 'eng', 'Karst Bridge Engineering', 'Builds bridges from the mainland to the islands.'],
+    ['Europe', 'Rijeka', 'mfg', 'Kvarner Bay Shipyard', 'Builds tankers and ferries on a very steep shore.'],
+    ['Europe', 'Rijeka', 'soft', 'Bura Wind Apps', 'Warns sailors when the north wind is about to arrive.'],
+    ['Europe', 'Rijeka', 'local', 'Korzo Coffee House', 'Serves coffee slowly, on the promenade, as intended.'],
+    ['Europe', 'Rijeka', 'local', 'Kvarner Scampi Grill', 'Grills the bay\'s scampi the day they are caught.'],
+    ['Europe', 'Rijeka', 'uni', 'Adriatic Maritime University', 'Trains ship\'s engineers and naval architects.'],
+    ['Europe', 'Rijeka', 'found', 'Blue Adriatic Youth Trust', 'Funds robotics clubs in coastal towns and on the islands.'],
+    ['Europe', 'Sofia', 'tech', 'Balkan Peak Electronics', 'Builds battery chargers and forklift controllers.'],
+    ['Europe', 'Sofia', 'tech', 'Rose Valley Biotech', 'Makes yoghurt cultures and, lately, medicines.'],
+    ['Europe', 'Sofia', 'eng', 'Iskar Gorge Engineering', 'Builds railway lines through a very narrow gorge.'],
+    ['Europe', 'Sofia', 'mfg', 'Thracian Plain Forklifts', 'Builds electric forklifts for warehouses everywhere.'],
+    ['Europe', 'Sofia', 'soft', 'Cyrillic Code Works', 'Writes software for other people\'s companies, in bulk.'],
+    ['Europe', 'Sofia', 'local', 'Banitsa Bakery', 'Bakes cheese pastry in a spiral, before dawn.'],
+    ['Europe', 'Sofia', 'local', 'Mountain Tea House', 'Brews herbs picked on the mountain above the city.'],
+    ['Europe', 'Sofia', 'found', 'Seven Lakes Education Trust', 'Funds mathematics schools and their robot teams.'],
+    ['Europe', 'Cluj', 'tech', 'Somes River Robotics', 'Builds software robots that do the office paperwork.'],
+    ['Europe', 'Cluj', 'eng', 'High Pass Road Engineering', 'Keeps a very winding mountain road open, some of the year.'],
+    ['Europe', 'Cluj', 'soft', 'Saxon Tower Software', 'Writes code for car makers in a city full of students.'],
+    ['Europe', 'Cluj', 'local', 'Chimney Cake Stand', 'Bakes sweet dough on a spit and rolls it in walnuts.'],
+    ['Europe', 'Cluj', 'local', 'Central Park Boathouse Cafe', 'Rents rowing boats and serves lemonade.'],
+    ['Europe', 'Cluj', 'uni', 'Transylvania Technical University', 'Trains half the region\'s programmers.'],
+    ['Europe', 'Cluj', 'found', 'Apuseni Youth Fund', 'Brings robot kits to village schools in the hills.'],
+    ['Europe', 'Athens', 'tech', 'Aegean Marine Electronics', 'Makes navigation gear for a very large merchant fleet.'],
+    ['Europe', 'Athens', 'tech', 'Attica Solar Systems', 'Builds solar parks on islands with sun to spare.'],
+    ['Europe', 'Athens', 'eng', 'Corinth Cut Engineering', 'Maintains a canal so narrow that ships are towed through.'],
+    ['Europe', 'Athens', 'mfg', 'Piraeus Shipyard Works', 'Repairs ferries between one summer and the next.'],
+    ['Europe', 'Athens', 'soft', 'Odyssey Apps', 'Makes a ferry-timetable app, a public service of sorts.'],
+    ['Europe', 'Athens', 'local', 'Souvlaki Corner', 'Grills skewers and wraps them in warm pita.'],
+    ['Europe', 'Athens', 'uni', 'Attica Polytechnic', 'Teaches engineering within sight of some very old columns.'],
+    ['Europe', 'Athens', 'found', 'Marathon Youth Foundation', 'Funds school teams for the long run.'],
+    ['Europe', 'Stockholm', 'eng', 'Archipelago Bridge Engineering', 'Builds bridges and tunnels between a great many islands.'],
+    ['Europe', 'Stockholm', 'mfg', 'Bergslagen Bearing Works', 'Makes ball bearings; nearly everything that turns has one.'],
+    ['Europe', 'Stockholm', 'local', 'Cinnamon Bun Bakery', 'Bakes buns for the coffee break nobody skips.'],
+    ['Europe', 'Stockholm', 'local', 'Old Town Kayak Rental', 'Rents kayaks for paddling past the palace.'],
+    ['Europe', 'Stockholm', 'found', 'Midsummer Education Fund', 'Gives grants in June and expects reports in the dark.'],
+    ['Europe', 'Kyiv', 'tech', 'Chestnut Avenue Avionics', 'Builds flight computers for very large cargo aircraft.'],
+    ['Europe', 'Kyiv', 'tech', 'Steppe Drone Systems', 'Builds survey drones for very large wheat fields.'],
+    ['Europe', 'Kyiv', 'eng', 'Dnipro Hydro Engineering', 'Runs a chain of dams down a very wide river.'],
+    ['Europe', 'Kyiv', 'mfg', 'Black Earth Turbine Works', 'Builds gas turbines for ships and pipelines.'],
+    ['Europe', 'Kyiv', 'local', 'Varenyky Kitchen', 'Fills dumplings with cherries, potato or both.'],
+    ['Europe', 'Kyiv', 'local', 'Funicular Coffee Kiosk', 'Pours coffee at the bottom of the funicular.'],
+    ['Europe', 'Kyiv', 'uni', 'Polytechnic Institute on the Dnipro', 'Has trained aircraft and rocket designers for a century.'],
+    ['Europe', 'Kyiv', 'found', 'Sunflower Education Fund', 'Keeps school robotics clubs running, whatever happens.'],
+    // East Asia
+    ['East Asia', 'Hong Kong', 'tech', 'Victoria Harbour Fintech', 'Moves money between markets while one of them sleeps.'],
+    ['East Asia', 'Hong Kong', 'mfg', 'Kwun Tong Toy Works', 'Makes the toys in half the world\'s cereal boxes.'],
+    ['East Asia', 'Hong Kong', 'soft', 'Harbour Ferry Games', 'Makes mobile games sized for a seven-minute crossing.'],
+    ['East Asia', 'Hong Kong', 'local', 'Egg Waffle Stall', 'Bakes bubble waffles to order on a street corner.'],
+    ['East Asia', 'Taipei', 'eng', 'Typhoon Tower Engineering', 'Hangs a very large steel ball in a skyscraper to keep it still.'],
+    ['East Asia', 'Taipei', 'soft', 'Lantern Festival Software', 'Builds live-streaming apps that never drop a frame.'],
+    ['East Asia', 'Taichung', 'mfg', 'Bicycle Valley Works', 'Builds the frames for most of the world\'s good bicycles.'],
+    ['East Asia', 'Chiayi', 'local', 'Alishan Tea House', 'Brews high-mountain tea picked above the clouds.'],
+    ['East Asia', 'Tokyo', 'eng', 'Tokaido Tunnel Engineering', 'Bores railway tunnels through mountains and under bays.'],
+    ['East Asia', 'Tokyo', 'local', 'Shotengai Hardware', 'Sells every screw there is from a shop two metres wide.'],
+    ['East Asia', 'Tokyo', 'uni', 'Musashino Institute of Technology', 'Runs a robot contest older than most of its students.'],
+    ['East Asia', 'Tokyo', 'found', 'Monozukuri Youth Fund', 'Supports school clubs that make things properly.'],
+    ['East Asia', 'Seoul', 'tech', 'Gangnam Display Labs', 'Builds screens that fold, roll and occasionally stretch.'],
+    ['East Asia', 'Seoul', 'eng', 'Incheon Bridge Engineering', 'Builds long sea bridges to an airport on an island.'],
+    ['East Asia', 'Seoul', 'mfg', 'Namsan Motor Works', 'Builds cars by the million and ships them everywhere.'],
+    ['East Asia', 'Seoul', 'soft', 'PC Bang Games', 'Makes online games played in cafes until morning.'],
+    ['East Asia', 'Seoul', 'local', 'Kimbap Corner', 'Rolls rice and vegetables in seaweed, to go.'],
+    ['East Asia', 'Seoul', 'local', 'Tteokbokki Cart', 'Simmers rice cakes in a sauce that means it.'],
+    ['East Asia', 'Seoul', 'uni', 'Gwanak Institute of Technology', 'Admits the top of every class and works them hard.'],
+    ['East Asia', 'Seoul', 'found', 'Mugunghwa Youth Foundation', 'Funds robotics clubs in schools outside the capital.'],
+    // Asia Pacific
+    ['Asia Pacific', 'Delhi', 'eng', 'Capital Metro Engineering', 'Builds a metro line a year under a very crowded city.'],
+    ['Asia Pacific', 'Delhi', 'mfg', 'Yamuna Two-Wheeler Works', 'Builds scooters and motorbikes by the million.'],
+    ['Asia Pacific', 'Delhi', 'local', 'Paratha Lane Kitchen', 'Stuffs flatbreads with nearly anything and fries them in ghee.'],
+    ['Asia Pacific', 'Mumbai', 'local', 'Vada Pav Stall', 'Sells a fried potato bun to commuters between trains.'],
+    ['Asia Pacific', 'Mumbai|Delhi', 'found', 'Tiffin Box Education Trust', 'Funds science clubs, delivered reliably.'],
+    ['Asia Pacific', 'Singapore', 'tech', 'Straits Wafer Works', 'Makes chips on reclaimed land, very tidily.'],
+    ['Asia Pacific', 'Singapore', 'eng', 'Marina Barrage Engineering', 'Builds reservoirs, tunnels and land where there was sea.'],
+    ['Asia Pacific', 'Singapore', 'mfg', 'Jurong Rig Works', 'Builds offshore drilling rigs in a very busy port.'],
+    ['Asia Pacific', 'Singapore', 'soft', 'Merlion Ride Apps', 'Makes the app that hails a car, a meal or a plumber.'],
+    ['Asia Pacific', 'Singapore', 'local', 'Kopi Stall', 'Pulls coffee with condensed milk and takes orders in five languages.'],
+    ['Asia Pacific', 'Singapore', 'found', 'Garden City Youth Fund', 'Funds school robotics, with forms to match.'],
+    ['Asia Pacific', 'Auckland', 'tech', 'Hauraki Rocket Systems', 'Launches small rockets from a sheep farm by the sea.'],
+    ['Asia Pacific', 'Auckland', 'tech', 'Waitemata Medical Devices', 'Makes breathing machines for hospitals everywhere.'],
+    ['Asia Pacific', 'Auckland', 'eng', 'Volcanic Field Engineering', 'Builds motorways around fifty small volcanoes.'],
+    ['Asia Pacific', 'Auckland', 'soft', 'Tui Song Accounts', 'Makes accounting software that small businesses almost enjoy.'],
+    ['Asia Pacific', 'Auckland', 'local', 'Hokey Pokey Ice Cream', 'Scoops vanilla with honeycomb in it.'],
+    ['Asia Pacific', 'Auckland', 'local', 'Fish Market on the Viaduct', 'Sells green-lipped mussels by the kilo.'],
+    ['Asia Pacific', 'Auckland', 'uni', 'Hauraki Gulf University', 'Teaches yacht design, among other engineering.'],
+    ['Asia Pacific', 'Auckland', 'found', 'Harbour Bridge Makers Trust', 'Gives tools to school workshops on both islands.'],
+    ['Asia Pacific', 'Singapore|Kuala Lumpur|Manila|Ho Chi Minh City|Mumbai', 'found', 'Monsoon Belt Education Trust', 'Funds school robotics from one monsoon coast to the next.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'tech', 'Saigon River Electronics', 'Assembles phones and earbuds for the famous brands.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'tech', 'Mekong Delta Solar', 'Builds floating solar farms on reservoirs and rice paddies.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'eng', 'District One Metro Engineering', 'Is building the city\'s first metro line, patiently.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'mfg', 'Southern Star Scooter Works', 'Builds electric scooters for streets that are full of them.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'soft', 'Lotus Tap Games', 'Makes tiny phone games that the whole world cannot put down.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'local', 'Banh Mi Cart', 'Fills baguettes on the pavement faster than you can order.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'local', 'Ca Phe Sua Da Stall', 'Drips coffee over condensed milk and ice.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'uni', 'Saigon Polytechnic', 'Trains the engineers every new factory is looking for.'],
+    ['Asia Pacific', 'Ho Chi Minh City', 'found', 'Rice Field Youth Fund', 'Brings robot kits to schools in the delta.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'tech', 'Twin Towers Energy Tech', 'Runs the control rooms of oil and gas fields offshore.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'tech', 'Klang Valley Chip Test', 'Tests and packages chips for the famous brands.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'eng', 'Monsoon Drain Engineering', 'Built a road tunnel that doubles as a storm drain.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'mfg', 'Rubber Estate Glove Works', 'Makes most of the world\'s disposable gloves.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'soft', 'Durian Runner Apps', 'Makes a delivery app that will bring you anything, durian included.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'local', 'Nasi Lemak Stall', 'Wraps coconut rice in a banana leaf for breakfast.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'local', 'Mamak Corner', 'Pulls tea and flips roti until three in the morning.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'uni', 'Klang Valley University of Technology', 'Teaches petroleum engineering and a great deal of mathematics.'],
+    ['Asia Pacific', 'Kuala Lumpur', 'found', 'Hibiscus Education Foundation', 'Funds school robotics in towns and plantations.'],
+    ['Asia Pacific', 'Manila', 'tech', 'Pasig Chip Assembly', 'Assembles and tests chips in a zone by the airport.'],
+    ['Asia Pacific', 'Manila', 'tech', 'Seven Thousand Islands Telecom', 'Runs mobile networks across a great many islands.'],
+    ['Asia Pacific', 'Manila', 'eng', 'Bay Reclamation Engineering', 'Builds land, ports and sea walls on a typhoon coast.'],
+    ['Asia Pacific', 'Manila', 'mfg', 'Jeepney Works', 'Builds minibuses with a great deal of chrome.'],
+    ['Asia Pacific', 'Manila', 'soft', 'Call Centre Cloud', 'Writes the software that answers the world\'s customer calls.'],
+    ['Asia Pacific', 'Manila', 'local', 'Halo-Halo Stand', 'Layers shaved ice with nearly everything.'],
+    ['Asia Pacific', 'Manila', 'local', 'Sari-Sari Corner Store', 'Sells anything by the single piece, through a window.'],
+    ['Asia Pacific', 'Manila', 'uni', 'Diliman Institute of Technology', 'Trains engineers who are hired before they graduate.'],
+    ['Asia Pacific', 'Manila', 'found', 'Bayanihan Youth Fund', 'Gets whole neighbourhoods to carry a team together.']
+  ];
+  // name: the cities it is in
+  D.SPONSOR_AT = {};
+  { const at = (name, city) => { const l = D.SPONSOR_AT[name] = D.SPONSOR_AT[name] || []; if (!l.includes(city)) l.push(city); };
+    D.SPONSOR_IN.forEach(r => r[1].split('|').forEach(n => at(n, r[0])));
+    D.SPONSOR_MORE.forEach(r => { const by = D.SPONSOR_BY[r[0]]; if (by) { by[r[2]] = by[r[2]] || []; if (!by[r[2]].includes(r[3])) by[r[2]].push(r[3]); } D.SPONSOR_DESC[r[3]] = r[4]; r[1].split('|').forEach(c => at(r[3], c)); }); }
+  // the cities a company is in (a sponsor of an earlier version under its old name: where its company of today is)
+  D.sponsorCities = name => D.SPONSOR_AT[name] || D.SPONSOR_AT[(D.SPONSOR_RENAMED || {})[name]] || [];
+  const milesMemo = {};
+  const milesOf = function (a, b) {
+    if (a === b) return 0;
+    const k = a < b ? a + '|' + b : b + '|' + a;
+    if (milesMemo[k] == null) { const p = G.Geo.hub(a), q = G.Geo.hub(b); milesMemo[k] = p && q ? G.Geo.miles(G.Geo.xy(p.lon, p.lat), G.Geo.xy(q.lon, q.lat)) : 1e6; }
+    return milesMemo[k];
+  };
+  // ... and the one of them nearest to a city (yours): the city shown beside its name
+  D.sponsorCity = function (name, near) {
+    const l = D.sponsorCities(name); if (l.length < 2 || !near || !(G.Geo && G.Geo.hub && G.Geo.hub(near))) return l[0] || '';
+    return l.slice().sort((a, b) => milesOf(a, near) - milesOf(b, near))[0];
+  };
+  // Lands: a company sponsors teams all over its own land, and only now and then one in a land next door. They are
+  // never shown, only counted. The areas of the United States are one land, the North is another and every other
+  // area is one more, except for these groups of cities, each of which is a land of its own.
+  D.LAND_APART = [['Santo Domingo'], ['Panama City'], ['Santiago'], ['Cali', 'Medellin'], ['Greater London'], ['Eindhoven', 'Groningen'], ['Prague'], ['Lyon', 'Nice'], ['Warsaw', 'Lublin', 'Krakow'], ['Zurich'], ['Rijeka'], ['Sofia'], ['Cluj'], ['Athens'],
+    ['Stockholm'], ['Kyiv'], ['Hong Kong'], ['Taipei', 'Taichung', 'Chiayi', 'Tainan', 'Kaohsiung'], ['Tokyo'], ['Seoul'], ['Mumbai', 'Delhi'], ['Singapore'], ['Auckland'], ['Ho Chi Minh City'], ['Kuala Lumpur'], ['Manila']];
+  { const of = {}; D.LAND_APART.forEach((l, i) => l.forEach(c => { of[c] = 'L' + i; }));
+    D.landOf = function (city) { if (of[city]) return of[city]; const hb = G.Geo && G.Geo.hub ? G.Geo.hub(city) : null; return !hb ? '' : D.US_REGIONS.includes(hb.r) ? 'US' : hb.r; }; }
+  // every company of the homes, once: [{ name, type, cities }] (the international ones are D.SPONSOR_NAMES)
+  let listMemo = null;
+  D.sponsorList = function () {
+    if (listMemo) return listMemo;
+    const seen = new Set(), out = [];
+    Object.keys(D.SPONSOR_BY).forEach(hm => { const a = D.SPONSOR_BY[hm]; Object.keys(a).forEach(t => a[t].forEach(n => { if (seen.has(n)) return; seen.add(n); out.push({ name: n, type: t, cities: D.SPONSOR_AT[n] || [] }); })); });
+    return (listMemo = out);
+  };
+  // How far a company reaches. A team's offers come from three rings: the companies close to it (most offers), the
+  // rest of its land (a company or a foundation sponsors teams all over its own land) and, now and then, a company
+  // of a land next door. A local business only sponsors teams near one of its shops, and a foundation never crosses
+  // a border. near, local, abroad: miles. half: the miles at which a close company is half as likely as one in the
+  // team's own city. odds: of each ring, among the rings that have a company free.
+  D.SPONSOR_REACH = { near: 300, local: 100, abroad: 500, half: 150, odds: { near: 65, land: 28, abroad: 7 } };
+  // the companies of one kind a team in that city can hear from, ring by ring: { near, land, abroad }, each [{ name, w }]
+  D.sponsorRings = function (type, city, used) {
+    const R = D.SPONSOR_REACH, out = { near: [], land: [], abroad: [] };
+    if (!city || !(G.Geo && G.Geo.hub && G.Geo.hub(city))) return out;
+    const land = D.landOf(city);
+    D.sponsorList().forEach(c => {
+      if (c.type !== type || !c.cities.length || (used && used.has(c.name))) return;
+      const home = c.cities.filter(x => D.landOf(x) === land), d = Math.min(...(home.length ? home : c.cities).map(x => milesOf(x, city))), w = 1 / (1 + (d / R.half) * (d / R.half));
+      if (type === 'local') { if (d <= R.local) (home.length ? out.near : out.abroad).push({ name: c.name, w }); return; }
+      if (home.length) (d <= R.near ? out.near : out.land).push({ name: c.name, w: d <= R.near ? w : 1 });
+      else if (type !== 'found' && d <= R.abroad) out.abroad.push({ name: c.name, w });
+    });
+    return out;
+  };
+  // The last resort, for a title offer only: the companies of those kinds anywhere, the nearest far ahead of the
+  // rest, when nobody at home or next door is free (a land with four such companies, all of them taken).
+  D.sponsorFar = function (kinds, city, used) {
+    const R = D.SPONSOR_REACH, out = []; if (!city || !(G.Geo && G.Geo.hub && G.Geo.hub(city))) return out;
+    D.sponsorList().forEach(c => { if (!kinds.includes(c.type) || c.type === 'local' || !c.cities.length || (used && used.has(c.name))) return; const d = Math.min(...c.cities.map(x => milesOf(x, city))); out.push({ name: c.name, type: c.type, w: 1 / (1 + (d / R.half) * (d / R.half)) }); });
+    return out;
+  };
+  // one of them: a ring by its odds, then a company of it (in the close ring, nearer ones first). home: never from abroad.
+  D.sponsorDraw = function (rng, rings, home) {
+    const R = D.SPONSOR_REACH, ks = ['near', 'land', 'abroad'].filter(k => rings[k].length && !(home && k === 'abroad'));
+    if (!ks.length) return null;
+    return rng.wpick(rings[rng.wpick(ks, k => R.odds[k])], c => c.w).name;
+  };
 
   // ---------- letters from a title sponsor ----------
   // A title sponsor writes when it signs and when it renews (C.sponsorMail): who they are (the description above), a
@@ -14053,6 +14732,12 @@ window.G = window.G || {};
     } else S.team.home = null;
     // the cities its school points to: the school picked on the New Career page (the name may have been edited since), else by the name
     if (S.team.place === undefined) S.team.place = (D.schoolAt && D.schoolAt(S.team.school)) || null;
+    // ... and, for a regional team, the district still to form whose cities those are (the team stands there with
+    // the area's other teams, and is asked when the district forms). The New Career page says which; else by the
+    // school and the team number (D.startZone). A single season has no districts: every city of the area is open.
+    { const worldOn = !!(S.cal && o.mode === 'career' && G.World && !o.noWorld), dz = worldOn && !S.team.home ? G.World.soleDistrict(S.team.region, cal[0]) : null, zs = D.zonesAhead(S.team.region, cal[0], !worldOn);
+      const z = S.team.home ? null : dz ? dz.id : S.team.z !== undefined && (!S.team.z || zs.some(d => d.id === S.team.z)) ? S.team.z : D.startZone(S.team.num, S.team.region, cal[0], !worldOn, S.team.school, S.team.place);
+      if (z) S.team.z = z; else delete S.team.z; }
     // equipment / knowledge
     P.equip.forEach(e => { if (e === 'printer') S.equip.printer = 1; else if (e !== 'field') S.equip[e] = true; });
     G.Parts.setup(S, rng); // starting parts inventory, vendor release plan, stock
@@ -14146,20 +14831,33 @@ window.G = window.G || {};
     Object.keys(gone).forEach(n => { if (gone[n] < round) delete gone[n]; });
     const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone)));
     S.sponsors.map(s => s.name).concat(Object.keys(gone)).forEach(n => { const now = (D.SPONSOR_RENAMED || {})[n]; if (now) used.add(now); }); // a sponsor of an earlier version, under its old name: the same company
-    const free = t => D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)); // (3.5) names with the flavour of the team's home
+    // (3.5) Every company has a city (D.SPONSOR_AT), and a team hears from the companies around it: mostly those
+    // close to its own city, then the rest of its land, now and then one from a land next door (D.sponsorRings).
+    // (A team whose city cannot be told goes by its home's list, as before.)
+    const city = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : '', known = !!(city && D.sponsorRings && G.Geo.hub(city));
+    const rings = t => (known ? D.sponsorRings(t, city, used) : { near: D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)).map(n => ({ name: n, w: 1 })), land: [], abroad: [] });
+    const atHome = t => { const r = rings(t); return r.near.length + r.land.length; }; // the companies of that kind in the team's own land that are free
+    const fits = (slot, t) => (slot === 'title' ? !!D.SPONSOR_TYPES[t].title : slot === 'grant' ? !!D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant);
     // (3.5) an international company (D.SPONSOR_NAMES): they sponsor teams everywhere, as partners only. Any that is
     // not on this list, among your sponsors or away for a year.
     const intl = () => { const l = []; Object.keys(D.SPONSOR_NAMES).forEach(t => D.SPONSOR_NAMES[t].forEach(n => { if (!used.has(n)) l.push({ name: n, type: t }); })); return l.length ? rng.pick(l) : null; };
     const make = (slot, special) => {
       let tk = special ? special.type : slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
-      let pool = special ? [special.name] : free(tk);
-      if (!pool.length) { // every company of that kind in the home is taken: another kind that fits the slot; failing that, a partner offer comes from abroad
-        const alt = types.filter(t => t !== tk && (slot === 'title' ? D.SPONSOR_TYPES[t].title : slot === 'grant' ? D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant) && free(t).length);
-        if (alt.length) { tk = rng.pick(alt); pool = free(tk); }
-        else { const g = slot === 'partner' ? intl() : null; if (!g) return null; tk = g.type; pool = [g.name]; }
+      let name = special ? special.name : null;
+      if (!name && !atHome(tk)) { // every company of that kind in the team's own land is taken, or it has none: another kind that fits the slot
+        const alt = types.filter(t => t !== tk && fits(slot, t) && atHome(t));
+        if (alt.length) tk = rng.pick(alt);
+        else { // nobody at home is left: a partner offer comes from an international company, a title from a land next door (a grant never crosses a border)
+          const g = slot === 'partner' ? intl() : null;
+          if (g) { tk = g.type; name = g.name; }
+          else { const far = []; types.filter(t => fits(slot, t)).forEach(t => rings(t).abroad.forEach(c => far.push({ name: c.name, w: c.w, type: t })));
+            if (!far.length && slot === 'title' && known && D.sponsorFar) D.sponsorFar(types.filter(t => fits(slot, t)), city, used).forEach(c => far.push(c)); // ... and, so that there is always a title to sign, from farther still
+            if (!far.length) return null; const c = rng.wpick(far, x => x.w); tk = c.type; name = c.name; }
+        }
       }
+      if (!name) name = D.sponsorDraw ? D.sponsorDraw(rng, rings(tk)) : (rng.pick(rings(tk).near) || {}).name;
+      if (!name) return null;
       const T = D.SPONSOR_TYPES[tk];
-      const name = rng.pick(pool);
       used.add(name);
       let base = D.SPONSOR_BASE[slot] * (T.f || 1) * perf * money * rng.range(0.94, 1.06);
       base = Math.round(base / 250) * 250;
@@ -14181,7 +14879,11 @@ window.G = window.G || {};
     for (let i = 0; i < 3; i++) offers.push(make('title'));
     // (3.5) ... and any of the other partner offers may come from an international company, far less often than from the home
     const IN = D.SPONSOR_INTL;
-    for (let i = 0; i < 6; i++) offers.push(make('partner', i === mk ? MK : IN && rng.chance(IN.chance) ? intl() : null));
+    // (3.5) In a land with few companies of its own they turn up more often: they make up for the partner offers the
+    // land cannot fill (own: its free companies that could be partners; left: the partner offers still to make).
+    const ownLeft = () => (known ? types.filter(t => fits('partner', t)).reduce((n, t) => n + atHome(t), 0) : 99);
+    for (let i = 0; i < 6; i++) { const left = 6 - i, own = IN ? ownLeft() : 0, p = !IN ? 0 : own >= left ? IN.chance : 1 - (own / left) * (1 - IN.chance);
+      offers.push(make('partner', i === mk ? MK : IN && rng.chance(p) ? intl() : null)); }
     for (let i = 0; i < rng.int(1, 2); i++) offers.push(make('grant'));
     S.offers = offers.filter(Boolean);
     if (MK && S.mode === 'career' && !S.makerSeen && S.offers.some(o => o.type === MK.type)) { // its first offer: a note in the Inbox
@@ -14189,7 +14891,7 @@ window.G = window.G || {};
       C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams all over the world, and one of this autumn\'s partner offers is theirs. It is an international company and a partner like the others (+' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review, as all of them bring), with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
     }
     { const io = S.mode === 'career' && !S.intlSeen && S.offers.find(o => o.slot === 'partner' && !(MK && o.type === MK.type) && D.sponsorIntl && D.sponsorIntl(o.name)); // the first offer from abroad (the printer maker has its own note): a note in the Inbox
-      if (io) { S.intlSeen = 1; C.inbox(S, 'An international company on the list', io.name + ' sponsors teams all over the world, and one of this autumn\'s partner offers is theirs. Companies of that size never take a title: they are partners like the others, marked International on the list, and they turn up far less often than the companies of your home. A name known all over the world does bring one small thing of its own: +' + D.SPONSOR_INTL.rep + ' reputation at every season review while it is on your robot.', 'money', { note: 'Finance: Sponsor offers.' }); }
+      if (io) { S.intlSeen = 1; C.inbox(S, 'An international company on the list', io.name + ' sponsors teams all over the world, and one of this autumn\'s partner offers is theirs. Companies of that size never take a title: they are partners like the others, marked International on the list, and they turn up far less often than the companies around you. A name known all over the world does bring one small thing of its own: +' + D.SPONSOR_INTL.rep + ' reputation at every season review while it is on your robot.', 'money', { note: 'Finance: Sponsor offers.' }); }
     }
   };
   // your international partners (D.sponsorIntl: the general list's giants and the printer maker), each worth a little reputation a season
@@ -14233,12 +14935,17 @@ window.G = window.G || {};
   };
   // ---------- a title sponsor's letters (3.5) ----------
   // The company's side of the contract: always the same person in the same post for the same company.
-  // (its people carry the names of your home; an international company's keep the international mix)
-  C.sponsorWho = sp => (D.sponsorIntl && D.sponsorIntl(sp.name) ? 'intl' : undefined);
+  // (its people carry the names of the company's own city, the one nearest to you; an international company's keep
+  // the international mix; a company with no city, your home's)
+  C.sponsorWho = function (sp) {
+    if (D.sponsorIntl && D.sponsorIntl(sp.name)) return 'intl';
+    const hub = D.sponsorCity ? D.sponsorCity(sp.name, G.S && G.Geo && G.Geo.cityOf ? G.Geo.cityOf(G.S) : '') : '';
+    return hub ? { hub } : undefined;
+  };
   C.sponsorContact = function (sp) {
     if (sp.contact) return sp.contact; // set on the day it signs
-    const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL;
-    return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(M.roles[sp.type] || M.roles.eng) };
+    const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL, roles = (M && (M.roles[sp.type] || M.roles.eng)) || ['Partnerships Manager']; // (a page without the letters' texts still signs sponsors)
+    return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(roles) };
   };
   const lcFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
   const listAnd = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
@@ -14250,7 +14957,7 @@ window.G = window.G || {};
     const colleague = D.personName(r, C.sponsorWho(sp)).split(' ')[0];
     const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
     const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1;
-    const type = M.roles[sp.type] ? sp.type : 'eng', P = [];
+    const type = M.close[sp.type] && M.ps[sp.type] && M.tradeType[sp.type] ? sp.type : 'eng', P = []; // the three kinds of company that take a title
     info = info || {};
     if (kind === 'renew') {
       const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt);
@@ -15640,7 +16347,7 @@ window.G = window.G || {};
     const w = games.filter(g => g.won).length, l = games.length - w, won = m.winner === pa;
     const dt = C.driveTeam(S), driver = dt.driver && dt.driver.name ? dt.driver.name : 'Your driver', coach = C.coachName(S);
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '' },
+    const d = { kind: won ? 'winner' : 'finalist', year: F.cy, gyear: ev.year, game: (G.Seasons[ev.year] || {}).name || '', city: F.city, otherCity: F.otherCity, team: { num: me, name: S.team.name, c1: S.team.c1, school: S.team.school || '', city: G.Geo.cityOf(S) },
       alliance: ev.alliances[pa].map(t => ({ num: t, name: nm(t) })), opp: ev.alliances[1 - pa].map(t => ({ num: t, name: nm(t) })), games, w, l, driver, coach, sponsor,
       comeback: won && games.length > 3 && !games[0].won && !games[1].won, letSlip: !won && games.length > 3 && games[0].won && games[1].won, sweep: games.length === 3 };
     const pool = won ? [
@@ -15771,7 +16478,7 @@ window.G = window.G || {};
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
     const titles = before.length + 1, lastFinalist = !!(last && last.worldFinalist && !last.worldChamp);
     const CHw = S.cal ? C.champs(S) : null; // two Championships (2017 to 2020): the city goes into the title
-    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '' },
+    const d = { gyear: gy, year, game: Sz.name || '', fict: C.isFictional(S), div: S.champsDiv || '', city: CHw && CHw.n > 1 ? CHw.city : '', team: { num: me, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) },
       alliance: al.map(t => ({ num: t, name: nm(t) })), fw, fl, opp: oc != null ? { num: oc, name: nm(oc), div: ev.divNames && opp != null ? ev.divNames[opp] : '' } : null,
       driver, coach, coachIsMentor: !dt.coach, sponsor, streak, titles, syears, lastFinalist,
       lastTitleYear: streak < 2 && before.length ? C.calYear(S, before[before.length - 1].year) : null, rookie: S.team.rookieYear === gy };
@@ -15816,7 +16523,7 @@ window.G = window.G || {};
     const speakers = S.students.slice().sort((a, b) => (b.attr.strat + b.attr.aware) - (a.attr.strat + a.attr.aware)).slice(0, 2).map(x => x.name);
     const biz = C.allMentors(S).filter(x => x.role === 'biz').sort((a, b) => b.skill - a.skill)[0];
     const sponsor = (S.sponsors.find(x => x.slot === 'title') || S.sponsors[0] || {}).name || null;
-    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '' }, score: ci.score, speakers, mentor: biz ? biz.name : null,
+    const d = { kind, gyear: gy, year: C.calYear(S, gy), game: (G.Seasons[gy] || {}).name || '', team: { num: me, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) }, score: ci.score, speakers, mentor: biz ? biz.name : null,
       outreach: s.outreach || 0, points: Math.round(s.impact || 0), programs: (S.programs || []).length, seasons: S.history.length + 1,
       winner: { num: ci.winner, name: nm(ci.winner) }, finalists: ci.finalists.map(n => ({ num: n, name: nm(n) })) };
     const pool = kind === 'winner' ? [
@@ -15875,17 +16582,21 @@ window.G = window.G || {};
   // None of this uses the game's random numbers (each draw has its own seed), so the season plays out as before.
   const hashS = s => { let x = 2166136261; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const wRng = key => G.makeRng(hashS(key) || 11);
-  C.makeProf = function (role, r) {
+  // S0, team: the career and the team the mentor belongs to (yours when not given)
+  C.makeProf = function (role, r, S0, team) {
     const p = r.pick(D.PROFESSIONS[role] || D.PROFESSIONS.design), k = p[2];
-    const tm = (G.S && G.S.team) || {}; // (3.5) where the mentor works carries the flavour of the team's home
-    return { t: p[0], area: p[1], at: k === 'school' ? D.schoolName(r, tm.home, tm.region) : r.pick(D.sponsorPool(k, tm.home, tm.region)) };
+    const S = S0 || G.S, tm = team || (S && S.team) || {}; // (3.5) the mentor works near the team: at a school of its part of the home, or at a company of its city or its land
+    if (k === 'school') return { t: p[0], area: p[1], at: D.schoolName(r, tm.home || tm.z, tm.region) };
+    let city = ''; try { city = S && tm.num != null && G.Geo && G.Geo.posOf ? G.Geo.posOf(S, tm, G.Geo.cyOf(S)).hub : ''; } catch (e) { city = ''; }
+    const at = (city && D.sponsorDraw && D.sponsorDraw(r, D.sponsorRings(k, city), true)) || r.pick(D.sponsorPool(k, tm.home, tm.region));
+    return { t: p[0], area: p[1], at };
   };
   C.profLine = p => (p ? p.t + (p.at ? ' at ' + p.at : '') : 'Mentor');
   // a mentor's background: profession, years in FIRST and seasons with this team (filled in once from the mentor's own id)
   C.mentorMeta = function (S, m) {
     if (m.prof && m.exp != null && m.ten != null) return m;
     const r = wRng('mentor:' + m.id + ':' + m.name);
-    if (!m.prof) m.prof = C.makeProf(m.role, r);
+    if (!m.prof) m.prof = C.makeProf(m.role, r, S);
     if (m.exp == null) m.exp = r.int(1, 4 + (m.stars || 2) * 3);
     if (m.ten == null) m.ten = S.profile === 'rookie' && !S.history.length ? 0 : Math.min(m.exp, r.int(0, 5));
     return m;
@@ -15927,7 +16638,7 @@ window.G = window.G || {};
     field.sort((a, b) => b.v - a.v);
     const roles = Object.keys(D.PROFESSIONS);
     return field.slice(0, slots).map(x => x.me ? { e: e.id, ename: e.name, team: me, me: true, mid: x.mid, name: mine.name, prof: mine.prof, v: x.v }
-      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r, S.teams[x.team]), prof: C.makeProf(r.pick(roles), r), v: x.v });
+      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r, S.teams[x.team]), prof: C.makeProf(r.pick(roles), r, S, S.teams[x.team]), v: x.v });
   };
   // judge an event: record its Finalists in the world's books, and tell the team about its own essay
   C.wffaJudge = function (S, e, teams, attending) {
@@ -15974,7 +16685,7 @@ window.G = window.G || {};
     const w = S.season.wfa || {}, cy = C.calYear(S), writers = (w.writers || C.wfaWriters(S).map(s => s.name)).slice(0, 2);
     const role = (D.MENTOR_ROLES.find(r => r.id === m.role) || {}).name || 'Mentor';
     const past = Object.keys(D.REAL_WFA).map(Number).filter(y => y < cy).sort((a, b) => b - a), pick = past.slice(0, 4).concat(past.includes(1996) && !past.slice(0, 4).includes(1996) ? [1996] : []);
-    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '' }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
+    const d = { year: cy, team: { num: S.team.num, name: S.team.name, school: S.team.school || '', city: G.Geo.cityOf(S) }, name: m.name, prof: W.prof, role, ten: m.ten || 0, exp: m.exp || 0, how: W.how, of: c.of, writers,
       students: S.studentsCount || S.students.length, past: pick.map(y => Object.assign({ year: y }, D.REAL_WFA[y])), real: D.REAL_WFA[cy] ? Object.assign({ year: cy }, D.REAL_WFA[cy]) : null };
     d.quotes = [
       writers[0] ? ['We wrote it in the library after practice for three weeks. Every sentence was something ' + m.name + ' actually said to one of us.', writers[0] + ', who wrote the essay'] : null,
@@ -16015,7 +16726,7 @@ window.G = window.G || {};
     if (S.wfaPast) return;
     const r = wRng('wfapast:' + S.team.num + ':' + (S.cal ? S.cal[0] : S.year)), ts = Object.keys(S.teams || {}).map(Number), roles = Object.keys(D.PROFESSIONS);
     S.wfaPast = [];
-    for (let i = 0; i < D.WFA.past && ts.length; i++) { const team = r.pick(ts); S.wfaPast.push({ name: D.personName(r, S.teams[team]), team, prof: C.makeProf(r.pick(roles), r), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) }); }
+    for (let i = 0; i < D.WFA.past && ts.length; i++) { const team = r.pick(ts); S.wfaPast.push({ name: D.personName(r, S.teams[team]), team, prof: C.makeProf(r.pick(roles), r, S, S.teams[team]), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) }); }
   };
 
   // ======================= The state of the art moves on (offseason) =======================
@@ -16153,13 +16864,14 @@ window.G = window.G || {};
         C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
           means: ['Your team is in it: from ' + cy + ' you play district events, not regionals.', 'One fee covers two district events; registration opens in October (Calendar).', 'The points list decides who plays the District Championship in week 7 and who goes on to the Championship: about ' + I.slots + ' of the district\'s ' + I.n + ' teams.'] });
         C.inbox(S, 'You join the ' + d.name, 'From the ' + cy + ' season every team of ' + D.regionThe(d.region) + ' plays in the ' + d.name + ', yours included. Registration opens in October (Calendar): one fee covers two district events. The points list decides who plays the District Championship in week 7 and who goes on to the Championship.', 'event');
-      } else if (!S.team.home && S.team.region === d.region) {
+      } else if (!S.team.home && S.team.region === d.region && G.World.inside(S, d, C.cy(S))) { // (3.5) a team that stands in the district's cities
         S.storySeen['dist_' + d.id] = 1;
         S.districtOffer = { id: d.id, cy, stage: 'choose' };
         C.inbox(S, I.title, I.body.join('\n\n') + '\n\nYour school is inside the new district\'s borders. Decide whether to join it or stay a regional team (Headquarters).', 'event');
         (S.launchQueue = S.launchQueue || []).push({ kind: 'district' });
       } else C.tellStory(S, { id: 'dist_' + d.id, at: 'off:2', tag: 'DISTRICT NEWS', color: d.color, title: I.title, body: I.body, talk: D.DISTRICT_TALK,
-        means: [S.team.home ? 'Your own district is not affected.' : 'You are not in its area: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ', so teams from there will turn up at events elsewhere.', 'More Championship places are now decided by district points.'] });
+        means: S.team.home || S.team.region !== d.region ? [S.team.home ? 'Your own district is not affected.' : 'You are not in its area: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ', so teams from there will turn up at events elsewhere.', 'More Championship places are now decided by district points.']
+          : ['Your school is outside its borders: your team stays with the regionals.', 'The ' + d.region + ' runs fewer regionals from ' + cy + ': look at the neighbouring areas too when registration opens in October.', 'More Championship places are now decided by district points.'] });
     });
   };
   // join the new district (from the season it forms) or stay a regional team
@@ -16409,7 +17121,8 @@ window.G = window.G || {};
   const fillNames = (t, n) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (n && n[k] != null ? n[k] : m));
   C.disputeNames = function (S) {
     const dt = C.driveTeam(S), f = st => (st && st.name ? st.name.split(' ')[0] : null), lead = leadMentor(S), pool = G.R.shuffle(S.students.slice());
-    return { driver: f(dt.driver) || 'the driver', operator: f(dt.operator) || 'the operator', coach: dt.coach ? f(dt.coach) : (S.mentors.find(m => m.role === 'coach') || { name: C.leadName(S) }).name, // a mentor coaches: the Drive Coach, else you tech: dt.tech ? f(dt.tech) : f(pool[3]) || 'the pit lead',
+    return { driver: f(dt.driver) || 'the driver', operator: f(dt.operator) || 'the operator', coach: dt.coach ? f(dt.coach) : (S.mentors.find(m => m.role === 'coach') || { name: C.leadName(S) }).name, // a mentor coaches: the Drive Coach, else you
+      tech: dt.tech ? f(dt.tech) : f(pool[3]) || 'the pit lead',
       mentor: S.mentors.length ? G.R.pick(S.mentors).name : 'a mentor', a: f(pool[0]) || 'one student', b: f(pool[1]) || 'another student', c: f(pool[2]) || 'a third student' };
   };
   C.rollDispute = function (S) {
@@ -17062,6 +17775,9 @@ window.G = window.G || {};
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team);
+    // (3.5) The city a team stands in is settled for good (S.team.place). A save from before that keeps the city it
+    // has today; a world from before 3.5 settles it when it grows (G.World: upgrade).
+    if (S.team && S.team.place === undefined && G.Geo && !(G.World && G.World.legacy(S))) { try { S.team.place = [G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub]; } catch (e) { /* no map for this save: it goes by the school's name */ } }
     // (3.5) people are named after their home now. A sponsor signed before that keeps the contact its letters had.
     (S.sponsors || []).forEach(sp => { if (!sp.contact && D.SPONSOR_MAIL) { const r = G.makeRng(hashS('contact:' + sp.name) || 7); sp.contact = { name: D.personName(r, 'intl'), role: r.pick(D.SPONSOR_MAIL.roles[sp.type] || D.SPONSOR_MAIL.roles.eng) }; } }); // (3.5) a save from before the lead mentor had a name: one is given (Mentors page to change it)
     { const RN = { 'Jordan Valley Water Engineering': 'Rift Valley Water Engineering' }, fix = t => (typeof t === 'string' ? Object.keys(RN).reduce((x, k) => x.split(k).join(RN[k]), t) : t); // (3.5) a sponsor renamed
@@ -19548,7 +20264,8 @@ window.G = window.G || {};
     { id: 'c35maker', cd: 200, req: S => S.sponsors.some(s => s.type === 'maker'), title: 'The box from Corvane', body: S => 'A box from Corvane Labs came with this month\'s paperwork: ' + R().int(6, 14) + ' spools of filament in colours nobody ordered and a sticker sheet. ' + student(S) + ' has already printed the team number in ' + R().pick(['translucent orange', 'glow-in-the-dark green', 'a purple called "Grape Soda"']) + '. ' + mentor(S) + ' asked what it is for. Nobody had an answer and nobody minded.' },
     { id: 'c35makerletter', cd: 400, req: S => (S.inbox || []).slice(0, 25).some(m => m.mail && S.sponsors.some(sp => sp.type === 'maker' && m.mail.from.includes('(' + sp.name + ')'))), title: 'Read by the printers', body: S => { const a = student(S); return 'The letter from Corvane Labs is taped to the side of the printer, where ' + a + ' says it belongs. ' + student2(S, a) + ' has started a bag for broken printed parts, with the match number on each, in case the postscript was serious. ' + mentor(S) + ' thinks it was.'; } },
     { id: 'c35intl', cd: 300, req: S => S.sponsors.some(s => s.slot === 'partner' && s.type !== 'maker' && D.sponsorIntl && D.sponsorIntl(s.name)), title: 'A parcel from head office', body: S => { const sp = R().pick(S.sponsors.filter(s => s.slot === 'partner' && s.type !== 'maker' && D.sponsorIntl(s.name))); return 'The partnership pack from ' + sp.name + ' came from a head office ' + R().pick(['nine', 'eleven', 'seven']) + ' time zones away: ' + R().int(30, 60) + ' lanyards, a banner in six languages and a brand manual of ' + R().int(70, 120) + ' pages. ' + student(S) + ' read the chapter on how much empty space the logo needs aloud. It needs more than the robot has.'; } },
-    { id: 'c35place', cd: 500, req: S => off(S) && G.World.on(S) && !!(D.schoolAt && D.schoolAt(S.team.school)) && (D.schoolAt(S.team.school) || []).includes(G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub), title: 'No excuse for getting lost', body: S => 'A parcel for the team went to the wrong ' + R().pick(['town', 'side of the city', 'school']) + ' again. ' + mentor(S) + ' now writes "' + S.team.school + ', near ' + G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub + '" on every order form. With a name like ours, says ' + student(S) + ', nobody should need the second half.' },
+    { id: 'c35near', cd: 300, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c); }, title: 'Round the corner', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c)); return 'Two people from ' + sp.name + ' came by after work: they are here in ' + c + ' too, ' + R().pick(['twenty minutes away', 'two bus stops down the road', 'on the other side of the river']) + ', and one of them has a ' + R().pick(['niece', 'nephew', 'neighbour']) + ' on the team. They stayed for drive practice and left with ' + R().int(2, 5) + ' keyrings ' + student(S) + ' had printed that afternoon.'; } },
+    { id: 'c35far', cd: 400, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c))); }, title: 'A stamp nobody had seen', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c)))); return 'The sponsor banner from ' + sp.name + ' came all the way from ' + D.sponsorCity(sp.name, c) + ', across a border, with customs forms in two languages and a stamp nobody had seen before. ' + student(S) + ' kept the envelope. ' + mentor(S) + ' says a company that far away does not write to many teams, so the thank-you video had better be good.'; } },
     { id: 'c35elite', cd: 250, req: S => !!(S.team && S.team.elite), title: 'What the tag changes', body: S => 'Since the Elite tag went up, scouts from other teams arrive at the pit in pairs, and one of them always photographs the ' + R().pick(['intake', 'drivetrain', 'wiring', 'bumper mounts']) + '. ' + student(S) + ' has started charging them one sticker a photograph. ' + mentor(S) + ' says that is what the tag means: everybody copies your homework, so do it properly.' },
     { id: 'c35away', cd: 300, req: S => off(S) && month(S) === 'Oct' && Object.keys(S.sponsorGone || {}).length > 0, title: 'Not on the list', body: S => { const n = Object.keys(S.sponsorGone)[0]; return student(S) + ' went through this autumn\'s offers twice looking for ' + n + '. It is not there. "Give them a year," ' + mentor(S) + ' said. "Nobody comes back the same autumn they left."'; } },
     { id: 'c315partners', cd: 200, req: S => off(S) && month(S) === 'Oct' && S.sponsors.filter(s => s.slot === 'partner').length < G.Career.partnerSlots(S) && (S.history || []).length >= 2, title: 'The partner board', body: S => 'The partner list on the shop whiteboard changed again: ' + student(S) + ' wiped off ' + R().pick(['two names', 'a name', 'three names']) + ' and left room for the new ones. ' + mentor(S) + ' says partners like one-season deals, so October is when the team finds out who its friends are.' },
@@ -20129,6 +20846,9 @@ window.G = window.G || {};
   // join it the season it forms, yours too, and after that the area has no regional teams. A team that wants to stay
   // out of it starts somewhere else.
   W.wholeArea = d => !G.Geo.HUBS.some(x => x.r === d.region && x.d !== d.id);
+  // Does your team stand in the cities of this district, which is still to form? Such a team is asked whether to
+  // join; the area's other regional teams are outside its borders. (A world from before 3.5 goes by its old map.)
+  W.inside = function (S, d, cy) { try { const hb = G.Geo.hub(G.Geo.posOf(S, S.team, cy).hub); return !!hb && hb.d === d.id; } catch (e) { return false; } };
   W.soleDistrict = (region, cy) => D.DISTRICTS.find(d => d.region === region && d.from > cy && W.wholeArea(d)) || null; // ... still to form
   W.regionOpen = (region, cy) => !D.DISTRICTS.some(d => d.region === region && d.from <= cy && W.wholeArea(d)); // regional teams can still call the area home
   // the District Championship field: a small district plays a smaller one
@@ -20301,11 +21021,22 @@ window.G = window.G || {};
   // outside the United States are filled to their real numbers.
   function upgrade(S, rng, cy) {
     const zone = {}; Object.values(S.teams).forEach(t => { zone[t.num] = W.zoneOf(t, cy); }); // by the old cities, while the world still counts as old
+    const mine = S.team.place === undefined ? G.Geo.posOf(S, S.team, cy) : null; // ... and where your own team stands on the old map
     S.world.v = 3;
     Object.values(S.teams).forEach(t => {
       const d = D.DISTRICT[zone[t.num]]; if (t.home || !d) return;
       if (d.from <= cy) { if (d.real) t.home = d.id; } else t.z = d.id;
     });
+    // (3.5) Your own team stays where it stood. In the same city, if the new map has that city for your home: a city
+    // of a district still to form counts, as it does for the other teams there (your team carries that district as
+    // its zone and is asked when it forms). Else in the nearest city your home has. It keeps playing as it did.
+    if (mine) {
+      const hb = G.Geo.hub(mine.hub), d = hb && hb.d ? D.DISTRICT[hb.d] : null;
+      if (!S.team.home && d && d.from > cy && d.region === S.team.region) S.team.z = d.id;
+      const now = G.Geo.hubsFor(S.team.region, S.team.home, cy, S.team.z, false), far = x => G.Geo.miles(mine.xy, G.Geo.xy(x.lon, x.lat));
+      const at = (hb && now.find(x => x.n === hb.n)) || now.slice().sort((p, q) => far(p) - far(q))[0] || null;
+      S.team.place = at ? [at.n] : null;
+    }
     const log = { folded: 0, rookies: 0 }; reconcile(S, rng, cy, log, true); level(S, rng, cy, false);
     S.world.grew = cy;
     G.Career.inbox(S, 'The world is bigger now', 'From the ' + cy + ' season the world simulation covers every part of the world with teams in it: ' + D.REGIONS.filter(r => !D.US_REGIONS.includes(r)).join(', ') + '. Their teams, team numbers, strength and events follow the real seasons.\n\n' +
@@ -21027,6 +21758,8 @@ window.G = window.G || {};
     const xy = Geo.xy(hb.lon, hb.lat);
     return { xy: [xy[0] + lap * 1.4, xy[1] - lap * 1], hub: hb.n };
   };
+  // the city of the map your own team stands nearest to ('' if it cannot be told)
+  Geo.cityOf = S => { try { return (S && S.team && Geo.posOf(S, S.team, Geo.cyOf(S)).hub) || ''; } catch (e) { return ''; } };
   // the city an event of this season is held in, for any copy of the event (the Calendar's list, the event being
   // played): looked up by its id. '' outside the world simulation and for events with no place of their own.
   Geo.eventCity = function (S, e) {
@@ -22650,6 +23383,8 @@ window.G = window.G || {};
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   // an elite team (world simulation): a small rose tag wherever the team shows up
   UI.isElite = n => !!(G.S && ((G.S.teams && G.S.teams[n] && G.S.teams[n].elite) || (G.S.team && n === G.S.team.num && G.S.team.elite))); // an elite team of the world, or yours while it carries the tag
+  // the city of the map your team stands nearest to ('' if it cannot be told)
+  UI.nearCity = S => (G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : '');
   // your own Elite tag (3.5): earned at a season review, carried through the next season
   UI.eliteMine = S => { const e = S && S.team && S.team.elite; return e ? '<span class="etag" title="' + h('Elite team: your ' + e.cy + ' season ranked ' + U.ord(e.rank) + ' of ' + e.of + ' teams in the world by OPR (the top ' + e.n + ' are elite). Measured again at the next season review.') + '">Elite</span>' : ''; };
   UI.eliteTag = () => '<span class="etag" title="Elite team: one of the best programs in the world, close to maxed out in robot, drive team and strategy">Elite</span>';
@@ -23123,7 +23858,7 @@ window.G = window.G || {};
   // =====================================================================
   UI.S.hq = { html() {
     const S = G.S, C = G.Career;
-    let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
+    let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + (UI.nearCity(S) ? 'near ' + h(UI.nearCity(S)) + ' · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
@@ -24065,6 +24800,8 @@ window.G = window.G || {};
   // =====================================================================
   // Sponsor money at a glance: this season (base paid, bonuses reached and still possible) and next season (expected base, bonus ceiling)
   const spDesc = sp => (D.sponsorDesc && D.sponsorDesc(sp.name) ? '<div class="xs sp-desc">' + h(D.sponsorDesc(sp.name)) + '</div>' : ''); // (3.5) what the company does
+  // (3.5) the city the company is in (a local business with several shops: the one nearest to you; an international company: its head office)
+  const spCity = sp => { const c = D.sponsorCity ? D.sponsorCity(sp.name, UI.nearCity(G.S)) : ''; return c ? ' · <span title="' + (D.sponsorIntl && D.sponsorIntl(sp.name) ? 'Its head office' : 'Where the company is') + '">' + h(c) + '</span>' : ''; };
   const spIntl = sp => (sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name) ? ' · <span class="info" title="An international company: it sponsors teams all over the world, as a partner only. Its name on your robot adds ' + D.SPONSOR_INTL.rep + ' reputation at every season review.">International: +' + D.SPONSOR_INTL.rep + ' reputation a season</span>' : ''); // (3.5) a giant from the general list, or the printer maker
   UI.sponsorSummary = function (S) {
     const C = G.Career, nx = C.sponsorNext(S), inS = C.inSeason(S), now = inS ? Object.assign({ year: S.year }, C.sponsorSeason(S)) : S.lastSponsor || null;
@@ -24111,7 +24848,7 @@ window.G = window.G || {};
     const anyOpen = ['title', 'partner', 'grant'].some(k => sl[k].n < sl[k].max && S.offers.some(of => of.slot === k));
     o += UI.card('Sponsors ' + slTag('title', 'Title') + ' ' + slTag('partner', 'Partners') + ' ' + slTag('grant', 'Grant'), S.sponsors.length ? S.sponsors.map(sp =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
-      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + spIntl(sp) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
+      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + spCity(sp) + spIntl(sp) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div>' +
       (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' :
         C.canEndSponsor(S, sp) ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="endSp" data-arg="' + sp.id + '" title="Ends the contract and frees its slot for another offer. Only in the autumn, while new offers are open.">End sponsorship · reputation −' + C.endSponsorCost(sp) + '</button></div>' : '') + '</div>').join('') +
@@ -24119,7 +24856,7 @@ window.G = window.G || {};
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
-      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + spIntl(of) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
+      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + spCity(of) + spIntl(of) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span>' + (sl[of.slot].n >= sl[of.slot].max ? '<span class="xs muted">' + (of.slot === 'partner' ? 'Partner slots full' : 'You already have a ' + (of.slot === 'title' ? 'title sponsor' : 'grant')) + '</span>' : '<button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button>') + '</div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>',
       '<button class="btn sm" data-act="autoSp" ' + (anyOpen ? '' : 'disabled') + ' title="Signs the best-value offer for every open slot. You can undo any of them until you press Continue.">Auto-pick best</button>');
@@ -25456,8 +26193,9 @@ window.G = window.G || {};
     '<rect x="54" y="72" width="12" height="13" fill="url(#wcg)"/><path d="M40 85h40l5 11H35z" fill="url(#wcg)"/><rect x="31" y="96" width="58" height="11" rx="2" fill="#4a3305"/><rect x="44" y="99" width="32" height="5" rx="1" fill="#c99a2e"/></svg>';
   const NUMW = ['', '', 'Two', 'Three', 'Four', 'Five', 'Six'];
   const cq = q => '<div class="wc-q">“' + h(q[0]) + '”<span>— ' + h(q[1]) + '</span></div>';
-  // the team's school or organisation, under its name in every celebration (an older snapshot takes today's)
-  const wcSchool = (d, t) => { const s = (d.team && d.team.school) || (G.S && G.S.team && G.S.team.num === d.team.num ? G.S.team.school : ''); return s ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(s) + '</div>' : ''; };
+  // the team's school or organisation and its city, under its name in every celebration (an older snapshot takes today's)
+  const wcSchool = (d, t) => { const mine = !!(G.S && G.S.team && d.team && G.S.team.num === d.team.num), s = (d.team && d.team.school) || (mine ? G.S.team.school : ''), c = (d.team && d.team.city) || (mine ? G.Geo.cityOf(G.S) : ''), txt = [s, c].filter(Boolean).join(' · ');
+    return txt ? '<div class="wc-in wc-school" style="animation-delay:' + t + 's">' + h(txt) + '</div>' : ''; };
   // d: the snapshot made when the title was won (Career.wcData); replay: reopened from History
   UI.worldChampModal = function (d, replay) {
     if (!d) return;
@@ -25873,16 +26611,33 @@ window.G = window.G || {};
     return best;
   };
   // a default school name with the flavour of the home (until the player types one)
-  UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
+  // the page's season, and its home (a district, in a career only: a single season has no districts)
+  UI.ngCy = n => (n.mode === 'single' ? G.singleCy(n.year) : n.start);
+  UI.ngHome = n => (n.mode === 'career' ? n.home || null : null);
+  UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), UI.ngHome(n), n.region, UI.ngCy(n), n.mode !== 'career');
   // A school of the list is picked (at random, or the next one with the button beside the field): the team will
   // stand where that school points, and the name can still be edited without moving it.
   UI.ngPick = (n, name) => { n.school = name; n.schoolPick = name; n.schoolAuto = true; n.place = D.schoolAt(name); };
-  UI.ngSchools = n => D.SCHOOL_BY[(n.mode === 'career' && n.home) || ''] || D.SCHOOL_BY[n.region] || [];
-  // the city the team will stand in (as C.newGame and the map will have it)
-  UI.ngHub = function (n) {
-    const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, home = n.mode === 'career' ? n.home || null : null, dz = n.mode === 'career' && !home ? G.World.soleDistrict(n.region, cy) : null;
-    return G.Geo.teamPos(Number(n.num) || 1, n.region, home, cy, dz ? dz.id : null, false, n.place || null).hub;
+  // the schools of the home: an area's list has those of its districts still to form (their cities are the area's until then)
+  UI.ngSchools = n => D.schoolList(UI.ngHome(n), n.region, UI.ngCy(n), n.mode !== 'career');
+  // the district still to form whose cities the team will stand in (null: the area's own cities), as C.newGame will have it
+  UI.ngZone = function (n) {
+    if (UI.ngHome(n)) return null;
+    const cy = UI.ngCy(n), single = n.mode !== 'career', dz = single ? null : G.World.soleDistrict(n.region, cy);
+    return dz ? dz.id : D.startZone(n.num, n.region, cy, single, n.schoolPick, n.place);
   };
+  // the city the team will stand in (as C.newGame and the map will have it)
+  UI.ngHub = n => G.Geo.teamPos(Number(n.num) || 1, n.region, UI.ngHome(n), UI.ngCy(n), UI.ngZone(n), false, n.place || null).hub;
+  // a district that will form in part of this area: will the team be asked to join? (it is, where it stands inside)
+  UI.ngFut = function (n) {
+    if (n.mode !== 'career' || n.home) return '';
+    const fut = D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0]; if (!fut) return '';
+    return G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. '
+      : UI.ngZone(n) === fut.id ? 'In ' + fut.from + ' your part of it forms the ' + h(fut.name) + ': you choose then whether to join. '
+      : 'In ' + fut.from + ' another part of it forms the ' + h(fut.name) + '; your team stays with the regionals. ';
+  };
+  // the line under the team's name in the preview: its school, the city it stands near, its home
+  UI.ngWhere = n => n.school + ' · near ' + UI.ngHub(n) + ' · ' + (n.home ? D.DISTRICT[n.home].name : n.region);
   // ... and a default name for you, the lead mentor, as people of that city are called (until the player types one).
   // true if the name changed.
   UI.ngSync = function (n) {
@@ -25899,7 +26654,7 @@ window.G = window.G || {};
     const rng = G.makeRng(Date.now() & 0xffffff);
     UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, leadAuto: true, name: D.teamName(rng), lead: '', school: '', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
-    UI.ngPick(UI.st.ng, D.schoolName(rng, null, 'Midwest'));
+    UI.ngPick(UI.st.ng, UI.ngSchool(UI.st.ng));
     UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.ngSync(UI.st.ng);
     UI.go('newgame');
   };
@@ -25911,6 +26666,8 @@ window.G = window.G || {};
     if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) { // that district does not exist yet in the start year
       n.home = null; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n);
     }
+    // the school that was picked is not one of this home's any more (another start year: a district has formed)
+    if (n.schoolPick && !UI.ngSchools(n).includes(n.schoolPick)) { if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n); }
     const ngPx = U.pxOf(n.mode === 'single' ? G.singleCy(n.year) : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
@@ -25932,9 +26689,8 @@ window.G = window.G || {};
       '</div>';
     if (n.mode === 'career') {
       const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff), A = D.WORLD_AREAS[n.region], sites = D.sitesOf(n.region, n.start), far = D.overseas(n.region, 'Midwest');
-      // a district still to form in this area: all of it (your team joins), or part of it (you choose then)
-      const fut = d ? null : D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0];
-      const futTxt = !fut ? '' : G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. ' : 'In ' + fut.from + ' part of it forms the ' + h(fut.name) + ': you choose then whether to join. ';
+      // a district still to form in this area: all of it (your team joins), or part of it (a team inside it chooses then)
+      const futTxt = '<span id="ng-fut">' + UI.ngFut(n) + '</span>';
       o += '<div class="hint mt"><b>Competition:</b> about ' + pv.teams + ' teams in ' + n.start + ', average strength about ' + pv.avg + ', and ' + (pv.elite ? pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world.' : 'no ' + UI.eliteTag() + ' team calls this area home this season.') +
         ' The numbers follow the real season. ' + UI.q('world', 'Elite teams') + '</div>';
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
@@ -25951,7 +26707,7 @@ window.G = window.G || {};
     o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
       '<div class="sm muted mb mt">Second colour</div><div class="swatches">' + UI.TEAM_COLORS2.map(c => '<button class="swatch ' + (n.c2 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c2|' + c.hex + '"></button>').join('') + '</div></div>' +
       '<div class="span2"><div class="sm muted mb">Team emblem</div><div class="avpick">' + UI.AVATARS.map(a => '<button class="' + (n.avatar === a ? 'on' : '') + '" data-act="ngSet" data-arg="avatar|' + a + '" title="' + a + '">' + UI.avatar({ avatar: a, c1: n.c1, c2: n.c2 }, 40) + '</button>').join('') + '</div>' +
-      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted">' + h(n.school) + ' · ' + h(n.home ? D.DISTRICT[n.home].name : n.region) + '</div></div></div></div></div>';
+      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b" id="ng-who">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted" id="ng-where">' + h(UI.ngWhere(n)) + '</div></div></div></div></div>';
     if (n.mode === 'career' || n.scenario === 'custom') {
       o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money, ngPx), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
     }
@@ -26000,7 +26756,10 @@ window.G = window.G || {};
     if (k === 'num') n.numAuto = false; // the player's own number stays
     if (k === 'school') n.schoolAuto = false; // a name of your own: the team stays where the school you picked stands (n.place)
     if (k === 'lead') n.leadAuto = false;
-    if (k === 'num' && UI.ngSync(n)) UI.render(); // another number can mean another city of the home, and other names there
+    // Another number can mean another city of the home, and other names there. The preview line and the default name
+    // follow at once, in place: the page is not drawn again while somebody is typing in it.
+    if (k === 'num' && UI.ngSync(n)) { const li = document.querySelector('input[data-chg="ng"][data-k="lead"]'); if (li) li.value = n.lead; }
+    { const who = document.getElementById('ng-who'), wh = document.getElementById('ng-where'), fu = document.getElementById('ng-fut'); if (who) who.textContent = n.num + ' ' + n.name; if (wh) wh.textContent = UI.ngWhere(n); if (fu) fu.innerHTML = UI.ngFut(n); }
   };
   // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
   UI.A.ngGame = y => {
@@ -26011,7 +26770,10 @@ window.G = window.G || {};
     UI.render();
   };
   UI.A.ngGameMove = arg => { const [i, d] = arg.split('|').map(Number), l = UI.st.ng.games || [], j = i + d; if (j < 0 || j >= l.length) return; const t = l[i]; l[i] = l[j]; l[j] = t; UI.render(); };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'), was = k === 'start' ? UI.ngSchools(UI.st.ng).join('|') : ''; UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v;
+    // another start year can mean another list of schools (a district has formed, or has not yet): a suggested school is drawn again
+    if (k === 'start' && UI.st.ng.schoolAuto && UI.ngSchools(UI.st.ng).join('|') !== was) UI.ngPick(UI.st.ng, UI.ngSchool(UI.st.ng));
+    if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
   UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
@@ -26022,7 +26784,7 @@ window.G = window.G || {};
       if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
       const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
     }
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null, z: UI.ngZone(n) },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
@@ -26063,60 +26825,23 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
-    { v: '3.4.7', title: 'Beta of 3.5: people and places, international partners, your own Elite tag', notes: [
-      'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors and your own default name follow your city; the people of other teams follow theirs. Everybody already on your team keeps their name.',
-      'A school named after a place stands in that place on the map (the star\'s tooltip says where), and every part of the world with teams has schools of its own. The place is settled when the career starts.',
-      'International companies: 42 giants that sponsor teams everywhere. They make partner offers only, about one partner offer in ten, and each adds 1 reputation at every season review. Corvane Labs is one of them, with odds of its own, and it now writes you a letter when it signs and when it renews.',
-      'A title sponsor\'s letter puts its name on the robot or on the stickers. One writer in four still says "on the bumpers", and it shows that they have never seen a robot.',
-      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season, on Headquarters, at events and in scouting.',
-      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
-      'The story of the fast printers has a new paragraph on why machined parts still matter.'
-    ] },
-    { v: '3.4.6', title: 'Beta of 3.5: sponsors, disputes and a name of your own', notes: [
-      'You are the lead mentor, and now you have a name: set it when you make a game (the Mentors page can change it later). Letters to the team are addressed to you, and some are copied to one of your mentors: a sponsor\'s to the business mentor, an invitation to play to the drive coach.',
-      'Sponsors: every one of them has a line that says what it does, and there are twice as many (830, with names from your home). A list of offers never shows a company twice. A sponsor that leaves stays off the list for a year.',
-      'A title sponsor writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. From the autumn of 2022 the printer maker Corvane Labs may be among the partner offers; what it donates is printers and electronics benches.',
-      'Hiring a mentor can be undone until you press Continue, like signing a sponsor. The Inbox hears of a signing or a hire on the next turn.',
-      'Team disputes: once or twice a season the team falls out with itself. You always have a choice: leave it for a small sure loss, or step in for an even chance of no loss or a worse one.',
-      'Shop incidents: fourteen more, and the same one seldom comes round twice. For a shop incident and a team dispute alike, the result shows in the window as soon as you choose.'
-    ] },
-    { v: '3.4.5', title: 'Beta of 3.5: offseason events at home', notes: [
-      'Every home has its own offseason events, named for the place and held in one of its cities: the Cherry Capital Clash in Traverse City for the Lakeshore District, the Pearl River Summer Open in Shenzhen for East Asia. The trip is still a short one.',
-      'Their fields are local: the teams of your own area first, your own district or cities most of all. Where too few teams live there, the nearest others make up the numbers. The Week 0 scrimmage draws its teams the same way. Summit Champs still invites the whole world.',
-      'Teams outside North America have four offseason events, not five: nothing is held in October, so an invited team is free to fly to Summit Champs.',
-      'Every event names its city: in the Calendar\'s registration list, on the event page and on the World map. The New Career page lists the cities of your home\'s events for every home.',
-      'Your school or organisation is shown on the Headquarters page, in the letters from FIRST and in the celebration windows.'
-    ] },
-    { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
-      'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
-      'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',
-      'The New Career page says what lies ahead for your home: a district that takes in the whole area, one that forms in part of it and asks you, or none.',
-      'A career saved in 3.4.3 is converted when it loads: a team from the old Middle East\'s regional cities is an Anatolia team now.'
-    ] },
-    { v: '3.4.3', title: 'Beta of 3.5: the whole world', notes: [
-      'The world simulation covers every part of the world with teams in it. Twelve areas: the West, Southwest, Midwest, Northeast and Southeast, the North, Central America, South America, Europe, the Middle East, East Asia and Asia Pacific. Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East.',
-      'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the team numbers they carry by the thousand, their average strength, and the cities that host its regionals. Some seasons an area has no regional of its own.',
-      'Elite teams follow the real top 100 teams in the world by rating, scaled to the game\'s world and shared by area each season. Not every area has one every year.',
-      'A new kind of travel: a flight overseas, to an event in another part of the world. It costs more than an ordinary flight, is harder on the robot and a little more tiring, and the team trailer cannot make the trip. The Championship is overseas for every team outside North America.',
-      'The World page\'s map shows the whole world and opens on your part of it.',
-      'Your default team number and school name follow your home, and sponsors are named after the industries of the place.',
-      'A career saved before this version plays its season out as it was and grows into the whole world the next October. The old northern area is now the North.',
-      'For testing: tools/world-viewer plays a decade and shows the map and every area\'s numbers against the real ones, year by year.'
-    ] },
-    { v: '3.4.2', title: 'Beta of 3.5: two display fixes', notes: [
-      'Custom career: "As listed" is the default way to play your games, and it now shows as chosen from the start.',
-      'Inventory, Your robots: the Control system card names who made each part, so Sterling parts say Sterling and no longer Apex.'
-    ] },
-    { v: '3.4.1', title: 'Beta of 3.5: menu pages keep their place', notes: [
-      'On the New Career, Single Season Challenge and the other menu pages, clicking a choice no longer sends the page back to the top: it stays where you were, as the game pages do.'
-    ] },
-    { v: '3.4.0', title: 'Beta of 3.5: ten fantasy games and custom careers', notes: [
-      'This is a beta. It keeps its own saves and settings, apart from the stable game\'s, so trying it cannot harm a career you are playing there. A save exported from the stable game can be imported here.',
+    { v: '3.5', title: 'FRC Manager 3.5: the whole world, and ten games that never were', notes: [
       'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',
-      'Single Season Challenge: any fantasy game, played as the 2027 season.',
-      'Random-order careers: choose how many of the seasons are fantasy games. They are drawn from the ten and shuffled in with the real ones.',
-      'Custom career: pick the start year and the games yourself, real and fantasy, and play them as listed or shuffled. The career ends after your last game. STRONGHOLD stays in 2016 or 2017.',
-      'How to play: "Fantasy games and custom careers" under The decade, and a line on each fantasy game under Matches.'
+      'Three ways to play them: a Single Season Challenge (as the 2027 season), a random-order career with as many fantasy seasons as you choose, or a custom career with your own start year and list of games, real and fantasy, as listed or shuffled. STRONGHOLD stays in 2016 or 2017.',
+      'The whole world: thirteen areas with teams in them, from the West to Asia Pacific, each following the real seasons of 2016 to 2026 (how many teams it has, the numbers they carry, how strong they are, the cities that host its regionals). Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East. Elite teams follow the real top 100 by rating, area by area, so not every area has one every year.',
+      'Flying overseas: an event in another part of the world costs more than an ordinary flight, is harder on the robot and more tiring, and the team trailer cannot make the trip. The Championship is overseas for every team outside North America.',
+      'Home: your default team number and school follow your home, every event names its city, and every home has its own offseason events with local fields. Outside North America nothing is held in October, so an invited team is free to fly to Summit Champs.',
+      'You are the lead mentor, under a name of your own. Letters are addressed to you, and some are copied to one of your mentors. People are named as people of their part of the world usually are, first name and family name together.',
+      'Sponsors: more than a thousand of them, each with a line that says what it does and the city it is in. Most offers come from companies close to your team, some from the rest of its country and now and then one from a neighbouring country. A local business only sponsors teams near one of its shops, and a foundation stays inside its borders.',
+      'No company is on a list twice, and one that leaves stays away for a year. A title sponsor writes you a letter when it signs and when it renews.',
+      'International companies make partner offers to teams everywhere, about one partner offer in ten and more where a team has few companies of its own around it, and each adds 1 reputation at every season review. From the autumn of 2022 the printer maker Corvane Labs is one of them: it writes letters too, and what it donates is printers and electronics benches.',
+      'Team disputes: once or twice a season the team falls out with itself and waits for your decision. There are more shop incidents, the same one seldom comes round twice, and the result of a decision shows in the window as soon as you make it.',
+      'Hiring a mentor can be undone until you press Continue, like signing a sponsor. The Inbox hears of a signing or a hire on the next turn.',
+      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season.',
+      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
+      'Your school or organisation is on the Headquarters page, in the letters from FIRST and in the celebration windows. Menu pages keep their place when you click a choice, and the Inventory names who made each control system part.',
+      'A career saved in an earlier version loads as it is. It plays its season out as it was and grows into the whole world the next October; everybody on your team keeps their name, and the old northern area is now the North.',
+      'For testing: tools/world-viewer plays a decade and shows the map and every area\'s numbers against the real ones, year by year.'
     ] },
     { v: '3.1.5', title: 'Suggestions at any effort, stronger elites, sponsor terms', notes: [
       'The Design Office\'s suggested build or upgrade can be started thorough or rush too, with the hours each takes on its button.',
@@ -26877,7 +27602,7 @@ window.G = window.G || {};
   // (3.5) the map is the whole world: zoom 1 shows all of it, about 5 one part of the world, up to KMAX a single city.
   // It opens on the part of the world your team is in.
   const KMAX = 64;
-  const MS = () => (UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, type: 'all', smin: 0, smax: 100, wk: 'all' });
+  const MS = () => { const st = UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, city: true, type: 'all', smin: 0, smax: 100, wk: 'all' }; if (st.city === undefined) st.city = true; return st; };
   const clampView = st => {
     st.k = U.clamp(st.k, 1, KMAX);
     const vw = G.Geo.W / st.k, vh = G.Geo.VH / st.k;
@@ -26946,7 +27671,7 @@ window.G = window.G || {};
     const opt = (v, cur, label) => '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>';
     let o = '<div class="row wrap wm-f mb">' +
       flab('Show', '<div class="segs">' + [['both', 'Teams and events'], ['teams', 'Teams'], ['events', 'Events']].map(x => '<button class="btn sm ' + (st.show === x[0] ? 'sel' : '') + '" data-act="wmShow" data-arg="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>') +
-      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
+      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships'], ['city', 'Cities']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
       flab('Filter by team type', '<select class="inp fsel" data-chg="wmType">' + opt('all', st.type, 'All types') + opt('district', st.type, 'District teams') + opt('regional', st.type, 'Regional teams') + opt('rookie', st.type, 'Rookies') + opt('qual', st.type, 'Championship qualified') + opt('elite', st.type, 'Elite teams') + '</select>') +
       flab('Filter by strength', '<select class="inp fsel" data-chg="wmSmin" title="Weakest team shown">' + [0, 20, 30, 40, 50, 60, 70, 80].map(v => opt(v, st.smin, v)).join('') + '</select><span class="xs muted">to</span>' +
       '<select class="inp fsel" data-chg="wmSmax" title="Strongest team shown">' + [30, 40, 50, 60, 70, 80, 90, 100].map(v => opt(v, st.smax, v)).join('') + '</select>') +
@@ -27015,6 +27740,21 @@ window.G = window.G || {};
       });
     }
     if (st.dist) svg += dists.map(d => label(d.id, d.short + ' District', 11, '#c3c2b7', ' font-weight="700"')).join(''); // district names above the circles
+    // ---- (3.5) the cities teams come from, named once the map is magnified. As on any map, the big cities come
+    // first: the cities with the most teams this season, as many as the zoom has room for, and a name only where it
+    // does not run into one already placed. A city with no team this season has no name.
+    if (st.city !== false && k >= 2) {
+      const cnt = {}; Object.values(S.teams).forEach(t => { const hb = Geo.posOf(S, t, cy).hub; cnt[hb] = (cnt[hb] || 0) + 1; });
+      { const mh = Geo.posOf(S, S.team, cy).hub; cnt[mh] = (cnt[mh] || 0) + 1; }
+      const fs = 10.5 / k, placed = [], most = k >= 28 ? 1e9 : Math.round(8 + k * 4);
+      Geo.HUBS.filter(hb => cnt[hb.n]).map(hb => { const p = Geo.xy(hb.lon, hb.lat); return { n: hb.n, x: p[0], y: p[1], c: cnt[hb.n] }; })
+        .filter(c => c.x > vx && c.x < vx + vw && c.y > vy && c.y < vy + vh).sort((a, b) => b.c - a.c || (a.n < b.n ? -1 : 1)).slice(0, most).forEach(c => {
+          const w = c.n.length * fs * 0.58, ty = c.y + Math.min(R(c.c), 13 / k) + fs, box = [c.x - w / 2 - 3 / k, ty - fs, c.x + w / 2 + 3 / k, ty + fs * 0.45];
+          if (placed.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) return;
+          placed.push(box);
+          svg += '<text x="' + c.x.toFixed(1) + '" y="' + ty.toFixed(2) + '" font-size="' + px(10.5) + '" fill="#c3ccd6" text-anchor="middle" class="wm-lbl wm-halo wm-city" stroke-width="' + px(3) + '">' + h(c.n) + '</text>';
+        });
+    }
     svg += champs;
     // ---- the marked team: a gold ring and its number, a dashed line from yours
     if (mk) { const x = mk.xy[0], y = mk.xy[1], r = 9 / k;
@@ -27491,7 +28231,7 @@ window.G = window.G || {};
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Outside programs (FLL, camps, clubs, other schools\' FTC) are capped: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. Your own FTC teams don\'t count: the FTC Team Space limits them. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
-      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review (a partner\'s a little lower).', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October: three for the title, six from partners and one or two grants, each from a different company. A title sponsor pays about three times a partner. No company is on the list twice, and none that already sponsors you.', 'Sponsors are companies of your home. About one partner offer in ten comes from an <b>international company</b> instead, marked International: a giant that sponsors teams all over the world, as a partner like any other. It never offers a title. Its name on your robot is worth a little: <b>+' + D.SPONSOR_INTL.rep + ' reputation</b> at every season review for each international partner you hold.', 'A sponsor that leaves, because it did not renew or because you ended its contract, is not on the next list of offers: it can come back a year later.', 'From the autumn of 2022 the printer maker <b>' + D.SPONSOR_MAKER.name + '</b>, an international company too, may be among the partner offers, wherever your team is, and more often than the others: on about every other list. It is a partner like any other, but what it donates is its own trade: a Prototyping Lab or an Electronics Workbench level.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'Every sponsor has a line under its name that says what it does. The Inbox hears of a signing on the next turn, once it can no longer be undone. A <b>title sponsor</b> writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. ' + D.SPONSOR_MAKER.name + ', a partner, writes one too.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A very satisfied sponsor now and then <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier (below it, never): about one donation in three or four seasons with every slot filled and every sponsor delighted, far fewer otherwise, and none in the two years after one.'] },
+      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review (a partner\'s a little lower).', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October: three for the title, six from partners and one or two grants, each from a different company. A title sponsor pays about three times a partner. No company is on the list twice, and none that already sponsors you.', 'Every company has a <b>city</b>, shown beside its name. Most offers come from companies close to your team; a company or a foundation also sponsors teams all over its own country, and now and then a company from a neighbouring country writes. A local business only sponsors teams near one of its shops, and a foundation never crosses a border.', 'About one partner offer in ten comes from an <b>international company</b> instead, marked International: a giant that sponsors teams all over the world, as a partner like any other (the city beside its name is its head office). Where a team has few companies of its own around it, international companies make more of the partner offers. It never offers a title. Its name on your robot is worth a little: <b>+' + D.SPONSOR_INTL.rep + ' reputation</b> at every season review for each international partner you hold.', 'A sponsor that leaves, because it did not renew or because you ended its contract, is not on the next list of offers: it can come back a year later.', 'From the autumn of 2022 the printer maker <b>' + D.SPONSOR_MAKER.name + '</b>, an international company too, may be among the partner offers, wherever your team is, and more often than the others: on about every other list. It is a partner like any other, but what it donates is its own trade: a Prototyping Lab or an Electronics Workbench level.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'Every sponsor has a line under its name that says what it does. The Inbox hears of a signing on the next turn, once it can no longer be undone. A <b>title sponsor</b> writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. ' + D.SPONSOR_MAKER.name + ', a partner, writes one too.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A very satisfied sponsor now and then <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier (below it, never): about one donation in three or four seasons with every slot filled and every sponsor delighted, far fewer otherwise, and none in the two years after one.'] },
       { icon: 'money', t: 'Debt', li: ['From Kickoff to the Championship you can spend into debt (down to −' + U.money(D.DEBT_LIMIT) + ').', 'The school clears it at the season review, at a cost in Program Support and reputation: the bigger the debt, the bigger the cost, and half as much again for each season in a row that ends in debt. A strong season can be worth it.', 'In the offseason you can only spend cash you have.'] },
       { icon: 'fund', t: 'STEM support fund', li: ['When the balance is under ' + U.money(D.STEM_FUND.below) + ', apply for up to ' + U.money(D.STEM_FUND.max) + ' (twice a program year). Each application costs ' + D.STEM_FUND.rep + ' reputation.'] }
     ] },
@@ -27514,10 +28254,9 @@ window.G = window.G || {};
         'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the numbers they carry, how strong they are on average, and how many of the best teams in the world come from there. Anatolia grows from a handful of teams to about a hundred; East Asia rises, falls and rises again; South America takes off in 2023.',
         'Outside the United States an area\'s regionals are held in the cities that really hosted one that season (the events keep made-up names). Some seasons an area has none: Europe never does, South America not before 2023, Anatolia not before 2018, East Asia not in 2016, 2019, 2023 or 2024. The New Career page says what your home holds in your first season, and the Inbox tells you each October.',
         'Two districts lie outside the United States, both from 2017: the <b>Trillium District</b> in the North and the <b>Levant District</b> in the Middle East. In 2016 their teams still play regionals.',
-        'The Levant District takes in the whole Middle East: a team that starts there in 2016 joins it in 2017, with no choice to make, and from 2017 the area is on the home list only as the district. Anatolia has no district. Where a district forms in part of an area (Trillium, Mesa, Sierra), a regional team there is asked whether to join. The New Career page says which applies to your home.',
+        'The Levant District takes in the whole Middle East: a team that starts there in 2016 joins it in 2017, with no choice to make, and from 2017 the area is on the home list only as the district. Anatolia has no district. Where a district forms in part of an area (Trillium, Mesa, Sierra), a regional team that stands inside it is asked whether to join, and the area\'s other teams stay with the regionals. The New Career page says which applies to your team.',
         'Your default team number and school name follow your home: an established team gets a number its area\'s teams really carry (East Asia\'s oldest are in the 4000s and 5000s), and sponsors are named after the industries of the place.',
-        'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language: an English first name before a family name of that shore in most of East Asia, one language along the Saint Lawrence and another on the prairies, a different one in almost every city of Europe. Your students, your mentors, your own default name and the people who write to you carry your city\'s names; the people of other teams carry their own. The staff of an international company keep names from everywhere.',
-        'A school named after a place stands in that place on the map: Pearl Delta Experimental School in the Pearl delta, Front Range High School at the foot of the Front Range. A school that points nowhere in particular is put in one of your home\'s cities. The place is settled when the career starts, by the school the team started from: the name on the door can be anything.'] },
+        'People are named as people of their part of the world usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors, your own default name and the people who write to you carry the names of where your team is from; the people of other teams carry their own. The staff of an international company keep names from everywhere.'] },
       { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices: <b>Local</b>, <b>Drive</b> (your own area, or the one next door), <b>Fly</b> (the same part of the world) and <b>Fly overseas</b> (another part of the world: North America; South America; Europe, Anatolia and the Middle East; East Asia; Asia Pacific).',
         'A flight overseas costs ' + U.money(D.TRAVEL.intl.cost) + ' for a team of 25 (an ordinary flight ' + U.money(D.TRAVEL.fly.cost) + '), and more for a bigger team. The robot crosses the ocean in a crate and arrives ' + D.INTL_KNOCKS[0] + ' to ' + D.INTL_KNOCKS[1] + '% worse for wear (an ordinary flight: 4 to 9%), and the team comes home a little more tired.',
         'The <b>team trailer</b> turns ordinary flights into long drives. It cannot cross an ocean: a flight overseas stays a flight.',
@@ -27535,7 +28274,7 @@ window.G = window.G || {};
       { icon: 'map', t: 'The map', li: ['The World page opens on a map of the whole world, zoomed to your part of it: ⌂ comes back there, ⟲ shows everything. It holds every team and event of the season. A circle is a group of teams close together: its <b>size</b> is how many, its <b>colour</b> their average strength (light blue weaker, dark blue stronger). Strength is the world simulation\'s own rating of a team: 50 is an average team, the best are in the 90s.',
         'Violet diamonds are events. <b>Your team</b> is the gold star. The events you registered for or played are ringed in gold (gold-filled once played), with a dashed line from home; your district is shaded a little stronger.',
         'Drag to move; scroll or use + and − to zoom. Click a group to zoom in, a single team for its season so far, an event for its winners. Hover anything for details.',
-        'The filters above the map: teams, events or both; the area borders, the districts and the Championship cities; which teams (district, regional, rookies, qualified); a strength range; one week of events, or only yours.',
+        'The filters above the map: teams, events or both; the area borders, the districts, the Championship cities and the names of the cities teams come from (once you zoom in, the biggest first); which teams (district, regional, rookies, qualified); a strength range; one week of events, or only yours.',
         'The table under the map lists every area and district: teams, average strength, rookies, events and Championship places so far. Click a row to find it on the map.',
         '<b>Show this team on the map</b>: an Inbox message that names another team has this button, and so does every row of the Scouting list (the map icon). The map centres on that team, rings it in gold with a dashed line from yours, and says how far away it is; <b>Clear</b> removes the marker. A message with only this button does not count as one waiting for you.'] },
       { icon: 'scout', t: 'Scouting', li: ['The Scouting tab lists every team\'s season so far: events played, qualification record (W-L-T), ranking score, <b>OPR</b> and its split into <b>auto</b>, <b>teleop</b> and <b>endgame</b>, best playoff finish and awards. It updates after every competition week.',
@@ -27638,7 +28377,7 @@ window.G = window.G || {};
         '<b>Program Support</b>: the school\'s backing, moved by the season goals. At 0 the program is cut. It also decides your <b>workshop space</b>.',
         '<b>Reputation</b>: what the wider community thinks of the team. It brings sponsors, recruits and invitations, and raises the school\'s expectations.',
         '<b>Morale</b>: how the students feel. <b>Legacy</b>: the career score on the History page.',
-        '<b>Sponsor satisfaction</b>: decides renewals and donations. <b>Title sponsor\'s letter</b>: the email a title sponsor sends when it signs and when it renews (the printer maker sends one too). <b>International company</b>: a giant that sponsors teams all over the world, as a partner only; about one partner offer in ten, and +' + D.SPONSOR_INTL.rep + ' reputation a season while it is with you. <b>Team dispute</b>: an argument inside the team, once or twice a season, that waits for your decision. <b>Lead mentor</b>: you, under the name you gave. <b>Loyalty level</b>: your standing with a parts vendor.',
+        '<b>Sponsor satisfaction</b>: decides renewals and donations. <b>Title sponsor\'s letter</b>: the email a title sponsor sends when it signs and when it renews (the printer maker sends one too). <b>International company</b>: a giant that sponsors teams all over the world, as a partner only; about one partner offer in ten (more where few companies are near you), and +' + D.SPONSOR_INTL.rep + ' reputation a season while it is with you. <b>A sponsor\'s city</b>: where the company is, shown beside its name; the companies close to your team write most often. <b>Team dispute</b>: an argument inside the team, once or twice a season, that waits for your decision. <b>Lead mentor</b>: you, under the name you gave. <b>Loyalty level</b>: your standing with a parts vendor.',
         '<b>Feeder program</b>: an FLL or FTC team, camp or club that sends you recruits; outside ones are capped by your outreach mentor and reputation. <b>FTC</b>: the FIRST Tech Challenge, smaller robots playing two against two; your own FTC teams play its season beside yours. <b>Background message</b>: one the Inbox can hide (development reports, chatter, general news). <b>High priority</b>: a message that can change what you do soon (launch dates, stock alerts, deadlines). <b>Print farm</b>: a shelf of fast desktop printers (the top level of the Prototyping Lab, from the autumn of 2022). <b>Impact rating</b>: your chance at the Impact Award, built from several seasons of outreach.',
         '<b>STEM support fund</b>: emergency money for a nearly broke team, at a cost in reputation.',
         '<b>Facility</b>: a workshop machine or room. Facilities speed projects up, wear down, and take floor space. <b>Super pit</b>: the top level of Pit Setup, a pit in road cases.'] }

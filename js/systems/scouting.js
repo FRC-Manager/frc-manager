@@ -285,6 +285,8 @@
     const xy = Geo.xy(hb.lon, hb.lat);
     return { xy: [xy[0] + lap * 1.4, xy[1] - lap * 1], hub: hb.n };
   };
+  // the city of the map your own team stands nearest to ('' if it cannot be told)
+  Geo.cityOf = S => { try { return (S && S.team && Geo.posOf(S, S.team, Geo.cyOf(S)).hub) || ''; } catch (e) { return ''; } };
   // the city an event of this season is held in, for any copy of the event (the Calendar's list, the event being
   // played): looked up by its id. '' outside the world simulation and for events with no place of their own.
   Geo.eventCity = function (S, e) {

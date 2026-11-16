@@ -130,6 +130,62 @@
     'Klang Valley International School': ['Kuala Lumpur'], 'Pasig River Science High School': ['Manila'],
     'Harbour City Grammar School': ['Sydney'], 'Blue Gum Secondary College': ['Melbourne'], 'Outback Community High School': ['Coonabarabran'], 'Coral Coast State High School': ['Brisbane']
   };
+  // A school of its own for every city of the map: each of these stands in that one city and nowhere else, so that
+  // any city a home's teams come from can be chosen by its school. (The lists above keep the schools that point to a
+  // wider place, or to nowhere in particular; what a school of an earlier version pointed to is never changed, so
+  // that no team of an older save moves.) home: { city: school }.
+  D.SCHOOL_IN = {
+    West: { 'Las Vegas': 'Palo Verde High School', Reno: 'Truckee Meadows High School', Boise: 'Treasure Valley High School', Missoula: 'Bitterroot Valley High School', 'Idaho Falls': 'Teton View High School', Honolulu: 'Trade Winds Academy' },
+    evergreen: { Seattle: 'Elliott Bay High School', Tacoma: 'Commencement Bay High School', Everett: 'Port Gardner High School', Portland: 'Rose City High School', Salem: 'Cherry City High School', Eugene: 'Emerald Valley High School',
+      Spokane: 'Lilac City High School', Bend: 'Three Sisters High School', Yakima: 'Hop Valley High School' },
+    sierra: { 'Los Angeles': 'Griffith Heights High School', 'Orange County': 'Citrus Coast High School', 'San Diego': 'Cabrillo Shores High School', 'Inland Empire': 'Inland Valley Technical High School', 'San Francisco Bay': 'Bayshore Technical High School',
+      'San Jose': 'Orchard Valley High School', Sacramento: 'Confluence High School', Fresno: 'Raisin Valley High School', 'Santa Barbara': 'Channel View High School', Bakersfield: 'Grapevine Pass High School' },
+    Southwest: { Phoenix: 'Valley of the Sun High School', Tucson: 'Old Pueblo High School', Albuquerque: 'Sandia Peak High School', Denver: 'Platte River High School', 'Colorado Springs': 'Red Rock Garden High School',
+      'Salt Lake City': 'Wasatch Front High School', 'Oklahoma City': 'Land Run High School', Tulsa: 'Oil Capital High School', 'Las Cruces': 'Pecan Valley High School' },
+    mesa: { Houston: 'Bayou City High School', Dallas: 'Trinity River High School', 'Fort Worth': 'Cowtown Technical High School', Austin: 'Barton Hills High School', 'San Antonio': 'Alamo Heights Academy', 'El Paso': 'Sun City High School',
+      Lubbock: 'Llano Estacado High School', 'Corpus Christi': 'Coastal Bend High School' },
+    Midwest: { Chicago: 'Windy City Technical High School', Milwaukee: 'Cream City High School', Madison: 'Four Lakes High School', Minneapolis: 'Mill City High School', Indianapolis: 'Circle City High School', Columbus: 'Scioto River High School',
+      Cleveland: 'North Coast High School', Cincinnati: 'Queen City Technical High School', 'St. Louis': 'Mound City High School', 'Kansas City': 'Fountain City High School', 'Des Moines': 'Raccoon River High School', Omaha: 'Gate City High School',
+      Fargo: 'Red River Valley High School', Duluth: 'Twin Ports High School', Wichita: 'Air Capital High School', Billings: 'Rimrock High School', Marquette: 'Superior Shore High School' },
+    lakeshore: { Detroit: 'Motor City Technical High School', 'Ann Arbor': 'Tree Town High School', 'Grand Rapids': 'River Rapids High School', Lansing: 'Red Cedar High School', Kalamazoo: 'Celery Flats High School', Flint: 'Vehicle City High School',
+      Saginaw: 'Bay Timber High School', 'Traverse City': 'Grand Traverse High School', Muskegon: 'Port City High School', 'Port Huron': 'Blue Water High School' },
+    Northeast: { 'New York': 'Brooklyn Bridge Technical High School', 'North Jersey': 'Meadowlands Technical High School', 'Central Jersey': 'Pine Barrens Regional High School', Philadelphia: 'Boathouse Row High School', Pittsburgh: 'Steel City High School',
+      Buffalo: 'Niagara Frontier High School', Rochester: 'Flower City High School', Syracuse: 'Salt City High School', Albany: 'Patroon Creek High School', 'Long Island': 'Great South Bay High School', Baltimore: 'Chesapeake Academy',
+      Harrisburg: 'Midstate Technical High School', Wilmington: 'Christina River High School' },
+    harbor: { Boston: 'Minuteman Regional High School', Worcester: 'Quinsigamond Lake High School', Hartford: 'Charter Oak High School', 'New Haven': 'Elm City High School', Providence: 'Narragansett Bay High School', Manchester: 'Granite Hills High School',
+      'Portland, Maine': 'Head Light High School', Burlington: 'Lake Champlain Academy', Springfield: 'Hoop City High School', Bangor: 'Lumber Capital High School' },
+    Southeast: { Atlanta: 'Peachtree Academy', Raleigh: 'Oak City High School', Charlotte: 'Crown Town High School', Orlando: 'Space Coast High School', Miami: 'Biscayne Bay High School', Tampa: 'Cigar City High School', Jacksonville: 'Bold City High School',
+      Nashville: 'Music City High School', Richmond: 'Fall Line High School', 'Northern Virginia': 'Beltway Technical High School', Norfolk: 'Hampton Roads Maritime High School', 'New Orleans': 'Crescent City High School', Birmingham: 'Magic City High School',
+      Louisville: 'Derby City High School', Columbia: 'Palmetto Ridge High School', Knoxville: 'Marble City High School', 'Little Rock': 'Rock Ridge High School', Memphis: 'Blues City High School' },
+    North: { Montreal: 'Mount Royal Collegiate', Sherbrooke: 'Eastern Townships Secondary School', 'Quebec City': 'Cap Diamant College', 'Trois-Rivieres': 'Saint-Maurice College', Vancouver: 'Burrard Inlet Secondary School', Victoria: 'Garden City Secondary School',
+      Kelowna: 'Okanagan Lake Secondary School', Calgary: 'Bow River High School', Lethbridge: 'Coulee Winds High School', Edmonton: 'River Valley Composite High School', Winnipeg: 'The Forks Collegiate', Regina: 'Wascana Lake Collegiate' },
+    trillium: { Toronto: 'Don Valley Collegiate Institute', Mississauga: 'Credit River Secondary School', Brampton: 'Flower Town Secondary School', Markham: 'Rouge River Collegiate', Hamilton: 'Bayfront Technical Secondary School', London: 'Forest City Secondary School',
+      Windsor: 'Ambassador Collegiate', Waterloo: 'Grand River Collegiate Institute', 'St. Catharines': 'Twelve Mile Creek Secondary School', Kingston: 'Limestone City Collegiate', Ottawa: 'Rideau Canal Collegiate', Barrie: 'Kempenfelt Bay Secondary School',
+      Oshawa: 'Oshawa Creek Collegiate', Sarnia: 'Chemical Valley Secondary School', 'North Bay': 'Nipissing Shores Secondary School', Sudbury: 'Nickel City Secondary School', 'Owen Sound': 'Scenic City Secondary School' },
+    'Central America': { Monterrey: 'Cerro de la Silla Preparatory', Torreon: 'Laguna Technical Institute', 'Mexico City': 'Twin Volcanoes College', Toluca: 'Nevado Technical Institute', Guadalajara: 'Agave Hills College', 'San Luis Potosi': 'Potosi Silver College',
+      Chihuahua: 'Copper Canyon Preparatory', Hermosillo: 'Sonoran Sun Preparatory', Saltillo: 'Sarape Technical Institute', Leon: 'Leather Capital College', Queretaro: 'Aqueduct College', Puebla: 'Talavera College', Tampico: 'Gulf Port Technical School',
+      Reynosa: 'Rio Bravo Technical Preparatory', Durango: 'Scorpion Hills Preparatory', Morelia: 'Cantera Rosa College', Culiacan: 'Humaya River Institute', Merida: 'Yucatan Sun College', 'Santo Domingo': 'Ozama Polytechnic School', 'Panama City': 'Two Oceans Bilingual Academy' },
+    'South America': { 'Sao Paulo': 'Paulista Avenue Technical School', 'Sao Jose dos Campos': 'Aeronautics Valley Technical School', Campinas: 'Swallows Institute of Technology', 'Rio de Janeiro': 'Sugarloaf College', Brasilia: 'Pilot Plan School',
+      Cuiaba: 'Pantanal Gate Technical School', Goiania: 'Cerrado Flower Institute', 'Porto Alegre': 'Guaiba Shore College', Joinville: 'City of Princes Technical School', Curitiba: 'Araucaria Pines College', 'Belo Horizonte': 'Curral Ridge School',
+      Salvador: 'All Saints Bay College', Fortaleza: 'Green Sea Institute', Recife: 'Reef City Technical School', Natal: 'Dunes Institute', Manaus: 'Meeting of Waters School', Belem: 'Mango Trees College', Vitoria: 'Island Bay Technical School',
+      'Campo Grande': 'Morena Plains School', Santiago: 'Cordillera Scientific Lyceum', Cali: 'Cauca Valley Technical Institute', Medellin: 'Eternal Spring Institute' },
+    Europe: { 'Greater London': 'Thames Reach Sixth Form College', Eindhoven: 'City of Light Lyceum', Groningen: 'Martini Tower Lyceum', Prague: 'Vltava Technical Gymnasium', Lyon: 'Rhone Valley Lycee', Nice: 'Azure Coast Lycee', Warsaw: 'Royal Route Lyceum',
+      Lublin: 'Castle Hill Lyceum', Krakow: 'Wawel Hill Lyceum', Zurich: 'Alpine Cantonal School', Rijeka: 'Kvarner Bay Technical School', Sofia: 'Vitosha Mathematics High School', Cluj: 'Transylvanian Hills National College', Athens: 'Attica Model Lyceum',
+      Stockholm: 'Lake Malaren Technical Gymnasium', Kyiv: 'Dnipro Riverside Lyceum' },
+    Anatolia: { Istanbul: 'Bosphorus Science High School', Ankara: 'Citadel Science High School', Izmir: 'Clock Tower Anatolian High School', Kocaeli: 'Gulf Shore Technical High School', Eskisehir: 'Porsuk River Science High School',
+      Antalya: 'Turquoise Coast Anatolian High School', Bursa: 'Uludag Slopes Science High School', Mugla: 'Blue Voyage Anatolian High School', Diyarbakir: 'Basalt Walls Science High School', Adana: 'Stone Bridge Anatolian High School',
+      Antakya: 'Orontes Valley High School', Konya: 'Seljuk Plains Science High School' },
+    levant: { 'Tel Aviv': 'White City Technological High School', Herzliya: 'Marina Heights High School', Netanya: 'Sharon Cliffs High School', 'Modi\'in': 'Maccabee Hills High School', Rehovot: 'Orchard Science High School', Jerusalem: 'Judean Hills High School',
+      Haifa: 'Bay Terraces High School', Binyamina: 'Vineyard Valley Regional School', Afula: 'Galilee Regional School', 'Be\'er Sheva': 'Desert Blossom High School', Ashkelon: 'Southern Dunes High School' },
+    'East Asia': { Shanghai: 'Huangpu River Experimental High School', Shenzhen: 'Special Zone Science High School', Beijing: 'Western Hills High School', Suzhou: 'Classical Gardens High School', Hangzhou: 'West Lake Foreign Language School',
+      Guangzhou: 'Five Rams Middle School', Qingdao: 'Laoshan Bay High School', Zhengzhou: 'Central Plains No. 1 High School', Wuhan: 'Yellow Crane High School', Jinan: 'City of Springs High School', Nanjing: 'Purple Mountain High School',
+      Kunming: 'Spring City High School', Chengdu: 'Brocade River High School', 'Hong Kong': 'Kowloon Bay Secondary School', Taipei: 'Basin View Senior High School', Taichung: 'Dadu Plateau Senior High School', Chiayi: 'Alishan Forest Senior High School',
+      Tainan: 'Old Fort Senior High School', Kaohsiung: 'Love River Senior High School', Tokyo: 'Sumida River Technical High School', Seoul: 'Han River Science High School' },
+    'Asia Pacific': { Sydney: 'Harbour City Grammar School', Wollongong: 'Steel Coast High School', Newcastle: 'Nobbys Head High School', 'Port Macquarie': 'Koala Coast High School', Coonabarabran: 'Outback Community High School', Canberra: 'Bush Capital College',
+      Melbourne: 'Blue Gum Secondary College', Perth: 'Swan River Senior High School', Adelaide: 'River Torrens College', Brisbane: 'Coral Coast State High School', Mumbai: 'Seven Islands Public School', Delhi: 'Yamuna Bank Public School',
+      Singapore: 'Lion City Secondary School', Auckland: 'Long White Cloud College', 'Ho Chi Minh City': 'Saigon River High School for the Gifted', 'Kuala Lumpur': 'Klang Valley International School', Manila: 'Pasig River Science High School' }
+  };
+  Object.keys(D.SCHOOL_IN).forEach(h => Object.keys(D.SCHOOL_IN[h]).forEach(c => { const s = D.SCHOOL_IN[h][c]; if (!D.SCHOOL_BY[h].includes(s)) D.SCHOOL_BY[h].push(s); D.SCHOOL_AT[s] = [c]; }));
   D.schoolAt = name => D.SCHOOL_AT[String(name == null ? '' : name).trim()] || null;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems', 'Sierra Photonics', 'Cupola Space Systems', 'El Camino Microdevices', 'Tidepool Robotics', 'Pacific Quantum Works', 'Joshua Tree Avionics'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic', 'Cable Car Software', 'Poppy Field Games', 'Marina Analytics', 'Eucalyptus Code'],
@@ -173,7 +229,63 @@
   D.SPONSOR_BY.sierra = D.SPONSOR_BY.West; D.SPONSOR_BY['Middle East'] = D.SPONSOR_BY.levant;
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
-  D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
+  // A default school for a home. A school is as likely as the teams of its cities are many (each city's share of the
+  // home's teams, split between the schools that stand there), so a team made with the default follows the real map;
+  // a school that points nowhere counts as an average one.
+  D.schoolWeights = function (l) {
+    const Geo = G.Geo, W = {}; if (!Geo || !Geo.hub) { l.forEach(s => { W[s] = 1; }); return W; }
+    const at = s => (D.SCHOOL_AT[s] || []).filter(c => Geo.hub(c)), own = {}, taken = {};
+    l.forEach(s => { const a = at(s); if (a.length === 1) (own[a[0]] = own[a[0]] || []).push(s); }); // the home's cities: each has a school of its own here
+    const cities = Object.keys(own), mean = cities.length ? cities.reduce((t, c) => t + Geo.hub(c).w, 0) / cities.length : 1;
+    // a school of several cities (the team stands in any of them), or of none in this home (the team is placed as the map is): half an average school
+    l.forEach(s => { const a = at(s); if (a.length === 1) return; const here = a.filter(c => own[c]);
+      if (!here.length) { W[s] = mean * 0.5; return; }
+      W[s] = 0.5 * here.reduce((t, c) => t + Geo.hub(c).w, 0) / here.length; here.forEach(c => { taken[c] = (taken[c] || 0) + W[s] / here.length; }); });
+    // a city's own schools share what is left of the city's weight
+    cities.forEach(c => { const w = Math.max(0.15 * Geo.hub(c).w, Geo.hub(c).w - (taken[c] || 0)); own[c].forEach(s => { W[s] = w / own[c].length; }); });
+    return W;
+  };
+  // ---------- an area before its districts ----------
+  // Until a district forms, its cities are part of the area: a regional team of the area can come from any of them,
+  // as the area's other teams do (they carry the district as their zone, t.z), and so can its school. The districts
+  // of an area that are still to form in season cy; all: the game has no districts at all (a single season), so
+  // every district's cities belong to the area. Without a season, none: the area's own list, as before.
+  D.zonesAhead = (region, cy, all) => (cy == null && !all ? [] : (D.DISTRICTS || []).filter(d => d.region === region && (all || d.from > cy)));
+  // the schools a new team of a home can be given: a district's own, or the area's with those of the districts ahead
+  D.schoolList = function (home, region, cy, all) {
+    if (D.SCHOOL_BY[home]) return D.SCHOOL_BY[home];
+    const own = D.SCHOOL_BY[region]; if (!own) return [];
+    const more = D.zonesAhead(region, cy, all).map(d => D.SCHOOL_BY[d.id]).filter(l => l && l !== own); if (!more.length) return own;
+    const out = own.slice(); more.forEach(l => l.forEach(s => { if (!out.includes(s)) out.push(s); })); return out;
+  };
+  // the district ahead that these cities lie in (null: the area's own cities)
+  const zoneOfCities = (cities, region, ds) => { const hubs = (cities || []).map(c => G.Geo.hub(c)).filter(x => x && x.r === region); if (!hubs.length) return undefined; const z = hubs.map(hb => ds.find(d => d.id === hb.d)); return z.every(Boolean) ? z[0].id : null; };
+  // the district ahead that a school of the lists stands in: by its cities, else by the list it is on (null: the
+  // area's own cities; undefined: not a school of the lists)
+  D.schoolZone = function (name, region, cy, all) {
+    const ds = D.zonesAhead(region, cy, all), s = String(name == null ? '' : name).trim(); if (!ds.length) return null;
+    const z = zoneOfCities(D.SCHOOL_AT[s], region, ds); if (z !== undefined) return z;
+    if ((D.SCHOOL_BY[region] || []).includes(s)) return null;
+    const d = ds.find(x => (D.SCHOOL_BY[x.id] || []).includes(s)); return d ? d.id : undefined;
+  };
+  // The zone a new regional team stands in: where its school points (place: the cities of the school it picked,
+  // whatever the school is called now), else where a school of that name stands, else one drawn by the zones' real
+  // numbers of teams, as the area's other teams are (always the same for the same team number).
+  D.startZone = function (num, region, cy, all, school, place) {
+    const ds = D.zonesAhead(region, cy, all); if (!ds.length) return null;
+    let z = zoneOfCities(place, region, ds); if (z !== undefined) return z;
+    z = D.schoolZone(school, region, cy, all); if (z !== undefined) return z;
+    const zs = [{ z: null, n: D.realTeams(region, cy) }].concat(ds.map(d => ({ z: d.id, n: D.realTeams(d.id, cy) })));
+    return G.makeRng((((Number(num) || 1) * 40503) ^ 0x51ed27) >>> 0 || 5).wpick(zs, x => x.n + 0.01).z;
+  };
+  // ... and the weights of such a list: each zone's schools share the zone's real number of teams
+  D.schoolWeightsBy = function (l, region, cy, all) {
+    if (!D.zonesAhead(region, cy, all).length) return D.schoolWeights(l);
+    const by = {}, W = {}; l.forEach(s => { const z = D.schoolZone(s, region, cy, all) || ''; (by[z] = by[z] || []).push(s); });
+    Object.keys(by).forEach(z => { const w = D.schoolWeights(by[z]), tot = by[z].reduce((t, s) => t + w[s], 0) || 1, n = D.realTeams(z || region, cy) || 1; by[z].forEach(s => { W[s] = n * w[s] / tot; }); });
+    return W;
+  };
+  D.schoolName = (rng, home, region, cy, all) => { const l = D.schoolList(home, region, cy, all); if (!l.length) return rng.pick(D.SCHOOLS) + ' High School'; const W = D.SCHOOL_BY[home] ? D.schoolWeights(l) : D.schoolWeightsBy(l, region, cy, all); return rng.wpick(l, s => W[s]); };
   D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region] || D.SPONSOR_BY.Midwest; return a[type] || a.eng; }; // a home's own companies (the international ones are D.SPONSOR_NAMES)
 
   // ---------- people's names ----------

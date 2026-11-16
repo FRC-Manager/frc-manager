@@ -84,6 +84,9 @@
   // join it the season it forms, yours too, and after that the area has no regional teams. A team that wants to stay
   // out of it starts somewhere else.
   W.wholeArea = d => !G.Geo.HUBS.some(x => x.r === d.region && x.d !== d.id);
+  // Does your team stand in the cities of this district, which is still to form? Such a team is asked whether to
+  // join; the area's other regional teams are outside its borders. (A world from before 3.5 goes by its old map.)
+  W.inside = function (S, d, cy) { try { const hb = G.Geo.hub(G.Geo.posOf(S, S.team, cy).hub); return !!hb && hb.d === d.id; } catch (e) { return false; } };
   W.soleDistrict = (region, cy) => D.DISTRICTS.find(d => d.region === region && d.from > cy && W.wholeArea(d)) || null; // ... still to form
   W.regionOpen = (region, cy) => !D.DISTRICTS.some(d => d.region === region && d.from <= cy && W.wholeArea(d)); // regional teams can still call the area home
   // the District Championship field: a small district plays a smaller one
@@ -256,11 +259,22 @@
   // outside the United States are filled to their real numbers.
   function upgrade(S, rng, cy) {
     const zone = {}; Object.values(S.teams).forEach(t => { zone[t.num] = W.zoneOf(t, cy); }); // by the old cities, while the world still counts as old
+    const mine = S.team.place === undefined ? G.Geo.posOf(S, S.team, cy) : null; // ... and where your own team stands on the old map
     S.world.v = 3;
     Object.values(S.teams).forEach(t => {
       const d = D.DISTRICT[zone[t.num]]; if (t.home || !d) return;
       if (d.from <= cy) { if (d.real) t.home = d.id; } else t.z = d.id;
     });
+    // (3.5) Your own team stays where it stood. In the same city, if the new map has that city for your home: a city
+    // of a district still to form counts, as it does for the other teams there (your team carries that district as
+    // its zone and is asked when it forms). Else in the nearest city your home has. It keeps playing as it did.
+    if (mine) {
+      const hb = G.Geo.hub(mine.hub), d = hb && hb.d ? D.DISTRICT[hb.d] : null;
+      if (!S.team.home && d && d.from > cy && d.region === S.team.region) S.team.z = d.id;
+      const now = G.Geo.hubsFor(S.team.region, S.team.home, cy, S.team.z, false), far = x => G.Geo.miles(mine.xy, G.Geo.xy(x.lon, x.lat));
+      const at = (hb && now.find(x => x.n === hb.n)) || now.slice().sort((p, q) => far(p) - far(q))[0] || null;
+      S.team.place = at ? [at.n] : null;
+    }
     const log = { folded: 0, rookies: 0 }; reconcile(S, rng, cy, log, true); level(S, rng, cy, false);
     S.world.grew = cy;
     G.Career.inbox(S, 'The world is bigger now', 'From the ' + cy + ' season the world simulation covers every part of the world with teams in it: ' + D.REGIONS.filter(r => !D.US_REGIONS.includes(r)).join(', ') + '. Their teams, team numbers, strength and events follow the real seasons.\n\n' +

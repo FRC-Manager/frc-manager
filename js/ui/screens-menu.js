@@ -42,16 +42,33 @@
     return best;
   };
   // a default school name with the flavour of the home (until the player types one)
-  UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
+  // the page's season, and its home (a district, in a career only: a single season has no districts)
+  UI.ngCy = n => (n.mode === 'single' ? G.singleCy(n.year) : n.start);
+  UI.ngHome = n => (n.mode === 'career' ? n.home || null : null);
+  UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), UI.ngHome(n), n.region, UI.ngCy(n), n.mode !== 'career');
   // A school of the list is picked (at random, or the next one with the button beside the field): the team will
   // stand where that school points, and the name can still be edited without moving it.
   UI.ngPick = (n, name) => { n.school = name; n.schoolPick = name; n.schoolAuto = true; n.place = D.schoolAt(name); };
-  UI.ngSchools = n => D.SCHOOL_BY[(n.mode === 'career' && n.home) || ''] || D.SCHOOL_BY[n.region] || [];
-  // the city the team will stand in (as C.newGame and the map will have it)
-  UI.ngHub = function (n) {
-    const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, home = n.mode === 'career' ? n.home || null : null, dz = n.mode === 'career' && !home ? G.World.soleDistrict(n.region, cy) : null;
-    return G.Geo.teamPos(Number(n.num) || 1, n.region, home, cy, dz ? dz.id : null, false, n.place || null).hub;
+  // the schools of the home: an area's list has those of its districts still to form (their cities are the area's until then)
+  UI.ngSchools = n => D.schoolList(UI.ngHome(n), n.region, UI.ngCy(n), n.mode !== 'career');
+  // the district still to form whose cities the team will stand in (null: the area's own cities), as C.newGame will have it
+  UI.ngZone = function (n) {
+    if (UI.ngHome(n)) return null;
+    const cy = UI.ngCy(n), single = n.mode !== 'career', dz = single ? null : G.World.soleDistrict(n.region, cy);
+    return dz ? dz.id : D.startZone(n.num, n.region, cy, single, n.schoolPick, n.place);
   };
+  // the city the team will stand in (as C.newGame and the map will have it)
+  UI.ngHub = n => G.Geo.teamPos(Number(n.num) || 1, n.region, UI.ngHome(n), UI.ngCy(n), UI.ngZone(n), false, n.place || null).hub;
+  // a district that will form in part of this area: will the team be asked to join? (it is, where it stands inside)
+  UI.ngFut = function (n) {
+    if (n.mode !== 'career' || n.home) return '';
+    const fut = D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0]; if (!fut) return '';
+    return G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. '
+      : UI.ngZone(n) === fut.id ? 'In ' + fut.from + ' your part of it forms the ' + h(fut.name) + ': you choose then whether to join. '
+      : 'In ' + fut.from + ' another part of it forms the ' + h(fut.name) + '; your team stays with the regionals. ';
+  };
+  // the line under the team's name in the preview: its school, the city it stands near, its home
+  UI.ngWhere = n => n.school + ' · near ' + UI.ngHub(n) + ' · ' + (n.home ? D.DISTRICT[n.home].name : n.region);
   // ... and a default name for you, the lead mentor, as people of that city are called (until the player types one).
   // true if the name changed.
   UI.ngSync = function (n) {
@@ -68,7 +85,7 @@
     const rng = G.makeRng(Date.now() & 0xffffff);
     UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, leadAuto: true, name: D.teamName(rng), lead: '', school: '', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
-    UI.ngPick(UI.st.ng, D.schoolName(rng, null, 'Midwest'));
+    UI.ngPick(UI.st.ng, UI.ngSchool(UI.st.ng));
     UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.ngSync(UI.st.ng);
     UI.go('newgame');
   };
@@ -80,6 +97,8 @@
     if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) { // that district does not exist yet in the start year
       n.home = null; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n);
     }
+    // the school that was picked is not one of this home's any more (another start year: a district has formed)
+    if (n.schoolPick && !UI.ngSchools(n).includes(n.schoolPick)) { if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n); }
     const ngPx = U.pxOf(n.mode === 'single' ? G.singleCy(n.year) : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
@@ -101,9 +120,8 @@
       '</div>';
     if (n.mode === 'career') {
       const d = n.home ? D.DISTRICT[n.home] : null, pv = G.World.preview(n.start, n.region, n.home, n.diff), A = D.WORLD_AREAS[n.region], sites = D.sitesOf(n.region, n.start), far = D.overseas(n.region, 'Midwest');
-      // a district still to form in this area: all of it (your team joins), or part of it (you choose then)
-      const fut = d ? null : D.DISTRICTS.filter(x => x.region === n.region && x.from > n.start && x.from <= 2026).sort((p, q) => p.from - q.from)[0];
-      const futTxt = !fut ? '' : G.World.wholeArea(fut) ? 'In ' + fut.from + ' the whole area becomes the <b>' + h(fut.name) + '</b>, and your team with it. ' : 'In ' + fut.from + ' part of it forms the ' + h(fut.name) + ': you choose then whether to join. ';
+      // a district still to form in this area: all of it (your team joins), or part of it (a team inside it chooses then)
+      const futTxt = '<span id="ng-fut">' + UI.ngFut(n) + '</span>';
       o += '<div class="hint mt"><b>Competition:</b> about ' + pv.teams + ' teams in ' + n.start + ', average strength about ' + pv.avg + ', and ' + (pv.elite ? pv.elite + ' ' + UI.eliteTag() + ' team' + (pv.elite > 1 ? 's' : '') + ' call' + (pv.elite > 1 ? '' : 's') + ' this area home: among the best programs in the world.' : 'no ' + UI.eliteTag() + ' team calls this area home this season.') +
         ' The numbers follow the real season. ' + UI.q('world', 'Elite teams') + '</div>';
       o += '<div class="hint mt">' + (d ? '<b>' + h(d.name) + '</b> · ' + h(d.desc) + ' In ' + n.start + ': ' + G.World.sizeOf(d, n.start) + ' teams, ' + Math.max(3, Math.round(G.World.sizeOf(d, n.start) * 2 / 32)) + ' district events, a District Championship of ' + G.World.dcmpSize(d, n.start) + '. <b>District play:</b> one fee covers two local district events with 12 qualification matches each. Every result earns district points; the best teams go to the District Championship, and the district sends its share of teams to the Championship from the top of the points list.'
@@ -120,7 +138,7 @@
     o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
       '<div class="sm muted mb mt">Second colour</div><div class="swatches">' + UI.TEAM_COLORS2.map(c => '<button class="swatch ' + (n.c2 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c2|' + c.hex + '"></button>').join('') + '</div></div>' +
       '<div class="span2"><div class="sm muted mb">Team emblem</div><div class="avpick">' + UI.AVATARS.map(a => '<button class="' + (n.avatar === a ? 'on' : '') + '" data-act="ngSet" data-arg="avatar|' + a + '" title="' + a + '">' + UI.avatar({ avatar: a, c1: n.c1, c2: n.c2 }, 40) + '</button>').join('') + '</div>' +
-      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted">' + h(n.school) + ' · ' + h(n.home ? D.DISTRICT[n.home].name : n.region) + '</div></div></div></div></div>';
+      '<div class="row mt">' + UI.avatar(n, 56) + '<div><div class="lg b" id="ng-who">' + h(String(n.num)) + ' ' + h(n.name) + '</div><div class="sm muted" id="ng-where">' + h(UI.ngWhere(n)) + '</div></div></div></div></div>';
     if (n.mode === 'career' || n.scenario === 'custom') {
       o += '<h3 class="mt">Starting profile</h3><div class="grid g3">' + Object.keys(D.PROFILES).map(k => { const P = D.PROFILES[k]; return choice('profile', k, P.name + ' — ' + U.money(P.money, ngPx), P.desc + ' ' + P.students + ' students, ' + P.mentors.length + ' mentors.'); }).join('') + '</div>';
     }
@@ -169,7 +187,10 @@
     if (k === 'num') n.numAuto = false; // the player's own number stays
     if (k === 'school') n.schoolAuto = false; // a name of your own: the team stays where the school you picked stands (n.place)
     if (k === 'lead') n.leadAuto = false;
-    if (k === 'num' && UI.ngSync(n)) UI.render(); // another number can mean another city of the home, and other names there
+    // Another number can mean another city of the home, and other names there. The preview line and the default name
+    // follow at once, in place: the page is not drawn again while somebody is typing in it.
+    if (k === 'num' && UI.ngSync(n)) { const li = document.querySelector('input[data-chg="ng"][data-k="lead"]'); if (li) li.value = n.lead; }
+    { const who = document.getElementById('ng-who'), wh = document.getElementById('ng-where'), fu = document.getElementById('ng-fut'); if (who) who.textContent = n.num + ' ' + n.name; if (wh) wh.textContent = UI.ngWhere(n); if (fu) fu.innerHTML = UI.ngFut(n); }
   };
   // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
   UI.A.ngGame = y => {
@@ -180,7 +201,10 @@
     UI.render();
   };
   UI.A.ngGameMove = arg => { const [i, d] = arg.split('|').map(Number), l = UI.st.ng.games || [], j = i + d; if (j < 0 || j >= l.length) return; const t = l[i]; l[i] = l[j]; l[j] = t; UI.render(); };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'), was = k === 'start' ? UI.ngSchools(UI.st.ng).join('|') : ''; UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v;
+    // another start year can mean another list of schools (a district has formed, or has not yet): a suggested school is drawn again
+    if (k === 'start' && UI.st.ng.schoolAuto && UI.ngSchools(UI.st.ng).join('|') !== was) UI.ngPick(UI.st.ng, UI.ngSchool(UI.st.ng));
+    if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
   UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
@@ -191,7 +215,7 @@
       if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
       const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
     }
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null, z: UI.ngZone(n) },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
@@ -232,60 +256,23 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
-    { v: '3.4.7', title: 'Beta of 3.5: people and places, international partners, your own Elite tag', notes: [
-      'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors and your own default name follow your city; the people of other teams follow theirs. Everybody already on your team keeps their name.',
-      'A school named after a place stands in that place on the map (the star\'s tooltip says where), and every part of the world with teams has schools of its own. The place is settled when the career starts.',
-      'International companies: 42 giants that sponsor teams everywhere. They make partner offers only, about one partner offer in ten, and each adds 1 reputation at every season review. Corvane Labs is one of them, with odds of its own, and it now writes you a letter when it signs and when it renews.',
-      'A title sponsor\'s letter puts its name on the robot or on the stickers. One writer in four still says "on the bumpers", and it shows that they have never seen a robot.',
-      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season, on Headquarters, at events and in scouting.',
-      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
-      'The story of the fast printers has a new paragraph on why machined parts still matter.'
-    ] },
-    { v: '3.4.6', title: 'Beta of 3.5: sponsors, disputes and a name of your own', notes: [
-      'You are the lead mentor, and now you have a name: set it when you make a game (the Mentors page can change it later). Letters to the team are addressed to you, and some are copied to one of your mentors: a sponsor\'s to the business mentor, an invitation to play to the drive coach.',
-      'Sponsors: every one of them has a line that says what it does, and there are twice as many (830, with names from your home). A list of offers never shows a company twice. A sponsor that leaves stays off the list for a year.',
-      'A title sponsor writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. From the autumn of 2022 the printer maker Corvane Labs may be among the partner offers; what it donates is printers and electronics benches.',
-      'Hiring a mentor can be undone until you press Continue, like signing a sponsor. The Inbox hears of a signing or a hire on the next turn.',
-      'Team disputes: once or twice a season the team falls out with itself. You always have a choice: leave it for a small sure loss, or step in for an even chance of no loss or a worse one.',
-      'Shop incidents: fourteen more, and the same one seldom comes round twice. For a shop incident and a team dispute alike, the result shows in the window as soon as you choose.'
-    ] },
-    { v: '3.4.5', title: 'Beta of 3.5: offseason events at home', notes: [
-      'Every home has its own offseason events, named for the place and held in one of its cities: the Cherry Capital Clash in Traverse City for the Lakeshore District, the Pearl River Summer Open in Shenzhen for East Asia. The trip is still a short one.',
-      'Their fields are local: the teams of your own area first, your own district or cities most of all. Where too few teams live there, the nearest others make up the numbers. The Week 0 scrimmage draws its teams the same way. Summit Champs still invites the whole world.',
-      'Teams outside North America have four offseason events, not five: nothing is held in October, so an invited team is free to fly to Summit Champs.',
-      'Every event names its city: in the Calendar\'s registration list, on the event page and on the World map. The New Career page lists the cities of your home\'s events for every home.',
-      'Your school or organisation is shown on the Headquarters page, in the letters from FIRST and in the celebration windows.'
-    ] },
-    { v: '3.4.4', title: 'Beta of 3.5: Anatolia and the Middle East', notes: [
-      'The Middle East was two things in one. It is two areas now: Anatolia, a regional area all decade with no district, and the Middle East, which is the Levant District\'s area and nothing else.',
-      'A team that starts in the Middle East in 2016 plays one regional that year and joins the Levant District in 2017 with everybody else, without being asked. A team in Anatolia never joins it. From 2017 the Middle East is on the home list only as the Levant District.',
-      'The New Career page says what lies ahead for your home: a district that takes in the whole area, one that forms in part of it and asks you, or none.',
-      'A career saved in 3.4.3 is converted when it loads: a team from the old Middle East\'s regional cities is an Anatolia team now.'
-    ] },
-    { v: '3.4.3', title: 'Beta of 3.5: the whole world', notes: [
-      'The world simulation covers every part of the world with teams in it. Twelve areas: the West, Southwest, Midwest, Northeast and Southeast, the North, Central America, South America, Europe, the Middle East, East Asia and Asia Pacific. Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East.',
-      'Every area follows the real seasons of 2016 to 2026: how many teams it has each year, the team numbers they carry by the thousand, their average strength, and the cities that host its regionals. Some seasons an area has no regional of its own.',
-      'Elite teams follow the real top 100 teams in the world by rating, scaled to the game\'s world and shared by area each season. Not every area has one every year.',
-      'A new kind of travel: a flight overseas, to an event in another part of the world. It costs more than an ordinary flight, is harder on the robot and a little more tiring, and the team trailer cannot make the trip. The Championship is overseas for every team outside North America.',
-      'The World page\'s map shows the whole world and opens on your part of it.',
-      'Your default team number and school name follow your home, and sponsors are named after the industries of the place.',
-      'A career saved before this version plays its season out as it was and grows into the whole world the next October. The old northern area is now the North.',
-      'For testing: tools/world-viewer plays a decade and shows the map and every area\'s numbers against the real ones, year by year.'
-    ] },
-    { v: '3.4.2', title: 'Beta of 3.5: two display fixes', notes: [
-      'Custom career: "As listed" is the default way to play your games, and it now shows as chosen from the start.',
-      'Inventory, Your robots: the Control system card names who made each part, so Sterling parts say Sterling and no longer Apex.'
-    ] },
-    { v: '3.4.1', title: 'Beta of 3.5: menu pages keep their place', notes: [
-      'On the New Career, Single Season Challenge and the other menu pages, clicking a choice no longer sends the page back to the top: it stays where you were, as the game pages do.'
-    ] },
-    { v: '3.4.0', title: 'Beta of 3.5: ten fantasy games and custom careers', notes: [
-      'This is a beta. It keeps its own saves and settings, apart from the stable game\'s, so trying it cannot harm a career you are playing there. A save exported from the stable game can be imported here.',
+    { v: '3.5', title: 'FRC Manager 3.5: the whole world, and ten games that never were', notes: [
       'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',
-      'Single Season Challenge: any fantasy game, played as the 2027 season.',
-      'Random-order careers: choose how many of the seasons are fantasy games. They are drawn from the ten and shuffled in with the real ones.',
-      'Custom career: pick the start year and the games yourself, real and fantasy, and play them as listed or shuffled. The career ends after your last game. STRONGHOLD stays in 2016 or 2017.',
-      'How to play: "Fantasy games and custom careers" under The decade, and a line on each fantasy game under Matches.'
+      'Three ways to play them: a Single Season Challenge (as the 2027 season), a random-order career with as many fantasy seasons as you choose, or a custom career with your own start year and list of games, real and fantasy, as listed or shuffled. STRONGHOLD stays in 2016 or 2017.',
+      'The whole world: thirteen areas with teams in them, from the West to Asia Pacific, each following the real seasons of 2016 to 2026 (how many teams it has, the numbers they carry, how strong they are, the cities that host its regionals). Two districts outside the United States from 2017: Trillium in the North and Levant in the Middle East. Elite teams follow the real top 100 by rating, area by area, so not every area has one every year.',
+      'Flying overseas: an event in another part of the world costs more than an ordinary flight, is harder on the robot and more tiring, and the team trailer cannot make the trip. The Championship is overseas for every team outside North America.',
+      'Home: your default team number and school follow your home, every event names its city, and every home has its own offseason events with local fields. Outside North America nothing is held in October, so an invited team is free to fly to Summit Champs.',
+      'You are the lead mentor, under a name of your own. Letters are addressed to you, and some are copied to one of your mentors. People are named as people of their part of the world usually are, first name and family name together.',
+      'Sponsors: more than a thousand of them, each with a line that says what it does and the city it is in. Most offers come from companies close to your team, some from the rest of its country and now and then one from a neighbouring country. A local business only sponsors teams near one of its shops, and a foundation stays inside its borders.',
+      'No company is on a list twice, and one that leaves stays away for a year. A title sponsor writes you a letter when it signs and when it renews.',
+      'International companies make partner offers to teams everywhere, about one partner offer in ten and more where a team has few companies of its own around it, and each adds 1 reputation at every season review. From the autumn of 2022 the printer maker Corvane Labs is one of them: it writes letters too, and what it donates is printers and electronics benches.',
+      'Team disputes: once or twice a season the team falls out with itself and waits for your decision. There are more shop incidents, the same one seldom comes round twice, and the result of a decision shows in the window as soon as you make it.',
+      'Hiring a mentor can be undone until you press Continue, like signing a sponsor. The Inbox hears of a signing or a hire on the next turn.',
+      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season.',
+      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
+      'Your school or organisation is on the Headquarters page, in the letters from FIRST and in the celebration windows. Menu pages keep their place when you click a choice, and the Inventory names who made each control system part.',
+      'A career saved in an earlier version loads as it is. It plays its season out as it was and grows into the whole world the next October; everybody on your team keeps their name, and the old northern area is now the North.',
+      'For testing: tools/world-viewer plays a decade and shows the map and every area\'s numbers against the real ones, year by year.'
     ] },
     { v: '3.1.5', title: 'Suggestions at any effort, stronger elites, sponsor terms', notes: [
       'The Design Office\'s suggested build or upgrade can be started thorough or rush too, with the hours each takes on its button.',
