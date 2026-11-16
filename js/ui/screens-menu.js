@@ -43,11 +43,33 @@
   };
   // a default school name with the flavour of the home (until the player types one)
   UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
+  // A school of the list is picked (at random, or the next one with the button beside the field): the team will
+  // stand where that school points, and the name can still be edited without moving it.
+  UI.ngPick = (n, name) => { n.school = name; n.schoolPick = name; n.schoolAuto = true; n.place = D.schoolAt(name); };
+  UI.ngSchools = n => D.SCHOOL_BY[(n.mode === 'career' && n.home) || ''] || D.SCHOOL_BY[n.region] || [];
+  // the city the team will stand in (as C.newGame and the map will have it)
+  UI.ngHub = function (n) {
+    const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, home = n.mode === 'career' ? n.home || null : null, dz = n.mode === 'career' && !home ? G.World.soleDistrict(n.region, cy) : null;
+    return G.Geo.teamPos(Number(n.num) || 1, n.region, home, cy, dz ? dz.id : null, false, n.place || null).hub;
+  };
+  // ... and a default name for you, the lead mentor, as people of that city are called (until the player types one).
+  // true if the name changed.
+  UI.ngSync = function (n) {
+    if (!n.leadAuto) return false;
+    const hub = UI.ngHub(n), L = D.namesFor({ hub });
+    if (n.leadList === L && n.lead) return false;
+    n.leadList = L; n.lead = D.personName(G.makeRng((Date.now() ^ 0x2f6e2b) & 0xffffff), { hub }); return true;
+  };
+  UI.A.ngSchoolNext = function () {
+    const n = UI.st.ng, l = UI.ngSchools(n); if (!l.length) return;
+    UI.ngPick(n, l[(l.indexOf(n.schoolPick) + 1) % l.length]); UI.ngSync(n); UI.render();
+  };
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, name: D.teamName(rng), lead: D.personName(rng), school: D.schoolName(rng, null, 'Midwest'), c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
+    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, leadAuto: true, name: D.teamName(rng), lead: '', school: '', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
-    UI.st.ng.num = UI.ngAutoNum(UI.st.ng);
+    UI.ngPick(UI.st.ng, D.schoolName(rng, null, 'Midwest'));
+    UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.ngSync(UI.st.ng);
     UI.go('newgame');
   };
   UI.S.newgame = { full: true, html() {
@@ -55,7 +77,9 @@
     const inp = (k, lbl, type) => '<label class="f">' + lbl + '<input class="inp" type="' + (type || 'text') + '" value="' + h(n[k]) + '" data-chg="ng" data-k="' + k + '"></label>';
     const choice = (k, v, title, desc) => '<div class="choice ' + (n[k] === v ? 'on' : '') + '" data-act="ngSet" data-arg="' + k + '|' + v + '"><div class="b">' + title + '</div>' + (desc ? '<div class="xs muted">' + desc + '</div>' : '') + '</div>';
     const starts = n.order === 'custom' ? G.CAL_YEARS.slice() : G.startYears(n.order); if (!starts.includes(n.start)) n.start = starts[0];
-    if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) n.home = null; // that district does not exist yet in the start year
+    if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) { // that district does not exist yet in the start year
+      n.home = null; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n);
+    }
     const ngPx = U.pxOf(n.mode === 'single' ? G.singleCy(n.year) : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
@@ -66,9 +90,11 @@
     // (3.5) the home list: the areas of North America, the rest of the world, and the districts of the start year
     // (3.4.4) an area that is all one formed district is not a home for a regional team: its district is
     const ngOpen = r => n.mode !== 'career' || G.World.regionOpen(r, n.start);
-    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) n.school = UI.ngSchool(n); }
+    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n); }
     const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
-    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') + inp('lead', 'Lead mentor (your name)') +
+    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') +
+      '<label class="f">School / organisation<span class="row gap4"><input class="inp sp" type="text" value="' + h(n.school) + '" data-chg="ng" data-k="school"><button type="button" class="btn sm" data-act="ngSchoolNext" aria-label="Another school">↻</button></span></label>' +
+      inp('lead', 'Lead mentor (your name)') +
       '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
@@ -135,12 +161,15 @@
     const n = UI.st.ng, k = el.dataset.k;
     if (k === 'homeSel') {
       if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); }
-      if (n.numAuto) n.num = UI.ngAutoNum(n); if (n.schoolAuto) n.school = UI.ngSchool(n); // the suggested number and school follow the home
-      UI.render(); return;
+      // the suggested number, school and lead mentor's name follow the home (a school name of your own stays, with no place of its own in the new home)
+      if (n.numAuto) n.num = UI.ngAutoNum(n); if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; }
+      UI.ngSync(n); UI.render(); return;
     }
     n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
     if (k === 'num') n.numAuto = false; // the player's own number stays
-    if (k === 'school') n.schoolAuto = false;
+    if (k === 'school') n.schoolAuto = false; // a name of your own: the team stays where the school you picked stands (n.place)
+    if (k === 'lead') n.leadAuto = false;
+    if (k === 'num' && UI.ngSync(n)) UI.render(); // another number can mean another city of the home, and other names there
   };
   // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
   UI.A.ngGame = y => {
@@ -151,7 +180,7 @@
     UI.render();
   };
   UI.A.ngGameMove = arg => { const [i, d] = arg.split('|').map(Number), l = UI.st.ng.games || [], j = i + d; if (j < 0 || j >= l.length) return; const t = l[i]; l[i] = l[j]; l[j] = t; UI.render(); };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
   UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
@@ -162,7 +191,7 @@
       if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
       const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
     }
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
@@ -203,6 +232,15 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.7', title: 'Beta of 3.5: people and places, international partners, your own Elite tag', notes: [
+      'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors and your own default name follow your city; the people of other teams follow theirs. Everybody already on your team keeps their name.',
+      'A school named after a place stands in that place on the map (the star\'s tooltip says where), and every part of the world with teams has schools of its own. The place is settled when the career starts.',
+      'International companies: 42 giants that sponsor teams everywhere. They make partner offers only, about one partner offer in ten, and each adds 1 reputation at every season review. Corvane Labs is one of them, with odds of its own, and it now writes you a letter when it signs and when it renews.',
+      'A title sponsor\'s letter puts its name on the robot or on the stickers. One writer in four still says "on the bumpers", and it shows that they have never seen a robot.',
+      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season, on Headquarters, at events and in scouting.',
+      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
+      'The story of the fast printers has a new paragraph on why machined parts still matter.'
+    ] },
     { v: '3.4.6', title: 'Beta of 3.5: sponsors, disputes and a name of your own', notes: [
       'You are the lead mentor, and now you have a name: set it when you make a game (the Mentors page can change it later). Letters to the team are addressed to you, and some are copied to one of your mentors: a sponsor\'s to the business mentor, an invitation to play to the drive coach.',
       'Sponsors: every one of them has a line that says what it does, and there are twice as many (830, with names from your home). A list of offers never shows a company twice. A sponsor that leaves stays off the list for a year.',
@@ -622,13 +660,16 @@
     if (!hs) return '<p>No review.</p>';
     let o = '<div class="xs muted">SEASON REVIEW</div><h1>' + h(G.Career.seasonName(G.S, hs.year)) + '</h1>';
     const head = hs.worldChamp ? 'WORLD CHAMPIONS' : hs.divWin ? 'Championship division winners' : hs.champs ? 'Championship qualifiers' : hs.events.some(e => e.won) ? 'Regional winners' : hs.events.some(e => e.playoffs) ? 'Playoff team' : 'Building season';
-    o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
+    o += '<div class="sub lg acc b">' + head + (hs.elite && hs.elite.met ? ' ' + UI.eliteMine(S) : '') + '</div>';
+    // (3.5) the elite standard: where the season's OPR ranks in the world, and what that means for next season
+    if (hs.elite) { const E = hs.elite; o += '<div class="sm muted mb">World ranking by OPR: <b>' + U.ord(E.rank) + '</b> of ' + E.of + ' teams (' + E.opr + '). The top ' + E.n + ' are elite' + (E.met ? ': <b class="good">your team carries the Elite tag next season</b>.' : (E.rank <= E.n ? ', but an elite team also plays the Championship' : ' (from ' + E.cut + ')') + (E.lost ? ': <b class="bad">the Elite tag comes off</b>.' : '.')) + ' ' + UI.q('world', 'Elite teams') + '</div>'; }
+    o += '<div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
     if (hs.loyal && hs.loyal.length) o += UI.card('Vendor loyalty', hs.loyal.map(y => '<div class="mb"><div class="row sm"><b style="color:' + D.VENDORS[y.brand].color + '">' + h(D.VENDORS[y.brand].name) + '</b><span class="sp"></span><span class="muted nowrap">' + y.pts + (y.next != null ? ' / ' + y.next : '') + ' points</span></div>' +
       '<div class="sm">' + h(D.LOYALTY.names[y.lvl]) + (y.up ? ' ' + UI.tag('new level', 'acc') : '') + '</div>' +
       '<div class="xs muted">+' + y.gain + ' this season: ' + (y.robot || 0) + ' for the competition robot, ' + (y.buy || 0) + ' for your orders.' + (y.up ? ' A letter from ' + h(D.VENDORS[y.brand].short) + ' arrives in September.' : '') + '</div></div>').join(''), '', 'mb');
     o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(G.Career.goalText(G.S, D.PROGRAM_GOALS[g.id].text, hs.home || null)) + '</span></div>').join('') +
-      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
+      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + (S.season.intlRep ? ' <span class="xs muted">(+' + S.season.intlRep + ' for your international partner' + (S.season.intlRep > D.SPONSOR_INTL.rep ? 's' : '') + ')</span>' : '') + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
     o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned, hs.px) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent, hs.px) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money, hs.px) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
       (S.season && S.season.debt ? '<span class="k">Debt covered by school</span><span class="bad">' + U.money(S.season.debt) + ' (support −' + S.season.debtPen.support + ', reputation −' + S.season.debtPen.rep + ')</span>' : '') + '</div>');
     o += '</div>';

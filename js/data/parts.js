@@ -205,12 +205,14 @@
   // A vendor notices the teams that run and buy its electronics. A season on the competition robot is worth 100 loyalty
   // points with that catalogue, and that year's orders up to 15 more (the premium catalogue's points carry over from
   // Sterling to Apex). Each level reached brings a loyalty
-  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff. A team that runs one vendor
-  // only reaches three levels in a ten-season career.
+  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff.
+  // (3.5) Rarer than it was (levels were 280, 580, 880 and 1180, and the order bonus was full at $1,500, which nearly
+  // every team spends): a team that runs one vendor only now reaches two levels in a ten-season career, three if it
+  // started with a standing there and orders a great deal every year. The top level is out of reach in ten seasons.
   D.LOYALTY = {
-    levels: [280, 580, 880, 1180],                            // a little under three seasons each, so one mixed season does not cost a level
+    levels: [400, 800, 1200, 1600],                           // about four seasons each
     full: 0.9,                                                // a robot with 90% of its electronics from one vendor counts as all of it (a kit hub does not spoil a season)
-    robot: 100, buy: 15, buyFull: 1500,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $1,500)
+    robot: 100, buy: 15, buyFull: 4000,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $4,000)
     names: ['Customer', 'Loyal Team', 'Preferred Team', 'Partner Team', 'Flagship Team'],
     start: { rookie: 0, established: 100, powerhouse: 150 },  // standing with the vendor whose parts are on the starting shelf
     month: 4,                                                 // the letter arrives in September

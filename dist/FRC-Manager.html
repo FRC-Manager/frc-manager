@@ -729,7 +729,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.4.6';
+  G.VERSION = '3.4.7';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -2260,7 +2260,7 @@ window.G = window.G || {};
     'Engineers', 'Builders', 'Pioneers', 'Rangers', 'Pirates', 'Bulldogs', 'Stingers', 'Ravens', 'Comets', 'Lynx', 'Otters', 'Tigers', 'Hornets', 'Mustangs', 'Coyotes', 'Wrenches'];
   D.SCHOOLS = ['Northview', 'Lakeside', 'Westbrook', 'Riverside', 'Hillcrest', 'Oakridge', 'Pinewood', 'Eastfield', 'Summit', 'Brookhaven', 'Clearwater', 'Fairmont', 'Maplewood', 'Ridgeline'];
 
-  D.personName = rng => rng.pick(D.FIRST) + ' ' + rng.pick(D.LAST);
+  D.personName = rng => rng.pick(D.FIRST) + ' ' + rng.pick(D.LAST); // (3.5) world-areas.js replaces it: names by home, this mix for the international
   D.teamName = rng => rng.pick(D.TEAM_A) + ' ' + rng.pick(D.TEAM_B);
 
   // ---------- Regions & travel ----------
@@ -2506,13 +2506,14 @@ window.G = window.G || {};
     { y: 2024, id: 'visionportal', name: 'AprilTags on the field', text: 'AprilTags are on the field and built into the FTC software (VisionPortal): a robot can now work out where it is from the tags, the way FRC robots do.', ours: 'Our FTC teams and our FRC programmers are sharing an AprilTag whiteboard now.' },
     { y: 2025, id: 'odometry', name: 'odometry computers and smart cameras', text: 'A wave of ready-made sensors: odometry computers that track the robot\'s position from two small dead wheels, and smart cameras that find tags and game pieces on their own.', ours: 'The FTC teams\' autonomous routines got twice as accurate in a month, and nobody will say which sensor did it.' }
   ];
-  // A satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor has
-  // chance x (satisfaction - sat) / (100 - sat); at most one donation per season and one per offseason. Tuned by simulation so
-  // that a team with every sponsor slot filled that never skips a sponsor activity averages about one donation a year
-  // (measured over 60 automated careers: 1.0 a year overall, about 0.45 in the first year while the partnerships are new,
-  // 1.0 to 1.4 from the third year; lower for teams whose sponsors expect wins they do not get).
+  // A very satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor
+  // has chance x (satisfaction - sat) / (100 - sat), and after a donation none comes for `wait` turns (two years).
+  // (3.5) Rarer and harder than it was (sat 60, chance 0.033, one a season and one an offseason: about one a year, and a
+  // well-run team had one every year): a sponsor at 80 or below never donates now. With every slot filled a team whose
+  // sponsors are all delighted (92 to 100) gets about one in three or four seasons, one whose sponsors are merely
+  // satisfied (84 to 90) one in six or seven (measured: 3.3 and 6.6 seasons), and never two within two years.
   // capType: the printer maker gives any level of its own trade, the industrial printer included (a partner's cap is below it).
-  D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 }, capType: { maker: 12000 },
+  D.DONATION = { sat: 80, chance: 0.008, wait: 42, cap: { title: 20000, partner: 9000, grant: 9000 }, capType: { maker: 12000 },
     types: { maker: ['printer', 'ebench'], tech: ['laptops', 'ebench', 'printer', 'cad'], eng: ['cnc', 'printer', 'ebench', 'cad'], mfg: ['cnc', 'lathe', 'weld', 'shelf'], soft: ['laptops', 'ebench', 'cad'], uni: ['meeting', 'pfield', 'laptops', 'cad'], local: ['pitcart', 'charger', 'meeting', 'lounge', 'shelf', 'honors'], found: ['ftc', 'meeting', 'lounge'] },
     intro: ['A truck backed up to the shop door this morning. Nobody had ordered anything.', 'The email subject was "Clearing out a lab. Interested?" It took the team four seconds to answer.', 'Their engineers visited last month, looked around the shop and went very quiet. Now we know why.', 'It arrived on a pallet with a bow on it. An actual bow.'],
     talk: [['We upgraded ours and could not stand the thought of it sitting in a warehouse.', '{s}'], ['Consider it an investment. We hire from teams like yours.', 'a manager at {s}'], ['Do we need to write a thank-you card? We are writing forty.', 'your team captain'],
@@ -2605,12 +2606,12 @@ window.G = window.G || {};
   ];
   D.MENTOR_COST = [0, 0, 1000, 2500, 5000, 9000]; // by stars
   D.SPEC_FOR = { design: ['shooter', 'turret', 'elevator', 'arm', 'effector', 'intake', 'index', 'climb', 'swerve'], fab: ['swerve', 'elevator', 'arm', 'effector', 'climb', 'elec', 'intake'], prog: ['vision', 'autoPath', 'turret', 'swerve', 'elec'] };
-  D.makeMentor = function (rng, role, stars) {
+  D.makeMentor = function (rng, role, stars, who) { // who: whose names (D.namesFor); nothing: your own home's
     const r = D.MENTOR_ROLES.find(x => x.id === role) || rng.pick(D.MENTOR_ROLES);
     stars = stars || rng.wpick([1, 2, 3, 4, 5], s => [0, 3, 4, 3, 2, 1][s]);
     const skill = Math.round(Math.min(98, stars * 17 + rng.int(0, 14)));
     return {
-      id: G.U.uid('m'), name: D.personName(rng), role: r.id, stars, skill,
+      id: G.U.uid('m'), name: D.personName(rng, who), role: r.id, stars, skill,
       spec: r.spec ? rng.pick(D.SPEC_FOR[r.id]) : null,
       hours: rng.int(r.hours[0], r.hours[1]) + (stars >= 4 ? 2 : 0),
       cost: D.MENTOR_COST[stars] + rng.int(0, 4) * 100 * (stars > 1 ? 1 : 0),
@@ -2668,11 +2669,11 @@ window.G = window.G || {};
   D.OLD_NUM = 2000 / 10999;
 
   // ---------- Students ----------
-  D.makeStudent = function (rng, grade, talent) {
+  D.makeStudent = function (rng, grade, talent, who) {
     talent = talent == null ? 0 : talent;
     const a = () => Math.round(G.U.clamp(rng.norm(32 + talent * 0.4, 10), 10, 75));
     return {
-      id: G.U.uid('s'), name: D.personName(rng), grade: grade || rng.int(9, 12),
+      id: G.U.uid('s'), name: D.personName(rng, who), grade: grade || rng.int(9, 12),
       pot: Math.round(G.U.clamp(rng.norm(62 + talent * 0.5, 15), 25, 100)),
       attr: { drive: a(), aware: a(), comp: a(), mech: a(), hp: a(), strat: a() }, matches: 0
     };
@@ -2799,14 +2800,34 @@ window.G = window.G || {};
   D.FEEDER_KINDS = ['Elementary FLL Explore', 'Middle School FLL', 'Middle School FTC', 'STEM Club', 'Library Maker Club', 'Summer Robotics Camp', 'Girls in STEM Club'];
 
   // ---------- Sponsors ----------
+  // (3.5) The general list: international companies. A team's own sponsors come from its home (D.SPONSOR_BY); these
+  // giants sponsor teams all over the world, but only as partners, and much less often: every partner offer of a
+  // list has D.SPONSOR_INTL.chance of being one of theirs. No local businesses and no foundations among them.
   D.SPONSOR_NAMES = {
-    tech: ['Vantage Systems', 'Nimbus Data', 'Quantix Labs', 'Helios Microdevices', 'Aurora Networks', 'Stratos Cloud', 'Polaris Semiconductors', 'Zenith Dynamics', 'Corelight Sensors', 'Atlas Automation', 'Orbit Analytics', 'Vertex Instruments'],
-    local: ['Riverside Credit Union', 'Maple Street Pizza', 'Lakeside Hardware', 'Bluebird Diner', 'Corner Book Co.', 'Hometown Auto Repair', 'Sunrise Bakery', 'Elm Street Bicycles', 'Family Dental Care', 'Parkside Grocery', 'Oak Hill Insurance', 'Main Street Print Shop'],
-    eng: ['Arcwell Engineering', 'Stonebridge Consulting', 'Meridian Structures', 'Clearpath Civil', 'Summit Design Group', 'Keystone Geotechnical', 'Brightline Power Engineering', 'Harbor Point Consulting'],
-    mfg: ['Kestrel Machine Works', 'Ironclad Fabrication', 'Precision Plate Co.', 'Northstar Tooling', 'Anvil Metalworks', 'Granite Gear Co.', 'Redline Plastics', 'Westbrook Welding'],
-    uni: ['Northbridge University', 'Lakeview Technical College', 'Eastgate Polytechnic', 'Riverton State University', 'Summit Community College', 'Westfield Institute of Technology'],
-    soft: ['Helix Software', 'Bytewise Labs', 'Cobalt Code', 'Pinecone Apps', 'Gridline Software', 'Quill Apps', 'Sparrow Code', 'Stackwell Labs'],
-    found: ['Bright Futures Foundation', 'STEM Forward Fund', 'Next Generation Trust', 'Open Doors Education Fund', 'Tomorrow\'s Builders Foundation', 'Launchpad Youth Trust']
+    tech: ['Vantage Global Systems', 'Nimbus Data Group', 'Quantix Global Labs', 'Helios Microdevices Corporation', 'Aurora Networks Worldwide', 'Stratos Global Cloud', 'Polaris Semiconductor Group', 'Zenith Dynamics International', 'Corelight Sensor Group', 'Atlas Automation Worldwide', 'Orbit Analytics International', 'Vertex Instruments Corporation'],
+    eng: ['Arcwell Engineering Group', 'Stonebridge Global Consulting', 'Meridian Structures International', 'Clearpath Civil Group', 'Summit Design Worldwide', 'Keystone Geotechnical International', 'Brightline Power Group', 'Harbor Point International'],
+    mfg: ['Kestrel Machine Tools Worldwide', 'Ironclad Heavy Industries', 'Precision Plate International', 'Northstar Tooling Group', 'Anvil Metalworks International', 'Granite Gear Corporation', 'Redline Plastics Worldwide', 'Westbrook Welding Group'],
+    uni: ['Northbridge International University', 'Lakeview Open Technical College', 'Eastgate World Polytechnic', 'Riverton Global University', 'Summit Open College', 'Westfield International Institute'],
+    soft: ['Helix Software International', 'Bytewise Global', 'Cobalt Code Group', 'Pinecone Apps Worldwide', 'Gridline Global Software', 'Quill Worldwide', 'Sparrow Code International', 'Stackwell Labs Corporation']
+  };
+  // rep: the small bonus of an international partner. A name known all over the world on the robot adds this much to
+  // the team's reputation at every season review (each such partner; the printer maker too).
+  D.SPONSOR_INTL = { chance: 0.1, rep: 1 };
+  // an international company: one of these, or the printer maker (D.SPONSOR_MAKER, which keeps odds of its own)
+  { const all = new Set([].concat(...Object.keys(D.SPONSOR_NAMES).map(t => D.SPONSOR_NAMES[t]))); D.sponsorIntl = name => all.has(name) || !!(D.SPONSOR_MAKER && name === D.SPONSOR_MAKER.name); }
+  // What these companies were called in earlier versions, when every team's sponsors came from this list. A save may
+  // still hold one under its old name: it keeps the name (and its line, D.SPONSOR_DESC_OLD), and its international
+  // self makes no offer meanwhile (C.genOffers).
+  D.SPONSOR_RENAMED = {
+    'Vantage Systems': 'Vantage Global Systems', 'Nimbus Data': 'Nimbus Data Group', 'Quantix Labs': 'Quantix Global Labs', 'Helios Microdevices': 'Helios Microdevices Corporation', 'Aurora Networks': 'Aurora Networks Worldwide', 'Stratos Cloud': 'Stratos Global Cloud',
+    'Polaris Semiconductors': 'Polaris Semiconductor Group', 'Zenith Dynamics': 'Zenith Dynamics International', 'Corelight Sensors': 'Corelight Sensor Group', 'Atlas Automation': 'Atlas Automation Worldwide', 'Orbit Analytics': 'Orbit Analytics International', 'Vertex Instruments': 'Vertex Instruments Corporation',
+    'Arcwell Engineering': 'Arcwell Engineering Group', 'Stonebridge Consulting': 'Stonebridge Global Consulting', 'Meridian Structures': 'Meridian Structures International', 'Clearpath Civil': 'Clearpath Civil Group', 'Summit Design Group': 'Summit Design Worldwide',
+    'Keystone Geotechnical': 'Keystone Geotechnical International', 'Brightline Power Engineering': 'Brightline Power Group', 'Harbor Point Consulting': 'Harbor Point International',
+    'Kestrel Machine Works': 'Kestrel Machine Tools Worldwide', 'Ironclad Fabrication': 'Ironclad Heavy Industries', 'Precision Plate Co.': 'Precision Plate International', 'Northstar Tooling': 'Northstar Tooling Group', 'Anvil Metalworks': 'Anvil Metalworks International',
+    'Granite Gear Co.': 'Granite Gear Corporation', 'Redline Plastics': 'Redline Plastics Worldwide', 'Westbrook Welding': 'Westbrook Welding Group',
+    'Northbridge University': 'Northbridge International University', 'Lakeview Technical College': 'Lakeview Open Technical College', 'Eastgate Polytechnic': 'Eastgate World Polytechnic', 'Riverton State University': 'Riverton Global University',
+    'Summit Community College': 'Summit Open College', 'Westfield Institute of Technology': 'Westfield International Institute',
+    'Helix Software': 'Helix Software International', 'Bytewise Labs': 'Bytewise Global', 'Cobalt Code': 'Cobalt Code Group', 'Pinecone Apps': 'Pinecone Apps Worldwide', 'Gridline Software': 'Gridline Global Software', 'Quill Apps': 'Quill Worldwide', 'Sparrow Code': 'Sparrow Code International', 'Stackwell Labs': 'Stackwell Labs Corporation'
   };
   D.SPONSOR_TYPES = {
     tech: { name: 'Tech corporation', title: true, f: 1.08, money: [8000, 16000], exp: 'High', goals: ['champs', 'win', 'playoffs2', 'avgRP'], perks: ['bonusBoost'], oblig: [2, 3] },
@@ -2822,7 +2843,8 @@ window.G = window.G || {};
   // (3.5) Corvane Labs, the printer maker of the 'printfarm' story (the CX1 Carbon, on sale since January 2022). From
   // the 2022 offseason one of the six partner offers of a list may be theirs, for any team anywhere: chance per list,
   // from: the first season such a list is for (the list of October 2022 is for the 2023 season). It is a partner like
-  // any other, except that what it donates is its own trade: a Prototyping Lab or Electronics Workbench level.
+  // any other, except that what it donates is its own trade: a Prototyping Lab or Electronics Workbench level. It is an
+  // international company like those of D.SPONSOR_NAMES (marked International, a partner only), with odds of its own.
   D.SPONSOR_MAKER = { name: 'Corvane Labs', type: 'maker', from: 2023, chance: 0.5 };
   D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
   D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };
@@ -2990,7 +3012,8 @@ window.G = window.G || {};
   // Default school names and sponsor names by the team's home (a district's own list first, then its area's, then the
   // general one). All made up; they borrow the industries and the school types of each part of the world.
   D.SCHOOL_BY = {
-    West: ['Mission Hills High School', 'Sierra Vista High School', 'Palo Verde High School', 'Redwood Shores High School', 'Canyon Crest Academy', 'Golden Valley High School', 'El Camino High School'],
+    West: ['Sierra Vista High School', 'Palo Verde High School', 'Canyon Crest Academy', 'Golden Valley High School', 'Silver State Technical Academy', 'Sawtooth Ridge High School', 'Bitterroot Valley High School', 'Trade Winds Academy'],
+    sierra: ['Mission Hills High School', 'Sierra Vista High School', 'Redwood Shores High School', 'Canyon Crest Academy', 'Golden Valley High School', 'El Camino High School'],
     evergreen: ['Cedar Ridge High School', 'Rainier View High School', 'Salmon Creek High School', 'Puget Sound Academy', 'Douglas Fir High School'],
     Southwest: ['Mesa Vista High School', 'Red Canyon High School', 'Saguaro High School', 'Front Range High School', 'Sandia Peak High School'],
     mesa: ['Lone Star High School', 'Bluebonnet High School', 'Brazos Valley High School', 'Alamo Heights Academy', 'Cedar Creek High School', 'Longhorn Trail High School'],
@@ -3001,15 +3024,53 @@ window.G = window.G || {};
     Southeast: ['Magnolia High School', 'Cypress Creek High School', 'Palmetto Ridge High School', 'Peachtree Academy', 'Blue Ridge High School', 'Space Coast High School'],
     North: ['Laurentian Secondary School', 'Rocky Ridge Secondary School', 'Salish Coast Secondary School', 'Saint-Laurent College', 'Prairie Sky Collegiate'],
     trillium: ['Grand River Collegiate Institute', 'Lakeshore Secondary School', 'Trillium Heights Secondary School', 'Escarpment District High School', 'St. Brendan Catholic Secondary School'],
-    'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College'],
-    'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology'],
-    Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School'],
+    'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College', 'Ozama Polytechnic School', 'Two Oceans Bilingual Academy'],
+    'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology', 'Cordillera Scientific Lyceum', 'Andean Valley Technical Institute'],
+    Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School', 'Thames Reach Sixth Form College', 'Vltava Technical Gymnasium', 'Rhone Valley Lycee',
+      'Azure Coast Lycee', 'Kvarner Bay Technical School', 'Vitosha Mathematics High School', 'Transylvanian Hills National College', 'Attica Model Lyceum', 'Lake Malaren Technical Gymnasium', 'Dnipro Riverside Lyceum'],
     Anatolia: ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
     levant: ['Carmel Technological High School', 'Coastal Plain Science High School', 'Desert Blossom High School', 'Galilee Regional School', 'Sharon Youth Village School'],
-    'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School'],
-    'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School']
+    'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School', 'Sumida River Technical High School', 'Han River Science High School', 'Kowloon Bay Secondary School'],
+    'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School', 'Lotus Valley Public School', 'Lion City Secondary School', 'Long White Cloud College',
+      'Saigon River High School for the Gifted', 'Klang Valley International School', 'Pasig River Science High School']
   };
-  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West; D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
+  D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
+  // A school named after a place stands in that place: the cities (G.Geo.HUBS) its name points to. Your team is put
+  // in one of them that its home has (G.Geo.teamPos); a name that is not here could be anywhere in the home.
+  D.SCHOOL_AT = {
+    'Sierra Vista High School': ['Reno', 'Las Vegas'], 'Palo Verde High School': ['Las Vegas'], 'Silver State Technical Academy': ['Las Vegas', 'Reno'], 'Sawtooth Ridge High School': ['Boise', 'Idaho Falls'],
+    'Bitterroot Valley High School': ['Missoula'], 'Trade Winds Academy': ['Honolulu'], 'Redwood Shores High School': ['San Francisco Bay', 'San Jose'],
+    'Rainier View High School': ['Tacoma', 'Seattle'], 'Puget Sound Academy': ['Seattle', 'Tacoma', 'Everett'],
+    'Saguaro High School': ['Phoenix', 'Tucson'], 'Front Range High School': ['Denver', 'Colorado Springs'], 'Sandia Peak High School': ['Albuquerque'],
+    'Brazos Valley High School': ['Houston'], 'Alamo Heights Academy': ['San Antonio'],
+    'Motor City Technical High School': ['Detroit'], 'Grand Traverse High School': ['Traverse City'], 'Huron Valley High School': ['Ann Arbor', 'Detroit'], 'Assembly Line Career Academy': ['Detroit', 'Flint'],
+    'Hudson Valley High School': ['Albany', 'New York'], 'Keystone Central High School': ['Harrisburg', 'Philadelphia', 'Pittsburgh'], 'Brooklyn Bridge Technical High School': ['New York'], 'Chesapeake Academy': ['Baltimore'],
+    'Minuteman Regional High School': ['Boston'], 'Granite Hills High School': ['Manchester'], 'Whaling City Academy': ['Providence'],
+    'Palmetto Ridge High School': ['Columbia'], 'Peachtree Academy': ['Atlanta'], 'Blue Ridge High School': ['Knoxville', 'Charlotte'], 'Space Coast High School': ['Orlando'],
+    'Laurentian Secondary School': ['Montreal', 'Trois-Rivieres', 'Quebec City'], 'Rocky Ridge Secondary School': ['Calgary', 'Lethbridge'], 'Salish Coast Secondary School': ['Vancouver', 'Victoria'],
+    'Saint-Laurent College': ['Montreal', 'Trois-Rivieres', 'Quebec City'], 'Prairie Sky Collegiate': ['Regina', 'Winnipeg', 'Edmonton', 'Lethbridge'],
+    'Grand River Collegiate Institute': ['Waterloo'], 'Escarpment District High School': ['Hamilton', 'St. Catharines', 'Owen Sound'],
+    'North Technological Preparatory': ['Monterrey', 'Saltillo', 'Torreon', 'Chihuahua', 'Reynosa'], 'Sierra Madre Preparatory': ['Monterrey', 'Saltillo', 'Durango'], 'Laguna Technical Institute': ['Torreon'],
+    'Valley Bachillerato': ['Mexico City', 'Toluca'], 'Agave Hills College': ['Guadalajara'], 'Ozama Polytechnic School': ['Santo Domingo'], 'Two Oceans Bilingual Academy': ['Panama City'],
+    'Planalto Technical School': ['Brasilia', 'Goiania'], 'Tropic Institute of Technology': ['Sao Paulo', 'Campinas', 'Sao Jose dos Campos'],
+    'Industry Social Service School': ['Sao Paulo', 'Sao Jose dos Campos', 'Campinas', 'Rio de Janeiro', 'Brasilia', 'Cuiaba', 'Goiania', 'Porto Alegre', 'Joinville', 'Curitiba', 'Belo Horizonte', 'Salvador', 'Fortaleza', 'Recife', 'Natal', 'Manaus', 'Belem', 'Vitoria', 'Campo Grande'],
+    'Serra Azul Industrial School': ['Belo Horizonte', 'Curitiba', 'Joinville', 'Porto Alegre', 'Rio de Janeiro', 'Vitoria', 'Cuiaba', 'Campo Grande'],
+    'Cordillera Scientific Lyceum': ['Santiago'], 'Andean Valley Technical Institute': ['Cali', 'Medellin'],
+    'Old Town Gymnasium': ['Prague', 'Krakow', 'Lublin'], 'Thames Reach Sixth Form College': ['Greater London'], 'Vltava Technical Gymnasium': ['Prague'], 'Rhone Valley Lycee': ['Lyon'], 'Azure Coast Lycee': ['Nice'],
+    'Kvarner Bay Technical School': ['Rijeka'], 'Vitosha Mathematics High School': ['Sofia'], 'Transylvanian Hills National College': ['Cluj'], 'Attica Model Lyceum': ['Athens'], 'Lake Malaren Technical Gymnasium': ['Stockholm'], 'Dnipro Riverside Lyceum': ['Kyiv'],
+    'Canal District Lyceum': ['Eindhoven', 'Groningen'], 'International School of the Lowlands': ['Eindhoven', 'Groningen'], 'Vistula Technical Secondary School': ['Warsaw', 'Krakow'], 'Alpine Cantonal School': ['Zurich'],
+    'Bosphorus Science High School': ['Istanbul'], 'Strait Private College': ['Istanbul'], 'Plateau Science and Art Centre': ['Ankara', 'Eskisehir', 'Konya'], 'Aegean Anatolian High School': ['Izmir', 'Mugla'],
+    'Carmel Technological High School': ['Haifa', 'Binyamina'], 'Coastal Plain Science High School': ['Tel Aviv', 'Herzliya', 'Netanya', 'Rehovot', 'Ashkelon'], 'Desert Blossom High School': ['Be\'er Sheva'],
+    'Galilee Regional School': ['Afula'], 'Sharon Youth Village School': ['Netanya', 'Herzliya'],
+    'Pearl Delta Experimental School': ['Guangzhou', 'Shenzhen'], 'Jade Mountain Senior High School': ['Taipei', 'Chiayi', 'Taichung'], 'River Delta Foreign Language School': ['Shanghai', 'Suzhou', 'Hangzhou', 'Nanjing'],
+    'Affiliated High School of Island Normal University': ['Taipei', 'Taichung', 'Kaohsiung'],
+    'No. 2 High School of the Eastern District': ['Shanghai', 'Beijing', 'Suzhou', 'Hangzhou', 'Qingdao', 'Zhengzhou', 'Wuhan', 'Jinan', 'Nanjing', 'Kunming', 'Chengdu'],
+    'Sumida River Technical High School': ['Tokyo'], 'Han River Science High School': ['Seoul'], 'Kowloon Bay Secondary School': ['Hong Kong'],
+    'Lotus Valley Public School': ['Delhi', 'Mumbai'], 'Lion City Secondary School': ['Singapore'], 'Long White Cloud College': ['Auckland'], 'Saigon River High School for the Gifted': ['Ho Chi Minh City'],
+    'Klang Valley International School': ['Kuala Lumpur'], 'Pasig River Science High School': ['Manila'],
+    'Harbour City Grammar School': ['Sydney'], 'Blue Gum Secondary College': ['Melbourne'], 'Outback Community High School': ['Coonabarabran'], 'Coral Coast State High School': ['Brisbane']
+  };
+  D.schoolAt = name => D.SCHOOL_AT[String(name == null ? '' : name).trim()] || null;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems', 'Sierra Photonics', 'Cupola Space Systems', 'El Camino Microdevices', 'Tidepool Robotics', 'Pacific Quantum Works', 'Joshua Tree Avionics'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic', 'Cable Car Software', 'Poppy Field Games', 'Marina Analytics', 'Eucalyptus Code'],
       local: ['Pacific Surf Shop', 'Orchard Street Tacos', 'Vineyard Credit Union', 'Golden Poppy Bakery', 'Sierra Outfitters', 'Coastline Auto', 'Boardwalk Burrito Co.', 'Sagebrush Feed & Supply', 'Lighthouse Point Cafe', 'Citrus Grove Market', 'Foothill Bike Shop', 'Silver State Credit Union'], eng: ['Seismic Structures', 'Baycrest Engineering', 'High Desert Aerospace', 'Solaris Energy Engineering', 'Golden State Transit Engineering', 'Tahoe Water Engineering', 'Pacific Offshore Wind Engineering', 'Canyon Rim Geotechnical'],
@@ -3053,7 +3114,184 @@ window.G = window.G || {};
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
-  D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region]; return (a && a[type]) || D.SPONSOR_NAMES[type] || D.SPONSOR_NAMES.eng; };
+  D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region] || D.SPONSOR_BY.Midwest; return a[type] || a.eng; }; // a home's own companies (the international ones are D.SPONSOR_NAMES)
+
+  // ---------- people's names ----------
+  // People are named as people of their place usually are when the name is written in English, and a first name
+  // always goes with a family name of the same language. The place is the team's city on the map (G.Geo.HUBS): a
+  // city with names of its own (D.NAME_AT), else its district's list, else its area's. So a team near the Saint
+  // Lawrence has names of one language and a team on the prairies of the other, and East Asia's teams have an English
+  // first name before a family name of their own shore (two cities there keep given names of their own).
+  // D.FIRST and D.LAST (world.js) stay the international mix: the people of an international company, and anybody
+  // with no home. A family name is one word (a first name is everything before the first space).
+  {
+    const US = ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella', 'Logan', 'Mia', 'Lucas', 'Charlotte', 'Jacob', 'Amelia', 'Michael', 'Harper', 'Daniel', 'Abigail', 'Henry',
+      'Emily', 'Jackson', 'Ella', 'Owen', 'Grace', 'Caleb', 'Chloe', 'Wyatt', 'Lily', 'Andrew', 'Hannah', 'Ryan', 'Natalie', 'Nathan', 'Zoe', 'Tyler', 'Sarah', 'Dylan', 'Megan', 'Connor'];
+    // the English first names people of East Asia's shores and of the strait city go by
+    const EN = ['Kevin', 'Jason', 'Eric', 'Andy', 'Tony', 'Vincent', 'Jerry', 'Frank', 'Leo', 'Sam', 'Allen', 'Peter', 'Daniel', 'Michael', 'Henry', 'Jack', 'Alex', 'Ryan', 'Steven', 'Brian', 'David', 'William',
+      'Amy', 'Emily', 'Jessica', 'Cindy', 'Alice', 'Grace', 'Ivy', 'Tina', 'Vivian', 'Jenny', 'Angela', 'Wendy', 'Lily', 'Sophie', 'Coco', 'Iris', 'Joyce', 'Sharon', 'Annie', 'Karen', 'Michelle', 'Selina'];
+    D.NAME_GROUPS = {
+      // ----- the five areas of the United States, and their districts
+      West: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Jasmine', 'Cody', 'Brooke', 'Carter', 'Paige']),
+        last: ['Smith', 'Johnson', 'Anderson', 'Nelson', 'Miller', 'Davis', 'Wilson', 'Hansen', 'Larson', 'Christensen', 'Jensen', 'Peterson', 'Olsen', 'Taylor', 'Clark', 'Young', 'Campbell', 'Garcia', 'Martinez', 'Hernandez',
+          'Lopez', 'Gonzalez', 'Ramirez', 'Flores', 'Nguyen', 'Lee', 'Kim', 'Tran', 'Wong', 'Chen', 'Patel', 'Singh', 'Park', 'Reyes', 'Santos', 'Baker', 'Hall', 'Allen', 'Wright', 'Hill'] },
+      'us-islands': { first: US.concat(['Kai', 'Leilani', 'Keanu', 'Noelani', 'Makoa', 'Malia', 'Kekoa', 'Nalani']),
+        last: ['Kealoha', 'Kahale', 'Kamaka', 'Akana', 'Kalani', 'Kanoho', 'Nakamura', 'Tanaka', 'Yamamoto', 'Sato', 'Watanabe', 'Higa', 'Oshiro', 'Kaneshiro', 'Matsumoto', 'Inouye', 'Wong', 'Lee', 'Chun', 'Ching',
+          'Young', 'Lum', 'Kim', 'Park', 'Santos', 'Reyes', 'Ramos', 'Domingo', 'Agustin', 'Pascua', 'Silva', 'Souza', 'Medeiros', 'Cabral', 'Smith', 'Johnson', 'Williams', 'Brown', 'Lopez', 'Garcia'] },
+      sierra: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Isabel', 'Jasmine', 'Andrea', 'Brandon', 'Justin']),
+        last: ['Garcia', 'Hernandez', 'Lopez', 'Martinez', 'Gonzalez', 'Rodriguez', 'Ramirez', 'Sanchez', 'Perez', 'Flores', 'Torres', 'Nguyen', 'Tran', 'Le', 'Pham', 'Lee', 'Kim', 'Park', 'Chen', 'Wang',
+          'Wong', 'Liu', 'Lin', 'Chang', 'Patel', 'Singh', 'Shah', 'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Anderson', 'Thompson', 'White', 'Clark', 'Santos', 'Reyes'] },
+      evergreen: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Jasmine', 'Brooke', 'Carter', 'Evan', 'Claire']),
+        last: ['Anderson', 'Johnson', 'Nelson', 'Olson', 'Larsen', 'Hansen', 'Peterson', 'Carlson', 'Erickson', 'Lund', 'Smith', 'Miller', 'Davis', 'Wilson', 'Brown', 'Jones', 'Williams', 'Thompson', 'Clark', 'Baker',
+          'Nguyen', 'Tran', 'Kim', 'Lee', 'Chen', 'Wang', 'Park', 'Wong', 'Garcia', 'Martinez', 'Hernandez', 'Lopez', 'Singh', 'Patel', 'Campbell', 'Stewart', 'Murphy', 'Reed', 'Cooper', 'Fisher'] },
+      Southwest: { first: US.concat(['Cody', 'Austin', 'Sofia', 'Isabel', 'Gabriel', 'Jasmine', 'Angel', 'Marcus']),
+        last: ['Garcia', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Rodriguez', 'Sanchez', 'Ramirez', 'Torres', 'Flores', 'Chavez', 'Romero', 'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Anderson',
+          'Baker', 'Young', 'Christensen', 'Jensen', 'Begay', 'Yazzie', 'Nguyen', 'Patel', 'Tran', 'Walker', 'Hill', 'Moore', 'Scott', 'Cooper', 'Reed', 'Morales', 'Castillo', 'Vasquez', 'Trujillo', 'Guerrero'] },
+      mesa: { first: US.concat(['Cody', 'Austin', 'Travis', 'Sofia', 'Isabel', 'Gabriel', 'Jasmine', 'Savannah']),
+        last: ['Garcia', 'Martinez', 'Rodriguez', 'Hernandez', 'Lopez', 'Gonzalez', 'Perez', 'Sanchez', 'Ramirez', 'Flores', 'Garza', 'Trevino', 'Cantu', 'Salinas', 'Guerra', 'Smith', 'Johnson', 'Williams', 'Jones', 'Brown',
+          'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Schneider', 'Mueller', 'Schulz', 'Novak', 'Kovar', 'Nguyen', 'Tran', 'Patel', 'Pham', 'Walker'] },
+      Midwest: { first: US.concat(['Hunter', 'Cole', 'Paige', 'Brooke', 'Carter', 'Addison', 'Evan', 'Claire']),
+        last: ['Johnson', 'Anderson', 'Nelson', 'Olson', 'Peterson', 'Larson', 'Schmidt', 'Miller', 'Meyer', 'Schultz', 'Mueller', 'Wagner', 'Hansen', 'Kowalski', 'Nowak', 'Novak', 'Smith', 'Williams', 'Brown', 'Davis',
+          'Thompson', 'Becker', 'Hoffman', 'Schroeder', 'Weber', 'Klein', 'Koch', 'Carlson', 'Swanson', 'Erickson', 'Jackson', 'Robinson', 'Washington', 'Garcia', 'Nguyen', 'Patel', 'Vang', 'Dvorak', 'Kaminski', 'Sullivan'] },
+      lakeshore: { first: US.concat(['Hunter', 'Cole', 'Paige', 'Brooke', 'Carter', 'Addison', 'Evan', 'Claire']),
+        last: ['Smith', 'Johnson', 'Williams', 'Brown', 'Miller', 'Jones', 'Davis', 'Anderson', 'Wilson', 'Thompson', 'Kowalski', 'Nowak', 'Wisniewski', 'Kaminski', 'Zielinski', 'Vanderberg', 'DeVries', 'DeJong', 'Hoekstra', 'Bakker',
+          'Meyer', 'Schmidt', 'Schultz', 'Wagner', 'Becker', 'Haddad', 'Saad', 'Maki', 'Niemi', 'Koski', 'Jackson', 'Robinson', 'Washington', 'Harris', 'Murphy', 'Sullivan', 'Kelly', 'Nguyen', 'Patel', 'Garcia'] },
+      Northeast: { first: US.concat(['Anthony', 'Dominic', 'Rachel', 'Rebecca', 'Sean', 'Brendan', 'Julia', 'Nicholas']),
+        last: ['Murphy', 'Kelly', 'Sullivan', 'Walsh', 'Ryan', 'Rossi', 'Russo', 'Romano', 'Esposito', 'DeLuca', 'Marino', 'Cohen', 'Goldberg', 'Friedman', 'Schwartz', 'Katz', 'Smith', 'Johnson', 'Williams', 'Brown',
+          'Rodriguez', 'Rivera', 'Chen', 'Li', 'Zhang', 'Patel', 'Singh', 'Kim', 'Kowalski', 'Fitzgerald', 'Gallagher', 'Doyle', 'McCarthy', 'Donovan', 'Campbell', 'Thompson', 'Jackson', 'Lewis', 'Clarke', 'Hughes'] },
+      harbor: { first: US.concat(['Anthony', 'Dominic', 'Rachel', 'Rebecca', 'Sean', 'Brendan', 'Julia', 'Nicholas']),
+        last: ['Sullivan', 'Murphy', 'Kelly', 'Walsh', 'Ryan', 'Doyle', 'Donovan', 'McCarthy', 'Gallagher', 'Fitzgerald', 'Smith', 'Johnson', 'Brown', 'Williams', 'Davis', 'Clark', 'White', 'Adams', 'Parker', 'Rossi',
+          'Russo', 'DeLuca', 'Marino', 'Santoro', 'Silva', 'Pereira', 'Medeiros', 'Costa', 'Sousa', 'Pelletier', 'Ouellette', 'Gagnon', 'Roy', 'Cote', 'Levesque', 'Cohen', 'Goldberg', 'Nguyen', 'Patel', 'Chen'] },
+      Southeast: { first: US.concat(['Savannah', 'Caroline', 'Madison', 'Carson', 'Jasmine', 'Isaiah', 'Gabriel', 'Marcus']),
+        last: ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Davis', 'Jackson', 'Harris', 'Robinson', 'Walker', 'Washington', 'Carter', 'Mitchell', 'Turner', 'Parker', 'Collins', 'Edwards', 'Stewart', 'Morris', 'Rogers',
+          'Reed', 'Cook', 'Bell', 'Bailey', 'Cooper', 'Howard', 'Ward', 'Brooks', 'Sanders', 'Hernandez', 'Rodriguez', 'Perez', 'Gonzalez', 'Fernandez', 'Diaz', 'Nguyen', 'Patel', 'Boudreaux', 'Landry', 'Hayes'] },
+      // ----- the North: one language on the prairies, the coast and the great lakes, another along the Saint Lawrence
+      North: { first: ['Liam', 'Noah', 'Olivia', 'Emma', 'William', 'Benjamin', 'Charlotte', 'Sophie', 'Ethan', 'Lucas', 'Chloe', 'Emily', 'Nathan', 'Thomas', 'Hannah', 'Owen', 'Connor', 'Avery', 'Jacob', 'Zoe',
+        'Mackenzie', 'Logan', 'Sarah', 'Megan', 'Ryan', 'Isla', 'Jack', 'Ava', 'Mia', 'Abigail', 'Hudson', 'Carter', 'Grace', 'Ella', 'Lily', 'Evan', 'Tyler', 'Maya', 'Aiden', 'Claire'],
+        last: ['Smith', 'Brown', 'Wilson', 'Johnson', 'MacDonald', 'Taylor', 'Campbell', 'Anderson', 'Martin', 'Lee', 'Thompson', 'Fraser', 'Stewart', 'Scott', 'Reid', 'Murray', 'Clarke', 'Friesen', 'Kowalchuk', 'Dhillon',
+          'Sidhu', 'Singh', 'Wong', 'Chan', 'Li', 'Patel', 'Nguyen', 'Kim', 'Wang', 'Chen', 'Graham', 'Morrison', 'Ross', 'Cameron', 'Walker', 'Young', 'King', 'Robinson', 'Bell', 'Kelly'] },
+      'north-fr': { first: ['Mathieu', 'Gabriel', 'Alexandre', 'Felix', 'Simon', 'Antoine', 'Etienne', 'Xavier', 'Olivier', 'Samuel', 'Thomas', 'William', 'Nathan', 'Raphael', 'Vincent', 'Maxime', 'Jeremie', 'Guillaume', 'Philippe', 'Louis',
+        'Lea', 'Camille', 'Juliette', 'Rosalie', 'Maude', 'Amelie', 'Chloe', 'Florence', 'Charlotte', 'Alice', 'Emma', 'Sarah', 'Laurence', 'Ariane', 'Noemie', 'Catherine', 'Audrey', 'Gabrielle', 'Marianne', 'Elodie'],
+        last: ['Tremblay', 'Gagnon', 'Roy', 'Cote', 'Bouchard', 'Gauthier', 'Morin', 'Lavoie', 'Fortin', 'Gagne', 'Ouellet', 'Pelletier', 'Belanger', 'Levesque', 'Bergeron', 'Leblanc', 'Paquette', 'Girard', 'Simard', 'Boucher',
+          'Caron', 'Beaulieu', 'Cloutier', 'Dube', 'Poirier', 'Fournier', 'Lapointe', 'Leclerc', 'Lefebvre', 'Poulin', 'Thibault', 'Nadeau', 'Martin', 'Landry', 'Martel', 'Bedard', 'Grenier', 'Lessard', 'Bernier', 'Desjardins'] },
+      // ----- Central America: the plateau and the north, then the islands and the isthmus
+      'Central America': { first: ['Santiago', 'Mateo', 'Sebastian', 'Leonardo', 'Diego', 'Emiliano', 'Daniel', 'Miguel', 'Alejandro', 'Carlos', 'Luis', 'Jose', 'Juan', 'Angel', 'Fernando', 'Ricardo', 'Eduardo', 'Rodrigo', 'Andres', 'Javier',
+        'Sofia', 'Valentina', 'Regina', 'Camila', 'Ximena', 'Maria', 'Renata', 'Fernanda', 'Daniela', 'Valeria', 'Natalia', 'Mariana', 'Paola', 'Andrea', 'Gabriela', 'Alejandra', 'Isabella', 'Victoria', 'Lucia', 'Montserrat'],
+        last: ['Hernandez', 'Garcia', 'Martinez', 'Lopez', 'Gonzalez', 'Rodriguez', 'Perez', 'Sanchez', 'Ramirez', 'Cruz', 'Flores', 'Gomez', 'Morales', 'Vazquez', 'Reyes', 'Jimenez', 'Torres', 'Diaz', 'Gutierrez', 'Ruiz',
+          'Mendoza', 'Aguilar', 'Ortiz', 'Moreno', 'Castillo', 'Romero', 'Alvarez', 'Mendez', 'Chavez', 'Rivera', 'Juarez', 'Ramos', 'Dominguez', 'Herrera', 'Medina', 'Castro', 'Vargas', 'Guzman', 'Salazar', 'Trevino', 'Garza', 'Cantu', 'Villarreal', 'Elizondo'] },
+      'es-isles': { first: ['Juan', 'Jose', 'Luis', 'Carlos', 'Miguel', 'Angel', 'Rafael', 'Pedro', 'Manuel', 'Francisco', 'Ramon', 'Victor', 'Jorge', 'Julio', 'Daniel', 'David', 'Sebastian', 'Diego', 'Adrian', 'Kevin',
+        'Maria', 'Ana', 'Rosa', 'Carmen', 'Camila', 'Valentina', 'Sofia', 'Isabella', 'Daniela', 'Gabriela', 'Paola', 'Natalia', 'Laura', 'Andrea', 'Carolina', 'Mariana', 'Lucia', 'Elena', 'Patricia', 'Yolanda'],
+        last: ['Rodriguez', 'Perez', 'Martinez', 'Garcia', 'Reyes', 'Sanchez', 'Diaz', 'Pena', 'Jimenez', 'Ramirez', 'Hernandez', 'Rosario', 'Nunez', 'Castillo', 'Santana', 'Guzman', 'Polanco', 'Mejia', 'Batista', 'Gonzalez',
+          'Vargas', 'Moreno', 'Castro', 'Morales', 'Herrera', 'Rios', 'Quintero', 'Pinto', 'Cedeno', 'Samudio', 'Cordoba', 'Mendoza'] },
+      // ----- South America: one language over most of it, another along the mountains
+      'South America': { first: ['Miguel', 'Arthur', 'Heitor', 'Bernardo', 'Davi', 'Gabriel', 'Pedro', 'Lucas', 'Matheus', 'Rafael', 'Gustavo', 'Felipe', 'Joao', 'Guilherme', 'Vinicius', 'Thiago', 'Bruno', 'Caio', 'Enzo', 'Leonardo',
+        'Alice', 'Sophia', 'Helena', 'Valentina', 'Laura', 'Isabella', 'Manuela', 'Julia', 'Luiza', 'Beatriz', 'Mariana', 'Larissa', 'Camila', 'Leticia', 'Ana', 'Giovanna', 'Fernanda', 'Bianca', 'Carolina', 'Gabriela'],
+        last: ['Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa',
+          'Rocha', 'Dias', 'Nascimento', 'Andrade', 'Moreira', 'Nunes', 'Marques', 'Machado', 'Mendes', 'Freitas', 'Cardoso', 'Ramos', 'Teixeira', 'Araujo', 'Cavalcanti', 'Monteiro', 'Correia', 'Batista', 'Pinto', 'Moraes', 'Tanaka', 'Schmidt'] },
+      'es-andes': { first: ['Mateo', 'Sebastian', 'Matias', 'Benjamin', 'Vicente', 'Martin', 'Agustin', 'Tomas', 'Joaquin', 'Nicolas', 'Felipe', 'Diego', 'Juan', 'Andres', 'Camilo', 'Daniel', 'Samuel', 'Alejandro', 'David', 'Maximiliano',
+        'Sofia', 'Isabella', 'Valentina', 'Emilia', 'Martina', 'Florencia', 'Catalina', 'Antonia', 'Josefa', 'Javiera', 'Camila', 'Mariana', 'Daniela', 'Valeria', 'Gabriela', 'Luciana', 'Paula', 'Laura', 'Manuela', 'Fernanda'],
+        last: ['Gonzalez', 'Munoz', 'Rojas', 'Diaz', 'Perez', 'Soto', 'Contreras', 'Silva', 'Martinez', 'Sepulveda', 'Morales', 'Rodriguez', 'Lopez', 'Fuentes', 'Hernandez', 'Torres', 'Araya', 'Flores', 'Espinoza', 'Valenzuela',
+          'Castillo', 'Tapia', 'Reyes', 'Gutierrez', 'Castro', 'Pizarro', 'Alvarez', 'Vasquez', 'Sanchez', 'Fernandez', 'Ramirez', 'Carrasco', 'Gomez', 'Cortes', 'Herrera', 'Nunez', 'Jara', 'Vergara', 'Restrepo', 'Giraldo', 'Zapata', 'Ospina', 'Cardona', 'Mejia'] },
+      // ----- Europe: every city has its own language's names (this first list only for a team with no city)
+      Europe: { first: ['Emma', 'Lucas', 'Sophie', 'Noah', 'Julia', 'Anna', 'Jan', 'Tomas', 'Louis', 'Chloe', 'Hugo', 'Oliver', 'Amelia', 'Luka', 'Petra', 'Nikola', 'Elena', 'Max', 'Lena', 'Felix', 'Mila', 'Erik', 'Sofia', 'Ivan'],
+        last: ['Jansen', 'Bakker', 'Smith', 'Jones', 'Kowalski', 'Nowak', 'Novak', 'Dvorak', 'Dubois', 'Martin', 'Muller', 'Meier', 'Horvat', 'Petrov', 'Popescu', 'Andersson', 'Fischer', 'Weber', 'Keller', 'Laurent', 'Kovac', 'Lindberg', 'Taylor', 'Visser'] },
+      'eu-thames': { first: ['Oliver', 'George', 'Harry', 'Jack', 'Charlie', 'Thomas', 'James', 'William', 'Oscar', 'Alfie', 'Henry', 'Leo', 'Freddie', 'Archie', 'Arthur', 'Olivia', 'Amelia', 'Isla', 'Emily', 'Ava', 'Lily', 'Sophie', 'Grace', 'Mia', 'Poppy', 'Ella', 'Evie', 'Charlotte', 'Jessica', 'Daisy'],
+        last: ['Smith', 'Jones', 'Taylor', 'Brown', 'Williams', 'Wilson', 'Johnson', 'Davies', 'Robinson', 'Wright', 'Thompson', 'Evans', 'Walker', 'White', 'Roberts', 'Green', 'Hall', 'Wood', 'Jackson', 'Clarke', 'Patel', 'Khan', 'Lewis', 'Phillips', 'Mason', 'Mitchell', 'Hughes', 'Edwards', 'Singh', 'Ahmed'] },
+      'eu-lowlands': { first: ['Daan', 'Sem', 'Lucas', 'Levi', 'Luuk', 'Bram', 'Jesse', 'Thijs', 'Ruben', 'Lars', 'Jan', 'Sven', 'Niels', 'Stijn', 'Joris', 'Emma', 'Julia', 'Sanne', 'Lotte', 'Fleur', 'Anne', 'Lisa', 'Eva', 'Noor', 'Iris', 'Femke', 'Anouk', 'Sophie', 'Tess', 'Roos'],
+        last: ['Jansen', 'Bakker', 'Visser', 'Smit', 'Meijer', 'Mulder', 'Bos', 'Vos', 'Peters', 'Hendriks', 'Dekker', 'Brouwer', 'Dijkstra', 'Vermeulen', 'Kok', 'Jacobs', 'Willems', 'Hoekstra', 'Maas', 'Verhoeven', 'Koster', 'Prins', 'Blom', 'Huisman', 'Peeters', 'Kuipers', 'Veenstra', 'Postma', 'Schouten', 'Wolters'] },
+      'eu-vltava': { first: ['Jakub', 'Jan', 'Tomas', 'Adam', 'Matej', 'Vojtech', 'Ondrej', 'Filip', 'Lukas', 'David', 'Martin', 'Petr', 'Daniel', 'Marek', 'Stepan', 'Eliska', 'Tereza', 'Anna', 'Adela', 'Natalie', 'Karolina', 'Katerina', 'Barbora', 'Veronika', 'Lucie', 'Kristyna', 'Klara', 'Marketa', 'Zuzana', 'Hana'],
+        last: ['Novak', 'Svoboda', 'Novotny', 'Dvorak', 'Cerny', 'Prochazka', 'Kucera', 'Vesely', 'Horak', 'Nemec', 'Pospisil', 'Pokorny', 'Hajek', 'Kral', 'Jelinek', 'Ruzicka', 'Benes', 'Fiala', 'Sedlacek', 'Dolezal', 'Zeman', 'Kolar', 'Navratil', 'Cermak', 'Urban', 'Vanek', 'Blazek', 'Kriz', 'Kovar', 'Maly'] },
+      'eu-rhone': { first: ['Lucas', 'Hugo', 'Louis', 'Jules', 'Gabriel', 'Arthur', 'Nathan', 'Leo', 'Raphael', 'Theo', 'Maxime', 'Antoine', 'Baptiste', 'Clement', 'Romain', 'Emma', 'Chloe', 'Manon', 'Lea', 'Camille', 'Ines', 'Sarah', 'Jade', 'Louise', 'Alice', 'Juliette', 'Clara', 'Margaux', 'Pauline', 'Anais'],
+        last: ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Bertrand', 'Roux', 'Vincent', 'Fournier', 'Morel', 'Girard', 'Mercier', 'Dupont', 'Lambert', 'Bonnet', 'Legrand', 'Garnier', 'Faure', 'Rousseau', 'Blanc', 'Guerin'] },
+      'eu-vistula': { first: ['Jakub', 'Jan', 'Szymon', 'Antoni', 'Filip', 'Kacper', 'Mateusz', 'Michal', 'Piotr', 'Bartosz', 'Wojciech', 'Krzysztof', 'Tomasz', 'Pawel', 'Adam', 'Zofia', 'Zuzanna', 'Julia', 'Maja', 'Hanna', 'Lena', 'Alicja', 'Oliwia', 'Natalia', 'Kasia', 'Agnieszka', 'Magda', 'Ola', 'Weronika', 'Karolina'],
+        last: ['Nowak', 'Kowalski', 'Wisniewski', 'Wojcik', 'Kowalczyk', 'Kaminski', 'Lewandowski', 'Zielinski', 'Szymanski', 'Wozniak', 'Dabrowski', 'Kozlowski', 'Jankowski', 'Mazur', 'Kwiatkowski', 'Krawczyk', 'Piotrowski', 'Grabowski', 'Pawlowski', 'Michalski', 'Zajac', 'Krol', 'Wieczorek', 'Jablonski', 'Wrobel', 'Nowakowski', 'Majewski', 'Olszewski', 'Stepien', 'Malinowski'] },
+      'eu-alps': { first: ['Noah', 'Luca', 'Leon', 'Liam', 'Elias', 'David', 'Nico', 'Jan', 'Tim', 'Fabian', 'Simon', 'Lukas', 'Samuel', 'Jonas', 'Matteo', 'Mia', 'Emma', 'Lena', 'Lea', 'Anna', 'Laura', 'Sara', 'Nina', 'Julia', 'Elena', 'Lara', 'Sophie', 'Alina', 'Livia', 'Chiara'],
+        last: ['Muller', 'Meier', 'Schmid', 'Keller', 'Weber', 'Huber', 'Schneider', 'Meyer', 'Steiner', 'Fischer', 'Gerber', 'Brunner', 'Baumann', 'Frei', 'Zimmermann', 'Moser', 'Widmer', 'Wyss', 'Graf', 'Roth', 'Suter', 'Baumgartner', 'Bachmann', 'Studer', 'Kaufmann', 'Buhler', 'Hofer', 'Lehmann', 'Marti', 'Kunz'] },
+      'eu-adriatic': { first: ['Luka', 'Ivan', 'Marko', 'Petar', 'Josip', 'Filip', 'Karlo', 'Matej', 'Ante', 'Tomislav', 'Nikola', 'Mateo', 'David', 'Jakov', 'Leon', 'Ana', 'Marija', 'Petra', 'Lucija', 'Ivana', 'Mia', 'Lana', 'Sara', 'Ema', 'Nika', 'Katarina', 'Marta', 'Dora', 'Iva', 'Tena'],
+        last: ['Horvat', 'Kovacevic', 'Babic', 'Maric', 'Juric', 'Novak', 'Kovacic', 'Knezevic', 'Vukovic', 'Markovic', 'Petrovic', 'Matic', 'Tomic', 'Pavlovic', 'Kovac', 'Bozic', 'Blazevic', 'Grgic', 'Pavic', 'Radic', 'Peric', 'Filipovic', 'Saric', 'Lovric', 'Vidovic', 'Perkovic', 'Popovic', 'Bosnjak', 'Jukic', 'Barisic'] },
+      'eu-balkan': { first: ['Georgi', 'Ivan', 'Dimitar', 'Nikolay', 'Petar', 'Aleksandar', 'Martin', 'Viktor', 'Kaloyan', 'Boris', 'Stefan', 'Hristo', 'Todor', 'Vasil', 'Daniel', 'Maria', 'Ivana', 'Elena', 'Viktoria', 'Gabriela', 'Aleksandra', 'Nikol', 'Raya', 'Simona', 'Teodora', 'Desislava', 'Kalina', 'Yana', 'Mila', 'Sofia'],
+        last: ['Ivanov', 'Georgiev', 'Dimitrov', 'Petrov', 'Nikolov', 'Hristov', 'Stoyanov', 'Todorov', 'Iliev', 'Angelov', 'Vasilev', 'Atanasov', 'Kolev', 'Marinov', 'Popov', 'Mihaylov', 'Kostov', 'Stefanov', 'Yordanov', 'Petkov', 'Dimov', 'Aleksandrov', 'Borisov', 'Tsvetkov', 'Kirilov', 'Pavlov', 'Simeonov', 'Velikov', 'Zhelev', 'Radev'] },
+      'eu-carpathian': { first: ['Andrei', 'Alexandru', 'Mihai', 'Stefan', 'David', 'Gabriel', 'Ionut', 'Cristian', 'Vlad', 'Tudor', 'Radu', 'Bogdan', 'Matei', 'Darius', 'Rares', 'Maria', 'Ioana', 'Elena', 'Ana', 'Andreea', 'Alexandra', 'Daria', 'Bianca', 'Diana', 'Cristina', 'Teodora', 'Raluca', 'Irina', 'Larisa', 'Denisa'],
+        last: ['Popescu', 'Ionescu', 'Popa', 'Pop', 'Stan', 'Stoica', 'Rusu', 'Munteanu', 'Constantin', 'Moldovan', 'Dumitru', 'Dinu', 'Serban', 'Marin', 'Lazar', 'Florea', 'Ilie', 'Toma', 'Barbu', 'Cristea', 'Nistor', 'Oprea', 'Ciobanu', 'Lungu', 'Suciu', 'Muresan', 'Crisan', 'Dobre', 'Sandu', 'Vasile'] },
+      'eu-aegean': { first: ['Giorgos', 'Dimitris', 'Nikos', 'Yannis', 'Kostas', 'Christos', 'Panagiotis', 'Vasilis', 'Alexandros', 'Stelios', 'Thanasis', 'Manolis', 'Petros', 'Michalis', 'Spyros', 'Maria', 'Eleni', 'Katerina', 'Sofia', 'Anna', 'Dimitra', 'Ioanna', 'Christina', 'Konstantina', 'Eirini', 'Zoe', 'Despina', 'Angeliki', 'Danae', 'Nefeli'],
+        last: ['Papadopoulos', 'Papadakis', 'Georgiou', 'Dimitriou', 'Nikolaou', 'Ioannou', 'Christou', 'Konstantinou', 'Vasileiou', 'Karagiannis', 'Makris', 'Vlachos', 'Economou', 'Antoniou', 'Petrou', 'Alexiou', 'Pappas', 'Katsaros', 'Kokkinos', 'Mylonas', 'Samaras', 'Kyriakou', 'Lambrou', 'Raptis', 'Galanis', 'Stavrou', 'Zervas', 'Bakas', 'Manos', 'Sideris'] },
+      'eu-nordic': { first: ['Oscar', 'William', 'Lucas', 'Elias', 'Hugo', 'Oliver', 'Liam', 'Axel', 'Erik', 'Viktor', 'Filip', 'Emil', 'Anton', 'Isak', 'Gustav', 'Alice', 'Maja', 'Elsa', 'Ella', 'Wilma', 'Ebba', 'Astrid', 'Saga', 'Freja', 'Alma', 'Linnea', 'Ida', 'Emma', 'Julia', 'Klara'],
+        last: ['Andersson', 'Johansson', 'Karlsson', 'Nilsson', 'Eriksson', 'Larsson', 'Olsson', 'Persson', 'Svensson', 'Gustafsson', 'Pettersson', 'Jonsson', 'Jansson', 'Hansson', 'Bengtsson', 'Lindberg', 'Lindstrom', 'Lindqvist', 'Lindgren', 'Berg', 'Axelsson', 'Bergstrom', 'Lundberg', 'Lundgren', 'Mattsson', 'Berglund', 'Fredriksson', 'Sandberg', 'Henriksson', 'Forsberg'] },
+      'eu-dnipro': { first: ['Oleksandr', 'Andriy', 'Dmytro', 'Maksym', 'Artem', 'Ivan', 'Mykola', 'Bohdan', 'Yaroslav', 'Taras', 'Vladyslav', 'Denys', 'Nazar', 'Oleh', 'Danylo', 'Olena', 'Anna', 'Mariia', 'Sofiia', 'Anastasiia', 'Kateryna', 'Yuliia', 'Daryna', 'Viktoriia', 'Oksana', 'Iryna', 'Natalia', 'Tetiana', 'Polina', 'Solomiia'],
+        last: ['Shevchenko', 'Kovalenko', 'Bondarenko', 'Tkachenko', 'Kravchenko', 'Boyko', 'Melnyk', 'Kovalchuk', 'Oliynyk', 'Shevchuk', 'Polishchuk', 'Lysenko', 'Rudenko', 'Savchenko', 'Petrenko', 'Marchenko', 'Moroz', 'Koval', 'Pavlenko', 'Kuzmenko', 'Ponomarenko', 'Havrylenko', 'Klymenko', 'Vasylenko', 'Levchenko', 'Karpenko', 'Sydorenko', 'Mazur', 'Tkachuk', 'Honcharenko'] },
+      // ----- Anatolia and the Middle East
+      Anatolia: { first: ['Emre', 'Mert', 'Can', 'Burak', 'Kerem', 'Arda', 'Yusuf', 'Omer', 'Cem', 'Deniz', 'Ege', 'Kaan', 'Berk', 'Efe', 'Alp', 'Onur', 'Baris', 'Tolga', 'Umut', 'Mehmet',
+        'Elif', 'Zeynep', 'Ece', 'Selin', 'Defne', 'Ayse', 'Ela', 'Irem', 'Melis', 'Naz', 'Asli', 'Buse', 'Ceren', 'Derya', 'Esra', 'Gizem', 'Ipek', 'Merve', 'Ozge', 'Yagmur'],
+        last: ['Yilmaz', 'Kaya', 'Demir', 'Celik', 'Sahin', 'Yildiz', 'Yildirim', 'Ozturk', 'Aydin', 'Ozdemir', 'Arslan', 'Dogan', 'Kilic', 'Aslan', 'Cetin', 'Kara', 'Koc', 'Kurt', 'Ozkan', 'Simsek',
+          'Polat', 'Korkmaz', 'Ozcan', 'Cakir', 'Erdem', 'Acar', 'Bulut', 'Gunes', 'Aksoy', 'Tekin', 'Karaca', 'Bozkurt', 'Turan', 'Avci', 'Keskin', 'Unal', 'Guler', 'Tas', 'Sen', 'Bayram'] },
+      'Middle East': { first: ['Noa', 'Yael', 'Tamar', 'Maya', 'Shira', 'Adi', 'Roni', 'Tal', 'Gal', 'Michal', 'Hila', 'Liat', 'Dana', 'Neta', 'Ella', 'Lia', 'Avigail', 'Talia', 'Agam', 'Yuval',
+        'Daniel', 'David', 'Yoni', 'Itai', 'Omer', 'Amit', 'Lior', 'Eitan', 'Ariel', 'Noam', 'Ido', 'Nadav', 'Guy', 'Roi', 'Yonatan', 'Uri', 'Alon', 'Tomer', 'Matan', 'Ori'],
+        last: ['Cohen', 'Levi', 'Mizrahi', 'Peretz', 'Biton', 'Dahan', 'Friedman', 'Katz', 'Azoulay', 'Avraham', 'Shapiro', 'Golan', 'Segal', 'Sasson', 'Amar', 'Levin', 'Rosen', 'Klein', 'Weiss', 'Shalom',
+          'Gabay', 'Ohana', 'Malka', 'Hadad', 'Ashkenazi', 'Shahar', 'Baruch', 'Navon', 'Stern', 'Goldberg', 'Yosef', 'Carmi', 'Dror', 'Erez', 'Harel', 'Koren', 'Lavi', 'Regev', 'Tzur', 'Khoury', 'Nasser', 'Mansour'] },
+      // ----- East Asia: an English first name before a family name as each shore spells it; two cities with given names of their own
+      'East Asia': { first: EN,
+        last: ['Wang', 'Li', 'Zhang', 'Liu', 'Chen', 'Yang', 'Huang', 'Zhao', 'Wu', 'Zhou', 'Xu', 'Sun', 'Ma', 'Zhu', 'Hu', 'Guo', 'He', 'Lin', 'Gao', 'Luo', 'Zheng', 'Liang', 'Xie', 'Tang', 'Song', 'Han', 'Feng', 'Deng', 'Cao', 'Peng',
+          'Zeng', 'Xiao', 'Tian', 'Dong', 'Pan', 'Yuan', 'Cai', 'Jiang', 'Yu', 'Du'] },
+      'ea-island': { first: EN,
+        last: ['Chen', 'Lin', 'Huang', 'Chang', 'Lee', 'Wang', 'Wu', 'Liu', 'Tsai', 'Yang', 'Hsu', 'Cheng', 'Hsieh', 'Kuo', 'Hung', 'Chiu', 'Tseng', 'Liao', 'Lai', 'Chou', 'Yeh', 'Su', 'Chuang', 'Lu', 'Chiang', 'Ho', 'Lo', 'Kao', 'Hsiao', 'Pan',
+          'Chien', 'Chu', 'Chung', 'Peng', 'Yu', 'Tu', 'Shih', 'Fang', 'Weng', 'Tsao'] },
+      'ea-harbour': { first: EN,
+        last: ['Chan', 'Wong', 'Lee', 'Cheung', 'Lau', 'Ng', 'Leung', 'Ho', 'Lam', 'Yeung', 'Chow', 'Tsang', 'Cheng', 'Lai', 'Yip', 'Fung', 'Kwok', 'Tang', 'Yuen', 'Mak', 'Poon', 'Tam', 'Siu', 'Kwan', 'Law', 'Hui', 'Chiu', 'Tse', 'Wan', 'Luk'] },
+      'ea-kanto': { first: ['Haruto', 'Yuto', 'Sota', 'Ren', 'Riku', 'Kaito', 'Hinata', 'Kenta', 'Daiki', 'Takumi', 'Sho', 'Akira', 'Hiroshi', 'Yuki', 'Ryo', 'Yui', 'Aoi', 'Sakura', 'Hina', 'Mio', 'Rin', 'Yuna', 'Emi', 'Mai', 'Nanami', 'Misaki', 'Haruka', 'Ayaka', 'Kana', 'Miyu'],
+        last: ['Sato', 'Suzuki', 'Takahashi', 'Tanaka', 'Watanabe', 'Ito', 'Yamamoto', 'Nakamura', 'Kobayashi', 'Kato', 'Yoshida', 'Yamada', 'Sasaki', 'Yamaguchi', 'Matsumoto', 'Inoue', 'Kimura', 'Hayashi', 'Shimizu', 'Saito', 'Mori', 'Ikeda', 'Hashimoto', 'Ishikawa', 'Ogawa', 'Fujita', 'Okada', 'Goto', 'Hasegawa', 'Murakami'] },
+      'ea-han': { first: ['Minjun', 'Seojun', 'Jiho', 'Hyunwoo', 'Dohyun', 'Junho', 'Sungmin', 'Woojin', 'Taeyang', 'Jisung', 'Minho', 'Jaehyun', 'Donghyun', 'Seungwoo', 'Yunho', 'Jisoo', 'Jiwoo', 'Seoyeon', 'Minseo', 'Yuna', 'Jimin', 'Sumin', 'Yejin', 'Eunji', 'Hana', 'Jiwon', 'Soyeon', 'Chaewon', 'Dahyun', 'Nayeon'],
+        last: ['Kim', 'Lee', 'Park', 'Choi', 'Jung', 'Kang', 'Cho', 'Yoon', 'Jang', 'Lim', 'Han', 'Oh', 'Seo', 'Shin', 'Kwon', 'Hwang', 'Ahn', 'Song', 'Yoo', 'Hong', 'Jeon', 'Ko', 'Moon', 'Yang', 'Son', 'Bae', 'Baek', 'Heo', 'Nam', 'Ryu'] },
+      // ----- Asia Pacific: the southern continent, then the cities across the ocean, each with its own
+      'Asia Pacific': { first: ['Jack', 'Oliver', 'William', 'Noah', 'Lachlan', 'Hamish', 'Angus', 'Liam', 'Ethan', 'Harry', 'Riley', 'Cooper', 'Mitchell', 'Flynn', 'Archie', 'Hugo', 'Charlotte', 'Mia', 'Zoe', 'Ruby',
+        'Chloe', 'Isla', 'Matilda', 'Amelia', 'Olivia', 'Sienna', 'Ella', 'Grace', 'Lucy', 'Imogen', 'Poppy', 'Hannah', 'Jasmine', 'Thomas', 'James', 'Samuel', 'Emily', 'Sophie', 'Ava', 'Max'],
+        last: ['Smith', 'Jones', 'Williams', 'Brown', 'Wilson', 'Taylor', 'Johnson', 'White', 'Martin', 'Anderson', 'Thompson', 'Walker', 'Harris', 'Kelly', 'Ryan', 'King', 'Wright', 'Campbell', 'Robinson', 'Mitchell',
+          'Nguyen', 'Tran', 'Lee', 'Chen', 'Wang', 'Singh', 'Patel', 'McDonald', 'Fraser', 'Murray', 'Stewart', 'Thomas', 'Roberts', 'Clarke', 'Edwards', 'Turner', 'Hughes', 'Baker', 'Morris', 'Watson'] },
+      'ap-cloud': { first: ['Oliver', 'Jack', 'Noah', 'Leo', 'Lucas', 'George', 'Charlie', 'Hunter', 'Liam', 'Mason', 'Tane', 'Nikau', 'Ari', 'Manaia', 'Kahu', 'Charlotte', 'Isla', 'Amelia', 'Olivia', 'Mia', 'Ava', 'Harper', 'Lily', 'Ella', 'Sophie', 'Aroha', 'Mere', 'Anahera', 'Maia', 'Kiri'],
+        last: ['Smith', 'Wilson', 'Williams', 'Brown', 'Taylor', 'Jones', 'Walker', 'Thompson', 'Anderson', 'King', 'Harris', 'Scott', 'Campbell', 'Stewart', 'Robinson', 'Young', 'Mitchell', 'Clark', 'Parata', 'Ngata', 'Tamihana', 'Tipene', 'Paewai', 'Waaka', 'Rangi', 'Hohepa', 'Singh', 'Patel', 'Wang', 'Li'] },
+      'ap-ganges': { first: ['Aarav', 'Arjun', 'Rohan', 'Vivaan', 'Aditya', 'Ishaan', 'Kabir', 'Rahul', 'Karan', 'Dev', 'Vihaan', 'Siddharth', 'Aryan', 'Nikhil', 'Varun', 'Priya', 'Ananya', 'Diya', 'Aanya', 'Isha', 'Kavya', 'Meera', 'Neha', 'Riya', 'Saanvi', 'Tanvi', 'Anika', 'Pooja', 'Shreya', 'Aditi'],
+        last: ['Sharma', 'Patel', 'Singh', 'Kumar', 'Gupta', 'Reddy', 'Shah', 'Mehta', 'Joshi', 'Desai', 'Iyer', 'Nair', 'Rao', 'Verma', 'Kapoor', 'Malhotra', 'Chopra', 'Agarwal', 'Kulkarni', 'Deshmukh', 'Pillai', 'Menon', 'Bose', 'Chatterjee', 'Mishra', 'Pandey', 'Jain', 'Bhatt', 'Saxena', 'Banerjee'] },
+      'ap-strait': { first: EN,
+        last: ['Tan', 'Lim', 'Lee', 'Ng', 'Ong', 'Wong', 'Goh', 'Chua', 'Chan', 'Koh', 'Teo', 'Ang', 'Yeo', 'Tay', 'Ho', 'Low', 'Toh', 'Sim', 'Chong', 'Chia', 'Seah', 'Lau', 'Chew', 'Foo', 'Quek', 'Neo', 'Leong', 'Phua', 'Soh', 'Wee'] },
+      'ap-klang': { first: ['Aiman', 'Amir', 'Danial', 'Hakim', 'Irfan', 'Haziq', 'Farhan', 'Syafiq', 'Adam', 'Imran', 'Arif', 'Faiz', 'Nurul', 'Aisyah', 'Siti', 'Farah', 'Alya', 'Amira', 'Hana', 'Sofea', 'Iman', 'Zara', 'Nadia', 'Aina', 'Balqis', 'Dina'],
+        last: ['Rahman', 'Ismail', 'Hassan', 'Ibrahim', 'Abdullah', 'Ahmad', 'Yusof', 'Aziz', 'Hamid', 'Razak', 'Osman', 'Salleh', 'Zainal', 'Halim', 'Rashid', 'Karim', 'Latif', 'Mahmud', 'Hashim', 'Idris', 'Jaafar', 'Kassim', 'Mansor', 'Nordin', 'Othman', 'Zakaria'] },
+      'ap-mekong': { first: ['Minh', 'Anh', 'Huy', 'Khoa', 'Nam', 'Duc', 'Long', 'Tuan', 'Quang', 'Phuc', 'Bao', 'Dat', 'Hieu', 'Khang', 'Thanh', 'Linh', 'Mai', 'Lan', 'Thao', 'Trang', 'Ngoc', 'Vy', 'My', 'Hanh', 'Nhi', 'Chi', 'Ha', 'Yen', 'Thu', 'Quynh'],
+        last: ['Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Huynh', 'Phan', 'Vu', 'Vo', 'Dang', 'Bui', 'Do', 'Ho', 'Ngo', 'Duong', 'Ly', 'Truong', 'Dinh', 'Lam', 'Trinh', 'Luong', 'Dao', 'Doan', 'Vuong', 'Ta', 'Cao'] },
+      'ap-pasig': { first: ['Miguel', 'Gabriel', 'Joshua', 'Christian', 'Angelo', 'Paolo', 'Carlo', 'Marco', 'John', 'Mark', 'Rafael', 'Luis', 'Enzo', 'Nathan', 'Daniel', 'Angel', 'Nicole', 'Bea', 'Bianca', 'Patricia', 'Kristine', 'Andrea', 'Maria', 'Sofia', 'Isabel', 'Jasmine', 'Angela', 'Camille', 'Samantha', 'Althea'],
+        last: ['Santos', 'Reyes', 'Cruz', 'Bautista', 'Ocampo', 'Garcia', 'Mendoza', 'Torres', 'Castillo', 'Villanueva', 'Ramos', 'Delacruz', 'Fernandez', 'Gonzales', 'Lopez', 'Navarro', 'Salazar', 'Domingo', 'Pascual', 'Soriano', 'Mercado', 'Aguilar', 'Tolentino', 'Manalo', 'Dizon', 'Pangilinan', 'Flores', 'Rivera', 'Castro', 'Aquino'] }
+    };
+  }
+  // the cities with names of their own (every other city: its district's list if it has one, else its area's)
+  D.NAME_AT = {
+    Honolulu: 'us-islands',
+    Montreal: 'north-fr', Sherbrooke: 'north-fr', 'Quebec City': 'north-fr', 'Trois-Rivieres': 'north-fr',
+    'Santo Domingo': 'es-isles', 'Panama City': 'es-isles',
+    Santiago: 'es-andes', Cali: 'es-andes', Medellin: 'es-andes',
+    'Greater London': 'eu-thames', Eindhoven: 'eu-lowlands', Groningen: 'eu-lowlands', Prague: 'eu-vltava', Lyon: 'eu-rhone', Nice: 'eu-rhone', Warsaw: 'eu-vistula', Lublin: 'eu-vistula', Krakow: 'eu-vistula',
+    Zurich: 'eu-alps', Rijeka: 'eu-adriatic', Sofia: 'eu-balkan', Cluj: 'eu-carpathian', Athens: 'eu-aegean', Stockholm: 'eu-nordic', Kyiv: 'eu-dnipro',
+    Taipei: 'ea-island', Taichung: 'ea-island', Chiayi: 'ea-island', Tainan: 'ea-island', Kaohsiung: 'ea-island', 'Hong Kong': 'ea-harbour', Tokyo: 'ea-kanto', Seoul: 'ea-han',
+    Auckland: 'ap-cloud', Mumbai: 'ap-ganges', Delhi: 'ap-ganges', Singapore: 'ap-strait', 'Kuala Lumpur': 'ap-klang', 'Ho Chi Minh City': 'ap-mekong', Manila: 'ap-pasig'
+  };
+  D.NAMES_INTL = { first: D.FIRST, last: D.LAST };
+  // the name list of a city of the map
+  D.namesAt = function (hub) {
+    const NG = D.NAME_GROUPS, hb = hub && G.Geo && G.Geo.hub ? G.Geo.hub(hub) : null;
+    return NG[D.NAME_AT[hub]] || (hb && (NG[hb.d] || NG[hb.r])) || null;
+  };
+  // whose names: a team (yours or another: the city it stands in), { hub } (a city), an area or a district by name
+  // (its own list), 'intl' (the international mix), or nothing at all: your own team, and before there is a game the mix
+  D.namesFor = function (who) {
+    const t = who === undefined ? (G.S && G.S.team) || null : who, NG = D.NAME_GROUPS;
+    if (!t || t === 'intl') return D.NAMES_INTL;
+    if (typeof t === 'string') return NG[t] || NG[(D.DISTRICT && D.DISTRICT[t] || {}).region] || NG[(D.REGION_OLD || {})[t]] || D.NAMES_INTL;
+    let hub = t.hub && t.num == null ? t.hub : null;
+    if (!hub && t.num != null && G.S && G.Geo && G.Geo.posOf) { try { hub = G.Geo.posOf(G.S, t, G.Geo.cyOf(G.S)).hub; } catch (e) { hub = null; } }
+    return D.namesAt(hub) || NG[t.home] || NG[t.z] || NG[t.region] || NG[(D.REGION_OLD || {})[t.region]] || D.NAMES_INTL;
+  };
+  D.personName = function (rng, who) {
+    const L = D.namesFor(who), f = rng.pick(L.first); let l = rng.pick(L.last);
+    if (l === f) l = L.last[(L.last.indexOf(l) + 1) % L.last.length]; // nobody is called Mitchell Mitchell
+    return f + ' ' + l;
+  };
 
   // ---------- offseason events ----------
   // Every home has its own offseason events: [name, city] for each of D.OFFSEASON_EVENTS, in one of the home's cities.
@@ -3213,7 +3451,7 @@ window.G = window.G || {};
   'use strict';
   const D = G.Data;
 
-  // (3.5) One line for every company in D.SPONSOR_BY and D.SPONSOR_NAMES (and D.SPONSOR_MAKER's). A company that can be a
+  // (3.5) One line for every company in D.SPONSOR_BY (a home's own) and D.SPONSOR_NAMES (the international ones), and D.SPONSOR_MAKER's. A company that can be a
   // title sponsor (tech, engineering, manufacturing) starts with a verb, so its letter can say "{name} builds ...".
   D.SPONSOR_DESC = {
     // West
@@ -4004,7 +4242,56 @@ window.G = window.G || {};
     'Wattle Foundation': 'Supports regional schools\' science programmes.',
     'Kangaroo Paw Makers Fund': 'Gives tools to schools in the west.',
     'Southern Stars Youth Foundation': 'Pays for long flights to distant events.',
-    // general
+    // international (D.SPONSOR_NAMES): giants that sponsor teams all over the world, as partners
+    'Vantage Global Systems': 'Makes the business software that nobody loves and half the world runs on.',
+    'Nimbus Data Group': 'Stores a tenth of the world\'s data, somewhere cool and dry.',
+    'Quantix Global Labs': 'Researches things it cannot quite explain yet, in labs on four continents.',
+    'Helios Microdevices Corporation': 'Makes sensors smaller than a grain of rice, two billion of them a year.',
+    'Aurora Networks Worldwide': 'Builds the routers behind the routers, and the cables under the oceans.',
+    'Stratos Global Cloud': 'Rents out computing by the minute from data centres in every time zone.',
+    'Polaris Semiconductor Group': 'Designs the chips inside most of the world\'s navigation systems.',
+    'Zenith Dynamics International': 'Builds motion systems for factories and theme parks on five continents.',
+    'Corelight Sensor Group': 'Makes the optical sensors inside nearly every scanner ever sold.',
+    'Atlas Automation Worldwide': 'Builds the sorting systems that move most of the world\'s parcels.',
+    'Orbit Analytics International': 'Makes sense of satellite pictures of the whole planet, every day.',
+    'Vertex Instruments Corporation': 'Makes the test equipment on engineers\' benches in ninety countries.',
+    'Arcwell Engineering Group': 'Designs electrical systems for factories in sixty countries.',
+    'Stonebridge Global Consulting': 'Advises governments on bridges, roads and very large budgets.',
+    'Meridian Structures International': 'Designs the steel skeletons of the tallest buildings on five continents.',
+    'Clearpath Civil Group': 'Builds motorways, metros and drains that work, wherever there is a tender.',
+    'Summit Design Worldwide': 'Designs products from first sketch to factory for brands you know.',
+    'Keystone Geotechnical International': 'Tests the ground under airports, dams and towers all over the world.',
+    'Brightline Power Group': 'Designs substations and power lines that cross borders and seas.',
+    'Harbor Point International': 'Manages very big projects and even bigger spreadsheets, worldwide.',
+    'Kestrel Machine Tools Worldwide': 'Makes machine tools that stand in workshops on every continent.',
+    'Ironclad Heavy Industries': 'Welds ships, cranes and the frames of other very large things.',
+    'Precision Plate International': 'Cuts plate metal by laser and water jet in thirty plants.',
+    'Northstar Tooling Group': 'Makes the cutting tools in half the world\'s machine shops.',
+    'Anvil Metalworks International': 'Forges whatever is on the drawing, and ships it by the boatload.',
+    'Granite Gear Corporation': 'Cuts the gears for a third of the gearboxes on the market.',
+    'Redline Plastics Worldwide': 'Moulds plastic parts by the hundred million.',
+    'Westbrook Welding Group': 'Welds pipelines and towers on site, in any weather, on any continent.',
+    'Northbridge International University': 'Runs engineering schools on campuses in six time zones.',
+    'Lakeview Open Technical College': 'Teaches machining, electronics and CAD online, in thirty languages.',
+    'Eastgate World Polytechnic': 'Trains engineers by having them build things, on four continents.',
+    'Riverton Global University': 'Runs robot outreach days on every one of its eleven campuses.',
+    'Summit Open College': 'Teaches evening classes in code and CAD to half a million students.',
+    'Westfield International Institute': 'Teaches robotics and builds a practice field wherever it opens a campus.',
+    'Helix Software International': 'Builds the scheduling tools that most large hospitals run on.',
+    'Bytewise Global': 'Writes the apps a million small businesses open every morning.',
+    'Cobalt Code Group': 'Builds websites for the biggest brands and fixes everybody else\'s.',
+    'Pinecone Apps Worldwide': 'Makes the hiking app on walkers\' phones on every trail in the world.',
+    'Gridline Global Software': 'Writes the mapping tools city planners use on six continents.',
+    'Quill Worldwide': 'Makes the note-taking app with two hundred million users.',
+    'Sparrow Code International': 'Builds small, tidy web tools that half the internet depends on.',
+    'Stackwell Labs Corporation': 'Sells developer tools to nearly every other software company.',
+    // special
+    'Corvane Labs': 'Makes the CX1 Carbon, the fast desktop printer in top teams\' shops all over the world.'
+  };
+  // The general list of earlier versions, when every team's sponsors came from it. None of these makes a new offer
+  // (the companies are international now, under new names; the local businesses and foundations are gone), but a
+  // save that still holds one keeps its name and its line.
+  D.SPONSOR_DESC_OLD = {
     'Vantage Systems': 'Makes business software that nobody loves and everybody uses.',
     'Nimbus Data': 'Stores other companies\' data, somewhere cool and dry.',
     'Quantix Labs': 'Researches things it cannot quite explain yet.',
@@ -4017,18 +4304,6 @@ window.G = window.G || {};
     'Atlas Automation': 'Builds conveyor and sorting systems for warehouses.',
     'Orbit Analytics': 'Makes sense of satellite pictures.',
     'Vertex Instruments': 'Makes test equipment for engineers.',
-    'Riverside Credit Union': 'Banks the neighbourhood and sponsors every local team.',
-    'Maple Street Pizza': 'Feeds the team after every late build night.',
-    'Lakeside Hardware': 'Sells bolts by the handful and advice for free.',
-    'Bluebird Diner': 'Serves breakfast all day in a booth by the window.',
-    'Corner Book Co.': 'Sells books and keeps a shelf of robotics manuals for you.',
-    'Hometown Auto Repair': 'Fixes cars and lends the team its engine hoist.',
-    'Sunrise Bakery': 'Bakes doughnuts before the first bell.',
-    'Elm Street Bicycles': 'Fixes bikes and lends tools.',
-    'Family Dental Care': 'Fixes teeth and hands out team stickers.',
-    'Parkside Grocery': 'Sells groceries and saves cardboard for your prototypes.',
-    'Oak Hill Insurance': 'Insures half the town and reads every claim.',
-    'Main Street Print Shop': 'Prints your banners, buttons and last-minute posters.',
     'Arcwell Engineering': 'Designs electrical systems for factories.',
     'Stonebridge Consulting': 'Advises on bridges, roads and budgets.',
     'Meridian Structures': 'Designs the steel skeletons of large buildings.',
@@ -4059,16 +4334,26 @@ window.G = window.G || {};
     'Quill Apps': 'Makes note-taking apps.',
     'Sparrow Code': 'Builds small, tidy web tools.',
     'Stackwell Labs': 'Sells developer tools to other developers.',
+    'Riverside Credit Union': 'Banks the neighbourhood and sponsors every local team.',
+    'Maple Street Pizza': 'Feeds the team after every late build night.',
+    'Lakeside Hardware': 'Sells bolts by the handful and advice for free.',
+    'Bluebird Diner': 'Serves breakfast all day in a booth by the window.',
+    'Corner Book Co.': 'Sells books and keeps a shelf of robotics manuals for you.',
+    'Hometown Auto Repair': 'Fixes cars and lends the team its engine hoist.',
+    'Sunrise Bakery': 'Bakes doughnuts before the first bell.',
+    'Elm Street Bicycles': 'Fixes bikes and lends tools.',
+    'Family Dental Care': 'Fixes teeth and hands out team stickers.',
+    'Parkside Grocery': 'Sells groceries and saves cardboard for your prototypes.',
+    'Oak Hill Insurance': 'Insures half the town and reads every claim.',
+    'Main Street Print Shop': 'Prints your banners, buttons and last-minute posters.',
     'Bright Futures Foundation': 'Funds youth programmes that build things.',
     'STEM Forward Fund': 'Pays for kits, fees and field trips.',
     'Next Generation Trust': 'Gives grants to school science teams.',
     'Open Doors Education Fund': 'Covers costs for students who could not otherwise join.',
     'Tomorrow\'s Builders Foundation': 'Buys tools for school workshops.',
-    'Launchpad Youth Trust': 'Gives new teams their first grant.',
-    // special
-    'Corvane Labs': 'Makes the CX1 Carbon, the fast desktop printer in every top team\'s shop.'
+    'Launchpad Youth Trust': 'Gives new teams their first grant.'
   };
-  D.sponsorDesc = name => D.SPONSOR_DESC[name] || '';
+  D.sponsorDesc = name => D.SPONSOR_DESC[name] || D.SPONSOR_DESC_OLD[name] || '';
 
   // ---------- letters from a title sponsor ----------
   // A title sponsor writes when it signs and when it renews (C.sponsorMail): who they are (the description above), a
@@ -4078,12 +4363,24 @@ window.G = window.G || {};
     roles: {
       tech: ['Head of Community Programmes', 'Vice President of Engineering', 'Chief Technology Officer', 'Director of School Partnerships'],
       eng: ['Managing Partner', 'Principal Engineer', 'Director of Projects'],
-      mfg: ['Plant Manager', 'Director of Operations', 'Owner and President']
+      mfg: ['Plant Manager', 'Director of Operations', 'Owner and President'],
+      maker: ['Co-founder', 'Head of Education Programmes', 'Community Lead']
     },
     subject: ['{co} is on the robot', 'Welcome aboard, from {co}', 'It is official: {co} and Team {num}', 'Our logo, your robot'],
     renewSubject: ['{co} is staying', 'Same again: {co} and Team {num}', 'We have renewed'],
     open: ['The contract came back signed this morning, so I can stop pretending not to care.', 'It is done: the paperwork is signed, and there is a photograph of your robot on the wall outside my office.', 'I have just been told that we sponsor a robotics team now. I was the one who told them, but it was still nice to hear.', 'The contract is signed and filed. I would like to say something more personal than a contract does.'],
-    intro: ['For the students who have not met us: {co} {desc}', 'In case anybody on the team asks what the name on the bumpers does: {co} {desc}', 'You know us from the logo. For the record, {co} {desc}'],
+    intro: ['For the students who have not met us: {co} {desc}', 'In case anybody on the team asks what the name on the robot does: {co} {desc}', 'In case anybody on the team asks what the name on all those stickers does: {co} {desc}', 'You know us from the logo. For the record, {co} {desc}'],
+    // One letter in four puts the name "on the bumpers". By the rules a bumper carries the team number and nothing
+    // else, so whoever writes that has never seen a robot: the letter says so itself, closes in the same voice and
+    // ends on a postscript of its own (these replace the ordinary intro, close and P.S.).
+    naive: {
+      chance: 0.25,
+      intro: ['In case anybody on the team asks what the name on the bumpers does (I am told the robot has bumpers, so I assume that is where a sponsor goes, as on a racing car): {co} {desc}',
+        'I have asked for our name on the bumpers, in large letters. I am told the robot has bumpers, and where else would a sponsor go? For the students who have not met us: {co} {desc}',
+        'Somebody in the meeting said "bumpers", so I have written down that our name goes on the bumpers. I did not ask why a robot has them. In case the team wonders what that name does: {co} {desc}'],
+      close: ['Good luck in the tournament, or the race, or whichever it turns out to be. We will cheer when everybody else does.', 'I am told there is a field, a referee and a great deal of noise. I will be there, and somebody has promised to explain it to me on the day.', 'Win the league. If it is not a league, win whatever it is.'],
+      ps: ['P.S. I have now been told that the bumpers carry your team number and nothing else, by rule. Please put us wherever the rules do allow. As you can tell, I am new to this.', 'P.S. Our marketing people would like the measurements of the bumpers, so that the name fits. I said I would ask. I am not sure what I am asking.', 'P.S. Does the robot fight the other robots? I told the board that it does not. If I was wrong, please do not say so before the budget meeting.']
+    },
     // a word about the trade: the first group whose pattern matches the company's name
     trade: [
       { re: /Defen[cs]e|Submarine|Radar/, t: ['Most of what we build we are not allowed to describe, photograph or bring home. A robot we can post pictures of is a treat, and our communications team has been waiting twenty years for one.', 'We work behind three fences and a great many doors. Your robot will be the first thing with our name on it that our own families are allowed to watch.'] },
@@ -4150,7 +4447,35 @@ window.G = window.G || {};
     },
     renewTerms: { up: 'The new agreement runs for {n} at {base} a season, which is more than before. Please do not tell the other teams.', down: 'The new agreement runs for {n} at {base} a season, a little less than before: budgets are budgets, and results move them.', same: 'The new agreement runs for {n} at {base} a season, the same as before.' },
     renewAsk: ['Next season we are asking for the same again: {goals}.', 'The targets do not change: {goals}.'],
-    close: { tech: ['Go and build something we can brag about.', 'See you at the first event. We will be the ones filming everything.'], eng: ['Build it properly. We will be watching the bolted joints.', 'See you at the first event. Bring the drawings.'], mfg: ['Build it strong. We will know if you do not.', 'See you at the first event. We are bringing the whole shift.'] }
+    close: { tech: ['Go and build something we can brag about.', 'See you at the first event. We will be the ones filming everything.'], eng: ['Build it properly. We will be watching the bolted joints.', 'See you at the first event. Bring the drawings.'], mfg: ['Build it strong. We will know if you do not.', 'See you at the first event. We are bringing the whole shift.'] },
+    // ---------- the printer maker (D.SPONSOR_MAKER) ----------
+    // A partner, but it writes like a title sponsor when it signs and when it renews (C.makerMail): what it makes,
+    // what teams do to its printers, why this team, what it asks, and what it sends when things go well.
+    maker: {
+      subject: ['{co} is on your team', 'Hello from the print room', 'We make printers. You break parts. Perfect.'],
+      open: ['The agreement is signed. Around here that is the fastest thing we have finished all year that did not come out of a nozzle.', 'It is official: {co} sponsors Team {num}. Somebody here has already printed your team number in carbon-filled nylon and glued it to the coffee machine.', 'The paperwork is done, which leaves me free to write the part I was looking forward to.'],
+      who: ['You know what we make: the CX1 Carbon, the printer in the closed box. There is probably one running in your workshop right now, at night, with nobody watching, exactly as the manual asks you not to.', 'For anybody on the team who has not met us: we make the CX1 Carbon, the fast one in the closed box. If there is a printer in your workshop that sounds like a small aircraft and is finished before lunch, it is ours.'],
+      trade: ['We did not set out to be a robotics company. Then the support tickets started: "Printed forty intake rollers this week, is that normal?" It was not normal. It was robotics teams. Half of what we know about our own printers we learned from students who run them harder than our test lab dares.',
+        'Robotics teams are the worst thing that ever happened to our warranty department and the best thing that ever happened to our engineers. You print parts we said could not be printed, in materials we advised against, and then you bolt them to a machine that gets rammed for a living.',
+        'Our test lab prints the same cube four hundred times. You print a gearbox cover at two in the morning and find out on Saturday whether it was a good idea. We have decided that your method produces the more interesting data.'],
+      why: {
+        won: ['We watched you win the {ev}. One of our engineers stopped the video to look at a bracket on your robot. It had not been printed on one of ours. We would like the next one to be.'],
+        champs: ['A team that reaches the Championship puts its parts through more matches than anybody else. That is the test bench we want to be on.'],
+        any: ['Why your team? One of your students sent our support desk a question that took three engineers and a whiteboard to answer. We would like more questions like that.', 'Why your team? {who} from our materials lab went to one of your open evenings, counted the printed parts on your robot and came back with a list of the ones we should have thought of first.', 'We picked your team the way we pick a filament: we looked for the one that would be pushed hardest and still hold.']
+      },
+      ask: ['What we ask is in the contract: {goals}. There is a bonus for {each}. Beyond that we want one thing: when a printed part breaks, tell us how. A broken part is the only honest review we ever get.', 'The targets are in the contract: {goals}, with a bonus for {each}. Unofficially, we would also like a photograph of every printed part that survives the season, and of every one that does not.'],
+      gift: ['One more thing. We are not the kind of sponsor that sends a cheque and stays away. If things go well between us, do not be surprised by a crate at the workshop door: printers for the prototyping lab, or tools for the electronics bench. It is what we know, so it is what we give.', 'We also like to give things that plug in. When a partnership goes well we send equipment as well as money: a better prototyping lab, or a better electronics workbench. We would not know what else to buy you.'],
+      close: ['Print something we would not dare to.', 'See you at the first event. We will be the people photographing your brackets.', 'Go and build it. And keep the printer door closed while it runs.'],
+      ps: ['P.S. Please stop printing timing belt pulleys on the draft setting. We can tell.', 'P.S. Yes, the printers are loud. We know. We are working on it.', 'P.S. If a part fails in a match, put it in a bag and write the match number on it. Our materials people collect them.'],
+      renewSubject: ['{co} is staying', 'Another season of printing', 'Same again, from the print room'],
+      renewOpen: { high: ['We are staying. The meeting took less time than a calibration cube.', 'Nobody here needed persuading: we are staying.'], mid: ['We talked it over between two print jobs, and we are staying.', 'One meeting, one pot of coffee, and the answer is yes.'], low: ['It was a longer talk than we expected, but we are staying.', 'I will be honest: not everybody here said yes at once. We are renewing.'] },
+      renewSeason: {
+        all: ['Every target met: {goals}. The list is pinned above the test bench.', 'You did everything we asked ({goals}), and your failure reports were better written than ours.'],
+        some: ['Some targets were met and some were not ({missed}). We measure things for a living, and the trend is the right way up.', 'Not everything on the list was ticked ({missed}). Our first printer did not finish its first print either.'],
+        none: ['The targets ({missed}) got away this year. So did our first three prototypes. We kept going, and we are betting that you will.', 'You missed what we asked for ({missed}), and we noticed. We also noticed the broken parts you sent back, labelled, with notes. That counts here.']
+      },
+      renewGift: ['The offer of a crate stands: when things go well we send printers or bench tools, not speeches.', 'As before, a good season may end with a delivery: something for the prototyping lab or the electronics bench.']
+    }
   };
 })();
 
@@ -4627,7 +4952,8 @@ window.G = window.G || {};
     // September 2022: fast premium desktop printers that print carbon-fiber parts (a fictional maker) reach the shops
     { id: 'printfarm', cy: 2023, at: 'off:4', tag: 'NEW TECHNOLOGY', color: 'var(--info)', title: 'Printers that do not wait', btn: 'workshop',
       body: ['Last January a young company called Corvane Labs started shipping the CX1 Carbon: a desktop 3D printer in a closed box that prints four or five times faster than anything a team owned, switches materials by itself, and prints nylon filled with chopped carbon fiber, strong enough for real robot parts. It costs about as much as a good laptop.',
-        'One season later the shops of the top teams have changed. A shelf of CX1s runs all night: gussets, swerve covers, intake rollers, bumper brackets, camera mounts. A part that used to wait a week for the machine shop is on the robot the next morning, and the best teams bring printers to events and print replacements in the pit between matches.'],
+        'One season later the shops of the top teams have changed. A shelf of CX1s runs all night: gussets, swerve covers, intake rollers, timing belt pulleys, camera mounts. A part that used to wait a week for the machine shop is on the robot the next morning, and the best teams bring printers to events and print replacements in the pit between matches.',
+        'Nobody claims that a printed part is as reliable as one cut from metal: it is not, and a robot with more printed parts on it breaks a little more often. Used for the right parts, though, a print is well worth the time it saves, and the teams that do best have learned which parts to print and which still belong on the mill.'],
       means: ['A fourth Prototyping Lab level is on sale in the Workshop: the print farm (a shelf of fast desktop printers and a laser cutter).', 'The print farm takes fewer hours on hardware projects, gives a second Finish now card a season for hardware projects, and spare parts bought at an event cost little more than at home: the team prints many of them in the pit.', 'Printing does more from now on: every Prototyping Lab level saves a little more on hardware hours. The Manual Machine Shop does a little less, because more of the parts it made are printed now: the reliability it adds to new builds is a little smaller (its cheaper spares stay).'],
       talk: [['We printed a new intake between two qualification matches. It was better than the old one.', 'a pit crew lead on Team {t}'], ['Carbon-fiber nylon, printed overnight, on a printer that cost less than our bandsaw.', 'a design mentor'], ['The printers are louder than the robot now. Nobody minds.', 'a student on Team {t}']] },
     // the autumn of 2024: AI coding assistants reach the robot code
@@ -4859,12 +5185,14 @@ window.G = window.G || {};
   // A vendor notices the teams that run and buy its electronics. A season on the competition robot is worth 100 loyalty
   // points with that catalogue, and that year's orders up to 15 more (the premium catalogue's points carry over from
   // Sterling to Apex). Each level reached brings a loyalty
-  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff. A team that runs one vendor
-  // only reaches three levels in a ten-season career.
+  // sponsorship, the team's choice of three: free parts, a voucher, or a sale until Kickoff.
+  // (3.5) Rarer than it was (levels were 280, 580, 880 and 1180, and the order bonus was full at $1,500, which nearly
+  // every team spends): a team that runs one vendor only now reaches two levels in a ten-season career, three if it
+  // started with a standing there and orders a great deal every year. The top level is out of reach in ten seasons.
   D.LOYALTY = {
-    levels: [280, 580, 880, 1180],                            // a little under three seasons each, so one mixed season does not cost a level
+    levels: [400, 800, 1200, 1600],                           // about four seasons each
     full: 0.9,                                                // a robot with 90% of its electronics from one vendor counts as all of it (a kit hub does not spoil a season)
-    robot: 100, buy: 15, buyFull: 1500,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $1,500)
+    robot: 100, buy: 15, buyFull: 4000,                       // a season's points: the competition robot's electronics, plus a bonus for that year's orders (in full at $4,000)
     names: ['Customer', 'Loyal Team', 'Preferred Team', 'Partner Team', 'Flagship Team'],
     start: { rookie: 0, established: 100, powerhouse: 150 },  // standing with the vendor whose parts are on the starting shelf
     month: 4,                                                 // the letter arrives in September
@@ -13511,7 +13839,7 @@ window.G = window.G || {};
   C.mailChampCongrats = function (S, ev) {
     const F = ev.po && ev.po.matches.find(x => x.id === 'F'); if (!F || F.loser == null) return;
     const fin = ev.alliances[F.loser] || [], cap = fin[0], T = S.teams[cap]; if (!T) return;
-    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng), lead = leadMentor(S), el = !!T.elite;
+    const rng = G.makeRng(cap * 7919 + 17), name = D.personName(rng, T), lead = leadMentor(S), el = !!T.elite;
     // the finals as they were played: every game that counted (replays aside), from the champions' side, with its score
     const cs = F.red === F.winner ? 'red' : 'blue', fs = cs === 'red' ? 'blue' : 'red', W = ['', 'one', 'two', 'three', 'four', 'five'];
     const gs = F.games.filter(g => !g.replay).map(g => ({ w: g[cs], l: g[fs], res: g.winner === cs ? 'won' : g.winner === fs ? 'lost' : 'tie', tb: g.tb || null }));
@@ -13715,6 +14043,16 @@ window.G = window.G || {};
       fatigue: D.FATIGUE_BASE, autoSpares: true, stemFund: null, actMonth: null
     };
     S.team.rookieYear = o.profile === 'rookie' ? order[0] : null;
+    // (3.5) Where the team stands decides what its people are called (D.namesFor), so its home and its school's place
+    // are settled before anybody is named (the world's own setup, further down, finds them as they are).
+    if (S.cal && o.mode === 'career' && G.World && !o.noWorld) {
+      if (S.team.home && !(D.DISTRICT[S.team.home] && D.DISTRICT[S.team.home].from <= cal[0])) S.team.home = null;
+      if (!S.team.home && !G.World.regionOpen(S.team.region, cal[0])) S.team.home = D.DISTRICTS.find(d => d.region === S.team.region && d.from <= cal[0] && G.World.wholeArea(d)).id;
+      if (!S.team.home) { const dz = G.World.soleDistrict(S.team.region, cal[0]); if (dz) S.team.z = dz.id; }
+      if (S.team.home) S.team.region = D.DISTRICT[S.team.home].region;
+    } else S.team.home = null;
+    // the cities its school points to: the school picked on the New Career page (the name may have been edited since), else by the name
+    if (S.team.place === undefined) S.team.place = (D.schoolAt && D.schoolAt(S.team.school)) || null;
     // equipment / knowledge
     P.equip.forEach(e => { if (e === 'printer') S.equip.printer = 1; else if (e !== 'field') S.equip[e] = true; });
     G.Parts.setup(S, rng); // starting parts inventory, vendor release plan, stock
@@ -13755,7 +14093,7 @@ window.G = window.G || {};
       S.teams = G.AI.makePool(rng, 620, S.team.num, cal[0]); // team numbers follow the calendar year
       G.AI.addRookies(S.teams, rng, order[0], 12, S.team.num, cal[0]);
     }
-    if (!S.team.lead || !String(S.team.lead).trim()) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3)); // (3.5) the lead mentor is you: a name of your own, or one is given (as C.migrate gives an older save)
+    if (!S.team.lead || !String(S.team.lead).trim()) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team); // (3.5) the lead mentor is you: a name of your own, or one is given (as C.migrate gives an older save)
     C.refreshMarket(S);
     if (!G.World.on(S)) S.regionals = D.makeRegionals(order[0], rng, S.team.region);
     if (o.mode === 'career') {
@@ -13807,14 +14145,18 @@ window.G = window.G || {};
     const round = S.offerRound = (S.offerRound || 0) + 1, gone = S.sponsorGone || {};
     Object.keys(gone).forEach(n => { if (gone[n] < round) delete gone[n]; });
     const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone)));
+    S.sponsors.map(s => s.name).concat(Object.keys(gone)).forEach(n => { const now = (D.SPONSOR_RENAMED || {})[n]; if (now) used.add(now); }); // a sponsor of an earlier version, under its old name: the same company
     const free = t => D.sponsorPool(t, S.team.home, S.team.region).filter(n => !used.has(n)); // (3.5) names with the flavour of the team's home
+    // (3.5) an international company (D.SPONSOR_NAMES): they sponsor teams everywhere, as partners only. Any that is
+    // not on this list, among your sponsors or away for a year.
+    const intl = () => { const l = []; Object.keys(D.SPONSOR_NAMES).forEach(t => D.SPONSOR_NAMES[t].forEach(n => { if (!used.has(n)) l.push({ name: n, type: t }); })); return l.length ? rng.pick(l) : null; };
     const make = (slot, special) => {
       let tk = special ? special.type : slot === 'title' ? rng.pick(types.filter(t => D.SPONSOR_TYPES[t].title)) : slot === 'grant' ? 'found' : rng.pick(types.filter(t => !D.SPONSOR_TYPES[t].grant));
       let pool = special ? [special.name] : free(tk);
-      if (!pool.length) { // every company of that kind is taken: another kind that fits the slot, else the general names
+      if (!pool.length) { // every company of that kind in the home is taken: another kind that fits the slot; failing that, a partner offer comes from abroad
         const alt = types.filter(t => t !== tk && (slot === 'title' ? D.SPONSOR_TYPES[t].title : slot === 'grant' ? D.SPONSOR_TYPES[t].grant : !D.SPONSOR_TYPES[t].grant) && free(t).length);
-        if (alt.length) { tk = rng.pick(alt); pool = free(tk); } else pool = (D.SPONSOR_NAMES[tk] || []).filter(n => !used.has(n));
-        if (!pool.length) return null;
+        if (alt.length) { tk = rng.pick(alt); pool = free(tk); }
+        else { const g = slot === 'partner' ? intl() : null; if (!g) return null; tk = g.type; pool = [g.name]; }
       }
       const T = D.SPONSOR_TYPES[tk];
       const name = rng.pick(pool);
@@ -13837,14 +14179,21 @@ window.G = window.G || {};
     // (3.5) the printer maker: from the 2022 offseason one of the six partner offers may be Corvane Labs'
     const MK = D.SPONSOR_MAKER, mk = MK && C.offerSeason(S) >= MK.from && !used.has(MK.name) && rng.chance(MK.chance) ? rng.int(0, 5) : -1;
     for (let i = 0; i < 3; i++) offers.push(make('title'));
-    for (let i = 0; i < 6; i++) offers.push(make('partner', i === mk ? MK : null));
+    // (3.5) ... and any of the other partner offers may come from an international company, far less often than from the home
+    const IN = D.SPONSOR_INTL;
+    for (let i = 0; i < 6; i++) offers.push(make('partner', i === mk ? MK : IN && rng.chance(IN.chance) ? intl() : null));
     for (let i = 0; i < rng.int(1, 2); i++) offers.push(make('grant'));
     S.offers = offers.filter(Boolean);
     if (MK && S.mode === 'career' && !S.makerSeen && S.offers.some(o => o.type === MK.type)) { // its first offer: a note in the Inbox
       S.makerSeen = 1;
-      C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams, and one of this autumn\'s partner offers is theirs. It is a partner like the others, with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
+      C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams all over the world, and one of this autumn\'s partner offers is theirs. It is an international company and a partner like the others (+' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review, as all of them bring), with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
+    }
+    { const io = S.mode === 'career' && !S.intlSeen && S.offers.find(o => o.slot === 'partner' && !(MK && o.type === MK.type) && D.sponsorIntl && D.sponsorIntl(o.name)); // the first offer from abroad (the printer maker has its own note): a note in the Inbox
+      if (io) { S.intlSeen = 1; C.inbox(S, 'An international company on the list', io.name + ' sponsors teams all over the world, and one of this autumn\'s partner offers is theirs. Companies of that size never take a title: they are partners like the others, marked International on the list, and they turn up far less often than the companies of your home. A name known all over the world does bring one small thing of its own: +' + D.SPONSOR_INTL.rep + ' reputation at every season review while it is on your robot.', 'money', { note: 'Finance: Sponsor offers.' }); }
     }
   };
+  // your international partners (D.sponsorIntl: the general list's giants and the printer maker), each worth a little reputation a season
+  C.intlPartners = S => (S.sponsors || []).filter(sp => sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name));
   // the season a new list of offers is for: the one being planned (the list of October 2022 is for 2023)
   C.offerSeason = S => (S.cal ? G.Parts.buyCy(S) : C.cy(S)) || 0;
   // a sponsor that leaves is not on the next list of offers: it comes back a year later at the earliest
@@ -13857,14 +14206,15 @@ window.G = window.G || {};
     if (o.slot === 'partner' && S.sponsors.filter(s => s.slot === 'partner').length >= C.partnerSlots(S)) return 'All partner slots are full';
     if (o.slot === 'grant' && S.sponsors.some(s => s.slot === 'grant')) return 'You can only hold one grant at a time';
     const sp = Object.assign({}, o, { seasonsLeft: o.length, sat: 60, paidYear: null, goals: o.goals.map(g => Object.assign({}, g)) });
+    sp.contact = C.sponsorContact(sp); // who writes for it, from now on
     S.sponsors.push(sp);
     S.offers = S.offers.filter(x => x !== o);
     sp.undo = { turn: turnKey(S), offer: JSON.parse(JSON.stringify(o)), paid: 0 };
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
     if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = amt; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
     // (3.5) nothing is said yet: a deal can be undone this turn, so it is announced when the turn ends (C.announceSignings).
-    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the title sponsor's letter.
-    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' ? 1 : 0) : 1;
+    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the letters (the title sponsor's, the printer maker's).
+    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' || C.isMaker(sp) ? 1 : 0) : 1;
     return null;
   };
   // ---------- signed this turn, announced the next (3.5) ----------
@@ -13873,17 +14223,22 @@ window.G = window.G || {};
   C.announceSignings = function (S) {
     S.sponsors.forEach(sp => {
       if (!sp.undo || !sp.undo.say) return;
-      const terms = (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ': ' + U.money(sp.base) + ' a season for ' + sp.length + ' season' + (sp.length === 1 ? '' : 's') + '.' + (sp.paidYear === S.year ? '' : ' The first payment arrives at Kickoff.');
+      const terms = (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ': ' + U.money(sp.base) + ' a season for ' + sp.length + ' season' + (sp.length === 1 ? '' : 's') + '.' + (sp.paidYear === S.year ? '' : ' The first payment arrives at Kickoff.') +
+        (sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name) ? ' An international partner: +' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review.' : '');
       if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'sign', { terms });
+      else if (C.isMaker(sp)) C.makerMail(S, sp, 'sign', { terms }); // the printer maker writes too
       else C.inbox(S, 'Signed: ' + sp.name, terms, 'money');
     });
     S.mentors.forEach(m => { if (m.undo) C.inbox(S, 'Mentor joined: ' + m.name, D.MENTOR_ROLES.find(r => r.id === m.role).name + ' (' + U.stars(m.stars) + ').', 'staff'); });
   };
   // ---------- a title sponsor's letters (3.5) ----------
   // The company's side of the contract: always the same person in the same post for the same company.
+  // (its people carry the names of your home; an international company's keep the international mix)
+  C.sponsorWho = sp => (D.sponsorIntl && D.sponsorIntl(sp.name) ? 'intl' : undefined);
   C.sponsorContact = function (sp) {
+    if (sp.contact) return sp.contact; // set on the day it signs
     const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL;
-    return { name: D.personName(r), role: r.pick(M.roles[sp.type] || M.roles.eng) };
+    return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(M.roles[sp.type] || M.roles.eng) };
   };
   const lcFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
   const listAnd = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
@@ -13892,7 +14247,7 @@ window.G = window.G || {};
   // kind 'renew' (info: { met: [goal met?], oldBase }): how the season looked from their side, the new terms, the targets.
   C.sponsorMail = function (S, sp, kind, info) {
     const M = D.SPONSOR_MAIL, who = C.sponsorContact(sp), r = G.makeRng(hashS(kind + ':' + sp.name + ':' + S.year + ':' + (S.offerRound || 0)) || 5);
-    const colleague = D.personName(r).split(' ')[0];
+    const colleague = D.personName(r, C.sponsorWho(sp)).split(' ')[0];
     const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
     const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1;
     const type = M.roles[sp.type] ? sp.type : 'eng', P = [];
@@ -13910,7 +14265,9 @@ window.G = window.G || {};
       return;
     }
     const desc = D.sponsorDesc(sp.name), trade = (M.trade.find(x => x.re.test(sp.name)) || { t: M.tradeType[type] }).t;
-    P.push(r.pick(M.open) + (desc ? ' ' + fill(r.pick(M.intro)).replace('{desc}', lcFirst(desc)) : ''));
+    // one writer in four has never seen a robot: the name goes "on the bumpers" (which carry team numbers only), and the letter stays in that voice
+    const NV = M.naive, naive = !!(NV && desc && r.chance(NV.chance));
+    P.push(r.pick(M.open) + (desc ? ' ' + fill(r.pick(naive ? NV.intro : M.intro)).replace('{desc}', lcFirst(desc)) : ''));
     P.push(r.pick(trade));
     // why this team: last season's win or Championship place, its name in the sport, a first season, or any of the standing reasons
     const last = S.history[S.history.length - 1], wonEv = last && (last.events || []).find(e => e.won), why = ['any'];
@@ -13920,8 +14277,43 @@ window.G = window.G || {};
     if (sp.obligations.length) ask += ' ' + r.pick(M.oblig).replace('{n}', numWord(sp.obligations.length) + ' date' + (sp.obligations.length === 1 ? '' : 's')).replace('{list}', sp.obligations.join('; '));
     P.push(ask);
     if (sp.perk && M.perk[sp.perk]) P.push(M.perk[sp.perk]);
-    P.push(r.pick(M.close[type]));
-    C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(M.subject)), P.join('\n\n'), 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name + '\n\n' + r.pick(M.ps[type]), { note: info.terms || '' }, 'money');
+    P.push(r.pick(naive ? NV.close : M.close[type]));
+    C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(M.subject)), P.join('\n\n'), 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name + '\n\n' + r.pick(naive ? NV.ps : M.ps[type]), { note: info.terms || '' }, 'money');
+  };
+  // ---------- the printer maker's letters (3.5) ----------
+  // D.SPONSOR_MAKER's company is a partner, but it writes as a title sponsor does, when it signs and when it renews:
+  // what it makes, what teams do to its printers, why this team, what it asks, and what it sends when things go well
+  // (it donates only Prototyping Lab and Electronics Workbench levels). kind, info: as C.sponsorMail.
+  C.isMaker = sp => !!(sp && D.SPONSOR_MAKER && sp.type === D.SPONSOR_MAKER.type && D.SPONSOR_MAIL && D.SPONSOR_MAIL.maker);
+  C.makerMail = function (S, sp, kind, info) {
+    const M = D.SPONSOR_MAIL, K = M.maker, who = C.sponsorContact(sp), r = G.makeRng(hashS('maker:' + kind + ':' + S.year + ':' + (S.offerRound || 0) + ':' + S.team.num) || 5);
+    const colleague = D.personName(r, C.sponsorWho(sp)).split(' ')[0];
+    const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
+    const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1, P = [];
+    const sign = 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name, gives = ' When ' + sp.name + ' gives equipment, it is a level of the Prototyping Lab or of the Electronics Workbench.';
+    info = info || {};
+    if (kind === 'renew') {
+      const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt);
+      const tone = sp.sat >= 80 ? 'high' : sp.sat >= 55 ? 'mid' : 'low', how = !missed.length ? 'all' : missed.length === goals.length ? 'none' : 'some';
+      P.push(r.pick(K.renewOpen[tone]) + ' ' + r.pick(K.renewSeason[how]).replace('{goals}', listAnd(goals)).replace('{missed}', listAnd(missed)));
+      const dir = info.oldBase == null || sp.base === info.oldBase ? 'same' : sp.base > info.oldBase ? 'up' : 'down';
+      P.push(M.renewTerms[dir].replace('{n}', numWord(sp.seasonsLeft) + ' more season' + (sp.seasonsLeft === 1 ? '' : 's')).replace('{base}', U.money(sp.base)) + ' ' + fill(r.pick(M.renewAsk)).replace('{goals}', listAnd(goals)) + ' ' + r.pick(K.renewGift));
+      P.push(r.pick(K.close));
+      C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.renewSubject)), P.join('\n\n'), sign,
+        { note: 'Partner sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season. Partners like short deals: expect to talk again next autumn.' }, 'money');
+      return;
+    }
+    P.push(fill(r.pick(K.open)) + ' ' + r.pick(K.who));
+    P.push(r.pick(K.trade));
+    const last = S.history[S.history.length - 1], wonEv = last && (last.events || []).find(e => e.won), why = ['any', 'any'];
+    if (wonEv) why.push('won', 'won', 'won'); if (last && last.champs) why.push('champs', 'champs');
+    P.push(fill(r.pick(K.why[r.pick(why)])).replace('{ev}', wonEv ? wonEv.name : 'event'));
+    let ask = r.pick(K.ask).replace('{goals}', listAnd(goals)).replace('{each}', many ? 'each' : 'it');
+    if (sp.obligations.length) ask += ' ' + r.pick(M.oblig).replace('{n}', numWord(sp.obligations.length) + ' date' + (sp.obligations.length === 1 ? '' : 's')).replace('{list}', sp.obligations.join('; '));
+    P.push(ask);
+    P.push(r.pick(K.gift));
+    P.push(r.pick(K.close));
+    C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.subject)), P.join('\n\n'), sign + '\n\n' + r.pick(K.ps), { note: (info.terms || '') + gives }, 'money');
   };
   // A deal signed this turn can be taken back until time moves on (the offer returns to the list)
   C.canUnsign = (S, sp) => !!(sp && sp.undo && sp.undo.turn === turnKey(S));
@@ -13983,7 +14375,7 @@ window.G = window.G || {};
   C.offerValue = function (S, o) {
     const strong = C.highExpect(S) || S.rep >= 60;
     const bonus = U.sum(o.goals.map(g => g.bonus * (({ win: 0.25, champs: 0.25, playoffs2: 0.45 })[g.id] || 0.6)));
-    return o.base * (1 + 0.12 * (o.length - 1)) + bonus * 0.5 + (o.perk ? 600 : 0) - 450 * o.obligations.length - (o.exp === 'High' && !strong ? o.base * 0.25 : 0);
+    return o.base * (1 + 0.12 * (o.length - 1)) + bonus * 0.5 + (o.perk ? 600 : 0) + (o.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(o.name) ? 300 : 0) - 450 * o.obligations.length - (o.exp === 'High' && !strong ? o.base * 0.25 : 0);
   };
   // Fill every open slot with the best offers (title, partners, grant)
   C.autoSponsors = function (S) {
@@ -15535,7 +15927,7 @@ window.G = window.G || {};
     field.sort((a, b) => b.v - a.v);
     const roles = Object.keys(D.PROFESSIONS);
     return field.slice(0, slots).map(x => x.me ? { e: e.id, ename: e.name, team: me, me: true, mid: x.mid, name: mine.name, prof: mine.prof, v: x.v }
-      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r), prof: C.makeProf(r.pick(roles), r), v: x.v });
+      : { e: e.id, ename: e.name, team: x.team, name: D.personName(r, S.teams[x.team]), prof: C.makeProf(r.pick(roles), r), v: x.v });
   };
   // judge an event: record its Finalists in the world's books, and tell the team about its own essay
   C.wffaJudge = function (S, e, teams, attending) {
@@ -15623,7 +16015,7 @@ window.G = window.G || {};
     if (S.wfaPast) return;
     const r = wRng('wfapast:' + S.team.num + ':' + (S.cal ? S.cal[0] : S.year)), ts = Object.keys(S.teams || {}).map(Number), roles = Object.keys(D.PROFESSIONS);
     S.wfaPast = [];
-    for (let i = 0; i < D.WFA.past && ts.length; i++) S.wfaPast.push({ name: D.personName(r), team: r.pick(ts), prof: C.makeProf(r.pick(roles), r), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) });
+    for (let i = 0; i < D.WFA.past && ts.length; i++) { const team = r.pick(ts); S.wfaPast.push({ name: D.personName(r, S.teams[team]), team, prof: C.makeProf(r.pick(roles), r), v: U.clamp(r.norm(74, 6), 55, 96), cy: (S.cal ? S.cal[0] : S.year) - r.int(1, 12) }); }
   };
 
   // ======================= The state of the art moves on (offseason) =======================
@@ -16073,6 +16465,7 @@ window.G = window.G || {};
   C.rollDonation = function (S) {
     const Sh = G.Shop, rng = G.R, DN = D.DONATION;
     if (!S.season || S.season.donated || S.phase === 'review' || S.phase === 'end') return null;
+    if (DN.wait && S.lastDonTurn != null && (S.turnSeq || 0) - S.lastDonTurn < DN.wait) return null; // (3.5) two years go by before the next one
     for (const sp of rng.shuffle(S.sponsors.slice())) {
       const w = U.clamp((sp.sat - DN.sat) / (100 - DN.sat), 0, 1); // the happier the sponsor, the likelier
       if (!w || !rng.chance(DN.chance * w)) continue;
@@ -16080,11 +16473,11 @@ window.G = window.G || {};
       if (!opts.length) continue;
       const id = rng.pick(opts), it = Sh.item(id), l0 = Sh.lvl(S, id), value = Sh.upgradeCost(S, id);
       if (Sh.upgrade(S, id, { gift: true })) continue;
-      S.season.donated = true; sp.sat = Math.min(100, sp.sat + 2);
+      S.season.donated = true; S.lastDonTurn = S.turnSeq || 0; sp.sat = Math.min(100, sp.sat + 2);
       const L = { kind: 'donation', sponsor: sp.name, type: sp.typeName, id, name: it.name, level: it.levels[l0].name, lvl: l0 + 1, value, sqft: Sh.sizeOf(id, l0 + 1) - Sh.sizeOf(id, l0), month: C.dateLabel(S),
         intro: rng.pick(DN.intro), fx: Sh.effectText(S, id, l0 + 1, 1), talk: rng.shuffle(DN.talk.slice()).slice(0, 3).map(q => [q[0], q[1].replace('{s}', sp.name).replace('{lead}', C.leadName(S) + ', lead mentor')]) };
       C.letter(S, sp.name + ' (' + sp.typeName + ')', 'Donation from ' + sp.name + ': ' + L.level, 'We are proud to sponsor your team, and we would like to do a little more: please accept a ' + L.level + ' for your workshop. Our people have seen what your students do with what they have. We think they will do even more with this.\n\nIt should arrive this week. Send us a picture when it is running.', 'With best wishes,\n' + sp.name,
-        { note: it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '. Sponsors donate when they are happy with the partnership and the workshop has room: about one a year with every slot filled and no activity skipped.' });
+        { note: it.name + ' is now level ' + L.lvl + ' (worth ' + U.money(value) + ', ' + L.sqft + ' sq ft of your workshop). ' + L.fx + '. Only a very satisfied sponsor donates (satisfaction above ' + DN.sat + '), and only when the workshop has room: about once in three or four seasons when every sponsor is delighted, far less often when they are merely content, and never twice within two years.' });
       (S.launchQueue = S.launchQueue || []).push(L);
       return L;
     }
@@ -16139,6 +16532,8 @@ window.G = window.G || {};
     }
     S.legacy += s.legacy;
     { const hr = G.Shop.fx(S, 'honors', 'rep'); if (hr > 0) S.rep = U.clamp(Math.round((S.rep + hr) * 10) / 10, 0, 100); } // every visitor walks past the Honors Wall (the reputation it shows, as it says)
+    // (3.5) an international partner's name on the robot: a little reputation every season
+    { const n = C.intlPartners(S).length, r = n * ((D.SPONSOR_INTL || {}).rep || 0); if (r > 0) { S.rep = U.clamp(Math.round((S.rep + r) * 10) / 10, 0, 100); s.intlRep = r; } }
     // sponsors
     S.lastSponsor = Object.assign({ year: S.year }, C.sponsorSeason(S)); // kept for the offseason: sponsors that leave take their numbers with them
     const left = [];
@@ -16150,6 +16545,7 @@ window.G = window.G || {};
       if (sp.seasonsLeft <= 0) {
         if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); const oldBase = sp.base; sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250;
           if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'renew', { oldBase, met: sp.goals.map(g => !!g.met) }); // (3.5) a title sponsor writes
+          else if (C.isMaker(sp)) C.makerMail(S, sp, 'renew', { oldBase, met: sp.goals.map(g => !!g.met) }); // ... and so does the printer maker
           else C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
         else left.push(sp);
       }
@@ -16169,8 +16565,9 @@ window.G = window.G || {};
     if (S.equip.kb && !C.kbCurrent(S)) C.inbox(S, 'The Knowledge Base was out of date', 'Nobody updated the wiki and the CAD library this year, so they did not slow the loss of know-how in the areas you left unused. The yearly update is a short project in the Design Office.', 'know');
     D.AREAS.forEach(a => { if (!S.usedAreas[a.id] && !S.mentors.some(m => m.spec === a.id)) S.know[a.id] = Math.round((S.know[a.id] || 0) * (1 - decay)); });
     s.loyal = G.Parts.loyalSeason(S);
+    s.elite = C.eliteReview(S); // (3.5) your own Elite tag for next season
     S.history.push({
-      loyal: s.loyal || null,
+      loyal: s.loyal || null, elite: s.elite || null,
       year: S.year, cy: C.cy(S), px: C.px(S), robot: C.robotRecord(S), copied: s.copied || null, events: s.events, awards: s.awards, champs: s.champsQualified, champsReason: s.champsReason || '', divWin: s.divWin, einstein: s.einstein, worldChamp: s.worldChamp, worldFinalist: !!s.worldFinalist, wc: s.wc || null, cmpImpact: s.cmpImpact && s.cmpImpact.result ? { result: s.cmpImpact.result, cele: s.cmpImpact.cele || null } : null,
       home: S.team.home && G.World.on(S) ? S.team.home : null,
       goals: s.goals.map(g => ({ id: g.id, met: g.met, tier: g.tier })), money: S.money, legacy: s.legacy, support: S.support, rep: S.rep,
@@ -16178,6 +16575,38 @@ window.G = window.G || {};
     });
     S.phase = 'review';
     S.champsPaid = null;
+  };
+  // ---------- your own Elite tag (3.5) ----------
+  // The elite teams are the best of the world by rating. At every season review your team is measured the same way:
+  // its season OPR (the Scouting numbers: the average over its events) against every other team's. Inside the top N,
+  // N being the number of elite teams in the world, in a season in which it also qualified for the Championship (as
+  // the elite do; in a game where OPR says little, 2018 above all, a middling team can rank high by chance), it has
+  // met the elite standard and carries the Elite tag through the next season: on Headquarters, at events and in
+  // scouting. A mark of standing, nothing else, and measured again at every review. A season with no event played
+  // measures nothing: a tag held is kept. (The max player of the tests meets it in about nine seasons of ten, the
+  // plain autoplay never.)
+  C.eliteStanding = function (S) {
+    if (!G.World.on(S) || !S.wseason || S.mode !== 'career' || !G.Scout) return null;
+    const rows = G.Scout.rows(S).filter(r => r.opr != null), me = rows.find(r => r.me), n = G.World.elites(S).length;
+    if (!me || !n) return null;
+    const others = rows.filter(r => !r.me).sort((a, b) => b.opr - a.opr), rank = 1 + others.filter(r => r.opr > me.opr).length;
+    const champs = !!(S.season && S.season.champsQualified);
+    return { rank, of: rows.length, n, opr: me.opr, cut: others[n - 1] ? others[n - 1].opr : 0, champs, met: rank <= n && champs };
+  };
+  C.eliteReview = function (S) {
+    const E = C.eliteStanding(S), had = S.team.elite || null, cy = C.cy(S), next = C.cyNext(S);
+    if (!E) return null;
+    const where = U.ord(E.rank) + ' of ' + E.of + ' teams in the world by OPR', forNext = next ? 'the ' + next + ' season' : 'the summer';
+    if (E.met) {
+      const since = had ? had.since || had.cy : cy; S.team.elite = { cy, since, rank: E.rank, of: E.of, n: E.n };
+      E.since = since;
+      if (had) C.inbox(S, 'Still elite', 'Your ' + cy + ' season ranked ' + where + ', inside the top ' + E.n + ' again. The Elite tag stays through ' + forNext + '.', 'info', { note: 'World: Scouting lists every team\'s OPR.' });
+      else C.inbox(S, 'Your team is elite', 'The numbers are in, and your ' + cy + ' season was one of the best anywhere: ' + where + '. The top ' + E.n + ' are the teams the sport calls elite, and yours, a Championship team this year, is now one of them.\n\nThrough ' + forNext + ' your team carries the Elite tag: on the Headquarters page, at events and in every scouting list. It is measured again at the next review.', 'info', { note: 'World: Scouting lists every team\'s OPR.' });
+    } else if (had) {
+      delete S.team.elite; E.lost = true;
+      C.inbox(S, 'The Elite tag comes off', 'Your ' + cy + ' season ranked ' + where + '. ' + (E.rank <= E.n ? 'That is inside the top ' + E.n + ', but an elite team also plays the Championship, and yours did not qualify this year. The tag comes off for ' : 'The top ' + E.n + ' are elite, so the tag comes off for ') + forNext + '. It can be won back at the next review.', 'info', { note: 'World: Scouting lists every team\'s OPR.' });
+    }
+    return E;
   };
   // The Knowledge Base only works while it is kept up: it covers the season it was built or last updated for.
   C.kbCycle = S => S.si + (['off', 'review', 'end'].includes(S.phase) ? 1 : 0);
@@ -16389,7 +16818,7 @@ window.G = window.G || {};
     if (won) {
       sm.inv = cy; const both = S.offReg.includes('os_oct'); if (both) sm.both = cy; // already signed up for the October event at home: it may play both
       const oct = C.offEvent(S, 'os_oct'), octName = oct ? 'the ' + oct.name : ''; // (3.5) the October event has a local name; outside North America there is none
-      const who = D.personName(G.makeRng(host.num * 31 + 7)), tc = C.travelCost(S, C.summitDef(S, o));
+      const who = D.personName(G.makeRng(host.num * 31 + 7), host), tc = C.travelCost(S, C.summitDef(S, o));
       C.letter(S, who + ' (' + hn + ', host of Summit Champs)', 'Invitation: Summit Champs', 'Every October we invite the teams that won an event this season, as captains or first picks, to our home field in California for Summit Champs. You won the ' + won.name + ' as ' + (won.role === 'Captain' ? 'captain' : 'first pick') + ', so you are one of them.\n\n' +
         nEl + ' of the elite teams are coming. The day before the matches we hold a mentor conference: our mentors and theirs, on what worked this season and what did not. Bring a notebook.\n\nWe hope to see you there.', 'Best,\n' + who + '\n' + hn,
         { teams: [host.num], prio: true, note: 'Sign up in the Calendar for October (' + (both ? 'you are already signed up for ' + octName + ' that month: you can play both, one after the other' : oct ? 'it takes the place of ' + octName + ' that month' : 'your area holds no event that month, so the month is free for it') + '): registration ' + U.money(o.fee) + ', travel about ' + U.money(tc) + '. A field like a Championship division\'s playoffs, more reputation, morale and experience than any other offseason event.' });
@@ -16404,7 +16833,7 @@ window.G = window.G || {};
     const areas = rng.shuffle(D.AREAS.slice()).slice(0, D.SUMMIT.talks);
     const T = ['what we learned this season', 'from prototype to the field', 'the mistakes we made so you do not have to', 'a teardown, part by part', 'how we practise it'];
     ev.mconf = { picked: [], done: false, talks: areas.map((a, i) => { const n = (el.length ? el : field)[i % Math.max(1, (el.length ? el : field).length)], t = S.teams[n];
-      return { area: a.id, title: a.name + ': ' + rng.pick(T), by: D.personName(rng) + ', Team ' + n + ' ' + (t ? t.name : ''), team: n }; }) };
+      return { area: a.id, title: a.name + ': ' + rng.pick(T), by: D.personName(rng, t || 'intl') + ', Team ' + n + ' ' + (t ? t.name : ''), team: n }; }) };
   };
   C.summitListen = function (S, ev, i) {
     const c = ev && ev.mconf; if (!c || c.done || c.picked.includes(i) || !c.talks[i]) return null;
@@ -16632,7 +17061,9 @@ window.G = window.G || {};
   C.migrate = function (S) {
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
-    if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3)); // (3.5) a save from before the lead mentor had a name: one is given (Mentors page to change it)
+    if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team);
+    // (3.5) people are named after their home now. A sponsor signed before that keeps the contact its letters had.
+    (S.sponsors || []).forEach(sp => { if (!sp.contact && D.SPONSOR_MAIL) { const r = G.makeRng(hashS('contact:' + sp.name) || 7); sp.contact = { name: D.personName(r, 'intl'), role: r.pick(D.SPONSOR_MAIL.roles[sp.type] || D.SPONSOR_MAIL.roles.eng) }; } }); // (3.5) a save from before the lead mentor had a name: one is given (Mentors page to change it)
     { const RN = { 'Jordan Valley Water Engineering': 'Rift Valley Water Engineering' }, fix = t => (typeof t === 'string' ? Object.keys(RN).reduce((x, k) => x.split(k).join(RN[k]), t) : t); // (3.5) a sponsor renamed
       (S.sponsors || []).concat(S.offers || []).forEach(x => { if (RN[x.name]) { x.name = RN[x.name]; x.obligations = (x.obligations || []).map(fix); } });
       (S.activities || []).forEach(a => { a.sponsor = fix(a.sponsor); a.text = fix(a.text); }); }
@@ -17353,7 +17784,7 @@ window.G = window.G || {};
   };
   Shop.OPPS = [
     { id: 'guest', w: 3, req: S => S.sponsors.length > 0, run: S => {
-      const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4));
+      const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4), D.sponsorIntl && D.sponsorIntl(sp) ? 'intl' : undefined); // a guest from an international company: one of its own people
       m.cost = 0; m.guest = sp; const turns = turnsFor(S, 4);
       S.guests.push({ m, turns });
       if (G.Career.inSeason(S)) S.fatigue = Math.max(5, S.fatigue - 3); // an extra pair of hands takes some load off
@@ -18159,7 +18590,7 @@ window.G = window.G || {};
   P.slotBrand = (S, slot) => (slot === 'A' ? P.premium(S) : 'B');
   P.loyal = function (S, slot) {
     const st = lyState(S)[slot], L = D.LOYALTY, lvl = st.lvl, brand = P.slotBrand(S, slot) || (slot === 'A' ? (P.buyCy(S) > G.Era.STERLING_LAST ? 'A' : 'T') : 'B');
-    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: lvl ? L.levels[lvl - 1] : 0, brand, vendor: D.VENDORS[brand],
+    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: Math.min(lvl ? L.levels[lvl - 1] : 0, st.pts), brand, vendor: D.VENDORS[brand], // (a level reached under the lower thresholds of an earlier version is kept: its bar starts where the points are)
       voucher: S.voucher && S.voucher[slot] && S.voucher[slot].amt > 0 ? S.voucher[slot] : null, sale: P.saleOf(S, slot), stock: L.stock * lvl };
   };
   // a loyalty sale runs from the letter until Kickoff
@@ -18779,8 +19210,8 @@ window.G = window.G || {};
     // ---- invitations and requests (reply)
     // (3.1.2) invitations and requests from outside the team arrive as emails (asMail); the reply buttons stay
     { id: 'scrim', w: 5, cd: 4, req: S => S.robot && S.rep >= 50 && (S.phase === 'comp' || (S.phase === 'build' && S.week >= 3) || (off(S) && ['Jun', 'Jul', 'Sep', 'Oct', 'Nov'].includes(month(S)))),
-      run: S => { const x = near(S, t => t.str >= 40, 120), t = tn(x.t), who = D.personName(R()); return ['Scrimmage invitation from ' + t, hi(S) + 'We are hosting a weekend scrimmage on our practice field and we would love to have ' + S.team.num + ' there' + (S.rep >= 75 ? '. Honestly, we need someone who will actually play defense' : '') + '. Real matches are good practice for both of us.\n\nLet me know this week,\n' + who + '\nLead mentor, Team ' + t, asMail(S, who + ' (lead mentor, Team ' + t + ', ' + away(x.mi) + ')', 'Scrimmage invitation', replyMsg('scrimmage', { until: turnNo(S) + 1 }), 'Real matches are great practice, but the robot will take some hits.')]; } },
-    { id: 'rook', w: 4, cd: 6, run: S => { const cy = G.Geo.cyOf(S), nw = G.Geo.localTeam(S, t => t.ry === cy, 80), x = nw || near(S, t => t.str < 40, 80), t = tn(x.t), who = D.personName(R());
+      run: S => { const x = near(S, t => t.str >= 40, 120), t = tn(x.t), who = D.personName(R(), x.t); return ['Scrimmage invitation from ' + t, hi(S) + 'We are hosting a weekend scrimmage on our practice field and we would love to have ' + S.team.num + ' there' + (S.rep >= 75 ? '. Honestly, we need someone who will actually play defense' : '') + '. Real matches are good practice for both of us.\n\nLet me know this week,\n' + who + '\nLead mentor, Team ' + t, asMail(S, who + ' (lead mentor, Team ' + t + ', ' + away(x.mi) + ')', 'Scrimmage invitation', replyMsg('scrimmage', { until: turnNo(S) + 1 }), 'Real matches are great practice, but the robot will take some hits.')]; } },
+    { id: 'rook', w: 4, cd: 6, run: S => { const cy = G.Geo.cyOf(S), nw = G.Geo.localTeam(S, t => t.ry === cy, 80), x = nw || near(S, t => t.str < 40, 80), t = tn(x.t), who = D.personName(R(), x.t);
       return ['A ' + (nw ? 'rookie' : 'young') + ' team asks for help', hi(S) + 'I am the lead mentor of Team ' + t + ', ' + (nw ? 'a rookie team' : 'and this is my first season with a team of freshmen') + ' ' + away(x.mi) + '. We have a kit of parts and a lot of enthusiasm. Could anyone from your team show us how to wire this?\n\nThank you so much,\n' + who, asMail(S, who + ' (lead mentor, Team ' + t + ')', 'Could you help us?', replyMsg('rookie', { until: turnNo(S) + 2 }))]; } },
     { id: 'press', w: 3, cd: 8, run: S => { const o = R().pick(['the local paper', 'the school news channel', 'the city radio station', 'a regional STEM podcast']), who = D.personName(R()); return ['Interview request', hi(S) + 'I work for ' + o + ' and I would love to interview the team about ' + (S.phase === 'comp' ? 'your season so far' : inSeason(S) ? 'build season' : 'what a robotics team does all year') + '. Half an hour with a few students and a mentor would be plenty.\n\nBest,\n' + who, asMail(S, who + ' (' + o.replace(/^the |^a /, '') + ')', 'Interview request', replyMsg('interview', { until: turnNo(S) + 2 }))]; } },
     { id: 'forum', w: 3, cd: 8, req: S => S.robot && (S.phase === 'build' || S.phase === 'comp'), run: S => ['Forum thread about your robot', 'A thread titled "What is ' + S.team.num + ' building?" has ' + R().int(40, 260) + ' replies, most of them guesses from a single blurry photo. ' + (S.rep >= 60 ? 'People are paying attention.' : 'It is mostly people asking who you are.'), replyMsg('forum', { until: turnNo(S) + 2 })] },
@@ -19115,6 +19546,10 @@ window.G = window.G || {};
     { id: 'c35dispute', cd: 6, req: S => !!S.lastDispute && (S.turnSeq || 0) - S.lastDispute.tq <= 2 && (S.turnSeq || 0) > S.lastDispute.tq, title: 'A new rule on the whiteboard', body: S => 'After this week\'s argument the whiteboard by the door has a new rule on it, number ' + R().int(9, 23) + ': "' + R().pick(['Say it to the person, not to the group chat.', 'The robot belongs to whoever is holding the checklist.', 'Nobody is "just saying".', 'Arguments stop when the pizza arrives.', 'If it is not in the drawing, it did not happen.']) + '" ' + student(S) + ' wrote it. ' + (S.lastDispute.bad ? student2(S, '') + ' has added "(we are working on it)".' : 'Nobody has crossed it out.') },
     { id: 'c35undo', cd: 400, req: S => off(S) && (S.mentors || []).some(m => (m.ten || 0) === 0) && month(S) !== 'May', title: 'Trial evening', body: S => 'The newest mentor came to one meeting before saying yes for good. ' + student(S) + ' used the evening to ask ' + R().int(14, 31) + ' questions about gear ratios. They came back the next day anyway.' },
     { id: 'c35maker', cd: 200, req: S => S.sponsors.some(s => s.type === 'maker'), title: 'The box from Corvane', body: S => 'A box from Corvane Labs came with this month\'s paperwork: ' + R().int(6, 14) + ' spools of filament in colours nobody ordered and a sticker sheet. ' + student(S) + ' has already printed the team number in ' + R().pick(['translucent orange', 'glow-in-the-dark green', 'a purple called "Grape Soda"']) + '. ' + mentor(S) + ' asked what it is for. Nobody had an answer and nobody minded.' },
+    { id: 'c35makerletter', cd: 400, req: S => (S.inbox || []).slice(0, 25).some(m => m.mail && S.sponsors.some(sp => sp.type === 'maker' && m.mail.from.includes('(' + sp.name + ')'))), title: 'Read by the printers', body: S => { const a = student(S); return 'The letter from Corvane Labs is taped to the side of the printer, where ' + a + ' says it belongs. ' + student2(S, a) + ' has started a bag for broken printed parts, with the match number on each, in case the postscript was serious. ' + mentor(S) + ' thinks it was.'; } },
+    { id: 'c35intl', cd: 300, req: S => S.sponsors.some(s => s.slot === 'partner' && s.type !== 'maker' && D.sponsorIntl && D.sponsorIntl(s.name)), title: 'A parcel from head office', body: S => { const sp = R().pick(S.sponsors.filter(s => s.slot === 'partner' && s.type !== 'maker' && D.sponsorIntl(s.name))); return 'The partnership pack from ' + sp.name + ' came from a head office ' + R().pick(['nine', 'eleven', 'seven']) + ' time zones away: ' + R().int(30, 60) + ' lanyards, a banner in six languages and a brand manual of ' + R().int(70, 120) + ' pages. ' + student(S) + ' read the chapter on how much empty space the logo needs aloud. It needs more than the robot has.'; } },
+    { id: 'c35place', cd: 500, req: S => off(S) && G.World.on(S) && !!(D.schoolAt && D.schoolAt(S.team.school)) && (D.schoolAt(S.team.school) || []).includes(G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub), title: 'No excuse for getting lost', body: S => 'A parcel for the team went to the wrong ' + R().pick(['town', 'side of the city', 'school']) + ' again. ' + mentor(S) + ' now writes "' + S.team.school + ', near ' + G.Geo.posOf(S, S.team, G.Geo.cyOf(S)).hub + '" on every order form. With a name like ours, says ' + student(S) + ', nobody should need the second half.' },
+    { id: 'c35elite', cd: 250, req: S => !!(S.team && S.team.elite), title: 'What the tag changes', body: S => 'Since the Elite tag went up, scouts from other teams arrive at the pit in pairs, and one of them always photographs the ' + R().pick(['intake', 'drivetrain', 'wiring', 'bumper mounts']) + '. ' + student(S) + ' has started charging them one sticker a photograph. ' + mentor(S) + ' says that is what the tag means: everybody copies your homework, so do it properly.' },
     { id: 'c35away', cd: 300, req: S => off(S) && month(S) === 'Oct' && Object.keys(S.sponsorGone || {}).length > 0, title: 'Not on the list', body: S => { const n = Object.keys(S.sponsorGone)[0]; return student(S) + ' went through this autumn\'s offers twice looking for ' + n + '. It is not there. "Give them a year," ' + mentor(S) + ' said. "Nobody comes back the same autumn they left."'; } },
     { id: 'c315partners', cd: 200, req: S => off(S) && month(S) === 'Oct' && S.sponsors.filter(s => s.slot === 'partner').length < G.Career.partnerSlots(S) && (S.history || []).length >= 2, title: 'The partner board', body: S => 'The partner list on the shop whiteboard changed again: ' + student(S) + ' wiped off ' + R().pick(['two names', 'a name', 'three names']) + ' and left room for the new ones. ' + mentor(S) + ' says partners like one-season deals, so October is when the team finds out who its friends are.' },
     { id: 'c315grant', cd: 200, req: S => off(S) && (S.inbox || []).slice(0, 15).some(m => /^Grant renewed:/.test(m.title)), title: 'The grant report', body: S => student(S) + ' wrote the grant report for the foundation: ' + R().int(6, 14) + ' pages, a photo of every outreach event and one chart nobody understands. The grant was renewed. ' + student2(S, '') + ' says the chart did it.' },
@@ -20506,7 +20941,7 @@ window.G = window.G || {};
     ['Fortaleza', 'South America', null, -38.7, -4.1, 0.3, 0.25], ['Recife', 'South America', null, -35.3, -8.1, 0.2, 0.2], ['Natal', 'South America', null, -35.7, -5.9, 0.2, 0.2], ['Manaus', 'South America', null, -60.0, -3.1, 0.15, 0.4],
     ['Belem', 'South America', null, -48.5, -1.7, 0.15, 0.3], ['Vitoria', 'South America', null, -40.6, -20.3, 0.3, 0.2], ['Campo Grande', 'South America', null, -54.6, -20.45, 0.3, 0.7], ['Santiago', 'South America', null, -70.6, -33.45, 0.3, 0.3],
     ['Cali', 'South America', null, -76.4, 3.45, 0.3, 0.4], ['Medellin', 'South America', null, -75.55, 6.25, 0.15, 0.3],
-    ['London, England', 'Europe', null, -0.2, 51.6, 1, 0.5], ['Eindhoven', 'Europe', null, 5.5, 51.45, 1, 0.4], ['Groningen', 'Europe', null, 6.55, 53.15, 0.3, 0.3], ['Prague', 'Europe', null, 14.4, 50.1, 0.5, 0.5], ['Lyon', 'Europe', null, 4.85, 45.75, 0.6, 0.5],
+    ['Greater London', 'Europe', null, -0.2, 51.6, 1, 0.5], ['Eindhoven', 'Europe', null, 5.5, 51.45, 1, 0.4], ['Groningen', 'Europe', null, 6.55, 53.15, 0.3, 0.3], ['Prague', 'Europe', null, 14.4, 50.1, 0.5, 0.5], ['Lyon', 'Europe', null, 4.85, 45.75, 0.6, 0.5],
     ['Nice', 'Europe', null, 7.1, 43.75, 0.3, 0.15], ['Warsaw', 'Europe', null, 21.0, 52.2, 0.5, 0.6], ['Lublin', 'Europe', null, 22.6, 51.0, 0.5, 0.6], ['Krakow', 'Europe', null, 19.9, 50.05, 0.3, 0.5], ['Zurich', 'Europe', null, 8.8, 47.2, 0.4, 0.4],
     ['Rijeka', 'Europe', null, 14.6, 45.5, 0.3, 0.2], ['Sofia', 'Europe', null, 23.3, 42.7, 0.2, 0.4], ['Cluj', 'Europe', null, 23.6, 46.75, 0.2, 0.5], ['Athens', 'Europe', null, 23.6, 38.1, 0.15, 0.15], ['Stockholm', 'Europe', null, 17.8, 59.3, 0.15, 0.3],
     ['Kyiv', 'Europe', null, 30.5, 50.45, 0.15, 0.5],
@@ -20562,10 +20997,13 @@ window.G = window.G || {};
   }
   // a team's spot on the map: always the same for the same team and home
   const cache = {};
-  Geo.teamPos = function (num, region, dist, cy, zone, legacy) {
-    const fk = legacy ? Object.keys(Geo.DIST).filter(d => formed(d, cy, true)).join(',') : 'v2', key = num + '|' + region + '|' + (dist || '') + '|' + (zone || '') + '|' + fk;
+  // at: the cities a school's name points to (D.schoolAt). The team stands in one of them that its home has, any of
+  // them as likely as another; with none of them in the home, or no such name, in any city of the home by its weight.
+  Geo.teamPos = function (num, region, dist, cy, zone, legacy, at) {
+    const fk = legacy ? Object.keys(Geo.DIST).filter(d => formed(d, cy, true)).join(',') : 'v2', key = num + '|' + region + '|' + (dist || '') + '|' + (zone || '') + '|' + fk + (at && at.length ? '|' + at.join(',') : '');
     if (cache[key]) return cache[key];
-    const rng = G.makeRng((num * 2654435761) >>> 0 || 7), hubs = Geo.hubsFor(region, dist, cy, zone, legacy), hb = rng.wpick(hubs, x => x.w);
+    const rng = G.makeRng((num * 2654435761) >>> 0 || 7), all = Geo.hubsFor(region, dist, cy, zone, legacy), named = at && at.length ? all.filter(x => at.includes(x.n)) : [];
+    const hubs = named.length ? named : all, hb = rng.wpick(hubs, x => (named.length ? 1 : x.w));
     const sd = (0.22 + 0.12 * Math.sqrt(hb.w)) * hb.s;
     let lon = hb.lon, lat = hb.lat;
     for (let i = 0; i < 8; i++) {
@@ -20574,8 +21012,10 @@ window.G = window.G || {};
     }
     return (cache[key] = { xy: Geo.xy(lon, lat), hub: hb.n });
   };
-  // ... of a team of this world (an AI team or yours)
-  Geo.posOf = (S, t, cy) => Geo.teamPos(t.num, t.region, t.home, cy, t.z, G.World.legacy(S));
+  // ... of a team of this world (an AI team or yours). Yours stands where the school it started with points
+  // (S.team.place: fixed when the career begins, whatever the school is called afterwards); a save from before that
+  // goes by the school's name.
+  Geo.posOf = (S, t, cy) => Geo.teamPos(t.num, t.region, t.home, cy, t.z, G.World.legacy(S), S && S.team && t.num === S.team.num ? (S.team.place !== undefined ? S.team.place : D.schoolAt ? D.schoolAt(S.team.school) : null) : null);
   // an event's city: a regional outside the United States is held where it really is (e.hub); district events go
   // round the district's cities, the other regionals round their area's (biggest first)
   Geo.eventPos = function (ws, e) {
@@ -20710,7 +21150,7 @@ window.G = window.G || {};
     const ws = S.wseason, me = S.team.num, cy = ws.cy, rows = [];
     const add = (num, region, dist, rookie, str) => {
       const recs = ws.rec[num] || [], sr = recs.filter(r => r.s), n = sr.length;
-      const row = { num, me: num === me, elite: !!(S.teams[num] && S.teams[num].elite), region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
+      const row = { num, me: num === me, elite: num === me ? !!S.team.elite : !!(S.teams[num] && S.teams[num].elite), region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
         w: 0, l: 0, t: 0, wp: null, rs: null, opr: null, au: null, te: null, en: null, best: 9, bestTxt: '', wins: 0, aw: 0 };
       recs.forEach(r => {
         const f = Sc.FIN[r.f] || (r.a ? 7 : 9); if (f < row.best) { row.best = f; row.bestTxt = r.f || (r.a ? 'Alliance ' + r.a : ''); }
@@ -22209,7 +22649,9 @@ window.G = window.G || {};
   UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   // an elite team (world simulation): a small rose tag wherever the team shows up
-  UI.isElite = n => !!(G.S && G.S.teams && G.S.teams[n] && G.S.teams[n].elite);
+  UI.isElite = n => !!(G.S && ((G.S.teams && G.S.teams[n] && G.S.teams[n].elite) || (G.S.team && n === G.S.team.num && G.S.team.elite))); // an elite team of the world, or yours while it carries the tag
+  // your own Elite tag (3.5): earned at a season review, carried through the next season
+  UI.eliteMine = S => { const e = S && S.team && S.team.elite; return e ? '<span class="etag" title="' + h('Elite team: your ' + e.cy + ' season ranked ' + U.ord(e.rank) + ' of ' + e.of + ' teams in the world by OPR (the top ' + e.n + ' are elite). Measured again at the next season review.') + '">Elite</span>' : ''; };
   UI.eliteTag = () => '<span class="etag" title="Elite team: one of the best programs in the world, close to maxed out in robot, drive team and strategy">Elite</span>';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
@@ -22681,7 +23123,7 @@ window.G = window.G || {};
   // =====================================================================
   UI.S.hq = { html() {
     const S = G.S, C = G.Career;
-    let o = UI.head('Headquarters', 'hq', (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
+    let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
@@ -23623,6 +24065,7 @@ window.G = window.G || {};
   // =====================================================================
   // Sponsor money at a glance: this season (base paid, bonuses reached and still possible) and next season (expected base, bonus ceiling)
   const spDesc = sp => (D.sponsorDesc && D.sponsorDesc(sp.name) ? '<div class="xs sp-desc">' + h(D.sponsorDesc(sp.name)) + '</div>' : ''); // (3.5) what the company does
+  const spIntl = sp => (sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name) ? ' · <span class="info" title="An international company: it sponsors teams all over the world, as a partner only. Its name on your robot adds ' + D.SPONSOR_INTL.rep + ' reputation at every season review.">International: +' + D.SPONSOR_INTL.rep + ' reputation a season</span>' : ''); // (3.5) a giant from the general list, or the printer maker
   UI.sponsorSummary = function (S) {
     const C = G.Career, nx = C.sponsorNext(S), inS = C.inSeason(S), now = inS ? Object.assign({ year: S.year }, C.sponsorSeason(S)) : S.lastSponsor || null;
     const num = (v, lbl) => '<div><div class="hnum">' + v + '</div><div class="l">' + lbl + '</div></div>', pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -23668,7 +24111,7 @@ window.G = window.G || {};
     const anyOpen = ['title', 'partner', 'grant'].some(k => sl[k].n < sl[k].max && S.offers.some(of => of.slot === k));
     o += UI.card('Sponsors ' + slTag('title', 'Title') + ' ' + slTag('partner', 'Partners') + ' ' + slTag('grant', 'Grant'), S.sponsors.length ? S.sponsors.map(sp =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
-      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
+      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + spIntl(sp) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div>' +
       (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' :
         C.canEndSponsor(S, sp) ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="endSp" data-arg="' + sp.id + '" title="Ends the contract and frees its slot for another offer. Only in the autumn, while new offers are open.">End sponsorship · reputation −' + C.endSponsorCost(sp) + '</button></div>' : '') + '</div>').join('') +
@@ -23676,7 +24119,7 @@ window.G = window.G || {};
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
-      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
+      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + spIntl(of) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span>' + (sl[of.slot].n >= sl[of.slot].max ? '<span class="xs muted">' + (of.slot === 'partner' ? 'Partner slots full' : 'You already have a ' + (of.slot === 'title' ? 'title sponsor' : 'grant')) + '</span>' : '<button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button>') + '</div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>',
       '<button class="btn sm" data-act="autoSp" ' + (anyOpen ? '' : 'disabled') + ' title="Signs the best-value offer for every open slot. You can undo any of them until you press Continue.">Auto-pick best</button>');
@@ -25431,11 +25874,33 @@ window.G = window.G || {};
   };
   // a default school name with the flavour of the home (until the player types one)
   UI.ngSchool = n => D.schoolName(G.makeRng((Date.now() ^ 0x5f3759) & 0xffffff), n.mode === 'career' ? n.home : null, n.region);
+  // A school of the list is picked (at random, or the next one with the button beside the field): the team will
+  // stand where that school points, and the name can still be edited without moving it.
+  UI.ngPick = (n, name) => { n.school = name; n.schoolPick = name; n.schoolAuto = true; n.place = D.schoolAt(name); };
+  UI.ngSchools = n => D.SCHOOL_BY[(n.mode === 'career' && n.home) || ''] || D.SCHOOL_BY[n.region] || [];
+  // the city the team will stand in (as C.newGame and the map will have it)
+  UI.ngHub = function (n) {
+    const cy = n.mode === 'single' ? G.singleCy(n.year) : n.start, home = n.mode === 'career' ? n.home || null : null, dz = n.mode === 'career' && !home ? G.World.soleDistrict(n.region, cy) : null;
+    return G.Geo.teamPos(Number(n.num) || 1, n.region, home, cy, dz ? dz.id : null, false, n.place || null).hub;
+  };
+  // ... and a default name for you, the lead mentor, as people of that city are called (until the player types one).
+  // true if the name changed.
+  UI.ngSync = function (n) {
+    if (!n.leadAuto) return false;
+    const hub = UI.ngHub(n), L = D.namesFor({ hub });
+    if (n.leadList === L && n.lead) return false;
+    n.leadList = L; n.lead = D.personName(G.makeRng((Date.now() ^ 0x2f6e2b) & 0xffffff), { hub }); return true;
+  };
+  UI.A.ngSchoolNext = function () {
+    const n = UI.st.ng, l = UI.ngSchools(n); if (!l.length) return;
+    UI.ngPick(n, l[(l.indexOf(n.schoolPick) + 1) % l.length]); UI.ngSync(n); UI.render();
+  };
   UI.A.newGame = function (mode) {
     const rng = G.makeRng(Date.now() & 0xffffff);
-    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, name: D.teamName(rng), lead: D.personName(rng), school: D.schoolName(rng, null, 'Midwest'), c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
+    UI.st.ng = { mode, num: 0, numAuto: true, schoolAuto: true, leadAuto: true, name: D.teamName(rng), lead: '', school: '', c1: UI.TEAM_COLORS[0].hex, c2: UI.TEAM_COLORS2[0].hex, avatar: rng.pick(UI.AVATARS), region: 'Midwest',
       profile: mode === 'single' ? 'established' : 'established', diff: 'normal', order: 'real', year: 2026, scenario: 'custom', start: G.startYears('real')[0] };
-    UI.st.ng.num = UI.ngAutoNum(UI.st.ng);
+    UI.ngPick(UI.st.ng, D.schoolName(rng, null, 'Midwest'));
+    UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.ngSync(UI.st.ng);
     UI.go('newgame');
   };
   UI.S.newgame = { full: true, html() {
@@ -25443,7 +25908,9 @@ window.G = window.G || {};
     const inp = (k, lbl, type) => '<label class="f">' + lbl + '<input class="inp" type="' + (type || 'text') + '" value="' + h(n[k]) + '" data-chg="ng" data-k="' + k + '"></label>';
     const choice = (k, v, title, desc) => '<div class="choice ' + (n[k] === v ? 'on' : '') + '" data-act="ngSet" data-arg="' + k + '|' + v + '"><div class="b">' + title + '</div>' + (desc ? '<div class="xs muted">' + desc + '</div>' : '') + '</div>';
     const starts = n.order === 'custom' ? G.CAL_YEARS.slice() : G.startYears(n.order); if (!starts.includes(n.start)) n.start = starts[0];
-    if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) n.home = null; // that district does not exist yet in the start year
+    if (n.home && (n.mode !== 'career' || !(D.DISTRICT[n.home] && D.DISTRICT[n.home].from <= n.start))) { // that district does not exist yet in the start year
+      n.home = null; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n);
+    }
     const ngPx = U.pxOf(n.mode === 'single' ? G.singleCy(n.year) : n.start); // amounts on this page: in the first season's dollars
     let o = '<div class="menu-wrap"><div class="menu-box"><div class="row"><div class="logo" style="font-size:28px">' + (n.mode === 'career' ? 'New Career' : 'Single Season Challenge') + '</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div>';
     if (n.mode === 'single') {
@@ -25454,9 +25921,11 @@ window.G = window.G || {};
     // (3.5) the home list: the areas of North America, the rest of the world, and the districts of the start year
     // (3.4.4) an area that is all one formed district is not a home for a regional team: its district is
     const ngOpen = r => n.mode !== 'career' || G.World.regionOpen(r, n.start);
-    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) n.school = UI.ngSchool(n); }
+    if (!n.home && !ngOpen(n.region)) { n.home = D.DISTRICTS.find(x => x.region === n.region && x.from <= n.start && G.World.wholeArea(x)).id; if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; } UI.ngSync(n); }
     const ngOpt = r => '<option value="r:' + r + '" ' + (!n.home && n.region === r ? 'selected' : '') + '>' + r + (n.mode === 'career' ? ' · ' + G.World.preview(n.start, r, null, n.diff).elite + ' elite' : '') + '</option>';
-    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') + inp('school', 'School / organisation') + inp('lead', 'Lead mentor (your name)') +
+    o += '<h3 class="mt">Your team</h3><div class="grid g4">' + inp('num', 'Team number', 'number') + inp('name', 'Team name') +
+      '<label class="f">School / organisation<span class="row gap4"><input class="inp sp" type="text" value="' + h(n.school) + '" data-chg="ng" data-k="school"><button type="button" class="btn sm" data-act="ngSchoolNext" aria-label="Another school">↻</button></span></label>' +
+      inp('lead', 'Lead mentor (your name)') +
       '<label class="f">' + (n.mode === 'career' ? 'Home: a regional area or a district' : 'Home region') + '<select class="inp" data-chg="ng" data-k="homeSel"><optgroup label="North America">' + D.REGIONS.filter(r => D.GROUP[r] === 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         '<optgroup label="The rest of the world">' + D.REGIONS.filter(r => D.GROUP[r] !== 'NA' && ngOpen(r)).map(ngOpt).join('') + '</optgroup>' +
         (n.mode === 'career' ? '<optgroup label="Districts">' + G.World.districtsAt(n.start).map(d => '<option value="d:' + d.id + '" ' + (n.home === d.id ? 'selected' : '') + '>' + h(d.name) + ' (' + d.region + ') · ' + G.World.preview(n.start, d.region, d.id, n.diff).elite + ' elite</option>').join('') + '</optgroup>' : '') + '</select></label>' +
@@ -25523,12 +25992,15 @@ window.G = window.G || {};
     const n = UI.st.ng, k = el.dataset.k;
     if (k === 'homeSel') {
       if (String(v).indexOf('d:') === 0) { n.home = String(v).slice(2); n.region = D.DISTRICT[n.home].region; } else { n.home = null; n.region = String(v).slice(2); }
-      if (n.numAuto) n.num = UI.ngAutoNum(n); if (n.schoolAuto) n.school = UI.ngSchool(n); // the suggested number and school follow the home
-      UI.render(); return;
+      // the suggested number, school and lead mentor's name follow the home (a school name of your own stays, with no place of its own in the new home)
+      if (n.numAuto) n.num = UI.ngAutoNum(n); if (n.schoolAuto) UI.ngPick(n, UI.ngSchool(n)); else { n.schoolPick = null; n.place = null; }
+      UI.ngSync(n); UI.render(); return;
     }
     n[k] = k === 'num' ? Math.max(1, Math.min(99999, Number(v) || 1)) : v;
     if (k === 'num') n.numAuto = false; // the player's own number stays
-    if (k === 'school') n.schoolAuto = false;
+    if (k === 'school') n.schoolAuto = false; // a name of your own: the team stays where the school you picked stands (n.place)
+    if (k === 'lead') n.leadAuto = false;
+    if (k === 'num' && UI.ngSync(n)) UI.render(); // another number can mean another city of the home, and other names there
   };
   // (3.5) the custom career's list: a click adds a game at the end or takes it out; the arrows move it a year
   UI.A.ngGame = y => {
@@ -25539,7 +26011,7 @@ window.G = window.G || {};
     UI.render();
   };
   UI.A.ngGameMove = arg => { const [i, d] = arg.split('|').map(Number), l = UI.st.ng.games || [], j = i + d; if (j < 0 || j >= l.length) return; const t = l[i]; l[i] = l[j]; l[j] = t; UI.render(); };
-  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); UI.render(); };
+  UI.A.ngSet = arg => { const [k, v] = arg.split('|'); UI.st.ng[k] = k === 'year' || k === 'start' || k === 'fantasy' ? Number(v) : v; if (k === 'c1') UI.applyTheme(UI.st.ng); if (k === 'scenario') { const s = D.SCENARIOS.find(x => x.id === v); UI.st.ng.profile = s.profile; } if (UI.st.ng.numAuto && ['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.st.ng.num = UI.ngAutoNum(UI.st.ng); if (['profile', 'start', 'year', 'scenario', 'order'].includes(k)) UI.ngSync(UI.st.ng); UI.render(); };
   UI.A.ngNoFail = v => { UI.st.ng.noFail = !!v; };
   UI.A.startGame = function () {
     const n = UI.st.ng;
@@ -25550,7 +26022,7 @@ window.G = window.G || {};
       if (!(n.games && n.games.length)) return UI.toast('Pick at least one game for your custom career', 'bad');
       const bad = G.Career.gamesFit(n.games, G.calFrom(n.start), n.shuffle !== 'yes'); if (bad) return UI.toast(bad, 'bad');
     }
-    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null },
+    G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
     UI.go('hq');
@@ -25591,6 +26063,15 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.4.7', title: 'Beta of 3.5: people and places, international partners, your own Elite tag', notes: [
+      'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors and your own default name follow your city; the people of other teams follow theirs. Everybody already on your team keeps their name.',
+      'A school named after a place stands in that place on the map (the star\'s tooltip says where), and every part of the world with teams has schools of its own. The place is settled when the career starts.',
+      'International companies: 42 giants that sponsor teams everywhere. They make partner offers only, about one partner offer in ten, and each adds 1 reputation at every season review. Corvane Labs is one of them, with odds of its own, and it now writes you a letter when it signs and when it renews.',
+      'A title sponsor\'s letter puts its name on the robot or on the stickers. One writer in four still says "on the bumpers", and it shows that they have never seen a robot.',
+      'Your own Elite tag: at every season review your season\'s OPR is ranked against every team in the world. Inside the top places, in a year you qualified for the Championship, your team carries the Elite tag through the next season, on Headquarters, at events and in scouting.',
+      'Rarer rewards: vendor loyalty levels come about four seasons apart (400, 800, 1200 and 1600 points, with the order bonus full at $4,000 a year), and only a very satisfied sponsor donates equipment, never twice within two years.',
+      'The story of the fast printers has a new paragraph on why machined parts still matter.'
+    ] },
     { v: '3.4.6', title: 'Beta of 3.5: sponsors, disputes and a name of your own', notes: [
       'You are the lead mentor, and now you have a name: set it when you make a game (the Mentors page can change it later). Letters to the team are addressed to you, and some are copied to one of your mentors: a sponsor\'s to the business mentor, an invitation to play to the drive coach.',
       'Sponsors: every one of them has a line that says what it does, and there are twice as many (830, with names from your home). A list of offers never shows a company twice. A sponsor that leaves stays off the list for a year.',
@@ -26010,13 +26491,16 @@ window.G = window.G || {};
     if (!hs) return '<p>No review.</p>';
     let o = '<div class="xs muted">SEASON REVIEW</div><h1>' + h(G.Career.seasonName(G.S, hs.year)) + '</h1>';
     const head = hs.worldChamp ? 'WORLD CHAMPIONS' : hs.divWin ? 'Championship division winners' : hs.champs ? 'Championship qualifiers' : hs.events.some(e => e.won) ? 'Regional winners' : hs.events.some(e => e.playoffs) ? 'Playoff team' : 'Building season';
-    o += '<div class="sub lg acc b">' + head + '</div><div class="grid g3">';
+    o += '<div class="sub lg acc b">' + head + (hs.elite && hs.elite.met ? ' ' + UI.eliteMine(S) : '') + '</div>';
+    // (3.5) the elite standard: where the season's OPR ranks in the world, and what that means for next season
+    if (hs.elite) { const E = hs.elite; o += '<div class="sm muted mb">World ranking by OPR: <b>' + U.ord(E.rank) + '</b> of ' + E.of + ' teams (' + E.opr + '). The top ' + E.n + ' are elite' + (E.met ? ': <b class="good">your team carries the Elite tag next season</b>.' : (E.rank <= E.n ? ', but an elite team also plays the Championship' : ' (from ' + E.cut + ')') + (E.lost ? ': <b class="bad">the Elite tag comes off</b>.' : '.')) + ' ' + UI.q('world', 'Elite teams') + '</div>'; }
+    o += '<div class="grid g3">';
     o += UI.card('Events', hs.events.length ? '<table class="t"><tr><th>Event</th><th>Rank</th><th>Result</th></tr>' + hs.events.map(e => '<tr><td>' + h(e.name) + '</td><td>' + (e.rank ? e.rank + '/' + e.size : '') + '</td><td>' + h(e.finish) + (e.awardNames.length ? '<div class="xs acc">' + h(e.awardNames.join(', ')) + '</div>' : '') + '</td></tr>').join('') + '</table>' : '<p class="muted">No events attended.</p>');
     if (hs.loyal && hs.loyal.length) o += UI.card('Vendor loyalty', hs.loyal.map(y => '<div class="mb"><div class="row sm"><b style="color:' + D.VENDORS[y.brand].color + '">' + h(D.VENDORS[y.brand].name) + '</b><span class="sp"></span><span class="muted nowrap">' + y.pts + (y.next != null ? ' / ' + y.next : '') + ' points</span></div>' +
       '<div class="sm">' + h(D.LOYALTY.names[y.lvl]) + (y.up ? ' ' + UI.tag('new level', 'acc') : '') + '</div>' +
       '<div class="xs muted">+' + y.gain + ' this season: ' + (y.robot || 0) + ' for the competition robot, ' + (y.buy || 0) + ' for your orders.' + (y.up ? ' A letter from ' + h(D.VENDORS[y.brand].short) + ' arrives in September.' : '') + '</div></div>').join(''), '', 'mb');
     o += UI.card('Program goals', hs.goals.map(g => '<div class="row sm mb"><span class="' + (g.met ? 'good' : 'bad') + '">' + (g.met ? '✔' : '✘') + '</span><span class="tag">' + g.tier + '</span><span>' + h(G.Career.goalText(G.S, D.PROGRAM_GOALS[g.id].text, hs.home || null)) + '</span></div>').join('') +
-      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
+      '<div class="hr"></div><div class="kv"><span class="k">Program support</span><span>' + Math.round(S.support) + ' (' + (S.season.supportDelta >= 0 ? '+' : '') + (S.season.supportDelta || 0) + ')</span><span class="k">Reputation</span><span>' + Math.round(S.rep) + (S.season.intlRep ? ' <span class="xs muted">(+' + S.season.intlRep + ' for your international partner' + (S.season.intlRep > D.SPONSOR_INTL.rep ? 's' : '') + ')</span>' : '') + '</span><span class="k">Legacy this season</span><span class="acc b">+' + hs.legacy + '</span></div>');
     o += UI.card('Finances', '<div class="kv"><span class="k">Earned</span><span class="good">' + U.money(hs.earned, hs.px) + '</span><span class="k">Spent</span><span class="bad">' + U.money(hs.spent, hs.px) + '</span><span class="k">Balance</span><span class="' + (hs.money < 0 ? 'bad' : '') + ' b">' + U.money(hs.money, hs.px) + '</span><span class="k">Avg RP / qual match</span><span>' + hs.avgRP.toFixed(2) + '</span>' +
       (S.season && S.season.debt ? '<span class="k">Debt covered by school</span><span class="bad">' + U.money(S.season.debt) + ' (support −' + S.season.debtPen.support + ', reputation −' + S.season.debtPen.rep + ')</span>' : '') + '</div>');
     o += '</div>';
@@ -26454,7 +26938,7 @@ window.G = window.G || {};
     if (st.seen !== S.team.num + ':' + S.team.region) { st.seen = S.team.num + ':' + S.team.region; homeView(S, st); } // a career's first look: its own part of the world
     clampView(st);
     const k = st.k, vw = Geo.W / k, vh = Geo.VH / k, vx = st.cx - vw / 2, vy = st.cy - vh / 2, px = v => (v / k).toFixed(2);
-    const dists = G.World.districtsOf(S, cy), myPos = Geo.posOf(S, S.team, cy).xy;
+    const dists = G.World.districtsOf(S, cy), myAt = Geo.posOf(S, S.team, cy), myPos = myAt.xy;
     // a team shown from a message or the scouting list ("Show this team on the map"): marked, with its distance from you
     const mt = st.mark && st.mark !== me ? S.teams[st.mark] : null, mk = mt ? { t: mt, xy: Geo.posOf(S, mt, cy).xy } : null;
     if (mk) mk.mi = Math.round(Geo.miles(myPos, mk.xy));
@@ -26542,7 +27026,7 @@ window.G = window.G || {};
     // ---- your team, on top of everything
     { const x = myPos[0], y = myPos[1], r = 10 / k, pts = [];
       for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; pts.push((x + rr * Math.cos(a)).toFixed(2) + ' ' + (y + rr * Math.sin(a)).toFixed(2)); }
-      svg += '<g data-tip="' + h('Your team: ' + me + ' ' + S.team.name + '\n' + G.Geo.areaName(S.team.region, S.team.home)) + '"><path d="M' + pts.join('L') + 'Z" fill="' + ME_COL + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+      svg += '<g data-tip="' + h('Your team: ' + me + ' ' + S.team.name + '\n' + (S.team.school ? S.team.school + ' · ' : '') + 'near ' + myAt.hub + '\n' + G.Geo.areaName(S.team.region, S.team.home)) + '"><path d="M' + pts.join('L') + 'Z" fill="' + ME_COL + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
         '<text x="' + (x - r * 1.1).toFixed(1) + '" y="' + (y - r * 0.5).toFixed(1) + '" font-size="' + px(12) + '" fill="' + ME_COL + '" font-weight="800" text-anchor="end" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">You</text></g>'; }
     svg += '</svg>';
     const leg = '<div class="wm-leg"><div class="xs b">Team strength</div><div class="wm-grad" style="background:linear-gradient(90deg,' + RAMP.join(',') + ')"></div><div class="row xs muted"><span>' + RAMP_AT[0] + '</span><span class="sp"></span><span>50</span><span class="sp"></span><span>' + RAMP_AT[5] + '+</span></div>' +
@@ -26604,7 +27088,7 @@ window.G = window.G || {};
     const nums = arg.slice(2).split(',').map(Number), rows = G.Scout.rows(S).filter(r => nums.includes(r.num)).sort((a, b) => (b.me - a.me) || (b.str || 0) - (a.str || 0)); // yours first
     UI.modal('<h2>' + (rows.length > 1 ? rows.length + ' teams here' : 'Team ' + rows[0].num) + '</h2><div class="sub">' + h(rows.length > 1 ? 'Too close together to pull apart on the map' : rows[0].area + (rows[0].rookie ? ' · rookie team' : '')) + '</div>' +
       '<table class="t tight mt"><tr><th>Team</th><th>Area</th><th class="num">Strength</th><th class="num">Events</th><th>W-L-T</th><th class="num">OPR</th><th>Best finish</th><th></th></tr>' + rows.map(r =>
-        '<tr><td class="b">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num + (r.elite ? ' ' + UI.eliteTag() : '')) + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + (r.str == null ? '<span class="muted" title="Your team has no world rating: your own robot plays its matches">—</span>' : r.str) + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
+        '<tr><td class="b">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') + (r.elite ? ' ' + UI.eliteMine(S) : '') : r.num + (r.elite ? ' ' + UI.eliteTag() : '')) + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + (r.str == null ? '<span class="muted" title="Your team has no world rating: your own robot plays its matches">—</span>' : r.str) + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
         '<td><button class="btn sm" data-act="scFindTeam" data-arg="' + r.num + '">Scouting</button></td></tr>').join('') + '</table>' +
       '<div class="row mt"><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };
@@ -26699,7 +27183,7 @@ window.G = window.G || {};
       th('Best finish', 'best', '', 'Best playoff finish this season') + th('Awards', 'aw', 'num', 'Judged awards this season') + '<th></th></tr>' +
       rows.slice(st.page * PAGE, st.page * PAGE + PAGE).map((r, i) => {
         const pos = st.page * PAGE + i + 1;
-        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.elite ? ' ' + UI.eliteTag() : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
+        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.elite ? ' ' + (r.me ? UI.eliteMine(S) : UI.eliteTag()) : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
           '<td class="xs">' + h(r.area) + '</td><td class="num">' + r.ev + '</td><td class="nowrap">' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + (r.rs == null ? '—' : r.rs.toFixed(2)) + '</td>' +
           '<td class="num b">' + f1(r.opr) + '</td><td class="num">' + f1(r.au) + '</td><td class="num">' + f1(r.te) + '</td><td class="num">' + f1(r.en) + '</td>' +
           '<td class="xs nowrap">' + h(r.bestTxt || '—') + (r.wins > 1 ? ' ×' + r.wins : '') + '</td><td class="num">' + (r.aw || '') + '</td>' +
@@ -26962,7 +27446,7 @@ window.G = window.G || {};
       { icon: 'gear', t: 'What a drive runs on', li: ['Three kinds of part, from the lowest performance to the best. The <b>Kit drivetrain</b> (Kit of Parts, 2 free at every Kickoff) fits the kit chassis only.', '<b>Drive gearboxes</b> (Subsystem COTS) are the middle step: 2 of them make a kit chassis faster and stronger (+' + D.DRIVE_UP.speed + ' Speed, +' + D.DRIVE_UP.push + ' Pushing on its ceilings), a mecanum drive needs 4, and 2 carry a West Coast drive when you have no vendor sets for it.', '<b>Vendor drive sets</b> are what a West Coast drive is meant to run on: its Speed and Pushing ceilings rise with the quality of the sets, and on Drive gearboxes they sit below even the cheapest set.', 'The better part is used whenever the shelf has it, the competition robot first. The concept list and the Inventory show what each drive is running on.'] },
       { icon: 'trophy', t: 'Vendor loyalty', li: ['Each vendor keeps a <b>loyalty level</b> for your team: Customer, Loyal Team, Preferred Team, Partner Team, Flagship Team. The premium catalogue\'s level carries over from Sterling to Apex.',
         'A season is worth ' + D.LOYALTY.robot + ' points with a vendor when your competition robot runs on its control system at your events (' + Math.round(D.LOYALTY.full * 100) + '% of them is enough; kit parts and the other vendor\'s parts count against it), and up to ' + D.LOYALTY.buy + ' more for ordering its parts that year (' + U.money(D.LOYALTY.buyFull) + ' for all of it). "Premium first" or "Lumen first" on the Your robots tab keeps the robot on one vendor.',
-        'Levels come at ' + D.LOYALTY.levels.join(', ') + ' points: a team that stays with one vendor reaches three of them in a ten-season career.',
+        'Levels come at ' + D.LOYALTY.levels.join(', ') + ' points, about four seasons apart: a team that stays with one vendor reaches two of them in a ten-season career, and a third only if it started with a standing there and orders a great deal every year.',
         'At each new level the vendor sends a <b>loyalty sponsorship</b> in September, as a pop-up. Choose one: <b>free parts</b> delivered at Kickoff in the newest version, a <b>voucher</b> that pays first when you buy from that vendor and lasts through the next season, or a <b>limited-time offer</b> of ' + Math.round(D.LOYALTY.sale[1] * 100) + '% to ' + Math.round(D.LOYALTY.sale[4] * 100) + '% off everything from that vendor until Kickoff. Higher levels give more.',
         'From level 1 your in-season orders ship first: +' + Math.round(D.LOYALTY.stock * 100) + '% chance per level that a part from that vendor is in stock.',
         'The Control system tab shows each vendor\'s level, your points, and any voucher or sale you hold.',
@@ -26980,7 +27464,7 @@ window.G = window.G || {};
       { icon: 'battery', t: 'Spare parts and batteries', li: ['Spare parts fix the robot at home and in the pits. They are cleared out at each Kickoff.', '<b>Auto-restock</b> (on by default) keeps enough spares for driver practice and home repairs every turn, and buys what the next event needs.', 'One spare restores about ' + D.SPARE_COND_PER_UNIT + ' condition points; at events they cost double.', 'Only the battery used in a match wears (about 1% a match); batteries also age slowly on the shelf. New ones fill empty slots, then replace the most worn. A Battery Station at level 2 holds 20.'] }
     ] },
     { id: 'workshop', icon: 'workshop', name: 'Workshop', desc: 'Facilities, the trailer, incidents', secs: [
-      { icon: 'workshop', t: 'Workshop space', li: ['The Workshop has two pages: <b>Technical</b> (the shop machines, Programming Station, CAD, Parts Shelf, pit and test facilities) and <b>Team &amp; program</b> (meeting room, Break Room, Honors Wall, FTC space, trailer).', 'Every facility level takes floor space in square feet; the trailer parks outside. The bar at the top of the Workshop shows what is used, what is free and what the school has not given you yet.', 'Three levels: the robotics classroom (' + G.Shop.spaceOfTier(0).toLocaleString('en-US') + ' sq ft), the technology wing (' + G.Shop.spaceOfTier(1).toLocaleString('en-US') + ') and a robotics center (' + G.Shop.spaceOfTier(2).toLocaleString('en-US') + ', which fits every facility at its top level). A rookie starts in the classroom, established and powerhouse teams in the technology wing. At a season review the school moves you up when Program Support has reached 80 (wing) or 90 (center). Room is never taken back.', 'When support rises by 6 or more in a season, the board renovates your worn facilities for free; at +12 (and support 60+) it adds a grant for one upgrade of your choice up to ' + U.money(D.BOARD.cap) + '. When nothing in the workshop can be upgraded with it (every facility at its top level, too dear or out of room), the grant comes as ' + U.money(D.BOARD.cash) + ' in cash instead.', 'A satisfied sponsor may donate a facility level that fits its business, if you have the room: the higher its satisfaction above 60, the likelier. With every sponsor slot filled and no sponsor activity skipped, expect about one donation a year.'] },
+      { icon: 'workshop', t: 'Workshop space', li: ['The Workshop has two pages: <b>Technical</b> (the shop machines, Programming Station, CAD, Parts Shelf, pit and test facilities) and <b>Team &amp; program</b> (meeting room, Break Room, Honors Wall, FTC space, trailer).', 'Every facility level takes floor space in square feet; the trailer parks outside. The bar at the top of the Workshop shows what is used, what is free and what the school has not given you yet.', 'Three levels: the robotics classroom (' + G.Shop.spaceOfTier(0).toLocaleString('en-US') + ' sq ft), the technology wing (' + G.Shop.spaceOfTier(1).toLocaleString('en-US') + ') and a robotics center (' + G.Shop.spaceOfTier(2).toLocaleString('en-US') + ', which fits every facility at its top level). A rookie starts in the classroom, established and powerhouse teams in the technology wing. At a season review the school moves you up when Program Support has reached 80 (wing) or 90 (center). Room is never taken back.', 'When support rises by 6 or more in a season, the board renovates your worn facilities for free; at +12 (and support 60+) it adds a grant for one upgrade of your choice up to ' + U.money(D.BOARD.cap) + '. When nothing in the workshop can be upgraded with it (every facility at its top level, too dear or out of room), the grant comes as ' + U.money(D.BOARD.cash) + ' in cash instead.', 'A very satisfied sponsor may donate a facility level that fits its business, if you have the room: the higher its satisfaction above ' + D.DONATION.sat + ', the likelier, and never below it. With every sponsor slot filled and every sponsor delighted, expect about one donation in three or four seasons; with sponsors that are merely content, far fewer. None comes in the two years after one.'] },
       { icon: 'ebench', t: 'Electronics, welding, meeting room and FTC space', li: ['<b>Electronics Workbench</b>: fewer brownouts and comms dropouts in matches; motors and electronics wear more slowly.', '<b>Welding Station</b>: hardening and lightweighting take fewer hours and do more; new builds are more reliable.', '<b>Team Meeting Room</b>: outreach counts for more and adds to your Impact presentation score.', '<b>FTC Team Space</b>: run one to three FTC teams of your own (Team page, Feeder programs). Each takes a program slot, costs $300 a year and counts 1.8× for recruit quality.'] },
       { icon: 'cnc', t: 'Facilities', li: ['The Prototyping Lab (3D printers, and a laser cutter from level 2; from the autumn of 2022 a fourth level, the print farm: fast desktop printers that print carbon-fiber parts, and spares bought at an event cost little more than at home because the pit prints many of them; from then on every Prototyping Lab level saves a little more hours, and the Manual Machine Shop adds a little less reliability), CNC Machining (a router, then a CNC mill and lathe), the Manual Machine Shop (mill, lathe, drill press, band saw) and the Programming Station cut hours and can add project slots; they also give <b>Finish now</b> cards (Design & hours guide). CAD Workstations cut the hours on new mechanisms and upgrades. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.',
         'The <b>Parts Shelf</b> decides how many of each bulky part you can keep: half the most without one, two robots\' worth at its top level (control hubs, cameras and actuator kits always fit). The <b>Break Room</b> takes a little fatigue off every week in season. The <b>Honors Wall</b> puts banners and trophies on display in History (the banner wall shows this season\'s and last season\'s; level 2, with the trophy shelf, shows everything), lifts team morale a little and adds a little reputation at every season review.', 'They wear down, mostly in the build and competition weeks (a whole offseason month costs about half of what one build week does), and a worn facility works at 40–100% of its effect. Below 35% condition it also loses its project slot until renovated. <b>Renovate all</b> (top of the Workshop) brings every worn facility back to 100% for one bill. Upkeep is charged per level at Kickoff.', 'The Parts Shelf holds as many parts at any condition, but its upkeep rises as it wears, slowly at first and faster the more worn it is: up to five times at 0% (cracked bins and lost labels cost money). When a renovation would cost less than the extra upkeep over the Kickoffs left in your career, a pop-up says so, with a Renovate button.', 'Some unlock new outreach and fundraising activities.', '<b>Downgrade</b> (or Remove, at level 1) gives a level back to make room (not the Parts Shelf: the parts on it have nowhere else to go). Half that level\'s price comes back at full condition, less as it wears, and nothing for a level that was donated or paid by a grant. Buying it again costs the full price.'] },
@@ -27007,7 +27491,7 @@ window.G = window.G || {};
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Outside programs (FLL, camps, clubs, other schools\' FTC) are capped: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. Your own FTC teams don\'t count: the FTC Team Space limits them. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
-      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review (a partner\'s a little lower).', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October: three for the title, six from partners and one or two grants, each from a different company. A title sponsor pays about three times a partner. No company is on the list twice, and none that already sponsors you.', 'A sponsor that leaves, because it did not renew or because you ended its contract, is not on the next list of offers: it can come back a year later.', 'From the autumn of 2022 the printer maker <b>' + D.SPONSOR_MAKER.name + '</b> may be among the partner offers, wherever your team is, on about every other list. It is a partner like any other, but what it donates is its own trade: a Prototyping Lab or an Electronics Workbench level.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'Every sponsor has a line under its name that says what it does. The Inbox hears of a signing on the next turn, once it can no longer be undone. A <b>title sponsor</b> writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A satisfied sponsor sometimes <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier: about one donation a year with every slot filled and no sponsor activity skipped.'] },
+      { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). A deal in its last season renews with a chance equal to its satisfaction at the season review (a partner\'s a little lower).', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October: three for the title, six from partners and one or two grants, each from a different company. A title sponsor pays about three times a partner. No company is on the list twice, and none that already sponsors you.', 'Sponsors are companies of your home. About one partner offer in ten comes from an <b>international company</b> instead, marked International: a giant that sponsors teams all over the world, as a partner like any other. It never offers a title. Its name on your robot is worth a little: <b>+' + D.SPONSOR_INTL.rep + ' reputation</b> at every season review for each international partner you hold.', 'A sponsor that leaves, because it did not renew or because you ended its contract, is not on the next list of offers: it can come back a year later.', 'From the autumn of 2022 the printer maker <b>' + D.SPONSOR_MAKER.name + '</b>, an international company too, may be among the partner offers, wherever your team is, and more often than the others: on about every other list. It is a partner like any other, but what it donates is its own trade: a Prototyping Lab or an Electronics Workbench level.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'Every sponsor has a line under its name that says what it does. The Inbox hears of a signing on the next turn, once it can no longer be undone. A <b>title sponsor</b> writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. ' + D.SPONSOR_MAKER.name + ', a partner, writes one too.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A very satisfied sponsor now and then <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier (below it, never): about one donation in three or four seasons with every slot filled and every sponsor delighted, far fewer otherwise, and none in the two years after one.'] },
       { icon: 'money', t: 'Debt', li: ['From Kickoff to the Championship you can spend into debt (down to −' + U.money(D.DEBT_LIMIT) + ').', 'The school clears it at the season review, at a cost in Program Support and reputation: the bigger the debt, the bigger the cost, and half as much again for each season in a row that ends in debt. A strong season can be worth it.', 'In the offseason you can only spend cash you have.'] },
       { icon: 'fund', t: 'STEM support fund', li: ['When the balance is under ' + U.money(D.STEM_FUND.below) + ', apply for up to ' + U.money(D.STEM_FUND.max) + ' (twice a program year). Each application costs ' + D.STEM_FUND.rep + ' reputation.'] }
     ] },
@@ -27031,7 +27515,9 @@ window.G = window.G || {};
         'Outside the United States an area\'s regionals are held in the cities that really hosted one that season (the events keep made-up names). Some seasons an area has none: Europe never does, South America not before 2023, Anatolia not before 2018, East Asia not in 2016, 2019, 2023 or 2024. The New Career page says what your home holds in your first season, and the Inbox tells you each October.',
         'Two districts lie outside the United States, both from 2017: the <b>Trillium District</b> in the North and the <b>Levant District</b> in the Middle East. In 2016 their teams still play regionals.',
         'The Levant District takes in the whole Middle East: a team that starts there in 2016 joins it in 2017, with no choice to make, and from 2017 the area is on the home list only as the district. Anatolia has no district. Where a district forms in part of an area (Trillium, Mesa, Sierra), a regional team there is asked whether to join. The New Career page says which applies to your home.',
-        'Your default team number and school name follow your home: an established team gets a number its area\'s teams really carry (East Asia\'s oldest are in the 4000s and 5000s), and sponsors are named after the industries of the place.'] },
+        'Your default team number and school name follow your home: an established team gets a number its area\'s teams really carry (East Asia\'s oldest are in the 4000s and 5000s), and sponsors are named after the industries of the place.',
+        'People are named after the city their team stands in, as people there usually are when the name is written in English, and a first name always goes with a family name of the same language: an English first name before a family name of that shore in most of East Asia, one language along the Saint Lawrence and another on the prairies, a different one in almost every city of Europe. Your students, your mentors, your own default name and the people who write to you carry your city\'s names; the people of other teams carry their own. The staff of an international company keep names from everywhere.',
+        'A school named after a place stands in that place on the map: Pearl Delta Experimental School in the Pearl delta, Front Range High School at the foot of the Front Range. A school that points nowhere in particular is put in one of your home\'s cities. The place is settled when the career starts, by the school the team started from: the name on the door can be anything.'] },
       { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices: <b>Local</b>, <b>Drive</b> (your own area, or the one next door), <b>Fly</b> (the same part of the world) and <b>Fly overseas</b> (another part of the world: North America; South America; Europe, Anatolia and the Middle East; East Asia; Asia Pacific).',
         'A flight overseas costs ' + U.money(D.TRAVEL.intl.cost) + ' for a team of 25 (an ordinary flight ' + U.money(D.TRAVEL.fly.cost) + '), and more for a bigger team. The robot crosses the ocean in a crate and arrives ' + D.INTL_KNOCKS[0] + ' to ' + D.INTL_KNOCKS[1] + '% worse for wear (an ordinary flight: 4 to 9%), and the team comes home a little more tired.',
         'The <b>team trailer</b> turns ordinary flights into long drives. It cannot cross an ocean: a flight overseas stays a flight.',
@@ -27042,6 +27528,7 @@ window.G = window.G || {};
         'They last while their area keeps its places. Their strength moves a point or two a year. When an area loses a place its weakest elite team drops back to a local powerhouse, and when it gains one a team that has been strong for years joins them (never a young team). They never fold. The Inbox has an Elite watch note when the list changes.',
         'Every Championship division has elite teams, yours included, and on Einstein the other alliances are led by them. Winning it all takes a robot and a drive team at their level, and winning twice in a row is rare.',
         'Their robots almost never break down, and their drivers and human players are among the best anywhere.',
+        '<b>Your own team can carry the tag.</b> At every season review your season\'s OPR is ranked against every team in the world (the Scouting list). Inside the top places, as many as there are elite teams, in a season in which you also qualified for the Championship, you have met the elite standard: the Elite tag is yours through the next season, on Headquarters, at events and in scouting. It is a mark of standing only, and it is measured again at every review: one weaker season takes it off.',
         'Difficulty: on Easy there are about half as many and they are a little weaker, and your division is not sure to have one; on Hard there are half again as many, stronger, and your division has at least two.',
         'Around Week 0 (Build Week 5 to Competition Week 2) the robots are revealed: every elite team near you posts one, three or four famous ones from elsewhere come through because everyone watches them, and a local rival about as strong as you posts one too. So does your own team. Each comes with a picture of the robot (and the others with a button to show the team on the map).',
         'Every team reveals its own way, year after year: a render that stays on screen as long as its team number, a film, a teaser, raw practice footage, a live stream, or one picture on the forum with no words. Some never reveal at all: then a photo someone took from the stands at a scrimmage leaks instead.'] },
@@ -27103,7 +27590,7 @@ window.G = window.G || {};
         '<b>Custom career</b>: a career whose games you choose yourself, real and fantasy, played as listed or shuffled. <b>Fantasy game</b>: one of ten fictional games in the 2026 match format; as a single season it is the 2027 game.',
         '<b>Area</b>: where a team comes from: one of thirteen parts of the world, seven of them in North America. <b>Flight overseas</b>: travel to an event in another part of the world: dearer than an ordinary flight, harder on the robot, and no trip for the team trailer.',
         '<b>Championship</b>: the season\'s last event, by invitation. It is played in <b>divisions</b>; the division winners meet on <b>Einstein</b>.',
-        '<b>Strength</b>: the world simulation\'s rating of a team (50 is average), shown on the World map. <b>Elite team</b>: one of the few programs at the top of the sport, close to maxed out; marked with a rose Elite tag. <b>Robot strength</b> (practice day): the points your robot adds to an alliance. <b>Reveal</b>: how a team first shows its new robot, around Week 0: a video, a render or one picture on the forum (or, for a team that never reveals, a photo someone took at a scrimmage that leaks). <b>District</b>: an area whose teams play local two-day events for <b>district points</b> and then a <b>District Championship</b>. Everyone else is a <b>regional</b> team.',
+        '<b>Strength</b>: the world simulation\'s rating of a team (50 is average), shown on the World map. <b>Elite team</b>: one of the few programs at the top of the sport, close to maxed out; marked with a rose Elite tag. Your own team carries the tag for a season after a review that ranks its OPR among the world\'s top places, in a year it played the Championship. <b>Robot strength</b> (practice day): the points your robot adds to an alliance. <b>Reveal</b>: how a team first shows its new robot, around Week 0: a video, a render or one picture on the forum (or, for a team that never reveals, a photo someone took at a scrimmage that leaks). <b>District</b>: an area whose teams play local two-day events for <b>district points</b> and then a <b>District Championship</b>. Everyone else is a <b>regional</b> team.',
         '<b>Festival of Champions</b>: July 2017 only. The winners of the two Championships play a best of five.',
         '<b>Kickoff</b>: the day in January the game is revealed. <b>Build season</b>: the weeks from Kickoff to the first events. <b>Week 0</b>: the last build week, for scrimmages.',
         '<b>Offseason</b>: May to December. <b>Offseason event</b>: an event of your home, from June to November, played with last season\'s robot against the teams around you. <b>Summit Champs</b>: the invitation-only October event for teams that won an event as captain or first pick. <b>Vendor challenge</b>: a vendor\'s yearly contest for students (Code Cup, Circuit Jam, CAD Sprint), entered as a program project.',
@@ -27151,7 +27638,7 @@ window.G = window.G || {};
         '<b>Program Support</b>: the school\'s backing, moved by the season goals. At 0 the program is cut. It also decides your <b>workshop space</b>.',
         '<b>Reputation</b>: what the wider community thinks of the team. It brings sponsors, recruits and invitations, and raises the school\'s expectations.',
         '<b>Morale</b>: how the students feel. <b>Legacy</b>: the career score on the History page.',
-        '<b>Sponsor satisfaction</b>: decides renewals and donations. <b>Title sponsor\'s letter</b>: the email a title sponsor sends when it signs and when it renews. <b>Team dispute</b>: an argument inside the team, once or twice a season, that waits for your decision. <b>Lead mentor</b>: you, under the name you gave. <b>Loyalty level</b>: your standing with a parts vendor.',
+        '<b>Sponsor satisfaction</b>: decides renewals and donations. <b>Title sponsor\'s letter</b>: the email a title sponsor sends when it signs and when it renews (the printer maker sends one too). <b>International company</b>: a giant that sponsors teams all over the world, as a partner only; about one partner offer in ten, and +' + D.SPONSOR_INTL.rep + ' reputation a season while it is with you. <b>Team dispute</b>: an argument inside the team, once or twice a season, that waits for your decision. <b>Lead mentor</b>: you, under the name you gave. <b>Loyalty level</b>: your standing with a parts vendor.',
         '<b>Feeder program</b>: an FLL or FTC team, camp or club that sends you recruits; outside ones are capped by your outreach mentor and reputation. <b>FTC</b>: the FIRST Tech Challenge, smaller robots playing two against two; your own FTC teams play its season beside yours. <b>Background message</b>: one the Inbox can hide (development reports, chatter, general news). <b>High priority</b>: a message that can change what you do soon (launch dates, stock alerts, deadlines). <b>Print farm</b>: a shelf of fast desktop printers (the top level of the Prototyping Lab, from the autumn of 2022). <b>Impact rating</b>: your chance at the Impact Award, built from several seasons of outreach.',
         '<b>STEM support fund</b>: emergency money for a nearly broke team, at a cost in reputation.',
         '<b>Facility</b>: a workshop machine or room. Facilities speed projects up, wear down, and take floor space. <b>Super pit</b>: the top level of Pit Setup, a pit in road cases.'] }

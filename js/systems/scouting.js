@@ -199,7 +199,7 @@
     ['Fortaleza', 'South America', null, -38.7, -4.1, 0.3, 0.25], ['Recife', 'South America', null, -35.3, -8.1, 0.2, 0.2], ['Natal', 'South America', null, -35.7, -5.9, 0.2, 0.2], ['Manaus', 'South America', null, -60.0, -3.1, 0.15, 0.4],
     ['Belem', 'South America', null, -48.5, -1.7, 0.15, 0.3], ['Vitoria', 'South America', null, -40.6, -20.3, 0.3, 0.2], ['Campo Grande', 'South America', null, -54.6, -20.45, 0.3, 0.7], ['Santiago', 'South America', null, -70.6, -33.45, 0.3, 0.3],
     ['Cali', 'South America', null, -76.4, 3.45, 0.3, 0.4], ['Medellin', 'South America', null, -75.55, 6.25, 0.15, 0.3],
-    ['London, England', 'Europe', null, -0.2, 51.6, 1, 0.5], ['Eindhoven', 'Europe', null, 5.5, 51.45, 1, 0.4], ['Groningen', 'Europe', null, 6.55, 53.15, 0.3, 0.3], ['Prague', 'Europe', null, 14.4, 50.1, 0.5, 0.5], ['Lyon', 'Europe', null, 4.85, 45.75, 0.6, 0.5],
+    ['Greater London', 'Europe', null, -0.2, 51.6, 1, 0.5], ['Eindhoven', 'Europe', null, 5.5, 51.45, 1, 0.4], ['Groningen', 'Europe', null, 6.55, 53.15, 0.3, 0.3], ['Prague', 'Europe', null, 14.4, 50.1, 0.5, 0.5], ['Lyon', 'Europe', null, 4.85, 45.75, 0.6, 0.5],
     ['Nice', 'Europe', null, 7.1, 43.75, 0.3, 0.15], ['Warsaw', 'Europe', null, 21.0, 52.2, 0.5, 0.6], ['Lublin', 'Europe', null, 22.6, 51.0, 0.5, 0.6], ['Krakow', 'Europe', null, 19.9, 50.05, 0.3, 0.5], ['Zurich', 'Europe', null, 8.8, 47.2, 0.4, 0.4],
     ['Rijeka', 'Europe', null, 14.6, 45.5, 0.3, 0.2], ['Sofia', 'Europe', null, 23.3, 42.7, 0.2, 0.4], ['Cluj', 'Europe', null, 23.6, 46.75, 0.2, 0.5], ['Athens', 'Europe', null, 23.6, 38.1, 0.15, 0.15], ['Stockholm', 'Europe', null, 17.8, 59.3, 0.15, 0.3],
     ['Kyiv', 'Europe', null, 30.5, 50.45, 0.15, 0.5],
@@ -255,10 +255,13 @@
   }
   // a team's spot on the map: always the same for the same team and home
   const cache = {};
-  Geo.teamPos = function (num, region, dist, cy, zone, legacy) {
-    const fk = legacy ? Object.keys(Geo.DIST).filter(d => formed(d, cy, true)).join(',') : 'v2', key = num + '|' + region + '|' + (dist || '') + '|' + (zone || '') + '|' + fk;
+  // at: the cities a school's name points to (D.schoolAt). The team stands in one of them that its home has, any of
+  // them as likely as another; with none of them in the home, or no such name, in any city of the home by its weight.
+  Geo.teamPos = function (num, region, dist, cy, zone, legacy, at) {
+    const fk = legacy ? Object.keys(Geo.DIST).filter(d => formed(d, cy, true)).join(',') : 'v2', key = num + '|' + region + '|' + (dist || '') + '|' + (zone || '') + '|' + fk + (at && at.length ? '|' + at.join(',') : '');
     if (cache[key]) return cache[key];
-    const rng = G.makeRng((num * 2654435761) >>> 0 || 7), hubs = Geo.hubsFor(region, dist, cy, zone, legacy), hb = rng.wpick(hubs, x => x.w);
+    const rng = G.makeRng((num * 2654435761) >>> 0 || 7), all = Geo.hubsFor(region, dist, cy, zone, legacy), named = at && at.length ? all.filter(x => at.includes(x.n)) : [];
+    const hubs = named.length ? named : all, hb = rng.wpick(hubs, x => (named.length ? 1 : x.w));
     const sd = (0.22 + 0.12 * Math.sqrt(hb.w)) * hb.s;
     let lon = hb.lon, lat = hb.lat;
     for (let i = 0; i < 8; i++) {
@@ -267,8 +270,10 @@
     }
     return (cache[key] = { xy: Geo.xy(lon, lat), hub: hb.n });
   };
-  // ... of a team of this world (an AI team or yours)
-  Geo.posOf = (S, t, cy) => Geo.teamPos(t.num, t.region, t.home, cy, t.z, G.World.legacy(S));
+  // ... of a team of this world (an AI team or yours). Yours stands where the school it started with points
+  // (S.team.place: fixed when the career begins, whatever the school is called afterwards); a save from before that
+  // goes by the school's name.
+  Geo.posOf = (S, t, cy) => Geo.teamPos(t.num, t.region, t.home, cy, t.z, G.World.legacy(S), S && S.team && t.num === S.team.num ? (S.team.place !== undefined ? S.team.place : D.schoolAt ? D.schoolAt(S.team.school) : null) : null);
   // an event's city: a regional outside the United States is held where it really is (e.hub); district events go
   // round the district's cities, the other regionals round their area's (biggest first)
   Geo.eventPos = function (ws, e) {
@@ -403,7 +408,7 @@
     const ws = S.wseason, me = S.team.num, cy = ws.cy, rows = [];
     const add = (num, region, dist, rookie, str) => {
       const recs = ws.rec[num] || [], sr = recs.filter(r => r.s), n = sr.length;
-      const row = { num, me: num === me, elite: !!(S.teams[num] && S.teams[num].elite), region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
+      const row = { num, me: num === me, elite: num === me ? !!S.team.elite : !!(S.teams[num] && S.teams[num].elite), region, dist, area: dist ? D.DISTRICT[dist].short + ' District' : region, rookie, str, ev: recs.length, q: num === me ? !!S.season.champsQualified : !!ws.q[num],
         w: 0, l: 0, t: 0, wp: null, rs: null, opr: null, au: null, te: null, en: null, best: 9, bestTxt: '', wins: 0, aw: 0 };
       recs.forEach(r => {
         const f = Sc.FIN[r.f] || (r.a ? 7 : 9); if (f < row.best) { row.best = f; row.bestTxt = r.f || (r.a ? 'Alliance ' + r.a : ''); }

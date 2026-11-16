@@ -3,7 +3,7 @@
   'use strict';
   const D = G.Data;
 
-  // (3.5) One line for every company in D.SPONSOR_BY and D.SPONSOR_NAMES (and D.SPONSOR_MAKER's). A company that can be a
+  // (3.5) One line for every company in D.SPONSOR_BY (a home's own) and D.SPONSOR_NAMES (the international ones), and D.SPONSOR_MAKER's. A company that can be a
   // title sponsor (tech, engineering, manufacturing) starts with a verb, so its letter can say "{name} builds ...".
   D.SPONSOR_DESC = {
     // West
@@ -794,7 +794,56 @@
     'Wattle Foundation': 'Supports regional schools\' science programmes.',
     'Kangaroo Paw Makers Fund': 'Gives tools to schools in the west.',
     'Southern Stars Youth Foundation': 'Pays for long flights to distant events.',
-    // general
+    // international (D.SPONSOR_NAMES): giants that sponsor teams all over the world, as partners
+    'Vantage Global Systems': 'Makes the business software that nobody loves and half the world runs on.',
+    'Nimbus Data Group': 'Stores a tenth of the world\'s data, somewhere cool and dry.',
+    'Quantix Global Labs': 'Researches things it cannot quite explain yet, in labs on four continents.',
+    'Helios Microdevices Corporation': 'Makes sensors smaller than a grain of rice, two billion of them a year.',
+    'Aurora Networks Worldwide': 'Builds the routers behind the routers, and the cables under the oceans.',
+    'Stratos Global Cloud': 'Rents out computing by the minute from data centres in every time zone.',
+    'Polaris Semiconductor Group': 'Designs the chips inside most of the world\'s navigation systems.',
+    'Zenith Dynamics International': 'Builds motion systems for factories and theme parks on five continents.',
+    'Corelight Sensor Group': 'Makes the optical sensors inside nearly every scanner ever sold.',
+    'Atlas Automation Worldwide': 'Builds the sorting systems that move most of the world\'s parcels.',
+    'Orbit Analytics International': 'Makes sense of satellite pictures of the whole planet, every day.',
+    'Vertex Instruments Corporation': 'Makes the test equipment on engineers\' benches in ninety countries.',
+    'Arcwell Engineering Group': 'Designs electrical systems for factories in sixty countries.',
+    'Stonebridge Global Consulting': 'Advises governments on bridges, roads and very large budgets.',
+    'Meridian Structures International': 'Designs the steel skeletons of the tallest buildings on five continents.',
+    'Clearpath Civil Group': 'Builds motorways, metros and drains that work, wherever there is a tender.',
+    'Summit Design Worldwide': 'Designs products from first sketch to factory for brands you know.',
+    'Keystone Geotechnical International': 'Tests the ground under airports, dams and towers all over the world.',
+    'Brightline Power Group': 'Designs substations and power lines that cross borders and seas.',
+    'Harbor Point International': 'Manages very big projects and even bigger spreadsheets, worldwide.',
+    'Kestrel Machine Tools Worldwide': 'Makes machine tools that stand in workshops on every continent.',
+    'Ironclad Heavy Industries': 'Welds ships, cranes and the frames of other very large things.',
+    'Precision Plate International': 'Cuts plate metal by laser and water jet in thirty plants.',
+    'Northstar Tooling Group': 'Makes the cutting tools in half the world\'s machine shops.',
+    'Anvil Metalworks International': 'Forges whatever is on the drawing, and ships it by the boatload.',
+    'Granite Gear Corporation': 'Cuts the gears for a third of the gearboxes on the market.',
+    'Redline Plastics Worldwide': 'Moulds plastic parts by the hundred million.',
+    'Westbrook Welding Group': 'Welds pipelines and towers on site, in any weather, on any continent.',
+    'Northbridge International University': 'Runs engineering schools on campuses in six time zones.',
+    'Lakeview Open Technical College': 'Teaches machining, electronics and CAD online, in thirty languages.',
+    'Eastgate World Polytechnic': 'Trains engineers by having them build things, on four continents.',
+    'Riverton Global University': 'Runs robot outreach days on every one of its eleven campuses.',
+    'Summit Open College': 'Teaches evening classes in code and CAD to half a million students.',
+    'Westfield International Institute': 'Teaches robotics and builds a practice field wherever it opens a campus.',
+    'Helix Software International': 'Builds the scheduling tools that most large hospitals run on.',
+    'Bytewise Global': 'Writes the apps a million small businesses open every morning.',
+    'Cobalt Code Group': 'Builds websites for the biggest brands and fixes everybody else\'s.',
+    'Pinecone Apps Worldwide': 'Makes the hiking app on walkers\' phones on every trail in the world.',
+    'Gridline Global Software': 'Writes the mapping tools city planners use on six continents.',
+    'Quill Worldwide': 'Makes the note-taking app with two hundred million users.',
+    'Sparrow Code International': 'Builds small, tidy web tools that half the internet depends on.',
+    'Stackwell Labs Corporation': 'Sells developer tools to nearly every other software company.',
+    // special
+    'Corvane Labs': 'Makes the CX1 Carbon, the fast desktop printer in top teams\' shops all over the world.'
+  };
+  // The general list of earlier versions, when every team's sponsors came from it. None of these makes a new offer
+  // (the companies are international now, under new names; the local businesses and foundations are gone), but a
+  // save that still holds one keeps its name and its line.
+  D.SPONSOR_DESC_OLD = {
     'Vantage Systems': 'Makes business software that nobody loves and everybody uses.',
     'Nimbus Data': 'Stores other companies\' data, somewhere cool and dry.',
     'Quantix Labs': 'Researches things it cannot quite explain yet.',
@@ -807,18 +856,6 @@
     'Atlas Automation': 'Builds conveyor and sorting systems for warehouses.',
     'Orbit Analytics': 'Makes sense of satellite pictures.',
     'Vertex Instruments': 'Makes test equipment for engineers.',
-    'Riverside Credit Union': 'Banks the neighbourhood and sponsors every local team.',
-    'Maple Street Pizza': 'Feeds the team after every late build night.',
-    'Lakeside Hardware': 'Sells bolts by the handful and advice for free.',
-    'Bluebird Diner': 'Serves breakfast all day in a booth by the window.',
-    'Corner Book Co.': 'Sells books and keeps a shelf of robotics manuals for you.',
-    'Hometown Auto Repair': 'Fixes cars and lends the team its engine hoist.',
-    'Sunrise Bakery': 'Bakes doughnuts before the first bell.',
-    'Elm Street Bicycles': 'Fixes bikes and lends tools.',
-    'Family Dental Care': 'Fixes teeth and hands out team stickers.',
-    'Parkside Grocery': 'Sells groceries and saves cardboard for your prototypes.',
-    'Oak Hill Insurance': 'Insures half the town and reads every claim.',
-    'Main Street Print Shop': 'Prints your banners, buttons and last-minute posters.',
     'Arcwell Engineering': 'Designs electrical systems for factories.',
     'Stonebridge Consulting': 'Advises on bridges, roads and budgets.',
     'Meridian Structures': 'Designs the steel skeletons of large buildings.',
@@ -849,16 +886,26 @@
     'Quill Apps': 'Makes note-taking apps.',
     'Sparrow Code': 'Builds small, tidy web tools.',
     'Stackwell Labs': 'Sells developer tools to other developers.',
+    'Riverside Credit Union': 'Banks the neighbourhood and sponsors every local team.',
+    'Maple Street Pizza': 'Feeds the team after every late build night.',
+    'Lakeside Hardware': 'Sells bolts by the handful and advice for free.',
+    'Bluebird Diner': 'Serves breakfast all day in a booth by the window.',
+    'Corner Book Co.': 'Sells books and keeps a shelf of robotics manuals for you.',
+    'Hometown Auto Repair': 'Fixes cars and lends the team its engine hoist.',
+    'Sunrise Bakery': 'Bakes doughnuts before the first bell.',
+    'Elm Street Bicycles': 'Fixes bikes and lends tools.',
+    'Family Dental Care': 'Fixes teeth and hands out team stickers.',
+    'Parkside Grocery': 'Sells groceries and saves cardboard for your prototypes.',
+    'Oak Hill Insurance': 'Insures half the town and reads every claim.',
+    'Main Street Print Shop': 'Prints your banners, buttons and last-minute posters.',
     'Bright Futures Foundation': 'Funds youth programmes that build things.',
     'STEM Forward Fund': 'Pays for kits, fees and field trips.',
     'Next Generation Trust': 'Gives grants to school science teams.',
     'Open Doors Education Fund': 'Covers costs for students who could not otherwise join.',
     'Tomorrow\'s Builders Foundation': 'Buys tools for school workshops.',
-    'Launchpad Youth Trust': 'Gives new teams their first grant.',
-    // special
-    'Corvane Labs': 'Makes the CX1 Carbon, the fast desktop printer in every top team\'s shop.'
+    'Launchpad Youth Trust': 'Gives new teams their first grant.'
   };
-  D.sponsorDesc = name => D.SPONSOR_DESC[name] || '';
+  D.sponsorDesc = name => D.SPONSOR_DESC[name] || D.SPONSOR_DESC_OLD[name] || '';
 
   // ---------- letters from a title sponsor ----------
   // A title sponsor writes when it signs and when it renews (C.sponsorMail): who they are (the description above), a
@@ -868,12 +915,24 @@
     roles: {
       tech: ['Head of Community Programmes', 'Vice President of Engineering', 'Chief Technology Officer', 'Director of School Partnerships'],
       eng: ['Managing Partner', 'Principal Engineer', 'Director of Projects'],
-      mfg: ['Plant Manager', 'Director of Operations', 'Owner and President']
+      mfg: ['Plant Manager', 'Director of Operations', 'Owner and President'],
+      maker: ['Co-founder', 'Head of Education Programmes', 'Community Lead']
     },
     subject: ['{co} is on the robot', 'Welcome aboard, from {co}', 'It is official: {co} and Team {num}', 'Our logo, your robot'],
     renewSubject: ['{co} is staying', 'Same again: {co} and Team {num}', 'We have renewed'],
     open: ['The contract came back signed this morning, so I can stop pretending not to care.', 'It is done: the paperwork is signed, and there is a photograph of your robot on the wall outside my office.', 'I have just been told that we sponsor a robotics team now. I was the one who told them, but it was still nice to hear.', 'The contract is signed and filed. I would like to say something more personal than a contract does.'],
-    intro: ['For the students who have not met us: {co} {desc}', 'In case anybody on the team asks what the name on the bumpers does: {co} {desc}', 'You know us from the logo. For the record, {co} {desc}'],
+    intro: ['For the students who have not met us: {co} {desc}', 'In case anybody on the team asks what the name on the robot does: {co} {desc}', 'In case anybody on the team asks what the name on all those stickers does: {co} {desc}', 'You know us from the logo. For the record, {co} {desc}'],
+    // One letter in four puts the name "on the bumpers". By the rules a bumper carries the team number and nothing
+    // else, so whoever writes that has never seen a robot: the letter says so itself, closes in the same voice and
+    // ends on a postscript of its own (these replace the ordinary intro, close and P.S.).
+    naive: {
+      chance: 0.25,
+      intro: ['In case anybody on the team asks what the name on the bumpers does (I am told the robot has bumpers, so I assume that is where a sponsor goes, as on a racing car): {co} {desc}',
+        'I have asked for our name on the bumpers, in large letters. I am told the robot has bumpers, and where else would a sponsor go? For the students who have not met us: {co} {desc}',
+        'Somebody in the meeting said "bumpers", so I have written down that our name goes on the bumpers. I did not ask why a robot has them. In case the team wonders what that name does: {co} {desc}'],
+      close: ['Good luck in the tournament, or the race, or whichever it turns out to be. We will cheer when everybody else does.', 'I am told there is a field, a referee and a great deal of noise. I will be there, and somebody has promised to explain it to me on the day.', 'Win the league. If it is not a league, win whatever it is.'],
+      ps: ['P.S. I have now been told that the bumpers carry your team number and nothing else, by rule. Please put us wherever the rules do allow. As you can tell, I am new to this.', 'P.S. Our marketing people would like the measurements of the bumpers, so that the name fits. I said I would ask. I am not sure what I am asking.', 'P.S. Does the robot fight the other robots? I told the board that it does not. If I was wrong, please do not say so before the budget meeting.']
+    },
     // a word about the trade: the first group whose pattern matches the company's name
     trade: [
       { re: /Defen[cs]e|Submarine|Radar/, t: ['Most of what we build we are not allowed to describe, photograph or bring home. A robot we can post pictures of is a treat, and our communications team has been waiting twenty years for one.', 'We work behind three fences and a great many doors. Your robot will be the first thing with our name on it that our own families are allowed to watch.'] },
@@ -940,6 +999,34 @@
     },
     renewTerms: { up: 'The new agreement runs for {n} at {base} a season, which is more than before. Please do not tell the other teams.', down: 'The new agreement runs for {n} at {base} a season, a little less than before: budgets are budgets, and results move them.', same: 'The new agreement runs for {n} at {base} a season, the same as before.' },
     renewAsk: ['Next season we are asking for the same again: {goals}.', 'The targets do not change: {goals}.'],
-    close: { tech: ['Go and build something we can brag about.', 'See you at the first event. We will be the ones filming everything.'], eng: ['Build it properly. We will be watching the bolted joints.', 'See you at the first event. Bring the drawings.'], mfg: ['Build it strong. We will know if you do not.', 'See you at the first event. We are bringing the whole shift.'] }
+    close: { tech: ['Go and build something we can brag about.', 'See you at the first event. We will be the ones filming everything.'], eng: ['Build it properly. We will be watching the bolted joints.', 'See you at the first event. Bring the drawings.'], mfg: ['Build it strong. We will know if you do not.', 'See you at the first event. We are bringing the whole shift.'] },
+    // ---------- the printer maker (D.SPONSOR_MAKER) ----------
+    // A partner, but it writes like a title sponsor when it signs and when it renews (C.makerMail): what it makes,
+    // what teams do to its printers, why this team, what it asks, and what it sends when things go well.
+    maker: {
+      subject: ['{co} is on your team', 'Hello from the print room', 'We make printers. You break parts. Perfect.'],
+      open: ['The agreement is signed. Around here that is the fastest thing we have finished all year that did not come out of a nozzle.', 'It is official: {co} sponsors Team {num}. Somebody here has already printed your team number in carbon-filled nylon and glued it to the coffee machine.', 'The paperwork is done, which leaves me free to write the part I was looking forward to.'],
+      who: ['You know what we make: the CX1 Carbon, the printer in the closed box. There is probably one running in your workshop right now, at night, with nobody watching, exactly as the manual asks you not to.', 'For anybody on the team who has not met us: we make the CX1 Carbon, the fast one in the closed box. If there is a printer in your workshop that sounds like a small aircraft and is finished before lunch, it is ours.'],
+      trade: ['We did not set out to be a robotics company. Then the support tickets started: "Printed forty intake rollers this week, is that normal?" It was not normal. It was robotics teams. Half of what we know about our own printers we learned from students who run them harder than our test lab dares.',
+        'Robotics teams are the worst thing that ever happened to our warranty department and the best thing that ever happened to our engineers. You print parts we said could not be printed, in materials we advised against, and then you bolt them to a machine that gets rammed for a living.',
+        'Our test lab prints the same cube four hundred times. You print a gearbox cover at two in the morning and find out on Saturday whether it was a good idea. We have decided that your method produces the more interesting data.'],
+      why: {
+        won: ['We watched you win the {ev}. One of our engineers stopped the video to look at a bracket on your robot. It had not been printed on one of ours. We would like the next one to be.'],
+        champs: ['A team that reaches the Championship puts its parts through more matches than anybody else. That is the test bench we want to be on.'],
+        any: ['Why your team? One of your students sent our support desk a question that took three engineers and a whiteboard to answer. We would like more questions like that.', 'Why your team? {who} from our materials lab went to one of your open evenings, counted the printed parts on your robot and came back with a list of the ones we should have thought of first.', 'We picked your team the way we pick a filament: we looked for the one that would be pushed hardest and still hold.']
+      },
+      ask: ['What we ask is in the contract: {goals}. There is a bonus for {each}. Beyond that we want one thing: when a printed part breaks, tell us how. A broken part is the only honest review we ever get.', 'The targets are in the contract: {goals}, with a bonus for {each}. Unofficially, we would also like a photograph of every printed part that survives the season, and of every one that does not.'],
+      gift: ['One more thing. We are not the kind of sponsor that sends a cheque and stays away. If things go well between us, do not be surprised by a crate at the workshop door: printers for the prototyping lab, or tools for the electronics bench. It is what we know, so it is what we give.', 'We also like to give things that plug in. When a partnership goes well we send equipment as well as money: a better prototyping lab, or a better electronics workbench. We would not know what else to buy you.'],
+      close: ['Print something we would not dare to.', 'See you at the first event. We will be the people photographing your brackets.', 'Go and build it. And keep the printer door closed while it runs.'],
+      ps: ['P.S. Please stop printing timing belt pulleys on the draft setting. We can tell.', 'P.S. Yes, the printers are loud. We know. We are working on it.', 'P.S. If a part fails in a match, put it in a bag and write the match number on it. Our materials people collect them.'],
+      renewSubject: ['{co} is staying', 'Another season of printing', 'Same again, from the print room'],
+      renewOpen: { high: ['We are staying. The meeting took less time than a calibration cube.', 'Nobody here needed persuading: we are staying.'], mid: ['We talked it over between two print jobs, and we are staying.', 'One meeting, one pot of coffee, and the answer is yes.'], low: ['It was a longer talk than we expected, but we are staying.', 'I will be honest: not everybody here said yes at once. We are renewing.'] },
+      renewSeason: {
+        all: ['Every target met: {goals}. The list is pinned above the test bench.', 'You did everything we asked ({goals}), and your failure reports were better written than ours.'],
+        some: ['Some targets were met and some were not ({missed}). We measure things for a living, and the trend is the right way up.', 'Not everything on the list was ticked ({missed}). Our first printer did not finish its first print either.'],
+        none: ['The targets ({missed}) got away this year. So did our first three prototypes. We kept going, and we are betting that you will.', 'You missed what we asked for ({missed}), and we noticed. We also noticed the broken parts you sent back, labelled, with notes. That counts here.']
+      },
+      renewGift: ['The offer of a crate stands: when things go well we send printers or bench tools, not speeches.', 'As before, a good season may end with a delivery: something for the prototyping lab or the electronics bench.']
+    }
   };
 })();

@@ -745,7 +745,7 @@
   P.slotBrand = (S, slot) => (slot === 'A' ? P.premium(S) : 'B');
   P.loyal = function (S, slot) {
     const st = lyState(S)[slot], L = D.LOYALTY, lvl = st.lvl, brand = P.slotBrand(S, slot) || (slot === 'A' ? (P.buyCy(S) > G.Era.STERLING_LAST ? 'A' : 'T') : 'B');
-    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: lvl ? L.levels[lvl - 1] : 0, brand, vendor: D.VENDORS[brand],
+    return { slot, pts: st.pts, lvl, name: L.names[lvl], next: L.levels[lvl] != null ? L.levels[lvl] : null, prev: Math.min(lvl ? L.levels[lvl - 1] : 0, st.pts), brand, vendor: D.VENDORS[brand], // (a level reached under the lower thresholds of an earlier version is kept: its bar starts where the points are)
       voucher: S.voucher && S.voucher[slot] && S.voucher[slot].amt > 0 ? S.voucher[slot] : null, sale: P.saleOf(S, slot), stock: L.stock * lvl };
   };
   // a loyalty sale runs from the letter until Kickoff

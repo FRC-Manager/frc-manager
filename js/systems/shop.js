@@ -682,7 +682,7 @@
   };
   Shop.OPPS = [
     { id: 'guest', w: 3, req: S => S.sponsors.length > 0, run: S => {
-      const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4));
+      const sp = sponsorName(S), role = G.R.pick(['design', 'fab', 'prog']), m = D.makeMentor(G.R, role, G.R.int(3, 4), D.sponsorIntl && D.sponsorIntl(sp) ? 'intl' : undefined); // a guest from an international company: one of its own people
       m.cost = 0; m.guest = sp; const turns = turnsFor(S, 4);
       S.guests.push({ m, turns });
       if (G.Career.inSeason(S)) S.fatigue = Math.max(5, S.fatigue - 3); // an extra pair of hands takes some load off

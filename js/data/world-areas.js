@@ -72,7 +72,8 @@
   // Default school names and sponsor names by the team's home (a district's own list first, then its area's, then the
   // general one). All made up; they borrow the industries and the school types of each part of the world.
   D.SCHOOL_BY = {
-    West: ['Mission Hills High School', 'Sierra Vista High School', 'Palo Verde High School', 'Redwood Shores High School', 'Canyon Crest Academy', 'Golden Valley High School', 'El Camino High School'],
+    West: ['Sierra Vista High School', 'Palo Verde High School', 'Canyon Crest Academy', 'Golden Valley High School', 'Silver State Technical Academy', 'Sawtooth Ridge High School', 'Bitterroot Valley High School', 'Trade Winds Academy'],
+    sierra: ['Mission Hills High School', 'Sierra Vista High School', 'Redwood Shores High School', 'Canyon Crest Academy', 'Golden Valley High School', 'El Camino High School'],
     evergreen: ['Cedar Ridge High School', 'Rainier View High School', 'Salmon Creek High School', 'Puget Sound Academy', 'Douglas Fir High School'],
     Southwest: ['Mesa Vista High School', 'Red Canyon High School', 'Saguaro High School', 'Front Range High School', 'Sandia Peak High School'],
     mesa: ['Lone Star High School', 'Bluebonnet High School', 'Brazos Valley High School', 'Alamo Heights Academy', 'Cedar Creek High School', 'Longhorn Trail High School'],
@@ -83,15 +84,53 @@
     Southeast: ['Magnolia High School', 'Cypress Creek High School', 'Palmetto Ridge High School', 'Peachtree Academy', 'Blue Ridge High School', 'Space Coast High School'],
     North: ['Laurentian Secondary School', 'Rocky Ridge Secondary School', 'Salish Coast Secondary School', 'Saint-Laurent College', 'Prairie Sky Collegiate'],
     trillium: ['Grand River Collegiate Institute', 'Lakeshore Secondary School', 'Trillium Heights Secondary School', 'Escarpment District High School', 'St. Brendan Catholic Secondary School'],
-    'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College'],
-    'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology'],
-    Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School'],
+    'Central America': ['North Technological Preparatory', 'Sierra Madre Preparatory', 'Laguna Technical Institute', 'Valley Bachillerato', 'Agave Hills College', 'Ozama Polytechnic School', 'Two Oceans Bilingual Academy'],
+    'South America': ['Industry Social Service School', 'Planalto Technical School', 'Santa Cruz College', 'Serra Azul Industrial School', 'Tropic Institute of Technology', 'Cordillera Scientific Lyceum', 'Andean Valley Technical Institute'],
+    Europe: ['Canal District Lyceum', 'Old Town Gymnasium', 'International School of the Lowlands', 'Vistula Technical Secondary School', 'Alpine Cantonal School', 'Thames Reach Sixth Form College', 'Vltava Technical Gymnasium', 'Rhone Valley Lycee',
+      'Azure Coast Lycee', 'Kvarner Bay Technical School', 'Vitosha Mathematics High School', 'Transylvanian Hills National College', 'Attica Model Lyceum', 'Lake Malaren Technical Gymnasium', 'Dnipro Riverside Lyceum'],
     Anatolia: ['Bosphorus Science High School', 'Golden Hills Anatolian High School', 'Strait Private College', 'Plateau Science and Art Centre', 'Aegean Anatolian High School'],
     levant: ['Carmel Technological High School', 'Coastal Plain Science High School', 'Desert Blossom High School', 'Galilee Regional School', 'Sharon Youth Village School'],
-    'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School'],
-    'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School']
+    'East Asia': ['Pearl Delta Experimental School', 'No. 2 High School of the Eastern District', 'Jade Mountain Senior High School', 'River Delta Foreign Language School', 'Affiliated High School of Island Normal University', 'Lotus Bay International School', 'Sumida River Technical High School', 'Han River Science High School', 'Kowloon Bay Secondary School'],
+    'Asia Pacific': ['Harbour City Grammar School', 'Blue Gum Secondary College', 'Outback Community High School', 'St. Alba\'s College', 'Coral Coast State High School', 'Lotus Valley Public School', 'Lion City Secondary School', 'Long White Cloud College',
+      'Saigon River High School for the Gifted', 'Klang Valley International School', 'Pasig River Science High School']
   };
-  D.SCHOOL_BY.sierra = D.SCHOOL_BY.West; D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
+  D.SCHOOL_BY['Middle East'] = D.SCHOOL_BY.levant;
+  // A school named after a place stands in that place: the cities (G.Geo.HUBS) its name points to. Your team is put
+  // in one of them that its home has (G.Geo.teamPos); a name that is not here could be anywhere in the home.
+  D.SCHOOL_AT = {
+    'Sierra Vista High School': ['Reno', 'Las Vegas'], 'Palo Verde High School': ['Las Vegas'], 'Silver State Technical Academy': ['Las Vegas', 'Reno'], 'Sawtooth Ridge High School': ['Boise', 'Idaho Falls'],
+    'Bitterroot Valley High School': ['Missoula'], 'Trade Winds Academy': ['Honolulu'], 'Redwood Shores High School': ['San Francisco Bay', 'San Jose'],
+    'Rainier View High School': ['Tacoma', 'Seattle'], 'Puget Sound Academy': ['Seattle', 'Tacoma', 'Everett'],
+    'Saguaro High School': ['Phoenix', 'Tucson'], 'Front Range High School': ['Denver', 'Colorado Springs'], 'Sandia Peak High School': ['Albuquerque'],
+    'Brazos Valley High School': ['Houston'], 'Alamo Heights Academy': ['San Antonio'],
+    'Motor City Technical High School': ['Detroit'], 'Grand Traverse High School': ['Traverse City'], 'Huron Valley High School': ['Ann Arbor', 'Detroit'], 'Assembly Line Career Academy': ['Detroit', 'Flint'],
+    'Hudson Valley High School': ['Albany', 'New York'], 'Keystone Central High School': ['Harrisburg', 'Philadelphia', 'Pittsburgh'], 'Brooklyn Bridge Technical High School': ['New York'], 'Chesapeake Academy': ['Baltimore'],
+    'Minuteman Regional High School': ['Boston'], 'Granite Hills High School': ['Manchester'], 'Whaling City Academy': ['Providence'],
+    'Palmetto Ridge High School': ['Columbia'], 'Peachtree Academy': ['Atlanta'], 'Blue Ridge High School': ['Knoxville', 'Charlotte'], 'Space Coast High School': ['Orlando'],
+    'Laurentian Secondary School': ['Montreal', 'Trois-Rivieres', 'Quebec City'], 'Rocky Ridge Secondary School': ['Calgary', 'Lethbridge'], 'Salish Coast Secondary School': ['Vancouver', 'Victoria'],
+    'Saint-Laurent College': ['Montreal', 'Trois-Rivieres', 'Quebec City'], 'Prairie Sky Collegiate': ['Regina', 'Winnipeg', 'Edmonton', 'Lethbridge'],
+    'Grand River Collegiate Institute': ['Waterloo'], 'Escarpment District High School': ['Hamilton', 'St. Catharines', 'Owen Sound'],
+    'North Technological Preparatory': ['Monterrey', 'Saltillo', 'Torreon', 'Chihuahua', 'Reynosa'], 'Sierra Madre Preparatory': ['Monterrey', 'Saltillo', 'Durango'], 'Laguna Technical Institute': ['Torreon'],
+    'Valley Bachillerato': ['Mexico City', 'Toluca'], 'Agave Hills College': ['Guadalajara'], 'Ozama Polytechnic School': ['Santo Domingo'], 'Two Oceans Bilingual Academy': ['Panama City'],
+    'Planalto Technical School': ['Brasilia', 'Goiania'], 'Tropic Institute of Technology': ['Sao Paulo', 'Campinas', 'Sao Jose dos Campos'],
+    'Industry Social Service School': ['Sao Paulo', 'Sao Jose dos Campos', 'Campinas', 'Rio de Janeiro', 'Brasilia', 'Cuiaba', 'Goiania', 'Porto Alegre', 'Joinville', 'Curitiba', 'Belo Horizonte', 'Salvador', 'Fortaleza', 'Recife', 'Natal', 'Manaus', 'Belem', 'Vitoria', 'Campo Grande'],
+    'Serra Azul Industrial School': ['Belo Horizonte', 'Curitiba', 'Joinville', 'Porto Alegre', 'Rio de Janeiro', 'Vitoria', 'Cuiaba', 'Campo Grande'],
+    'Cordillera Scientific Lyceum': ['Santiago'], 'Andean Valley Technical Institute': ['Cali', 'Medellin'],
+    'Old Town Gymnasium': ['Prague', 'Krakow', 'Lublin'], 'Thames Reach Sixth Form College': ['Greater London'], 'Vltava Technical Gymnasium': ['Prague'], 'Rhone Valley Lycee': ['Lyon'], 'Azure Coast Lycee': ['Nice'],
+    'Kvarner Bay Technical School': ['Rijeka'], 'Vitosha Mathematics High School': ['Sofia'], 'Transylvanian Hills National College': ['Cluj'], 'Attica Model Lyceum': ['Athens'], 'Lake Malaren Technical Gymnasium': ['Stockholm'], 'Dnipro Riverside Lyceum': ['Kyiv'],
+    'Canal District Lyceum': ['Eindhoven', 'Groningen'], 'International School of the Lowlands': ['Eindhoven', 'Groningen'], 'Vistula Technical Secondary School': ['Warsaw', 'Krakow'], 'Alpine Cantonal School': ['Zurich'],
+    'Bosphorus Science High School': ['Istanbul'], 'Strait Private College': ['Istanbul'], 'Plateau Science and Art Centre': ['Ankara', 'Eskisehir', 'Konya'], 'Aegean Anatolian High School': ['Izmir', 'Mugla'],
+    'Carmel Technological High School': ['Haifa', 'Binyamina'], 'Coastal Plain Science High School': ['Tel Aviv', 'Herzliya', 'Netanya', 'Rehovot', 'Ashkelon'], 'Desert Blossom High School': ['Be\'er Sheva'],
+    'Galilee Regional School': ['Afula'], 'Sharon Youth Village School': ['Netanya', 'Herzliya'],
+    'Pearl Delta Experimental School': ['Guangzhou', 'Shenzhen'], 'Jade Mountain Senior High School': ['Taipei', 'Chiayi', 'Taichung'], 'River Delta Foreign Language School': ['Shanghai', 'Suzhou', 'Hangzhou', 'Nanjing'],
+    'Affiliated High School of Island Normal University': ['Taipei', 'Taichung', 'Kaohsiung'],
+    'No. 2 High School of the Eastern District': ['Shanghai', 'Beijing', 'Suzhou', 'Hangzhou', 'Qingdao', 'Zhengzhou', 'Wuhan', 'Jinan', 'Nanjing', 'Kunming', 'Chengdu'],
+    'Sumida River Technical High School': ['Tokyo'], 'Han River Science High School': ['Seoul'], 'Kowloon Bay Secondary School': ['Hong Kong'],
+    'Lotus Valley Public School': ['Delhi', 'Mumbai'], 'Lion City Secondary School': ['Singapore'], 'Long White Cloud College': ['Auckland'], 'Saigon River High School for the Gifted': ['Ho Chi Minh City'],
+    'Klang Valley International School': ['Kuala Lumpur'], 'Pasig River Science High School': ['Manila'],
+    'Harbour City Grammar School': ['Sydney'], 'Blue Gum Secondary College': ['Melbourne'], 'Outback Community High School': ['Coonabarabran'], 'Coral Coast State High School': ['Brisbane']
+  };
+  D.schoolAt = name => D.SCHOOL_AT[String(name == null ? '' : name).trim()] || null;
   D.SPONSOR_BY = {
     West: { tech: ['Sandhill Semiconductors', 'Golden Gate Robotics', 'Redwood Cloud', 'Palo Verde Devices', 'Mission Bay Systems', 'Skyline Microsystems', 'Sierra Photonics', 'Cupola Space Systems', 'El Camino Microdevices', 'Tidepool Robotics', 'Pacific Quantum Works', 'Joshua Tree Avionics'], soft: ['Bayview Software', 'Loma Code Labs', 'Fogline Apps', 'Sunset Logic', 'Cable Car Software', 'Poppy Field Games', 'Marina Analytics', 'Eucalyptus Code'],
       local: ['Pacific Surf Shop', 'Orchard Street Tacos', 'Vineyard Credit Union', 'Golden Poppy Bakery', 'Sierra Outfitters', 'Coastline Auto', 'Boardwalk Burrito Co.', 'Sagebrush Feed & Supply', 'Lighthouse Point Cafe', 'Citrus Grove Market', 'Foothill Bike Shop', 'Silver State Credit Union'], eng: ['Seismic Structures', 'Baycrest Engineering', 'High Desert Aerospace', 'Solaris Energy Engineering', 'Golden State Transit Engineering', 'Tahoe Water Engineering', 'Pacific Offshore Wind Engineering', 'Canyon Rim Geotechnical'],
@@ -135,7 +174,184 @@
   // a team's home for names: its district, else its area
   D.nameHome = team => (team && (team.home || team.region)) || null;
   D.schoolName = (rng, home, region) => { const l = D.SCHOOL_BY[home] || D.SCHOOL_BY[region]; return l ? rng.pick(l) : rng.pick(D.SCHOOLS) + ' High School'; };
-  D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region]; return (a && a[type]) || D.SPONSOR_NAMES[type] || D.SPONSOR_NAMES.eng; };
+  D.sponsorPool = (type, home, region) => { const a = D.SPONSOR_BY[home] || D.SPONSOR_BY[region] || D.SPONSOR_BY.Midwest; return a[type] || a.eng; }; // a home's own companies (the international ones are D.SPONSOR_NAMES)
+
+  // ---------- people's names ----------
+  // People are named as people of their place usually are when the name is written in English, and a first name
+  // always goes with a family name of the same language. The place is the team's city on the map (G.Geo.HUBS): a
+  // city with names of its own (D.NAME_AT), else its district's list, else its area's. So a team near the Saint
+  // Lawrence has names of one language and a team on the prairies of the other, and East Asia's teams have an English
+  // first name before a family name of their own shore (two cities there keep given names of their own).
+  // D.FIRST and D.LAST (world.js) stay the international mix: the people of an international company, and anybody
+  // with no home. A family name is one word (a first name is everything before the first space).
+  {
+    const US = ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella', 'Logan', 'Mia', 'Lucas', 'Charlotte', 'Jacob', 'Amelia', 'Michael', 'Harper', 'Daniel', 'Abigail', 'Henry',
+      'Emily', 'Jackson', 'Ella', 'Owen', 'Grace', 'Caleb', 'Chloe', 'Wyatt', 'Lily', 'Andrew', 'Hannah', 'Ryan', 'Natalie', 'Nathan', 'Zoe', 'Tyler', 'Sarah', 'Dylan', 'Megan', 'Connor'];
+    // the English first names people of East Asia's shores and of the strait city go by
+    const EN = ['Kevin', 'Jason', 'Eric', 'Andy', 'Tony', 'Vincent', 'Jerry', 'Frank', 'Leo', 'Sam', 'Allen', 'Peter', 'Daniel', 'Michael', 'Henry', 'Jack', 'Alex', 'Ryan', 'Steven', 'Brian', 'David', 'William',
+      'Amy', 'Emily', 'Jessica', 'Cindy', 'Alice', 'Grace', 'Ivy', 'Tina', 'Vivian', 'Jenny', 'Angela', 'Wendy', 'Lily', 'Sophie', 'Coco', 'Iris', 'Joyce', 'Sharon', 'Annie', 'Karen', 'Michelle', 'Selina'];
+    D.NAME_GROUPS = {
+      // ----- the five areas of the United States, and their districts
+      West: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Jasmine', 'Cody', 'Brooke', 'Carter', 'Paige']),
+        last: ['Smith', 'Johnson', 'Anderson', 'Nelson', 'Miller', 'Davis', 'Wilson', 'Hansen', 'Larson', 'Christensen', 'Jensen', 'Peterson', 'Olsen', 'Taylor', 'Clark', 'Young', 'Campbell', 'Garcia', 'Martinez', 'Hernandez',
+          'Lopez', 'Gonzalez', 'Ramirez', 'Flores', 'Nguyen', 'Lee', 'Kim', 'Tran', 'Wong', 'Chen', 'Patel', 'Singh', 'Park', 'Reyes', 'Santos', 'Baker', 'Hall', 'Allen', 'Wright', 'Hill'] },
+      'us-islands': { first: US.concat(['Kai', 'Leilani', 'Keanu', 'Noelani', 'Makoa', 'Malia', 'Kekoa', 'Nalani']),
+        last: ['Kealoha', 'Kahale', 'Kamaka', 'Akana', 'Kalani', 'Kanoho', 'Nakamura', 'Tanaka', 'Yamamoto', 'Sato', 'Watanabe', 'Higa', 'Oshiro', 'Kaneshiro', 'Matsumoto', 'Inouye', 'Wong', 'Lee', 'Chun', 'Ching',
+          'Young', 'Lum', 'Kim', 'Park', 'Santos', 'Reyes', 'Ramos', 'Domingo', 'Agustin', 'Pascua', 'Silva', 'Souza', 'Medeiros', 'Cabral', 'Smith', 'Johnson', 'Williams', 'Brown', 'Lopez', 'Garcia'] },
+      sierra: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Isabel', 'Jasmine', 'Andrea', 'Brandon', 'Justin']),
+        last: ['Garcia', 'Hernandez', 'Lopez', 'Martinez', 'Gonzalez', 'Rodriguez', 'Ramirez', 'Sanchez', 'Perez', 'Flores', 'Torres', 'Nguyen', 'Tran', 'Le', 'Pham', 'Lee', 'Kim', 'Park', 'Chen', 'Wang',
+          'Wong', 'Liu', 'Lin', 'Chang', 'Patel', 'Singh', 'Shah', 'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Anderson', 'Thompson', 'White', 'Clark', 'Santos', 'Reyes'] },
+      evergreen: { first: US.concat(['Kevin', 'Jason', 'Sofia', 'Jasmine', 'Brooke', 'Carter', 'Evan', 'Claire']),
+        last: ['Anderson', 'Johnson', 'Nelson', 'Olson', 'Larsen', 'Hansen', 'Peterson', 'Carlson', 'Erickson', 'Lund', 'Smith', 'Miller', 'Davis', 'Wilson', 'Brown', 'Jones', 'Williams', 'Thompson', 'Clark', 'Baker',
+          'Nguyen', 'Tran', 'Kim', 'Lee', 'Chen', 'Wang', 'Park', 'Wong', 'Garcia', 'Martinez', 'Hernandez', 'Lopez', 'Singh', 'Patel', 'Campbell', 'Stewart', 'Murphy', 'Reed', 'Cooper', 'Fisher'] },
+      Southwest: { first: US.concat(['Cody', 'Austin', 'Sofia', 'Isabel', 'Gabriel', 'Jasmine', 'Angel', 'Marcus']),
+        last: ['Garcia', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Rodriguez', 'Sanchez', 'Ramirez', 'Torres', 'Flores', 'Chavez', 'Romero', 'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Miller', 'Davis', 'Anderson',
+          'Baker', 'Young', 'Christensen', 'Jensen', 'Begay', 'Yazzie', 'Nguyen', 'Patel', 'Tran', 'Walker', 'Hill', 'Moore', 'Scott', 'Cooper', 'Reed', 'Morales', 'Castillo', 'Vasquez', 'Trujillo', 'Guerrero'] },
+      mesa: { first: US.concat(['Cody', 'Austin', 'Travis', 'Sofia', 'Isabel', 'Gabriel', 'Jasmine', 'Savannah']),
+        last: ['Garcia', 'Martinez', 'Rodriguez', 'Hernandez', 'Lopez', 'Gonzalez', 'Perez', 'Sanchez', 'Ramirez', 'Flores', 'Garza', 'Trevino', 'Cantu', 'Salinas', 'Guerra', 'Smith', 'Johnson', 'Williams', 'Jones', 'Brown',
+          'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Schneider', 'Mueller', 'Schulz', 'Novak', 'Kovar', 'Nguyen', 'Tran', 'Patel', 'Pham', 'Walker'] },
+      Midwest: { first: US.concat(['Hunter', 'Cole', 'Paige', 'Brooke', 'Carter', 'Addison', 'Evan', 'Claire']),
+        last: ['Johnson', 'Anderson', 'Nelson', 'Olson', 'Peterson', 'Larson', 'Schmidt', 'Miller', 'Meyer', 'Schultz', 'Mueller', 'Wagner', 'Hansen', 'Kowalski', 'Nowak', 'Novak', 'Smith', 'Williams', 'Brown', 'Davis',
+          'Thompson', 'Becker', 'Hoffman', 'Schroeder', 'Weber', 'Klein', 'Koch', 'Carlson', 'Swanson', 'Erickson', 'Jackson', 'Robinson', 'Washington', 'Garcia', 'Nguyen', 'Patel', 'Vang', 'Dvorak', 'Kaminski', 'Sullivan'] },
+      lakeshore: { first: US.concat(['Hunter', 'Cole', 'Paige', 'Brooke', 'Carter', 'Addison', 'Evan', 'Claire']),
+        last: ['Smith', 'Johnson', 'Williams', 'Brown', 'Miller', 'Jones', 'Davis', 'Anderson', 'Wilson', 'Thompson', 'Kowalski', 'Nowak', 'Wisniewski', 'Kaminski', 'Zielinski', 'Vanderberg', 'DeVries', 'DeJong', 'Hoekstra', 'Bakker',
+          'Meyer', 'Schmidt', 'Schultz', 'Wagner', 'Becker', 'Haddad', 'Saad', 'Maki', 'Niemi', 'Koski', 'Jackson', 'Robinson', 'Washington', 'Harris', 'Murphy', 'Sullivan', 'Kelly', 'Nguyen', 'Patel', 'Garcia'] },
+      Northeast: { first: US.concat(['Anthony', 'Dominic', 'Rachel', 'Rebecca', 'Sean', 'Brendan', 'Julia', 'Nicholas']),
+        last: ['Murphy', 'Kelly', 'Sullivan', 'Walsh', 'Ryan', 'Rossi', 'Russo', 'Romano', 'Esposito', 'DeLuca', 'Marino', 'Cohen', 'Goldberg', 'Friedman', 'Schwartz', 'Katz', 'Smith', 'Johnson', 'Williams', 'Brown',
+          'Rodriguez', 'Rivera', 'Chen', 'Li', 'Zhang', 'Patel', 'Singh', 'Kim', 'Kowalski', 'Fitzgerald', 'Gallagher', 'Doyle', 'McCarthy', 'Donovan', 'Campbell', 'Thompson', 'Jackson', 'Lewis', 'Clarke', 'Hughes'] },
+      harbor: { first: US.concat(['Anthony', 'Dominic', 'Rachel', 'Rebecca', 'Sean', 'Brendan', 'Julia', 'Nicholas']),
+        last: ['Sullivan', 'Murphy', 'Kelly', 'Walsh', 'Ryan', 'Doyle', 'Donovan', 'McCarthy', 'Gallagher', 'Fitzgerald', 'Smith', 'Johnson', 'Brown', 'Williams', 'Davis', 'Clark', 'White', 'Adams', 'Parker', 'Rossi',
+          'Russo', 'DeLuca', 'Marino', 'Santoro', 'Silva', 'Pereira', 'Medeiros', 'Costa', 'Sousa', 'Pelletier', 'Ouellette', 'Gagnon', 'Roy', 'Cote', 'Levesque', 'Cohen', 'Goldberg', 'Nguyen', 'Patel', 'Chen'] },
+      Southeast: { first: US.concat(['Savannah', 'Caroline', 'Madison', 'Carson', 'Jasmine', 'Isaiah', 'Gabriel', 'Marcus']),
+        last: ['Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Davis', 'Jackson', 'Harris', 'Robinson', 'Walker', 'Washington', 'Carter', 'Mitchell', 'Turner', 'Parker', 'Collins', 'Edwards', 'Stewart', 'Morris', 'Rogers',
+          'Reed', 'Cook', 'Bell', 'Bailey', 'Cooper', 'Howard', 'Ward', 'Brooks', 'Sanders', 'Hernandez', 'Rodriguez', 'Perez', 'Gonzalez', 'Fernandez', 'Diaz', 'Nguyen', 'Patel', 'Boudreaux', 'Landry', 'Hayes'] },
+      // ----- the North: one language on the prairies, the coast and the great lakes, another along the Saint Lawrence
+      North: { first: ['Liam', 'Noah', 'Olivia', 'Emma', 'William', 'Benjamin', 'Charlotte', 'Sophie', 'Ethan', 'Lucas', 'Chloe', 'Emily', 'Nathan', 'Thomas', 'Hannah', 'Owen', 'Connor', 'Avery', 'Jacob', 'Zoe',
+        'Mackenzie', 'Logan', 'Sarah', 'Megan', 'Ryan', 'Isla', 'Jack', 'Ava', 'Mia', 'Abigail', 'Hudson', 'Carter', 'Grace', 'Ella', 'Lily', 'Evan', 'Tyler', 'Maya', 'Aiden', 'Claire'],
+        last: ['Smith', 'Brown', 'Wilson', 'Johnson', 'MacDonald', 'Taylor', 'Campbell', 'Anderson', 'Martin', 'Lee', 'Thompson', 'Fraser', 'Stewart', 'Scott', 'Reid', 'Murray', 'Clarke', 'Friesen', 'Kowalchuk', 'Dhillon',
+          'Sidhu', 'Singh', 'Wong', 'Chan', 'Li', 'Patel', 'Nguyen', 'Kim', 'Wang', 'Chen', 'Graham', 'Morrison', 'Ross', 'Cameron', 'Walker', 'Young', 'King', 'Robinson', 'Bell', 'Kelly'] },
+      'north-fr': { first: ['Mathieu', 'Gabriel', 'Alexandre', 'Felix', 'Simon', 'Antoine', 'Etienne', 'Xavier', 'Olivier', 'Samuel', 'Thomas', 'William', 'Nathan', 'Raphael', 'Vincent', 'Maxime', 'Jeremie', 'Guillaume', 'Philippe', 'Louis',
+        'Lea', 'Camille', 'Juliette', 'Rosalie', 'Maude', 'Amelie', 'Chloe', 'Florence', 'Charlotte', 'Alice', 'Emma', 'Sarah', 'Laurence', 'Ariane', 'Noemie', 'Catherine', 'Audrey', 'Gabrielle', 'Marianne', 'Elodie'],
+        last: ['Tremblay', 'Gagnon', 'Roy', 'Cote', 'Bouchard', 'Gauthier', 'Morin', 'Lavoie', 'Fortin', 'Gagne', 'Ouellet', 'Pelletier', 'Belanger', 'Levesque', 'Bergeron', 'Leblanc', 'Paquette', 'Girard', 'Simard', 'Boucher',
+          'Caron', 'Beaulieu', 'Cloutier', 'Dube', 'Poirier', 'Fournier', 'Lapointe', 'Leclerc', 'Lefebvre', 'Poulin', 'Thibault', 'Nadeau', 'Martin', 'Landry', 'Martel', 'Bedard', 'Grenier', 'Lessard', 'Bernier', 'Desjardins'] },
+      // ----- Central America: the plateau and the north, then the islands and the isthmus
+      'Central America': { first: ['Santiago', 'Mateo', 'Sebastian', 'Leonardo', 'Diego', 'Emiliano', 'Daniel', 'Miguel', 'Alejandro', 'Carlos', 'Luis', 'Jose', 'Juan', 'Angel', 'Fernando', 'Ricardo', 'Eduardo', 'Rodrigo', 'Andres', 'Javier',
+        'Sofia', 'Valentina', 'Regina', 'Camila', 'Ximena', 'Maria', 'Renata', 'Fernanda', 'Daniela', 'Valeria', 'Natalia', 'Mariana', 'Paola', 'Andrea', 'Gabriela', 'Alejandra', 'Isabella', 'Victoria', 'Lucia', 'Montserrat'],
+        last: ['Hernandez', 'Garcia', 'Martinez', 'Lopez', 'Gonzalez', 'Rodriguez', 'Perez', 'Sanchez', 'Ramirez', 'Cruz', 'Flores', 'Gomez', 'Morales', 'Vazquez', 'Reyes', 'Jimenez', 'Torres', 'Diaz', 'Gutierrez', 'Ruiz',
+          'Mendoza', 'Aguilar', 'Ortiz', 'Moreno', 'Castillo', 'Romero', 'Alvarez', 'Mendez', 'Chavez', 'Rivera', 'Juarez', 'Ramos', 'Dominguez', 'Herrera', 'Medina', 'Castro', 'Vargas', 'Guzman', 'Salazar', 'Trevino', 'Garza', 'Cantu', 'Villarreal', 'Elizondo'] },
+      'es-isles': { first: ['Juan', 'Jose', 'Luis', 'Carlos', 'Miguel', 'Angel', 'Rafael', 'Pedro', 'Manuel', 'Francisco', 'Ramon', 'Victor', 'Jorge', 'Julio', 'Daniel', 'David', 'Sebastian', 'Diego', 'Adrian', 'Kevin',
+        'Maria', 'Ana', 'Rosa', 'Carmen', 'Camila', 'Valentina', 'Sofia', 'Isabella', 'Daniela', 'Gabriela', 'Paola', 'Natalia', 'Laura', 'Andrea', 'Carolina', 'Mariana', 'Lucia', 'Elena', 'Patricia', 'Yolanda'],
+        last: ['Rodriguez', 'Perez', 'Martinez', 'Garcia', 'Reyes', 'Sanchez', 'Diaz', 'Pena', 'Jimenez', 'Ramirez', 'Hernandez', 'Rosario', 'Nunez', 'Castillo', 'Santana', 'Guzman', 'Polanco', 'Mejia', 'Batista', 'Gonzalez',
+          'Vargas', 'Moreno', 'Castro', 'Morales', 'Herrera', 'Rios', 'Quintero', 'Pinto', 'Cedeno', 'Samudio', 'Cordoba', 'Mendoza'] },
+      // ----- South America: one language over most of it, another along the mountains
+      'South America': { first: ['Miguel', 'Arthur', 'Heitor', 'Bernardo', 'Davi', 'Gabriel', 'Pedro', 'Lucas', 'Matheus', 'Rafael', 'Gustavo', 'Felipe', 'Joao', 'Guilherme', 'Vinicius', 'Thiago', 'Bruno', 'Caio', 'Enzo', 'Leonardo',
+        'Alice', 'Sophia', 'Helena', 'Valentina', 'Laura', 'Isabella', 'Manuela', 'Julia', 'Luiza', 'Beatriz', 'Mariana', 'Larissa', 'Camila', 'Leticia', 'Ana', 'Giovanna', 'Fernanda', 'Bianca', 'Carolina', 'Gabriela'],
+        last: ['Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa',
+          'Rocha', 'Dias', 'Nascimento', 'Andrade', 'Moreira', 'Nunes', 'Marques', 'Machado', 'Mendes', 'Freitas', 'Cardoso', 'Ramos', 'Teixeira', 'Araujo', 'Cavalcanti', 'Monteiro', 'Correia', 'Batista', 'Pinto', 'Moraes', 'Tanaka', 'Schmidt'] },
+      'es-andes': { first: ['Mateo', 'Sebastian', 'Matias', 'Benjamin', 'Vicente', 'Martin', 'Agustin', 'Tomas', 'Joaquin', 'Nicolas', 'Felipe', 'Diego', 'Juan', 'Andres', 'Camilo', 'Daniel', 'Samuel', 'Alejandro', 'David', 'Maximiliano',
+        'Sofia', 'Isabella', 'Valentina', 'Emilia', 'Martina', 'Florencia', 'Catalina', 'Antonia', 'Josefa', 'Javiera', 'Camila', 'Mariana', 'Daniela', 'Valeria', 'Gabriela', 'Luciana', 'Paula', 'Laura', 'Manuela', 'Fernanda'],
+        last: ['Gonzalez', 'Munoz', 'Rojas', 'Diaz', 'Perez', 'Soto', 'Contreras', 'Silva', 'Martinez', 'Sepulveda', 'Morales', 'Rodriguez', 'Lopez', 'Fuentes', 'Hernandez', 'Torres', 'Araya', 'Flores', 'Espinoza', 'Valenzuela',
+          'Castillo', 'Tapia', 'Reyes', 'Gutierrez', 'Castro', 'Pizarro', 'Alvarez', 'Vasquez', 'Sanchez', 'Fernandez', 'Ramirez', 'Carrasco', 'Gomez', 'Cortes', 'Herrera', 'Nunez', 'Jara', 'Vergara', 'Restrepo', 'Giraldo', 'Zapata', 'Ospina', 'Cardona', 'Mejia'] },
+      // ----- Europe: every city has its own language's names (this first list only for a team with no city)
+      Europe: { first: ['Emma', 'Lucas', 'Sophie', 'Noah', 'Julia', 'Anna', 'Jan', 'Tomas', 'Louis', 'Chloe', 'Hugo', 'Oliver', 'Amelia', 'Luka', 'Petra', 'Nikola', 'Elena', 'Max', 'Lena', 'Felix', 'Mila', 'Erik', 'Sofia', 'Ivan'],
+        last: ['Jansen', 'Bakker', 'Smith', 'Jones', 'Kowalski', 'Nowak', 'Novak', 'Dvorak', 'Dubois', 'Martin', 'Muller', 'Meier', 'Horvat', 'Petrov', 'Popescu', 'Andersson', 'Fischer', 'Weber', 'Keller', 'Laurent', 'Kovac', 'Lindberg', 'Taylor', 'Visser'] },
+      'eu-thames': { first: ['Oliver', 'George', 'Harry', 'Jack', 'Charlie', 'Thomas', 'James', 'William', 'Oscar', 'Alfie', 'Henry', 'Leo', 'Freddie', 'Archie', 'Arthur', 'Olivia', 'Amelia', 'Isla', 'Emily', 'Ava', 'Lily', 'Sophie', 'Grace', 'Mia', 'Poppy', 'Ella', 'Evie', 'Charlotte', 'Jessica', 'Daisy'],
+        last: ['Smith', 'Jones', 'Taylor', 'Brown', 'Williams', 'Wilson', 'Johnson', 'Davies', 'Robinson', 'Wright', 'Thompson', 'Evans', 'Walker', 'White', 'Roberts', 'Green', 'Hall', 'Wood', 'Jackson', 'Clarke', 'Patel', 'Khan', 'Lewis', 'Phillips', 'Mason', 'Mitchell', 'Hughes', 'Edwards', 'Singh', 'Ahmed'] },
+      'eu-lowlands': { first: ['Daan', 'Sem', 'Lucas', 'Levi', 'Luuk', 'Bram', 'Jesse', 'Thijs', 'Ruben', 'Lars', 'Jan', 'Sven', 'Niels', 'Stijn', 'Joris', 'Emma', 'Julia', 'Sanne', 'Lotte', 'Fleur', 'Anne', 'Lisa', 'Eva', 'Noor', 'Iris', 'Femke', 'Anouk', 'Sophie', 'Tess', 'Roos'],
+        last: ['Jansen', 'Bakker', 'Visser', 'Smit', 'Meijer', 'Mulder', 'Bos', 'Vos', 'Peters', 'Hendriks', 'Dekker', 'Brouwer', 'Dijkstra', 'Vermeulen', 'Kok', 'Jacobs', 'Willems', 'Hoekstra', 'Maas', 'Verhoeven', 'Koster', 'Prins', 'Blom', 'Huisman', 'Peeters', 'Kuipers', 'Veenstra', 'Postma', 'Schouten', 'Wolters'] },
+      'eu-vltava': { first: ['Jakub', 'Jan', 'Tomas', 'Adam', 'Matej', 'Vojtech', 'Ondrej', 'Filip', 'Lukas', 'David', 'Martin', 'Petr', 'Daniel', 'Marek', 'Stepan', 'Eliska', 'Tereza', 'Anna', 'Adela', 'Natalie', 'Karolina', 'Katerina', 'Barbora', 'Veronika', 'Lucie', 'Kristyna', 'Klara', 'Marketa', 'Zuzana', 'Hana'],
+        last: ['Novak', 'Svoboda', 'Novotny', 'Dvorak', 'Cerny', 'Prochazka', 'Kucera', 'Vesely', 'Horak', 'Nemec', 'Pospisil', 'Pokorny', 'Hajek', 'Kral', 'Jelinek', 'Ruzicka', 'Benes', 'Fiala', 'Sedlacek', 'Dolezal', 'Zeman', 'Kolar', 'Navratil', 'Cermak', 'Urban', 'Vanek', 'Blazek', 'Kriz', 'Kovar', 'Maly'] },
+      'eu-rhone': { first: ['Lucas', 'Hugo', 'Louis', 'Jules', 'Gabriel', 'Arthur', 'Nathan', 'Leo', 'Raphael', 'Theo', 'Maxime', 'Antoine', 'Baptiste', 'Clement', 'Romain', 'Emma', 'Chloe', 'Manon', 'Lea', 'Camille', 'Ines', 'Sarah', 'Jade', 'Louise', 'Alice', 'Juliette', 'Clara', 'Margaux', 'Pauline', 'Anais'],
+        last: ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy', 'Moreau', 'Simon', 'Laurent', 'Lefebvre', 'Michel', 'Bertrand', 'Roux', 'Vincent', 'Fournier', 'Morel', 'Girard', 'Mercier', 'Dupont', 'Lambert', 'Bonnet', 'Legrand', 'Garnier', 'Faure', 'Rousseau', 'Blanc', 'Guerin'] },
+      'eu-vistula': { first: ['Jakub', 'Jan', 'Szymon', 'Antoni', 'Filip', 'Kacper', 'Mateusz', 'Michal', 'Piotr', 'Bartosz', 'Wojciech', 'Krzysztof', 'Tomasz', 'Pawel', 'Adam', 'Zofia', 'Zuzanna', 'Julia', 'Maja', 'Hanna', 'Lena', 'Alicja', 'Oliwia', 'Natalia', 'Kasia', 'Agnieszka', 'Magda', 'Ola', 'Weronika', 'Karolina'],
+        last: ['Nowak', 'Kowalski', 'Wisniewski', 'Wojcik', 'Kowalczyk', 'Kaminski', 'Lewandowski', 'Zielinski', 'Szymanski', 'Wozniak', 'Dabrowski', 'Kozlowski', 'Jankowski', 'Mazur', 'Kwiatkowski', 'Krawczyk', 'Piotrowski', 'Grabowski', 'Pawlowski', 'Michalski', 'Zajac', 'Krol', 'Wieczorek', 'Jablonski', 'Wrobel', 'Nowakowski', 'Majewski', 'Olszewski', 'Stepien', 'Malinowski'] },
+      'eu-alps': { first: ['Noah', 'Luca', 'Leon', 'Liam', 'Elias', 'David', 'Nico', 'Jan', 'Tim', 'Fabian', 'Simon', 'Lukas', 'Samuel', 'Jonas', 'Matteo', 'Mia', 'Emma', 'Lena', 'Lea', 'Anna', 'Laura', 'Sara', 'Nina', 'Julia', 'Elena', 'Lara', 'Sophie', 'Alina', 'Livia', 'Chiara'],
+        last: ['Muller', 'Meier', 'Schmid', 'Keller', 'Weber', 'Huber', 'Schneider', 'Meyer', 'Steiner', 'Fischer', 'Gerber', 'Brunner', 'Baumann', 'Frei', 'Zimmermann', 'Moser', 'Widmer', 'Wyss', 'Graf', 'Roth', 'Suter', 'Baumgartner', 'Bachmann', 'Studer', 'Kaufmann', 'Buhler', 'Hofer', 'Lehmann', 'Marti', 'Kunz'] },
+      'eu-adriatic': { first: ['Luka', 'Ivan', 'Marko', 'Petar', 'Josip', 'Filip', 'Karlo', 'Matej', 'Ante', 'Tomislav', 'Nikola', 'Mateo', 'David', 'Jakov', 'Leon', 'Ana', 'Marija', 'Petra', 'Lucija', 'Ivana', 'Mia', 'Lana', 'Sara', 'Ema', 'Nika', 'Katarina', 'Marta', 'Dora', 'Iva', 'Tena'],
+        last: ['Horvat', 'Kovacevic', 'Babic', 'Maric', 'Juric', 'Novak', 'Kovacic', 'Knezevic', 'Vukovic', 'Markovic', 'Petrovic', 'Matic', 'Tomic', 'Pavlovic', 'Kovac', 'Bozic', 'Blazevic', 'Grgic', 'Pavic', 'Radic', 'Peric', 'Filipovic', 'Saric', 'Lovric', 'Vidovic', 'Perkovic', 'Popovic', 'Bosnjak', 'Jukic', 'Barisic'] },
+      'eu-balkan': { first: ['Georgi', 'Ivan', 'Dimitar', 'Nikolay', 'Petar', 'Aleksandar', 'Martin', 'Viktor', 'Kaloyan', 'Boris', 'Stefan', 'Hristo', 'Todor', 'Vasil', 'Daniel', 'Maria', 'Ivana', 'Elena', 'Viktoria', 'Gabriela', 'Aleksandra', 'Nikol', 'Raya', 'Simona', 'Teodora', 'Desislava', 'Kalina', 'Yana', 'Mila', 'Sofia'],
+        last: ['Ivanov', 'Georgiev', 'Dimitrov', 'Petrov', 'Nikolov', 'Hristov', 'Stoyanov', 'Todorov', 'Iliev', 'Angelov', 'Vasilev', 'Atanasov', 'Kolev', 'Marinov', 'Popov', 'Mihaylov', 'Kostov', 'Stefanov', 'Yordanov', 'Petkov', 'Dimov', 'Aleksandrov', 'Borisov', 'Tsvetkov', 'Kirilov', 'Pavlov', 'Simeonov', 'Velikov', 'Zhelev', 'Radev'] },
+      'eu-carpathian': { first: ['Andrei', 'Alexandru', 'Mihai', 'Stefan', 'David', 'Gabriel', 'Ionut', 'Cristian', 'Vlad', 'Tudor', 'Radu', 'Bogdan', 'Matei', 'Darius', 'Rares', 'Maria', 'Ioana', 'Elena', 'Ana', 'Andreea', 'Alexandra', 'Daria', 'Bianca', 'Diana', 'Cristina', 'Teodora', 'Raluca', 'Irina', 'Larisa', 'Denisa'],
+        last: ['Popescu', 'Ionescu', 'Popa', 'Pop', 'Stan', 'Stoica', 'Rusu', 'Munteanu', 'Constantin', 'Moldovan', 'Dumitru', 'Dinu', 'Serban', 'Marin', 'Lazar', 'Florea', 'Ilie', 'Toma', 'Barbu', 'Cristea', 'Nistor', 'Oprea', 'Ciobanu', 'Lungu', 'Suciu', 'Muresan', 'Crisan', 'Dobre', 'Sandu', 'Vasile'] },
+      'eu-aegean': { first: ['Giorgos', 'Dimitris', 'Nikos', 'Yannis', 'Kostas', 'Christos', 'Panagiotis', 'Vasilis', 'Alexandros', 'Stelios', 'Thanasis', 'Manolis', 'Petros', 'Michalis', 'Spyros', 'Maria', 'Eleni', 'Katerina', 'Sofia', 'Anna', 'Dimitra', 'Ioanna', 'Christina', 'Konstantina', 'Eirini', 'Zoe', 'Despina', 'Angeliki', 'Danae', 'Nefeli'],
+        last: ['Papadopoulos', 'Papadakis', 'Georgiou', 'Dimitriou', 'Nikolaou', 'Ioannou', 'Christou', 'Konstantinou', 'Vasileiou', 'Karagiannis', 'Makris', 'Vlachos', 'Economou', 'Antoniou', 'Petrou', 'Alexiou', 'Pappas', 'Katsaros', 'Kokkinos', 'Mylonas', 'Samaras', 'Kyriakou', 'Lambrou', 'Raptis', 'Galanis', 'Stavrou', 'Zervas', 'Bakas', 'Manos', 'Sideris'] },
+      'eu-nordic': { first: ['Oscar', 'William', 'Lucas', 'Elias', 'Hugo', 'Oliver', 'Liam', 'Axel', 'Erik', 'Viktor', 'Filip', 'Emil', 'Anton', 'Isak', 'Gustav', 'Alice', 'Maja', 'Elsa', 'Ella', 'Wilma', 'Ebba', 'Astrid', 'Saga', 'Freja', 'Alma', 'Linnea', 'Ida', 'Emma', 'Julia', 'Klara'],
+        last: ['Andersson', 'Johansson', 'Karlsson', 'Nilsson', 'Eriksson', 'Larsson', 'Olsson', 'Persson', 'Svensson', 'Gustafsson', 'Pettersson', 'Jonsson', 'Jansson', 'Hansson', 'Bengtsson', 'Lindberg', 'Lindstrom', 'Lindqvist', 'Lindgren', 'Berg', 'Axelsson', 'Bergstrom', 'Lundberg', 'Lundgren', 'Mattsson', 'Berglund', 'Fredriksson', 'Sandberg', 'Henriksson', 'Forsberg'] },
+      'eu-dnipro': { first: ['Oleksandr', 'Andriy', 'Dmytro', 'Maksym', 'Artem', 'Ivan', 'Mykola', 'Bohdan', 'Yaroslav', 'Taras', 'Vladyslav', 'Denys', 'Nazar', 'Oleh', 'Danylo', 'Olena', 'Anna', 'Mariia', 'Sofiia', 'Anastasiia', 'Kateryna', 'Yuliia', 'Daryna', 'Viktoriia', 'Oksana', 'Iryna', 'Natalia', 'Tetiana', 'Polina', 'Solomiia'],
+        last: ['Shevchenko', 'Kovalenko', 'Bondarenko', 'Tkachenko', 'Kravchenko', 'Boyko', 'Melnyk', 'Kovalchuk', 'Oliynyk', 'Shevchuk', 'Polishchuk', 'Lysenko', 'Rudenko', 'Savchenko', 'Petrenko', 'Marchenko', 'Moroz', 'Koval', 'Pavlenko', 'Kuzmenko', 'Ponomarenko', 'Havrylenko', 'Klymenko', 'Vasylenko', 'Levchenko', 'Karpenko', 'Sydorenko', 'Mazur', 'Tkachuk', 'Honcharenko'] },
+      // ----- Anatolia and the Middle East
+      Anatolia: { first: ['Emre', 'Mert', 'Can', 'Burak', 'Kerem', 'Arda', 'Yusuf', 'Omer', 'Cem', 'Deniz', 'Ege', 'Kaan', 'Berk', 'Efe', 'Alp', 'Onur', 'Baris', 'Tolga', 'Umut', 'Mehmet',
+        'Elif', 'Zeynep', 'Ece', 'Selin', 'Defne', 'Ayse', 'Ela', 'Irem', 'Melis', 'Naz', 'Asli', 'Buse', 'Ceren', 'Derya', 'Esra', 'Gizem', 'Ipek', 'Merve', 'Ozge', 'Yagmur'],
+        last: ['Yilmaz', 'Kaya', 'Demir', 'Celik', 'Sahin', 'Yildiz', 'Yildirim', 'Ozturk', 'Aydin', 'Ozdemir', 'Arslan', 'Dogan', 'Kilic', 'Aslan', 'Cetin', 'Kara', 'Koc', 'Kurt', 'Ozkan', 'Simsek',
+          'Polat', 'Korkmaz', 'Ozcan', 'Cakir', 'Erdem', 'Acar', 'Bulut', 'Gunes', 'Aksoy', 'Tekin', 'Karaca', 'Bozkurt', 'Turan', 'Avci', 'Keskin', 'Unal', 'Guler', 'Tas', 'Sen', 'Bayram'] },
+      'Middle East': { first: ['Noa', 'Yael', 'Tamar', 'Maya', 'Shira', 'Adi', 'Roni', 'Tal', 'Gal', 'Michal', 'Hila', 'Liat', 'Dana', 'Neta', 'Ella', 'Lia', 'Avigail', 'Talia', 'Agam', 'Yuval',
+        'Daniel', 'David', 'Yoni', 'Itai', 'Omer', 'Amit', 'Lior', 'Eitan', 'Ariel', 'Noam', 'Ido', 'Nadav', 'Guy', 'Roi', 'Yonatan', 'Uri', 'Alon', 'Tomer', 'Matan', 'Ori'],
+        last: ['Cohen', 'Levi', 'Mizrahi', 'Peretz', 'Biton', 'Dahan', 'Friedman', 'Katz', 'Azoulay', 'Avraham', 'Shapiro', 'Golan', 'Segal', 'Sasson', 'Amar', 'Levin', 'Rosen', 'Klein', 'Weiss', 'Shalom',
+          'Gabay', 'Ohana', 'Malka', 'Hadad', 'Ashkenazi', 'Shahar', 'Baruch', 'Navon', 'Stern', 'Goldberg', 'Yosef', 'Carmi', 'Dror', 'Erez', 'Harel', 'Koren', 'Lavi', 'Regev', 'Tzur', 'Khoury', 'Nasser', 'Mansour'] },
+      // ----- East Asia: an English first name before a family name as each shore spells it; two cities with given names of their own
+      'East Asia': { first: EN,
+        last: ['Wang', 'Li', 'Zhang', 'Liu', 'Chen', 'Yang', 'Huang', 'Zhao', 'Wu', 'Zhou', 'Xu', 'Sun', 'Ma', 'Zhu', 'Hu', 'Guo', 'He', 'Lin', 'Gao', 'Luo', 'Zheng', 'Liang', 'Xie', 'Tang', 'Song', 'Han', 'Feng', 'Deng', 'Cao', 'Peng',
+          'Zeng', 'Xiao', 'Tian', 'Dong', 'Pan', 'Yuan', 'Cai', 'Jiang', 'Yu', 'Du'] },
+      'ea-island': { first: EN,
+        last: ['Chen', 'Lin', 'Huang', 'Chang', 'Lee', 'Wang', 'Wu', 'Liu', 'Tsai', 'Yang', 'Hsu', 'Cheng', 'Hsieh', 'Kuo', 'Hung', 'Chiu', 'Tseng', 'Liao', 'Lai', 'Chou', 'Yeh', 'Su', 'Chuang', 'Lu', 'Chiang', 'Ho', 'Lo', 'Kao', 'Hsiao', 'Pan',
+          'Chien', 'Chu', 'Chung', 'Peng', 'Yu', 'Tu', 'Shih', 'Fang', 'Weng', 'Tsao'] },
+      'ea-harbour': { first: EN,
+        last: ['Chan', 'Wong', 'Lee', 'Cheung', 'Lau', 'Ng', 'Leung', 'Ho', 'Lam', 'Yeung', 'Chow', 'Tsang', 'Cheng', 'Lai', 'Yip', 'Fung', 'Kwok', 'Tang', 'Yuen', 'Mak', 'Poon', 'Tam', 'Siu', 'Kwan', 'Law', 'Hui', 'Chiu', 'Tse', 'Wan', 'Luk'] },
+      'ea-kanto': { first: ['Haruto', 'Yuto', 'Sota', 'Ren', 'Riku', 'Kaito', 'Hinata', 'Kenta', 'Daiki', 'Takumi', 'Sho', 'Akira', 'Hiroshi', 'Yuki', 'Ryo', 'Yui', 'Aoi', 'Sakura', 'Hina', 'Mio', 'Rin', 'Yuna', 'Emi', 'Mai', 'Nanami', 'Misaki', 'Haruka', 'Ayaka', 'Kana', 'Miyu'],
+        last: ['Sato', 'Suzuki', 'Takahashi', 'Tanaka', 'Watanabe', 'Ito', 'Yamamoto', 'Nakamura', 'Kobayashi', 'Kato', 'Yoshida', 'Yamada', 'Sasaki', 'Yamaguchi', 'Matsumoto', 'Inoue', 'Kimura', 'Hayashi', 'Shimizu', 'Saito', 'Mori', 'Ikeda', 'Hashimoto', 'Ishikawa', 'Ogawa', 'Fujita', 'Okada', 'Goto', 'Hasegawa', 'Murakami'] },
+      'ea-han': { first: ['Minjun', 'Seojun', 'Jiho', 'Hyunwoo', 'Dohyun', 'Junho', 'Sungmin', 'Woojin', 'Taeyang', 'Jisung', 'Minho', 'Jaehyun', 'Donghyun', 'Seungwoo', 'Yunho', 'Jisoo', 'Jiwoo', 'Seoyeon', 'Minseo', 'Yuna', 'Jimin', 'Sumin', 'Yejin', 'Eunji', 'Hana', 'Jiwon', 'Soyeon', 'Chaewon', 'Dahyun', 'Nayeon'],
+        last: ['Kim', 'Lee', 'Park', 'Choi', 'Jung', 'Kang', 'Cho', 'Yoon', 'Jang', 'Lim', 'Han', 'Oh', 'Seo', 'Shin', 'Kwon', 'Hwang', 'Ahn', 'Song', 'Yoo', 'Hong', 'Jeon', 'Ko', 'Moon', 'Yang', 'Son', 'Bae', 'Baek', 'Heo', 'Nam', 'Ryu'] },
+      // ----- Asia Pacific: the southern continent, then the cities across the ocean, each with its own
+      'Asia Pacific': { first: ['Jack', 'Oliver', 'William', 'Noah', 'Lachlan', 'Hamish', 'Angus', 'Liam', 'Ethan', 'Harry', 'Riley', 'Cooper', 'Mitchell', 'Flynn', 'Archie', 'Hugo', 'Charlotte', 'Mia', 'Zoe', 'Ruby',
+        'Chloe', 'Isla', 'Matilda', 'Amelia', 'Olivia', 'Sienna', 'Ella', 'Grace', 'Lucy', 'Imogen', 'Poppy', 'Hannah', 'Jasmine', 'Thomas', 'James', 'Samuel', 'Emily', 'Sophie', 'Ava', 'Max'],
+        last: ['Smith', 'Jones', 'Williams', 'Brown', 'Wilson', 'Taylor', 'Johnson', 'White', 'Martin', 'Anderson', 'Thompson', 'Walker', 'Harris', 'Kelly', 'Ryan', 'King', 'Wright', 'Campbell', 'Robinson', 'Mitchell',
+          'Nguyen', 'Tran', 'Lee', 'Chen', 'Wang', 'Singh', 'Patel', 'McDonald', 'Fraser', 'Murray', 'Stewart', 'Thomas', 'Roberts', 'Clarke', 'Edwards', 'Turner', 'Hughes', 'Baker', 'Morris', 'Watson'] },
+      'ap-cloud': { first: ['Oliver', 'Jack', 'Noah', 'Leo', 'Lucas', 'George', 'Charlie', 'Hunter', 'Liam', 'Mason', 'Tane', 'Nikau', 'Ari', 'Manaia', 'Kahu', 'Charlotte', 'Isla', 'Amelia', 'Olivia', 'Mia', 'Ava', 'Harper', 'Lily', 'Ella', 'Sophie', 'Aroha', 'Mere', 'Anahera', 'Maia', 'Kiri'],
+        last: ['Smith', 'Wilson', 'Williams', 'Brown', 'Taylor', 'Jones', 'Walker', 'Thompson', 'Anderson', 'King', 'Harris', 'Scott', 'Campbell', 'Stewart', 'Robinson', 'Young', 'Mitchell', 'Clark', 'Parata', 'Ngata', 'Tamihana', 'Tipene', 'Paewai', 'Waaka', 'Rangi', 'Hohepa', 'Singh', 'Patel', 'Wang', 'Li'] },
+      'ap-ganges': { first: ['Aarav', 'Arjun', 'Rohan', 'Vivaan', 'Aditya', 'Ishaan', 'Kabir', 'Rahul', 'Karan', 'Dev', 'Vihaan', 'Siddharth', 'Aryan', 'Nikhil', 'Varun', 'Priya', 'Ananya', 'Diya', 'Aanya', 'Isha', 'Kavya', 'Meera', 'Neha', 'Riya', 'Saanvi', 'Tanvi', 'Anika', 'Pooja', 'Shreya', 'Aditi'],
+        last: ['Sharma', 'Patel', 'Singh', 'Kumar', 'Gupta', 'Reddy', 'Shah', 'Mehta', 'Joshi', 'Desai', 'Iyer', 'Nair', 'Rao', 'Verma', 'Kapoor', 'Malhotra', 'Chopra', 'Agarwal', 'Kulkarni', 'Deshmukh', 'Pillai', 'Menon', 'Bose', 'Chatterjee', 'Mishra', 'Pandey', 'Jain', 'Bhatt', 'Saxena', 'Banerjee'] },
+      'ap-strait': { first: EN,
+        last: ['Tan', 'Lim', 'Lee', 'Ng', 'Ong', 'Wong', 'Goh', 'Chua', 'Chan', 'Koh', 'Teo', 'Ang', 'Yeo', 'Tay', 'Ho', 'Low', 'Toh', 'Sim', 'Chong', 'Chia', 'Seah', 'Lau', 'Chew', 'Foo', 'Quek', 'Neo', 'Leong', 'Phua', 'Soh', 'Wee'] },
+      'ap-klang': { first: ['Aiman', 'Amir', 'Danial', 'Hakim', 'Irfan', 'Haziq', 'Farhan', 'Syafiq', 'Adam', 'Imran', 'Arif', 'Faiz', 'Nurul', 'Aisyah', 'Siti', 'Farah', 'Alya', 'Amira', 'Hana', 'Sofea', 'Iman', 'Zara', 'Nadia', 'Aina', 'Balqis', 'Dina'],
+        last: ['Rahman', 'Ismail', 'Hassan', 'Ibrahim', 'Abdullah', 'Ahmad', 'Yusof', 'Aziz', 'Hamid', 'Razak', 'Osman', 'Salleh', 'Zainal', 'Halim', 'Rashid', 'Karim', 'Latif', 'Mahmud', 'Hashim', 'Idris', 'Jaafar', 'Kassim', 'Mansor', 'Nordin', 'Othman', 'Zakaria'] },
+      'ap-mekong': { first: ['Minh', 'Anh', 'Huy', 'Khoa', 'Nam', 'Duc', 'Long', 'Tuan', 'Quang', 'Phuc', 'Bao', 'Dat', 'Hieu', 'Khang', 'Thanh', 'Linh', 'Mai', 'Lan', 'Thao', 'Trang', 'Ngoc', 'Vy', 'My', 'Hanh', 'Nhi', 'Chi', 'Ha', 'Yen', 'Thu', 'Quynh'],
+        last: ['Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Huynh', 'Phan', 'Vu', 'Vo', 'Dang', 'Bui', 'Do', 'Ho', 'Ngo', 'Duong', 'Ly', 'Truong', 'Dinh', 'Lam', 'Trinh', 'Luong', 'Dao', 'Doan', 'Vuong', 'Ta', 'Cao'] },
+      'ap-pasig': { first: ['Miguel', 'Gabriel', 'Joshua', 'Christian', 'Angelo', 'Paolo', 'Carlo', 'Marco', 'John', 'Mark', 'Rafael', 'Luis', 'Enzo', 'Nathan', 'Daniel', 'Angel', 'Nicole', 'Bea', 'Bianca', 'Patricia', 'Kristine', 'Andrea', 'Maria', 'Sofia', 'Isabel', 'Jasmine', 'Angela', 'Camille', 'Samantha', 'Althea'],
+        last: ['Santos', 'Reyes', 'Cruz', 'Bautista', 'Ocampo', 'Garcia', 'Mendoza', 'Torres', 'Castillo', 'Villanueva', 'Ramos', 'Delacruz', 'Fernandez', 'Gonzales', 'Lopez', 'Navarro', 'Salazar', 'Domingo', 'Pascual', 'Soriano', 'Mercado', 'Aguilar', 'Tolentino', 'Manalo', 'Dizon', 'Pangilinan', 'Flores', 'Rivera', 'Castro', 'Aquino'] }
+    };
+  }
+  // the cities with names of their own (every other city: its district's list if it has one, else its area's)
+  D.NAME_AT = {
+    Honolulu: 'us-islands',
+    Montreal: 'north-fr', Sherbrooke: 'north-fr', 'Quebec City': 'north-fr', 'Trois-Rivieres': 'north-fr',
+    'Santo Domingo': 'es-isles', 'Panama City': 'es-isles',
+    Santiago: 'es-andes', Cali: 'es-andes', Medellin: 'es-andes',
+    'Greater London': 'eu-thames', Eindhoven: 'eu-lowlands', Groningen: 'eu-lowlands', Prague: 'eu-vltava', Lyon: 'eu-rhone', Nice: 'eu-rhone', Warsaw: 'eu-vistula', Lublin: 'eu-vistula', Krakow: 'eu-vistula',
+    Zurich: 'eu-alps', Rijeka: 'eu-adriatic', Sofia: 'eu-balkan', Cluj: 'eu-carpathian', Athens: 'eu-aegean', Stockholm: 'eu-nordic', Kyiv: 'eu-dnipro',
+    Taipei: 'ea-island', Taichung: 'ea-island', Chiayi: 'ea-island', Tainan: 'ea-island', Kaohsiung: 'ea-island', 'Hong Kong': 'ea-harbour', Tokyo: 'ea-kanto', Seoul: 'ea-han',
+    Auckland: 'ap-cloud', Mumbai: 'ap-ganges', Delhi: 'ap-ganges', Singapore: 'ap-strait', 'Kuala Lumpur': 'ap-klang', 'Ho Chi Minh City': 'ap-mekong', Manila: 'ap-pasig'
+  };
+  D.NAMES_INTL = { first: D.FIRST, last: D.LAST };
+  // the name list of a city of the map
+  D.namesAt = function (hub) {
+    const NG = D.NAME_GROUPS, hb = hub && G.Geo && G.Geo.hub ? G.Geo.hub(hub) : null;
+    return NG[D.NAME_AT[hub]] || (hb && (NG[hb.d] || NG[hb.r])) || null;
+  };
+  // whose names: a team (yours or another: the city it stands in), { hub } (a city), an area or a district by name
+  // (its own list), 'intl' (the international mix), or nothing at all: your own team, and before there is a game the mix
+  D.namesFor = function (who) {
+    const t = who === undefined ? (G.S && G.S.team) || null : who, NG = D.NAME_GROUPS;
+    if (!t || t === 'intl') return D.NAMES_INTL;
+    if (typeof t === 'string') return NG[t] || NG[(D.DISTRICT && D.DISTRICT[t] || {}).region] || NG[(D.REGION_OLD || {})[t]] || D.NAMES_INTL;
+    let hub = t.hub && t.num == null ? t.hub : null;
+    if (!hub && t.num != null && G.S && G.Geo && G.Geo.posOf) { try { hub = G.Geo.posOf(G.S, t, G.Geo.cyOf(G.S)).hub; } catch (e) { hub = null; } }
+    return D.namesAt(hub) || NG[t.home] || NG[t.z] || NG[t.region] || NG[(D.REGION_OLD || {})[t.region]] || D.NAMES_INTL;
+  };
+  D.personName = function (rng, who) {
+    const L = D.namesFor(who), f = rng.pick(L.first); let l = rng.pick(L.last);
+    if (l === f) l = L.last[(L.last.indexOf(l) + 1) % L.last.length]; // nobody is called Mitchell Mitchell
+    return f + ' ' + l;
+  };
 
   // ---------- offseason events ----------
   // Every home has its own offseason events: [name, city] for each of D.OFFSEASON_EVENTS, in one of the home's cities.

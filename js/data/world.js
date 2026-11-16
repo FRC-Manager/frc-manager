@@ -17,7 +17,7 @@
     'Engineers', 'Builders', 'Pioneers', 'Rangers', 'Pirates', 'Bulldogs', 'Stingers', 'Ravens', 'Comets', 'Lynx', 'Otters', 'Tigers', 'Hornets', 'Mustangs', 'Coyotes', 'Wrenches'];
   D.SCHOOLS = ['Northview', 'Lakeside', 'Westbrook', 'Riverside', 'Hillcrest', 'Oakridge', 'Pinewood', 'Eastfield', 'Summit', 'Brookhaven', 'Clearwater', 'Fairmont', 'Maplewood', 'Ridgeline'];
 
-  D.personName = rng => rng.pick(D.FIRST) + ' ' + rng.pick(D.LAST);
+  D.personName = rng => rng.pick(D.FIRST) + ' ' + rng.pick(D.LAST); // (3.5) world-areas.js replaces it: names by home, this mix for the international
   D.teamName = rng => rng.pick(D.TEAM_A) + ' ' + rng.pick(D.TEAM_B);
 
   // ---------- Regions & travel ----------
@@ -263,13 +263,14 @@
     { y: 2024, id: 'visionportal', name: 'AprilTags on the field', text: 'AprilTags are on the field and built into the FTC software (VisionPortal): a robot can now work out where it is from the tags, the way FRC robots do.', ours: 'Our FTC teams and our FRC programmers are sharing an AprilTag whiteboard now.' },
     { y: 2025, id: 'odometry', name: 'odometry computers and smart cameras', text: 'A wave of ready-made sensors: odometry computers that track the robot\'s position from two small dead wheels, and smart cameras that find tags and game pieces on their own.', ours: 'The FTC teams\' autonomous routines got twice as accurate in a month, and nobody will say which sensor did it.' }
   ];
-  // A satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor has
-  // chance x (satisfaction - sat) / (100 - sat); at most one donation per season and one per offseason. Tuned by simulation so
-  // that a team with every sponsor slot filled that never skips a sponsor activity averages about one donation a year
-  // (measured over 60 automated careers: 1.0 a year overall, about 0.45 in the first year while the partnerships are new,
-  // 1.0 to 1.4 from the third year; lower for teams whose sponsors expect wins they do not get).
+  // A very satisfied sponsor donates equipment (one facility level) if the workshop has the room for it. Each turn every sponsor
+  // has chance x (satisfaction - sat) / (100 - sat), and after a donation none comes for `wait` turns (two years).
+  // (3.5) Rarer and harder than it was (sat 60, chance 0.033, one a season and one an offseason: about one a year, and a
+  // well-run team had one every year): a sponsor at 80 or below never donates now. With every slot filled a team whose
+  // sponsors are all delighted (92 to 100) gets about one in three or four seasons, one whose sponsors are merely
+  // satisfied (84 to 90) one in six or seven (measured: 3.3 and 6.6 seasons), and never two within two years.
   // capType: the printer maker gives any level of its own trade, the industrial printer included (a partner's cap is below it).
-  D.DONATION = { sat: 60, chance: 0.033, cap: { title: 20000, partner: 9000, grant: 9000 }, capType: { maker: 12000 },
+  D.DONATION = { sat: 80, chance: 0.008, wait: 42, cap: { title: 20000, partner: 9000, grant: 9000 }, capType: { maker: 12000 },
     types: { maker: ['printer', 'ebench'], tech: ['laptops', 'ebench', 'printer', 'cad'], eng: ['cnc', 'printer', 'ebench', 'cad'], mfg: ['cnc', 'lathe', 'weld', 'shelf'], soft: ['laptops', 'ebench', 'cad'], uni: ['meeting', 'pfield', 'laptops', 'cad'], local: ['pitcart', 'charger', 'meeting', 'lounge', 'shelf', 'honors'], found: ['ftc', 'meeting', 'lounge'] },
     intro: ['A truck backed up to the shop door this morning. Nobody had ordered anything.', 'The email subject was "Clearing out a lab. Interested?" It took the team four seconds to answer.', 'Their engineers visited last month, looked around the shop and went very quiet. Now we know why.', 'It arrived on a pallet with a bow on it. An actual bow.'],
     talk: [['We upgraded ours and could not stand the thought of it sitting in a warehouse.', '{s}'], ['Consider it an investment. We hire from teams like yours.', 'a manager at {s}'], ['Do we need to write a thank-you card? We are writing forty.', 'your team captain'],
@@ -362,12 +363,12 @@
   ];
   D.MENTOR_COST = [0, 0, 1000, 2500, 5000, 9000]; // by stars
   D.SPEC_FOR = { design: ['shooter', 'turret', 'elevator', 'arm', 'effector', 'intake', 'index', 'climb', 'swerve'], fab: ['swerve', 'elevator', 'arm', 'effector', 'climb', 'elec', 'intake'], prog: ['vision', 'autoPath', 'turret', 'swerve', 'elec'] };
-  D.makeMentor = function (rng, role, stars) {
+  D.makeMentor = function (rng, role, stars, who) { // who: whose names (D.namesFor); nothing: your own home's
     const r = D.MENTOR_ROLES.find(x => x.id === role) || rng.pick(D.MENTOR_ROLES);
     stars = stars || rng.wpick([1, 2, 3, 4, 5], s => [0, 3, 4, 3, 2, 1][s]);
     const skill = Math.round(Math.min(98, stars * 17 + rng.int(0, 14)));
     return {
-      id: G.U.uid('m'), name: D.personName(rng), role: r.id, stars, skill,
+      id: G.U.uid('m'), name: D.personName(rng, who), role: r.id, stars, skill,
       spec: r.spec ? rng.pick(D.SPEC_FOR[r.id]) : null,
       hours: rng.int(r.hours[0], r.hours[1]) + (stars >= 4 ? 2 : 0),
       cost: D.MENTOR_COST[stars] + rng.int(0, 4) * 100 * (stars > 1 ? 1 : 0),
@@ -425,11 +426,11 @@
   D.OLD_NUM = 2000 / 10999;
 
   // ---------- Students ----------
-  D.makeStudent = function (rng, grade, talent) {
+  D.makeStudent = function (rng, grade, talent, who) {
     talent = talent == null ? 0 : talent;
     const a = () => Math.round(G.U.clamp(rng.norm(32 + talent * 0.4, 10), 10, 75));
     return {
-      id: G.U.uid('s'), name: D.personName(rng), grade: grade || rng.int(9, 12),
+      id: G.U.uid('s'), name: D.personName(rng, who), grade: grade || rng.int(9, 12),
       pot: Math.round(G.U.clamp(rng.norm(62 + talent * 0.5, 15), 25, 100)),
       attr: { drive: a(), aware: a(), comp: a(), mech: a(), hp: a(), strat: a() }, matches: 0
     };
@@ -556,14 +557,34 @@
   D.FEEDER_KINDS = ['Elementary FLL Explore', 'Middle School FLL', 'Middle School FTC', 'STEM Club', 'Library Maker Club', 'Summer Robotics Camp', 'Girls in STEM Club'];
 
   // ---------- Sponsors ----------
+  // (3.5) The general list: international companies. A team's own sponsors come from its home (D.SPONSOR_BY); these
+  // giants sponsor teams all over the world, but only as partners, and much less often: every partner offer of a
+  // list has D.SPONSOR_INTL.chance of being one of theirs. No local businesses and no foundations among them.
   D.SPONSOR_NAMES = {
-    tech: ['Vantage Systems', 'Nimbus Data', 'Quantix Labs', 'Helios Microdevices', 'Aurora Networks', 'Stratos Cloud', 'Polaris Semiconductors', 'Zenith Dynamics', 'Corelight Sensors', 'Atlas Automation', 'Orbit Analytics', 'Vertex Instruments'],
-    local: ['Riverside Credit Union', 'Maple Street Pizza', 'Lakeside Hardware', 'Bluebird Diner', 'Corner Book Co.', 'Hometown Auto Repair', 'Sunrise Bakery', 'Elm Street Bicycles', 'Family Dental Care', 'Parkside Grocery', 'Oak Hill Insurance', 'Main Street Print Shop'],
-    eng: ['Arcwell Engineering', 'Stonebridge Consulting', 'Meridian Structures', 'Clearpath Civil', 'Summit Design Group', 'Keystone Geotechnical', 'Brightline Power Engineering', 'Harbor Point Consulting'],
-    mfg: ['Kestrel Machine Works', 'Ironclad Fabrication', 'Precision Plate Co.', 'Northstar Tooling', 'Anvil Metalworks', 'Granite Gear Co.', 'Redline Plastics', 'Westbrook Welding'],
-    uni: ['Northbridge University', 'Lakeview Technical College', 'Eastgate Polytechnic', 'Riverton State University', 'Summit Community College', 'Westfield Institute of Technology'],
-    soft: ['Helix Software', 'Bytewise Labs', 'Cobalt Code', 'Pinecone Apps', 'Gridline Software', 'Quill Apps', 'Sparrow Code', 'Stackwell Labs'],
-    found: ['Bright Futures Foundation', 'STEM Forward Fund', 'Next Generation Trust', 'Open Doors Education Fund', 'Tomorrow\'s Builders Foundation', 'Launchpad Youth Trust']
+    tech: ['Vantage Global Systems', 'Nimbus Data Group', 'Quantix Global Labs', 'Helios Microdevices Corporation', 'Aurora Networks Worldwide', 'Stratos Global Cloud', 'Polaris Semiconductor Group', 'Zenith Dynamics International', 'Corelight Sensor Group', 'Atlas Automation Worldwide', 'Orbit Analytics International', 'Vertex Instruments Corporation'],
+    eng: ['Arcwell Engineering Group', 'Stonebridge Global Consulting', 'Meridian Structures International', 'Clearpath Civil Group', 'Summit Design Worldwide', 'Keystone Geotechnical International', 'Brightline Power Group', 'Harbor Point International'],
+    mfg: ['Kestrel Machine Tools Worldwide', 'Ironclad Heavy Industries', 'Precision Plate International', 'Northstar Tooling Group', 'Anvil Metalworks International', 'Granite Gear Corporation', 'Redline Plastics Worldwide', 'Westbrook Welding Group'],
+    uni: ['Northbridge International University', 'Lakeview Open Technical College', 'Eastgate World Polytechnic', 'Riverton Global University', 'Summit Open College', 'Westfield International Institute'],
+    soft: ['Helix Software International', 'Bytewise Global', 'Cobalt Code Group', 'Pinecone Apps Worldwide', 'Gridline Global Software', 'Quill Worldwide', 'Sparrow Code International', 'Stackwell Labs Corporation']
+  };
+  // rep: the small bonus of an international partner. A name known all over the world on the robot adds this much to
+  // the team's reputation at every season review (each such partner; the printer maker too).
+  D.SPONSOR_INTL = { chance: 0.1, rep: 1 };
+  // an international company: one of these, or the printer maker (D.SPONSOR_MAKER, which keeps odds of its own)
+  { const all = new Set([].concat(...Object.keys(D.SPONSOR_NAMES).map(t => D.SPONSOR_NAMES[t]))); D.sponsorIntl = name => all.has(name) || !!(D.SPONSOR_MAKER && name === D.SPONSOR_MAKER.name); }
+  // What these companies were called in earlier versions, when every team's sponsors came from this list. A save may
+  // still hold one under its old name: it keeps the name (and its line, D.SPONSOR_DESC_OLD), and its international
+  // self makes no offer meanwhile (C.genOffers).
+  D.SPONSOR_RENAMED = {
+    'Vantage Systems': 'Vantage Global Systems', 'Nimbus Data': 'Nimbus Data Group', 'Quantix Labs': 'Quantix Global Labs', 'Helios Microdevices': 'Helios Microdevices Corporation', 'Aurora Networks': 'Aurora Networks Worldwide', 'Stratos Cloud': 'Stratos Global Cloud',
+    'Polaris Semiconductors': 'Polaris Semiconductor Group', 'Zenith Dynamics': 'Zenith Dynamics International', 'Corelight Sensors': 'Corelight Sensor Group', 'Atlas Automation': 'Atlas Automation Worldwide', 'Orbit Analytics': 'Orbit Analytics International', 'Vertex Instruments': 'Vertex Instruments Corporation',
+    'Arcwell Engineering': 'Arcwell Engineering Group', 'Stonebridge Consulting': 'Stonebridge Global Consulting', 'Meridian Structures': 'Meridian Structures International', 'Clearpath Civil': 'Clearpath Civil Group', 'Summit Design Group': 'Summit Design Worldwide',
+    'Keystone Geotechnical': 'Keystone Geotechnical International', 'Brightline Power Engineering': 'Brightline Power Group', 'Harbor Point Consulting': 'Harbor Point International',
+    'Kestrel Machine Works': 'Kestrel Machine Tools Worldwide', 'Ironclad Fabrication': 'Ironclad Heavy Industries', 'Precision Plate Co.': 'Precision Plate International', 'Northstar Tooling': 'Northstar Tooling Group', 'Anvil Metalworks': 'Anvil Metalworks International',
+    'Granite Gear Co.': 'Granite Gear Corporation', 'Redline Plastics': 'Redline Plastics Worldwide', 'Westbrook Welding': 'Westbrook Welding Group',
+    'Northbridge University': 'Northbridge International University', 'Lakeview Technical College': 'Lakeview Open Technical College', 'Eastgate Polytechnic': 'Eastgate World Polytechnic', 'Riverton State University': 'Riverton Global University',
+    'Summit Community College': 'Summit Open College', 'Westfield Institute of Technology': 'Westfield International Institute',
+    'Helix Software': 'Helix Software International', 'Bytewise Labs': 'Bytewise Global', 'Cobalt Code': 'Cobalt Code Group', 'Pinecone Apps': 'Pinecone Apps Worldwide', 'Gridline Software': 'Gridline Global Software', 'Quill Apps': 'Quill Worldwide', 'Sparrow Code': 'Sparrow Code International', 'Stackwell Labs': 'Stackwell Labs Corporation'
   };
   D.SPONSOR_TYPES = {
     tech: { name: 'Tech corporation', title: true, f: 1.08, money: [8000, 16000], exp: 'High', goals: ['champs', 'win', 'playoffs2', 'avgRP'], perks: ['bonusBoost'], oblig: [2, 3] },
@@ -579,7 +600,8 @@
   // (3.5) Corvane Labs, the printer maker of the 'printfarm' story (the CX1 Carbon, on sale since January 2022). From
   // the 2022 offseason one of the six partner offers of a list may be theirs, for any team anywhere: chance per list,
   // from: the first season such a list is for (the list of October 2022 is for the 2023 season). It is a partner like
-  // any other, except that what it donates is its own trade: a Prototyping Lab or Electronics Workbench level.
+  // any other, except that what it donates is its own trade: a Prototyping Lab or Electronics Workbench level. It is an
+  // international company like those of D.SPONSOR_NAMES (marked International, a partner only), with odds of its own.
   D.SPONSOR_MAKER = { name: 'Corvane Labs', type: 'maker', from: 2023, chance: 0.5 };
   D.SPONSOR_BASE = { title: 12500, partner: 3800, grant: 3500 }; // per season, before type, performance and difficulty
   D.SPONSOR_DIFF = { easy: 1.2, normal: 1, hard: 0.88 };

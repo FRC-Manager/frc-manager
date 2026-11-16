@@ -97,7 +97,7 @@
     if (st.seen !== S.team.num + ':' + S.team.region) { st.seen = S.team.num + ':' + S.team.region; homeView(S, st); } // a career's first look: its own part of the world
     clampView(st);
     const k = st.k, vw = Geo.W / k, vh = Geo.VH / k, vx = st.cx - vw / 2, vy = st.cy - vh / 2, px = v => (v / k).toFixed(2);
-    const dists = G.World.districtsOf(S, cy), myPos = Geo.posOf(S, S.team, cy).xy;
+    const dists = G.World.districtsOf(S, cy), myAt = Geo.posOf(S, S.team, cy), myPos = myAt.xy;
     // a team shown from a message or the scouting list ("Show this team on the map"): marked, with its distance from you
     const mt = st.mark && st.mark !== me ? S.teams[st.mark] : null, mk = mt ? { t: mt, xy: Geo.posOf(S, mt, cy).xy } : null;
     if (mk) mk.mi = Math.round(Geo.miles(myPos, mk.xy));
@@ -185,7 +185,7 @@
     // ---- your team, on top of everything
     { const x = myPos[0], y = myPos[1], r = 10 / k, pts = [];
       for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; pts.push((x + rr * Math.cos(a)).toFixed(2) + ' ' + (y + rr * Math.sin(a)).toFixed(2)); }
-      svg += '<g data-tip="' + h('Your team: ' + me + ' ' + S.team.name + '\n' + G.Geo.areaName(S.team.region, S.team.home)) + '"><path d="M' + pts.join('L') + 'Z" fill="' + ME_COL + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+      svg += '<g data-tip="' + h('Your team: ' + me + ' ' + S.team.name + '\n' + (S.team.school ? S.team.school + ' · ' : '') + 'near ' + myAt.hub + '\n' + G.Geo.areaName(S.team.region, S.team.home)) + '"><path d="M' + pts.join('L') + 'Z" fill="' + ME_COL + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
         '<text x="' + (x - r * 1.1).toFixed(1) + '" y="' + (y - r * 0.5).toFixed(1) + '" font-size="' + px(12) + '" fill="' + ME_COL + '" font-weight="800" text-anchor="end" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">You</text></g>'; }
     svg += '</svg>';
     const leg = '<div class="wm-leg"><div class="xs b">Team strength</div><div class="wm-grad" style="background:linear-gradient(90deg,' + RAMP.join(',') + ')"></div><div class="row xs muted"><span>' + RAMP_AT[0] + '</span><span class="sp"></span><span>50</span><span class="sp"></span><span>' + RAMP_AT[5] + '+</span></div>' +
@@ -247,7 +247,7 @@
     const nums = arg.slice(2).split(',').map(Number), rows = G.Scout.rows(S).filter(r => nums.includes(r.num)).sort((a, b) => (b.me - a.me) || (b.str || 0) - (a.str || 0)); // yours first
     UI.modal('<h2>' + (rows.length > 1 ? rows.length + ' teams here' : 'Team ' + rows[0].num) + '</h2><div class="sub">' + h(rows.length > 1 ? 'Too close together to pull apart on the map' : rows[0].area + (rows[0].rookie ? ' · rookie team' : '')) + '</div>' +
       '<table class="t tight mt"><tr><th>Team</th><th>Area</th><th class="num">Strength</th><th class="num">Events</th><th>W-L-T</th><th class="num">OPR</th><th>Best finish</th><th></th></tr>' + rows.map(r =>
-        '<tr><td class="b">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num + (r.elite ? ' ' + UI.eliteTag() : '')) + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + (r.str == null ? '<span class="muted" title="Your team has no world rating: your own robot plays its matches">—</span>' : r.str) + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
+        '<tr><td class="b">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') + (r.elite ? ' ' + UI.eliteMine(S) : '') : r.num + (r.elite ? ' ' + UI.eliteTag() : '')) + '</td><td class="xs">' + h(r.area) + '</td><td class="num">' + (r.str == null ? '<span class="muted" title="Your team has no world rating: your own robot plays its matches">—</span>' : r.str) + '</td><td class="num">' + r.ev + '</td><td>' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + f1(r.opr) + '</td><td class="xs">' + h(r.bestTxt || '—') + '</td>' +
         '<td><button class="btn sm" data-act="scFindTeam" data-arg="' + r.num + '">Scouting</button></td></tr>').join('') + '</table>' +
       '<div class="row mt"><span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
   };
@@ -342,7 +342,7 @@
       th('Best finish', 'best', '', 'Best playoff finish this season') + th('Awards', 'aw', 'num', 'Judged awards this season') + '<th></th></tr>' +
       rows.slice(st.page * PAGE, st.page * PAGE + PAGE).map((r, i) => {
         const pos = st.page * PAGE + i + 1;
-        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.elite ? ' ' + UI.eliteTag() : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
+        return '<tr class="' + (r.me ? 'me ' : '') + (st.hi === r.num ? 'hi' : '') + '" id="sc-' + r.num + '"><td class="num muted">' + pos + '</td><td class="b nowrap">' + (r.me ? '<span class="acc">' + r.num + '</span> ' + UI.tag('you', 'acc') : r.num) + (r.rookie ? ' <span class="xs muted" title="Rookie team">R</span>' : '') + (r.elite ? ' ' + (r.me ? UI.eliteMine(S) : UI.eliteTag()) : '') + (r.q ? ' <span class="xs good" title="Qualified for the Championship">CMP</span>' : '') + '</td>' +
           '<td class="xs">' + h(r.area) + '</td><td class="num">' + r.ev + '</td><td class="nowrap">' + (r.opr == null ? '—' : r.w + '-' + r.l + '-' + r.t) + '</td><td class="num">' + (r.rs == null ? '—' : r.rs.toFixed(2)) + '</td>' +
           '<td class="num b">' + f1(r.opr) + '</td><td class="num">' + f1(r.au) + '</td><td class="num">' + f1(r.te) + '</td><td class="num">' + f1(r.en) + '</td>' +
           '<td class="xs nowrap">' + h(r.bestTxt || '—') + (r.wins > 1 ? ' ×' + r.wins : '') + '</td><td class="num">' + (r.aw || '') + '</td>' +

@@ -93,7 +93,9 @@
   UI.bannerWall = (list, isNew) => '<div class="banners' + (list.length > 30 ? ' lots' : list.length > 14 ? ' many' : '') + '">' + list.map(b => UI.banner(b, isNew)).join('') + '</div>';
   UI.colorFor = v => v >= 75 ? 'var(--good)' : v >= 50 ? 'var(--data)' : v >= 30 ? 'var(--warn)' : 'var(--bad)';
   // an elite team (world simulation): a small rose tag wherever the team shows up
-  UI.isElite = n => !!(G.S && G.S.teams && G.S.teams[n] && G.S.teams[n].elite);
+  UI.isElite = n => !!(G.S && ((G.S.teams && G.S.teams[n] && G.S.teams[n].elite) || (G.S.team && n === G.S.team.num && G.S.team.elite))); // an elite team of the world, or yours while it carries the tag
+  // your own Elite tag (3.5): earned at a season review, carried through the next season
+  UI.eliteMine = S => { const e = S && S.team && S.team.elite; return e ? '<span class="etag" title="' + h('Elite team: your ' + e.cy + ' season ranked ' + U.ord(e.rank) + ' of ' + e.of + ' teams in the world by OPR (the top ' + e.n + ' are elite). Measured again at the next season review.') + '">Elite</span>' : ''; };
   UI.eliteTag = () => '<span class="etag" title="Elite team: one of the best programs in the world, close to maxed out in robot, drive team and strategy">Elite</span>';
   UI.sideCanvas = function (look, a, team, w, hgt) {
     const id = 'cv' + Math.floor(Math.random() * 1e9);
@@ -565,7 +567,7 @@
   // =====================================================================
   UI.S.hq = { html() {
     const S = G.S, C = G.Career;
-    let o = UI.head('Headquarters', 'hq', (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
+    let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
@@ -1507,6 +1509,7 @@
   // =====================================================================
   // Sponsor money at a glance: this season (base paid, bonuses reached and still possible) and next season (expected base, bonus ceiling)
   const spDesc = sp => (D.sponsorDesc && D.sponsorDesc(sp.name) ? '<div class="xs sp-desc">' + h(D.sponsorDesc(sp.name)) + '</div>' : ''); // (3.5) what the company does
+  const spIntl = sp => (sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name) ? ' · <span class="info" title="An international company: it sponsors teams all over the world, as a partner only. Its name on your robot adds ' + D.SPONSOR_INTL.rep + ' reputation at every season review.">International: +' + D.SPONSOR_INTL.rep + ' reputation a season</span>' : ''); // (3.5) a giant from the general list, or the printer maker
   UI.sponsorSummary = function (S) {
     const C = G.Career, nx = C.sponsorNext(S), inS = C.inSeason(S), now = inS ? Object.assign({ year: S.year }, C.sponsorSeason(S)) : S.lastSponsor || null;
     const num = (v, lbl) => '<div><div class="hnum">' + v + '</div><div class="l">' + lbl + '</div></div>', pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
@@ -1552,7 +1555,7 @@
     const anyOpen = ['title', 'partner', 'grant'].some(k => sl[k].n < sl[k].max && S.offers.some(of => of.slot === k));
     o += UI.card('Sponsors ' + slTag('title', 'Title') + ' ' + slTag('partner', 'Partners') + ' ' + slTag('grant', 'Grant'), S.sponsors.length ? S.sponsors.map(sp =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(sp.name) + '</b>' + UI.tag(sp.slot === 'title' ? 'TITLE' : sp.slot === 'grant' ? 'GRANT' : 'Partner', sp.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(sp.base) + '</b><span class="xs muted">/season · ' + sp.seasonsLeft + ' left</span></div>' +
-      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
+      spDesc(sp) + '<div class="xs muted">' + h(sp.typeName) + spIntl(sp) + ' · expectations ' + sp.exp + (sp.perk ? ' · Perk: <span class="info">' + h(D.PERKS[sp.perk].name) + '</span>' : '') + '</div>' + goalsTxt(sp) +
       '<div class="row mt"><span class="xs muted">Satisfaction</span><div class="sp">' + UI.bar(sp.sat, 100, UI.colorFor(sp.sat)) + '</div><span class="xs">' + Math.round(sp.sat) + '</span></div>' +
       (C.canUnsign(S, sp) ? '<div class="row mt"><span class="xs info">Signed this turn: you can take it back until you press Continue.</span><span class="sp"></span><button class="btn sm" data-act="unsignSp" data-arg="' + sp.id + '">Undo signing</button></div>' :
         C.canEndSponsor(S, sp) ? '<div class="row mt"><span class="sp"></span><button class="btn sm" data-act="endSp" data-arg="' + sp.id + '" title="Ends the contract and frees its slot for another offer. Only in the autumn, while new offers are open.">End sponsorship · reputation −' + C.endSponsorCost(sp) + '</button></div>' : '') + '</div>').join('') +
@@ -1560,7 +1563,7 @@
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
       '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
-      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
+      spDesc(of) + '<div class="xs muted">' + h(of.typeName) + spIntl(of) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span>' + (sl[of.slot].n >= sl[of.slot].max ? '<span class="xs muted">' + (of.slot === 'partner' ? 'Partner slots full' : 'You already have a ' + (of.slot === 'title' ? 'title sponsor' : 'grant')) + '</span>' : '<button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button>') + '</div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>',
       '<button class="btn sm" data-act="autoSp" ' + (anyOpen ? '' : 'disabled') + ' title="Signs the best-value offer for every open slot. You can undo any of them until you press Continue.">Auto-pick best</button>');
