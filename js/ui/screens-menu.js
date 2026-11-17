@@ -261,6 +261,13 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.2', title: 'Stop Build Day fixes', notes: [
+      'In a season with Stop Build Day, the window that asks which of your two robots goes in the bag now always opens. It was lost when a shop incident or a team dispute came up the same week, and so were the other pop-ups of that week (a first-time story, a vendor launch).',
+      'Headquarters, the Design Office and the Garage count down the weeks to Stop Build Day. Until the choice is made, Headquarters asks for it and Continue waits.',
+      'A robot reveal that is as long as the team number now reads as the team number (47:56 for team 4756). A number that cannot be written as a time is counted in seconds.',
+      'The Week 0 scrimmage and the offseason events at home draw the nearest teams first: the event\'s own city, then the teams within a drive. The scrimmage is held in your own city and is only as big as the teams within a drive make it, so an island scrimmage stays on the island.',
+      'A line of team chatter that names the same student twice now fills in both.'
+    ] },
     { v: '3.5.1', title: 'Renewals by choice, travel by miles, and more letters', notes: [
       'Sponsors: a sponsor whose deal has ended no longer renews by itself. If it wants to stay, its offer joins the list marked Renewal, and signing it is your choice. Leaving it unsigned costs nothing.',
       'International partners write when they sign and when they offer to renew, from their branch near you or from their head office, and so does the printer maker. A head office in your own area always writes itself.',

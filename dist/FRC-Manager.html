@@ -735,7 +735,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.1';
+  G.VERSION = '3.5.2';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -12193,13 +12193,18 @@ window.G = window.G || {};
   // is the home area's own teams (its district or cities first). Only where those are too few to fill it do others
   // make up the numbers, the nearest first: the areas next door, the rest of its part of the world, the nearest other
   // part of the world (D.NEAR, in its order), everybody else.
+  // (3.5.2) local.city, local.hubOf: before all of that, by miles from the event's city (D.tripTier): first the teams
+  // of that city and around it (a local trip), then those within a drive (the nearer the likelier), then as above.
   AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs, local) {
     const target = champs ? 78 : 28 + star * 9;
     const list = Object.values(pool).filter(t => !exclude.has(t.num));
     const chosen = [];
     const grp = r => (D.GROUP && D.GROUP[r]) || 'NA', adj = D.ADJ[region] || [], near = (D.NEAR || {})[region] || [];
-    const tierOf = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
-    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1);
+    const areaTier = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
+    const by = local && local.city && local.hubOf && D.tripTier ? {} : null; // hub: [0 a local trip, 1 a drive, -1 farther; miles]
+    const trip = t => { const hb = local.hubOf(t); if (!by[hb]) { const tr = D.tripTier(local.city, hb); by[hb] = [tr === 'local' ? 0 : tr === 'drive' ? 1 : -1, D.tripMiles(local.city, hb) || 0]; } return by[hb]; };
+    const tierOf = t => { if (by) { const k = trip(t)[0]; if (k >= 0) return k; } return (by ? 2 : 0) + areaTier(t); };
+    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1) * (by && trip(t)[0] === 1 ? 1 / (1 + Math.pow(trip(t)[1] / 200, 2)) : 1);
     const cand = list.map(t => {
       let w = champs ? 1 : local ? localW(t) : (t.region === region ? 3 : adj.includes(t.region) ? 1.4 : 0.35);
       const z = (t.str - target) / (champs ? 14 : 24);
@@ -12256,12 +12261,20 @@ window.G = window.G || {};
     const player = S.team.num;
     const weekMult = def.kind === 'champs' || def.kind === 'einstein' ? 1.08 : def.kind === 'offseason' ? (def.summit ? D.SUMMIT.weekMult : 1.04) : def.kind === 'scrimmage' ? 0.8 : 0.85 + 0.03 * (ev.week - 1);
     const diffMult = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1;
-    const size = def.size || 40;
+    let size = def.size || 40;
     const exclude = new Set([player]);
     // a simulated world names the teams at every event; otherwise the field is drawn by area and strength
     // (3.5) an offseason event and the Week 0 scrimmage are held at home, for the teams around it
-    const local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, G.Era.cy(S)) } : null;
+    // (3.5.2) ... the nearest first, by miles from the event's city: an offseason event's own, the scrimmage's is the
+    // team's (G.AI.pickAttendees). A scrimmage is only as big as the teams within a drive make it (8 at the least).
+    const lcy = G.Era.cy(S), local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, lcy),
+      city: def.hub || (def.kind === 'scrimmage' && G.Geo.cityOf ? G.Geo.cityOf(S) : ''), hubOf: t => G.Geo.posOf(S, t, lcy).hub } : null;
+    if (local && def.kind === 'scrimmage' && local.city && D.tripTier) {
+      const near = Object.values(S.teams).filter(t => t.num !== player && ['local', 'drive'].includes(D.tripTier(local.city, local.hubOf(t)))).length;
+      size = U.clamp(near + 1, Math.min(8, size), size);
+    }
     if (def.hub) ev.hub = def.hub; // the city, where the event has one of its own
+    else if (local && def.kind === 'scrimmage' && local.city) ev.hub = local.city; // (3.5.2) the scrimmage is in the team's city
     const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs', local);
     ev.teams = [player].concat(ai);
     ai.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], year, weekMult, diffMult, rng); });
@@ -15922,6 +15935,7 @@ window.G = window.G || {};
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
     if (S.dispute) b.push('A team dispute needs a decision: ' + S.dispute.title + '.');
+    if (S.bagPick) b.push('Stop Build Day: choose which robot goes in the bag (Headquarters).'); // (3.5.2)
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.prizeOffer && S.prizeOffer.stage === 'choose') b.push('Choose your ' + S.prizeOffer.name + ' prize (Headquarters).');
@@ -18228,6 +18242,9 @@ window.G = window.G || {};
     walk(S);
   }
   C.migrate = function (S) {
+    // (3.5.2) Stop Build Day's choice could be left open by a pop-up that never showed: only the day itself chooses,
+    // and a save past it keeps the robot that was bagged
+    if (S.bagPick && !(S.phase === 'comp' && S.week === 1 && C.bagged(S) && G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1))) delete S.bagPick;
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team);
@@ -20545,7 +20562,7 @@ window.G = window.G || {};
   ];
   // chatter the classic games bring along: [title, text] with {student}, {driver} and {mentor} filled in
   Object.keys(G.Seasons).filter(k => /^\d{4}$/.test(k)).forEach(k => ((G.Seasons[k].news || {}).chatter || []).forEach((c, i) => CHAT.push({ id: 'g' + k + '_' + i, req: S => S.year === Number(k) && inSeason(S), title: c[0],
-    body: S => c[1].replace('{student}', student(S)).replace('{driver}', driver(S)).replace('{mentor}', mentor(S)) })));
+    body: S => { const f = { student: student(S), driver: driver(S), mentor: mentor(S) }; return c[1].replace(/\{(student|driver|mentor)\}/g, (x, k) => f[k]); } }))); // (3.5.2) every mention, the same person each time
 
   // =================================================================
   // v2.9.3: more of the world in the inbox. None of this ever gets a pop-up: it sits in the Inbox for whoever reads it.
@@ -20734,6 +20751,10 @@ window.G = window.G || {};
     { id: 'c35near', cd: 300, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c); }, title: 'Round the corner', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c)); return 'Two people from ' + sp.name + ' came by after work: they are here in ' + c + ' too, ' + R().pick(['twenty minutes away', 'two bus stops down the road', 'on the other side of the river']) + ', and one of them has a ' + R().pick(['niece', 'nephew', 'neighbour']) + ' on the team. They stayed for drive practice and left with ' + R().int(2, 5) + ' keyrings ' + student(S) + ' had printed that afternoon.'; } },
     { id: 'c35far', cd: 400, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c))); }, title: 'A stamp nobody had seen', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c)))); return 'The sponsor banner from ' + sp.name + ' came all the way from ' + D.sponsorCity(sp.name, c) + ', across a border, with customs forms in two languages and a stamp nobody had seen before. ' + student(S) + ' kept the envelope. ' + mentor(S) + ' says a company that far away does not write to many teams, so the thank-you video had better be good.'; } },
     // (3.5.1)
+    // (3.5.2)
+    { id: 'c352bag', cd: 6, req: S => S.phase === 'build' && S.week >= 5 && !!S.cal && G.Era.of(S).bag, title: 'The number on the whiteboard', body: S => { const n = 8 - S.week; return 'Somebody has written a number on the shop whiteboard in red marker: ' + n + (n === 1 ? '. Underneath, in smaller letters: "this is the week".' : '. Every week it goes down by one, and every week ' + student(S) + ' asks whether it can be made to go down slower.') + ' ' + mentor(S) + ' has started bringing the bag to meetings, folded, so that nobody forgets what it is for.'; } },
+    { id: 'c352scrim', cd: 300, req: S => S.phase === 'build' && S.week === 7 && !!S.scrimmage && G.World.on(S), title: 'Everybody we know', body: S => 'The list for Saturday\'s scrimmage came out: most of the teams are from ' + (G.Geo.cityOf(S) || 'town') + ' and the towns around it. ' + student(S) + ' knows somebody on half of them and has already started a group chat. ' + mentor(S) + ' says a scrimmage is where you find out what breaks, so nobody should be embarrassed when it does.' },
+    { id: 'c352bagged', cd: 400, req: S => S.phase === 'comp' && S.week <= 2 && G.Career.bagged(S) && G.Robot.secondRuns(S), title: 'The other robot', body: S => 'The robot in the bag is the one the team chose on Stop Build Day. The other one is on the practice field every afternoon, and ' + student(S) + ' says it drives better already. ' + mentor(S) + ' says that is what everybody says about the robot in the shop.' },
     { id: 'c351renew', cd: 200, req: S => (S.offers || []).some(o => o.renew), title: 'The form on the fridge', body: S => { const o = S.offers.find(x => x.renew); return 'The renewal form from ' + o.name + ' is held to the shop fridge by a swerve-module magnet. ' + student(S) + ' has drawn an arrow to the signature line. ' + mentor(S) + ' says a sponsor that asks to stay has already said the nice part, and the rest is your decision.'; } },
     { id: 'c351board', cd: 300, req: S => !!(S.season && S.season.board && S.season.board.done && S.season.board.verdict != null) && (S.phase === 'comp' || S.phase === 'champs'), title: 'After the visit', body: S => { const v = S.season.board.verdict; return v > 0 ? 'A photograph went round the school on Monday: three board members in safety glasses, one of them holding a wrench the wrong way round. ' + student(S) + ' has printed it for the pit.' : 'Nobody has mentioned the board\'s visit since Monday. ' + student(S) + ' has put a new line on the pit checklist anyway: "check who is in the stands".'; } },
     { id: 'c351grant', cd: 400, req: S => (S.inbox || []).slice(0, 40).some(m => m.reply && m.reply.key === 'edugrant' && m.replied != null), title: 'Four minutes of paperwork', body: S => student(S) + ' timed the grant form: four minutes, including finding a pen. ' + mentor(S) + ' has asked for every form to be like that one. ' + student2(S, '') + ' is spending the grant, on paper, for the third time this week.' },
@@ -20879,7 +20900,13 @@ window.G = window.G || {};
   // everyone watches them, and one local rival's. Each message carries a picture of the robot the team will play with.
   const revealWin = S => (S.phase === 'build' && S.week >= 5) || (S.phase === 'comp' && S.week <= 2);
   const winLeft = S => (S.phase === 'build' ? 10 - S.week : 3 - S.week); // turns left in the window, this one included
-  const mmss = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  // (3.5.2) A reveal exactly as long as the team number: its digits read as a time, the last two the seconds (4756:
+  // 47:56, 254: 2:54, 10432: 1:04:32). A number whose digits cannot be a time (1678) is counted in seconds instead.
+  N.revealLen = function (n) {
+    const ss = n % 100, mm = Math.floor(n / 100) % 100, hh = Math.floor(n / 10000), p = x => String(x).padStart(2, '0');
+    if (ss < 60 && mm < 60) return (hh ? hh + ':' + p(mm) : String(mm)) + ':' + p(ss);
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' seconds';
+  };
   // a team's reveal style stays the same from year to year: a render that stays up as long as the team number, a
   // cinematic video, a teaser, raw practice footage, a live stream, one picture on the forum with no words, or nothing
   // at all (the picture is somebody's photo from a scrimmage)
@@ -20888,7 +20915,7 @@ window.G = window.G || {};
   const styleText = (t, a, b, S) => {
     const ago = S && S.phase === 'comp' ? 'before the season started' : 'last weekend'; // scrimmages are around Week 0
     const st = styleOf(t);
-    if (st === 'render') { const n = t.num, len = n >= 100 && n < 1000 && n % 100 < 60 ? Math.floor(n / 100) + ':' + String(n % 100).padStart(2, '0') : mmss(n); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
+    if (st === 'render') { const len = N.revealLen(t.num); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
     if (st === 'cinematic') return R().pick(['Drone shots, slow motion and a soundtrack that sounds expensive. The robot is on screen for nine seconds in total, and those nine seconds have been looped a thousand times.',
       'A film, not a video: a sunrise, a countdown, sparks in slow motion, and the robot rolling out of fog to a drum hit. ' + a + ' says the fog machine alone must have cost more than our drivetrain.']);
     if (st === 'teaser') return 'Twelve seconds: a wheel, a flash of bumper, a noise that might be a climber. The forum has a frame-by-frame thread and ' + b + ' has posted in it eleven times.';
@@ -23939,6 +23966,7 @@ window.G = window.G || {};
       if (G.Career.dueActivities(S).length) btns += '<button class="btn" data-act="activities">Resolve sponsor activities</button>';
       if (S.incident) btns += '<button class="btn" data-act="incident">Resolve shop incident</button>';
       if (S.dispute) btns += '<button class="btn" data-act="dispute">Settle team dispute</button>';
+      if (S.bagPick) btns += '<button class="btn primary" data-act="bagOpen">Choose the robot for the bag</button>';
       if (G.Career.needReg(S)) btns += '<button class="btn" data-act="closeAndGo" data-arg="calendar">Open Calendar</button>';
       UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
       return;
@@ -23952,12 +23980,27 @@ window.G = window.G || {};
     if (S.phase === 'review') return UI.go('review');
     if (S.phase === 'end') { UI.go('end'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); return; }
     UI.render();
-    if (G.Career.dueActivities(S).length) UI.A.activities();
-    else if (S.incident) UI.A.incident();
-    else if (S.dispute) UI.A.dispute();
-    else if (S.launchQueue && S.launchQueue.length) UI.launchModal();
-    else UI.regReminder();
+    UI.nextPopup(S);
   };
+  // (3.5.2) What comes up after Continue, one after the other: sponsor activities, a shop incident, a team dispute,
+  // then the turn's pop-ups (Stop Build Day's choice of robot among them). Each of the first three comes back here
+  // when it is settled, so that the pop-ups behind it are not lost.
+  UI.nextPopup = function (S) {
+    if (G.Career.dueActivities(S).length) return UI.A.activities();
+    if (S.incident) return UI.A.incident();
+    if (S.dispute) return UI.A.dispute();
+    if (S.launchQueue && S.launchQueue.length) return UI.launchModal();
+    UI.regReminder();
+  };
+  // (3.5.2) Stop Build Day, in a season with a bag: the weeks left before the competition robot goes in the bag (the
+  // Kickoff turn and the seven build weeks; Week 0 is the last). Shown on Headquarters, the Design Office and the Garage.
+  UI.bagCountdown = function (S) {
+    if (!S || !S.cal || !(S.phase === 'kickoff' || S.phase === 'build') || !G.Era.of(S).bag) return '';
+    const n = S.phase === 'kickoff' ? 8 : 8 - S.week, two = !!S.robot && G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1);
+    return '<div class="hint mb">' + UI.icon('clock', 14) + ' <b>Stop Build Day ' + (n <= 1 ? 'is this week.' : 'in ' + n + ' weeks.') + '</b> ' +
+      (n <= 1 ? 'The competition robot goes in the bag when you press Continue' + (two ? ': you choose which of your two robots.' : '.') : 'The competition robot goes in the bag at the end of Week 0.') + ' ' + UI.q('decade', 'Stop Build Day (2016–2019)') + '</div>';
+  };
+  UI.A.bagOpen = () => { if (G.S.bagPick) UI.bagPickModal(); };
   // Stop Build Day with two robots that both run: the team chooses which one goes in the bag (it becomes the competition
   // robot); the other one stays out for practice and development
   UI.preorderModal = function () {
@@ -24250,9 +24293,7 @@ window.G = window.G || {};
   UI.A.outcomeOk = function () {
     const S = G.S; delete S.lastOutcome;
     UI.closeModal(); UI.render();
-    if (G.Career.dueActivities(S).length) UI.A.activities();
-    else if (S.incident) UI.A.incident();
-    else if (S.dispute) UI.A.dispute();
+    UI.nextPopup(S); // (3.5.2) then whatever else this turn holds
   };
   UI.devBanner = function (S) {
     let o = '';
@@ -24351,7 +24392,7 @@ window.G = window.G || {};
       '<button class="btn" data-act="resAct" data-arg="' + a.id + '|hours">Send a team group <span class="xs muted">(+satisfaction, −30 build hours this turn)</span></button>' +
       '<button class="btn bad" data-act="resAct" data-arg="' + a.id + '|skip">Skip it <span class="xs muted">(−15 sponsor satisfaction)</span></button></div>', { lock: true });
   };
-  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); if (G.S.incident) UI.A.incident(); else if (G.S.dispute) UI.A.dispute(); } };
+  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); UI.nextPopup(G.S); } };
 
   // =====================================================================
   // HQ
@@ -24360,6 +24401,8 @@ window.G = window.G || {};
     const S = G.S, C = G.Career;
     let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + (UI.nearCity(S) ? 'near ' + h(UI.nearCity(S)) + ' · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
+    if (S.bagPick) o += '<div class="warnbox mt"><b>Stop Build Day:</b> choose which of your two robots goes in the bag. <button class="btn primary sm" data-act="bagOpen">Choose</button></div>'; // (3.5.2)
+    { const bc = UI.bagCountdown(S); if (bc) o += '<div class="mt">' + bc + '</div>'; }
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') o += '<div class="warnbox mt"><b>' + h(D.VENDORS[S.loyalOffer.brand].name) + ' offers a loyalty sponsorship.</b> Free parts, a voucher or a sale: choose one. <button class="btn primary sm" data-act="loyaltyOpen">Choose</button></div>';
@@ -24494,9 +24537,10 @@ window.G = window.G || {};
   // =====================================================================
   UI.S.garage = { html() {
     const S = G.S;
-    if (!S.robot) return UI.head('Garage', 'garage', '', 'garage') + '<p class="muted">No robot yet — wait for Kickoff.</p>';
+    if (!S.robot) return UI.head('Garage', 'garage', '', 'garage') + UI.bagCountdown(S) + '<p class="muted">No robot yet — wait for Kickoff.</p>';
     const R = S.robot, year = R.year, ci = R.comp || 0, lock = G.Robot.garageLock(S);
     let o = UI.head('Garage', 'garage', h(G.Career.seasonName(S, year)) + (S.phase === 'off' ? ' — last season\'s robots (used at offseason events)' : '') + '. Two robots: choose which one competes and which one the drivers practice on.', 'garage');
+    o += UI.bagCountdown(S); // (3.5.2)
     if (lock) o += '<div class="warnbox mb">' + h(lock) + ' Spares identical to the competition robot\'s subsystems can still be swapped in from the event screen.</div>';
     if (G.Career.bagged(S)) { const k = G.Career.bagK(S); o += '<div class="warnbox mb">' + UI.icon('garage', 14) + ' <b>Stop Build Day:</b> the competition robot is in the bag until the season ends and may only be touched at events. ' + (G.Robot.secondRuns(S) ? 'Your second robot carries the work: hardware projects keep their full speed and the drivers practise on it.' : 'With no second robot, hardware projects run at ' + (k > 0.5 ? Math.round(k * 100) + '% speed' : 'half speed') + ' and the drive team cannot practise at home.') + ' Whatever you finish for it now is packed and fitted on practice day at your next event.</div>';
       const held = G.Robot.held(S), names = G.Robot.heldNames(S), dist = S.team.home && G.World.on(S);
@@ -24627,6 +24671,7 @@ window.G = window.G || {};
   UI.S.design = { html() {
     const S = G.S, R = S.robot, C = G.Career, inSeason = R && R.year === S.year && S.phase !== 'off';
     let o = UI.head('Design Office', 'design', 'Choose development directions, run projects, research for the future.', 'design');
+    o += UI.bagCountdown(S); // (3.5.2)
     o += UI.devBanner(S);
     if (G.Career.bagged(S)) o += '<div class="warnbox mb"><b>Stop Build Day:</b> the competition robot is in the bag. ' + (G.Career.bagK(S) < 1 ? 'Fabrication projects run at ' + Math.round(G.Career.bagK(S) * 100) + '% speed (a second robot removes the penalty)' : 'Your second robot keeps fabrication projects at full speed') + '. New mechanisms and upgrades are packed when they are finished and fitted on practice day at your next event (Install Upgrade)' + (G.Robot.held(S).length ? ': <b>' + G.Robot.held(S).length + ' packed now</b>' : '') + '. Software and program projects are not affected.</div>';
     if (S.phase === 'build' || S.phase === 'kickoff') o += '<div class="row wrap mb"><label class="row sm"><input type="checkbox" data-chg="overtime" ' + (S.overtime ? 'checked' : '') + '> Overtime this week (+30% hours, −6 morale, ' + U.money(200) + ')</label></div>';
@@ -27351,6 +27396,13 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.2', title: 'Stop Build Day fixes', notes: [
+      'In a season with Stop Build Day, the window that asks which of your two robots goes in the bag now always opens. It was lost when a shop incident or a team dispute came up the same week, and so were the other pop-ups of that week (a first-time story, a vendor launch).',
+      'Headquarters, the Design Office and the Garage count down the weeks to Stop Build Day. Until the choice is made, Headquarters asks for it and Continue waits.',
+      'A robot reveal that is as long as the team number now reads as the team number (47:56 for team 4756). A number that cannot be written as a time is counted in seconds.',
+      'The Week 0 scrimmage and the offseason events at home draw the nearest teams first: the event\'s own city, then the teams within a drive. The scrimmage is held in your own city and is only as big as the teams within a drive make it, so an island scrimmage stays on the island.',
+      'A line of team chatter that names the same student twice now fills in both.'
+    ] },
     { v: '3.5.1', title: 'Renewals by choice, travel by miles, and more letters', notes: [
       'Sponsors: a sponsor whose deal has ended no longer renews by itself. If it wants to stay, its offer joins the list marked Renewal, and signing it is your choice. Leaving it unsigned costs nothing.',
       'International partners write when they sign and when they offer to renew, from their branch near you or from their head office, and so does the printer maker. A head office in your own area always writes itself.',
@@ -28681,7 +28733,7 @@ window.G = window.G || {};
         '<b>Pits</b>: from the 2018 season the best teams roll in a Super pit (Workshop guide).',
         '<b>Drivetrains</b>: before swerve the strong teams drive West Coast, on two drive sets from a vendor. Sterling sells them until it closes. Lumen stops making them when it launches its own swerve module and sells the last stock through the 2022 season; Apex makes none. A West Coast drive also runs on two COTS Drive gearboxes, at lower performance: from 2023 that, or the sets you already own, is what there is. Swerve modules are sold by Apex from 2020 and by Lumen from 2022.',
         '<b>Mechanism kits</b>: until August 2021 only elevator, shooter and turret kits are sold. The lost year\'s catalogues add arm, intake, indexer, climber and gripper kits, and GridTube frame stock that every mechanical build can use.'] },
-      { icon: 'box', t: 'Stop Build Day (2016–2019)', li: ['After build season the competition robot goes in a bag and may only be touched at events. With two robots that both run, you choose which one goes in the bag: it becomes the competition robot. In the Garage the bagged robot is greyed out, and neither robot can change role until the season ends.',
+      { icon: 'box', t: 'Stop Build Day (2016–2019)', li: ['After build season the competition robot goes in a bag and may only be touched at events. Headquarters, the Design Office and the Garage count down the weeks to it: the bag closes when you press Continue at the end of Week 0. With two robots that both run, a window asks which one goes in the bag: it becomes the competition robot. In the Garage the bagged robot is greyed out, and neither robot can change role until the season ends.',
         'A scrimmage invitation can then only be taken up with a real second robot (a test chassis is not enough); without one the team declines.', 'Development goes on: a new mechanism, an upgrade, hardening or lightweighting finished during competition season is <b>packed</b> (Garage) and fitted in the pits with <b>Install Upgrade</b> on practice day at your next event. Until then the robot competes as it was bagged.', 'Only the newest version of a subsystem, or a unit identical to the one in the bag, can be packed: older units stay in storage. Install Upgrade fits the newest packed unit, and whatever it fits comes back to full condition.', 'Hardware projects for it run at half speed, and the drive team cannot practise at home.',
         'A second robot carries the work: with one running there is no slowdown at all, and the drivers practise on it.', 'District teams get six hours with the robot before each event: packed parts go on then, without using a practice block, and part of the lost speed comes back. Software and program projects are not affected.', 'The rule ends with the 2019 season.'] },
       { icon: 'incident', t: 'The lost season', li: ['Right after the 2020 Championship everything stops. The 2021 season is cancelled and the calendar jumps to June 2021.',
@@ -28801,7 +28853,7 @@ window.G = window.G || {};
       { icon: 'event', t: 'Championship', li: ['Regional teams qualify by winning a regional or by winning Impact, Engineering Inspiration or Rookie All-Star. Through 2024 the only other way in is a <b>wildcard</b>: when a team that has already qualified earns another place at a regional (or one team earns two there), that place goes to the finalist alliance, captain first, then first pick, then second pick. Later weeks hand out more of them. From 2025 the <b>Regional Pool</b> replaces wildcards: points from your best two regionals against a cut-off. District teams qualify through their district: its Championship places go to the District Championship\'s award winners and winning alliance, then down the points list. Last season\'s World Champions and Einstein finalists, and Hall of Fame teams, are invited.', 'From 2017 to 2020 there are two Championships (your area decides which one you attend), each with six divisions.', 'Win your division to play on <b>Einstein</b> against the other seven division champions.', 'The FIRST Impact Award is presented on Einstein. A regional Impact winner that is knocked out earlier still goes there, watches the finals from the stands and hears the announcement.', 'Use Week 7 to lighten the load so the team arrives rested.', 'The Championship opens with a ceremony after practice day (host city, divisions, the season so far), and Einstein with the emcee, the commentators and the livestream chat.'] }
       ,{ icon: 'calendar', t: 'Offseason events', li: ['From June to November your home holds offseason events, played with last season\'s robot and game. Register in the Calendar, one event a month. The students earn double experience, and a result brings a little reputation, morale and sponsor goodwill (more for a win).',
         'Every home has its own events, named for the place and held in one of its cities: a team of the Lakeshore District plays the ' + D.OFFSEASON_BY.lakeshore.os_jul[0] + ' in ' + D.OFFSEASON_BY.lakeshore.os_jul[1] + ' in July, a team in East Asia the ' + D.OFFSEASON_BY['East Asia'].os_jul[0] + ' in ' + D.OFFSEASON_BY['East Asia'].os_jul[1] + '. The trip is always a short one.',
-        'The field is local: teams of your own area, those of your own district or cities most of all. Where too few teams live there to fill the field (24 at least, for eight alliances), the nearest others make up the numbers: the areas next door first, then the rest of your part of the world, and the nearest other part only after that. The Week 0 scrimmage draws its teams the same way. Summit Champs is the exception: its field comes from the whole world.',
+        'The field is local, the nearest teams first: those of the event\'s own city and a short trip around it, then those within a drive, the nearer the likelier. Where too few teams live that close to fill the field (24 at least, for eight alliances), the nearest others make up the numbers: the rest of your area, the areas next door, the rest of your part of the world, and the nearest other part only after that. The Week 0 scrimmage is held in your own city and draws its teams the same way; it is only as big as the teams within a drive make it, eight at the least. Summit Champs is the exception: its field comes from the whole world.',
         'Teams in North America have five events: June, July, September, October and November. Everywhere else there are four: nothing is held in October, the month of Summit Champs, so an invited team is free to fly there.'] }
       ,{ icon: 'trophy', t: 'Summit Champs', li: ['The invitation-only offseason event in October, hosted every year by an elite team in California. In August the host invites the teams that won an official event that season as captain or first pick (regional, district event, District Championship, a Championship division or Einstein); the world simulation decides the rest of the field: 40 teams, about 8 of them elite, as strong as a Championship division\'s playoffs.',
         'Invited, you get an email and a pop-up, and sign up in the Calendar for October. It takes the place of your home\'s October event (one event a month), unless you had already signed up for that one when the invitation came: then you can play both, one after the other. Outside North America no event is held at home in October, so the month is free for it. Not invited, you hear who went, and in November how it ended.',
@@ -28892,7 +28944,7 @@ window.G = window.G || {};
         '<b>Festival of Champions</b>: July 2017 only. The winners of the two Championships play a best of five.',
         '<b>Kickoff</b>: the day in January the game is revealed. <b>Build season</b>: the weeks from Kickoff to the first events. <b>Week 0</b>: the last build week, for scrimmages.',
         '<b>Offseason</b>: May to December. <b>Offseason event</b>: an event of your home, from June to November, played with last season\'s robot against the teams around you. <b>Summit Champs</b>: the invitation-only October event for teams that won an event as captain or first pick. <b>Vendor challenge</b>: a vendor\'s yearly contest for students (Code Cup, Circuit Jam, CAD Sprint), entered as a program project.',
-        '<b>Stop Build Day</b> (2016 to 2019): the day the competition robot goes in a bag until its first event.',
+        '<b>Stop Build Day</b> (2016 to 2019): the day the competition robot goes in a bag until its first event, at the end of Week 0. Headquarters, the Design Office and the Garage count down the weeks to it.',
         '<b>The lost season</b>: 2021, which the game skips. It is the game\'s own timeline: in reality the 2020 season was stopped part-way through and its Championships were never held.',
         '<b>Wildcard</b> (through 2024) and <b>Regional Pool</b> (from 2025): the ways into the Championship for a regional team that did not win an event or a qualifying award.',
         '<b>Imp\u2060act Award</b> (called the Chairman\'s Award until 2022), <b>Engineering Inspiration</b>, <b>Rookie All-Star</b>: judged awards that qualify a team for the Championship. <b>Blue banner</b>: what an event win or that award hangs on your wall. <b>Hall of Fame</b>: the teams that won it at the Championship.'] },
@@ -29282,6 +29334,7 @@ window.G = window.G || {};
       { const ch = G.Career.chalNow(S); if (ch && opts.chal !== false) G.Robot.startProject(S, { type: 'vchal', ch: ch.id }); } // vendor challenges (3.1.3)
       // (3.5.1) letters that take a reply: opts.replies = { key: option } answers them as they arrive (the school board's invitation, the education grant)
       if (opts.replies) S.inbox.forEach(m => { if (m.reply && m.replied == null && opts.replies[m.reply.key] != null && G.News.replyOptions(S, m).length) G.News.reply(S, m.id, opts.replies[m.reply.key]); });
+      if (S.bagPick) { G.Career.bagPick(S, opts.bagOther ? 1 - (S.robot.comp || 0) : S.robot.comp || 0); } // (3.5.2) Stop Build Day: the competition robot goes in the bag (bagOther: the other one)
       if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {

@@ -1321,6 +1321,7 @@
     if (C.dueActivities(S).length) b.push('Sponsor activities need a decision (Inbox).');
     if (S.incident) b.push('A shop incident needs a decision: ' + S.incident.title + '.');
     if (S.dispute) b.push('A team dispute needs a decision: ' + S.dispute.title + '.');
+    if (S.bagPick) b.push('Stop Build Day: choose which robot goes in the bag (Headquarters).'); // (3.5.2)
     if (S.lostYear && S.lostYear.stage === 'choose') b.push('Choose the team\'s two programs for the year at home (Headquarters).');
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') b.push('Choose your loyalty sponsorship from ' + D.VENDORS[S.loyalOffer.brand].name + ' (Headquarters).');
     if (S.prizeOffer && S.prizeOffer.stage === 'choose') b.push('Choose your ' + S.prizeOffer.name + ' prize (Headquarters).');
@@ -3627,6 +3628,9 @@
     walk(S);
   }
   C.migrate = function (S) {
+    // (3.5.2) Stop Build Day's choice could be left open by a pop-up that never showed: only the day itself chooses,
+    // and a save past it keeps the robot that was bagged
+    if (S.bagPick && !(S.phase === 'comp' && S.week === 1 && C.bagged(S) && G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1))) delete S.bagPick;
     if (S.team && D.REGION_OLD && (D.REGION_OLD[S.team.region] || (S.teams && Object.values(S.teams).some(t => D.REGION_OLD[t.region])))) renameRegions(S);
     if (G.World.splitMiddleEast) G.World.splitMiddleEast(S); // 3.4.4: Anatolia leaves the Middle East
     if (S.team && !S.team.lead) S.team.lead = D.personName(G.makeRng(hashS('lead:' + S.team.num + ':' + S.team.name) || 3), S.team);

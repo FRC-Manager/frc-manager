@@ -307,6 +307,7 @@
       { const ch = G.Career.chalNow(S); if (ch && opts.chal !== false) G.Robot.startProject(S, { type: 'vchal', ch: ch.id }); } // vendor challenges (3.1.3)
       // (3.5.1) letters that take a reply: opts.replies = { key: option } answers them as they arrive (the school board's invitation, the education grant)
       if (opts.replies) S.inbox.forEach(m => { if (m.reply && m.replied == null && opts.replies[m.reply.key] != null && G.News.replyOptions(S, m).length) G.News.reply(S, m.id, opts.replies[m.reply.key]); });
+      if (S.bagPick) { G.Career.bagPick(S, opts.bagOther ? 1 - (S.robot.comp || 0) : S.robot.comp || 0); } // (3.5.2) Stop Build Day: the competition robot goes in the bag (bagOther: the other one)
       if (S.districtOffer && S.districtOffer.stage === 'choose') { const O = S.districtOffer; C.districtChoose(S, !!opts.join); log.push(O.cy + ': the ' + O.id + ' district forms; the team ' + (opts.join ? 'joins' : 'stays regional')); }
       // decisions each turn
       if (S.phase === 'off' && D.MONTHS[S.month] === 'Oct' || (S.mode === 'single' && S.phase === 'kickoff')) {

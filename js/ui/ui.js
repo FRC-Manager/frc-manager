@@ -164,6 +164,7 @@
       if (G.Career.dueActivities(S).length) btns += '<button class="btn" data-act="activities">Resolve sponsor activities</button>';
       if (S.incident) btns += '<button class="btn" data-act="incident">Resolve shop incident</button>';
       if (S.dispute) btns += '<button class="btn" data-act="dispute">Settle team dispute</button>';
+      if (S.bagPick) btns += '<button class="btn primary" data-act="bagOpen">Choose the robot for the bag</button>';
       if (G.Career.needReg(S)) btns += '<button class="btn" data-act="closeAndGo" data-arg="calendar">Open Calendar</button>';
       UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
       return;
@@ -177,12 +178,27 @@
     if (S.phase === 'review') return UI.go('review');
     if (S.phase === 'end') { UI.go('end'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); return; }
     UI.render();
-    if (G.Career.dueActivities(S).length) UI.A.activities();
-    else if (S.incident) UI.A.incident();
-    else if (S.dispute) UI.A.dispute();
-    else if (S.launchQueue && S.launchQueue.length) UI.launchModal();
-    else UI.regReminder();
+    UI.nextPopup(S);
   };
+  // (3.5.2) What comes up after Continue, one after the other: sponsor activities, a shop incident, a team dispute,
+  // then the turn's pop-ups (Stop Build Day's choice of robot among them). Each of the first three comes back here
+  // when it is settled, so that the pop-ups behind it are not lost.
+  UI.nextPopup = function (S) {
+    if (G.Career.dueActivities(S).length) return UI.A.activities();
+    if (S.incident) return UI.A.incident();
+    if (S.dispute) return UI.A.dispute();
+    if (S.launchQueue && S.launchQueue.length) return UI.launchModal();
+    UI.regReminder();
+  };
+  // (3.5.2) Stop Build Day, in a season with a bag: the weeks left before the competition robot goes in the bag (the
+  // Kickoff turn and the seven build weeks; Week 0 is the last). Shown on Headquarters, the Design Office and the Garage.
+  UI.bagCountdown = function (S) {
+    if (!S || !S.cal || !(S.phase === 'kickoff' || S.phase === 'build') || !G.Era.of(S).bag) return '';
+    const n = S.phase === 'kickoff' ? 8 : 8 - S.week, two = !!S.robot && G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1);
+    return '<div class="hint mb">' + UI.icon('clock', 14) + ' <b>Stop Build Day ' + (n <= 1 ? 'is this week.' : 'in ' + n + ' weeks.') + '</b> ' +
+      (n <= 1 ? 'The competition robot goes in the bag when you press Continue' + (two ? ': you choose which of your two robots.' : '.') : 'The competition robot goes in the bag at the end of Week 0.') + ' ' + UI.q('decade', 'Stop Build Day (2016–2019)') + '</div>';
+  };
+  UI.A.bagOpen = () => { if (G.S.bagPick) UI.bagPickModal(); };
   // Stop Build Day with two robots that both run: the team chooses which one goes in the bag (it becomes the competition
   // robot); the other one stays out for practice and development
   UI.preorderModal = function () {
@@ -475,9 +491,7 @@
   UI.A.outcomeOk = function () {
     const S = G.S; delete S.lastOutcome;
     UI.closeModal(); UI.render();
-    if (G.Career.dueActivities(S).length) UI.A.activities();
-    else if (S.incident) UI.A.incident();
-    else if (S.dispute) UI.A.dispute();
+    UI.nextPopup(S); // (3.5.2) then whatever else this turn holds
   };
   UI.devBanner = function (S) {
     let o = '';
@@ -576,7 +590,7 @@
       '<button class="btn" data-act="resAct" data-arg="' + a.id + '|hours">Send a team group <span class="xs muted">(+satisfaction, −30 build hours this turn)</span></button>' +
       '<button class="btn bad" data-act="resAct" data-arg="' + a.id + '|skip">Skip it <span class="xs muted">(−15 sponsor satisfaction)</span></button></div>', { lock: true });
   };
-  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); if (G.S.incident) UI.A.incident(); else if (G.S.dispute) UI.A.dispute(); } };
+  UI.A.resAct = function (arg) { const [id, how] = arg.split('|'); G.Career.resolveActivity(G.S, id, how); UI.closeModal(); if (G.Career.dueActivities(G.S).length) UI.A.activities(); else { UI.render(); UI.nextPopup(G.S); } };
 
   // =====================================================================
   // HQ
@@ -585,6 +599,8 @@
     const S = G.S, C = G.Career;
     let o = UI.head('Headquarters', 'hq', (S.team.elite ? UI.eliteMine(S) + ' ' : '') + (S.team.school ? '<b class="hq-school">' + h(S.team.school) + '</b> · ' : '') + (UI.nearCity(S) ? 'near ' + h(UI.nearCity(S)) + ' · ' : '') + h(C.dateLabel(S)) + (S.year && S.phase !== 'off' ? ' — ' + h(G.Seasons[S.year].name) : ''), 'basics'); // the team's school or organisation leads the page
     o += cta(S);
+    if (S.bagPick) o += '<div class="warnbox mt"><b>Stop Build Day:</b> choose which of your two robots goes in the bag. <button class="btn primary sm" data-act="bagOpen">Choose</button></div>'; // (3.5.2)
+    { const bc = UI.bagCountdown(S); if (bc) o += '<div class="mt">' + bc + '</div>'; }
     if (S.lostYear && S.lostYear.stage === 'choose') o += '<div class="warnbox mt"><b>The 2021 season is cancelled.</b> Before anything else, decide what the team does with its year at home. <button class="btn primary sm" data-act="pandemicOpen">Choose two programs</button></div>';
     if (S.festStream && S.festStream.stage === 'open' && !S.event) o += '<div class="hint mt">' + UI.icon('trophy', 14) + ' <b>Live this month: the Festival of Champions.</b> The ' + h(S.festStream.cities[0]) + ' and ' + h(S.festStream.cities[1]) + ' champions play a best of five. Watching is optional and free, and nothing is at stake for your team. <button class="btn primary sm" data-act="festStream">Watch the livestream</button></div>';
     if (S.loyalOffer && S.loyalOffer.stage === 'choose') o += '<div class="warnbox mt"><b>' + h(D.VENDORS[S.loyalOffer.brand].name) + ' offers a loyalty sponsorship.</b> Free parts, a voucher or a sale: choose one. <button class="btn primary sm" data-act="loyaltyOpen">Choose</button></div>';
@@ -719,9 +735,10 @@
   // =====================================================================
   UI.S.garage = { html() {
     const S = G.S;
-    if (!S.robot) return UI.head('Garage', 'garage', '', 'garage') + '<p class="muted">No robot yet — wait for Kickoff.</p>';
+    if (!S.robot) return UI.head('Garage', 'garage', '', 'garage') + UI.bagCountdown(S) + '<p class="muted">No robot yet — wait for Kickoff.</p>';
     const R = S.robot, year = R.year, ci = R.comp || 0, lock = G.Robot.garageLock(S);
     let o = UI.head('Garage', 'garage', h(G.Career.seasonName(S, year)) + (S.phase === 'off' ? ' — last season\'s robots (used at offseason events)' : '') + '. Two robots: choose which one competes and which one the drivers practice on.', 'garage');
+    o += UI.bagCountdown(S); // (3.5.2)
     if (lock) o += '<div class="warnbox mb">' + h(lock) + ' Spares identical to the competition robot\'s subsystems can still be swapped in from the event screen.</div>';
     if (G.Career.bagged(S)) { const k = G.Career.bagK(S); o += '<div class="warnbox mb">' + UI.icon('garage', 14) + ' <b>Stop Build Day:</b> the competition robot is in the bag until the season ends and may only be touched at events. ' + (G.Robot.secondRuns(S) ? 'Your second robot carries the work: hardware projects keep their full speed and the drivers practise on it.' : 'With no second robot, hardware projects run at ' + (k > 0.5 ? Math.round(k * 100) + '% speed' : 'half speed') + ' and the drive team cannot practise at home.') + ' Whatever you finish for it now is packed and fitted on practice day at your next event.</div>';
       const held = G.Robot.held(S), names = G.Robot.heldNames(S), dist = S.team.home && G.World.on(S);
@@ -852,6 +869,7 @@
   UI.S.design = { html() {
     const S = G.S, R = S.robot, C = G.Career, inSeason = R && R.year === S.year && S.phase !== 'off';
     let o = UI.head('Design Office', 'design', 'Choose development directions, run projects, research for the future.', 'design');
+    o += UI.bagCountdown(S); // (3.5.2)
     o += UI.devBanner(S);
     if (G.Career.bagged(S)) o += '<div class="warnbox mb"><b>Stop Build Day:</b> the competition robot is in the bag. ' + (G.Career.bagK(S) < 1 ? 'Fabrication projects run at ' + Math.round(G.Career.bagK(S) * 100) + '% speed (a second robot removes the penalty)' : 'Your second robot keeps fabrication projects at full speed') + '. New mechanisms and upgrades are packed when they are finished and fitted on practice day at your next event (Install Upgrade)' + (G.Robot.held(S).length ? ': <b>' + G.Robot.held(S).length + ' packed now</b>' : '') + '. Software and program projects are not affected.</div>';
     if (S.phase === 'build' || S.phase === 'kickoff') o += '<div class="row wrap mb"><label class="row sm"><input type="checkbox" data-chg="overtime" ' + (S.overtime ? 'checked' : '') + '> Overtime this week (+30% hours, −6 morale, ' + U.money(200) + ')</label></div>';

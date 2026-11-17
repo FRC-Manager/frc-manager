@@ -224,13 +224,18 @@
   // is the home area's own teams (its district or cities first). Only where those are too few to fill it do others
   // make up the numbers, the nearest first: the areas next door, the rest of its part of the world, the nearest other
   // part of the world (D.NEAR, in its order), everybody else.
+  // (3.5.2) local.city, local.hubOf: before all of that, by miles from the event's city (D.tripTier): first the teams
+  // of that city and around it (a local trip), then those within a drive (the nearer the likelier), then as above.
   AI.pickAttendees = function (pool, rng, count, region, star, exclude, champs, local) {
     const target = champs ? 78 : 28 + star * 9;
     const list = Object.values(pool).filter(t => !exclude.has(t.num));
     const chosen = [];
     const grp = r => (D.GROUP && D.GROUP[r]) || 'NA', adj = D.ADJ[region] || [], near = (D.NEAR || {})[region] || [];
-    const tierOf = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
-    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1);
+    const areaTier = t => (t.region === region ? 0 : adj.includes(t.region) ? 1 : grp(t.region) === grp(region) ? 2 : near.includes(t.region) ? 3 + near.indexOf(t.region) : 3 + near.length);
+    const by = local && local.city && local.hubOf && D.tripTier ? {} : null; // hub: [0 a local trip, 1 a drive, -1 farther; miles]
+    const trip = t => { const hb = local.hubOf(t); if (!by[hb]) { const tr = D.tripTier(local.city, hb); by[hb] = [tr === 'local' ? 0 : tr === 'drive' ? 1 : -1, D.tripMiles(local.city, hb) || 0]; } return by[hb]; };
+    const tierOf = t => { if (by) { const k = trip(t)[0]; if (k >= 0) return k; } return (by ? 2 : 0) + areaTier(t); };
+    const localW = t => (t.region === region && local.zoneOf(t) === local.zone ? 3 : 1) * (by && trip(t)[0] === 1 ? 1 / (1 + Math.pow(trip(t)[1] / 200, 2)) : 1);
     const cand = list.map(t => {
       let w = champs ? 1 : local ? localW(t) : (t.region === region ? 3 : adj.includes(t.region) ? 1.4 : 0.35);
       const z = (t.str - target) / (champs ? 14 : 24);

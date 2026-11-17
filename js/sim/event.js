@@ -34,12 +34,20 @@
     const player = S.team.num;
     const weekMult = def.kind === 'champs' || def.kind === 'einstein' ? 1.08 : def.kind === 'offseason' ? (def.summit ? D.SUMMIT.weekMult : 1.04) : def.kind === 'scrimmage' ? 0.8 : 0.85 + 0.03 * (ev.week - 1);
     const diffMult = { easy: 0.9, normal: 1, hard: 1.1 }[S.diff] || 1;
-    const size = def.size || 40;
+    let size = def.size || 40;
     const exclude = new Set([player]);
     // a simulated world names the teams at every event; otherwise the field is drawn by area and strength
     // (3.5) an offseason event and the Week 0 scrimmage are held at home, for the teams around it
-    const local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, G.Era.cy(S)) } : null;
+    // (3.5.2) ... the nearest first, by miles from the event's city: an offseason event's own, the scrimmage's is the
+    // team's (G.AI.pickAttendees). A scrimmage is only as big as the teams within a drive make it (8 at the least).
+    const lcy = G.Era.cy(S), local = G.World.on(S) && (def.kind === 'scrimmage' || (def.kind === 'offseason' && !def.summit)) ? { zone: def.zone || D.offseasonHome(S.team), zoneOf: t => G.World.zoneOf(t, lcy),
+      city: def.hub || (def.kind === 'scrimmage' && G.Geo.cityOf ? G.Geo.cityOf(S) : ''), hubOf: t => G.Geo.posOf(S, t, lcy).hub } : null;
+    if (local && def.kind === 'scrimmage' && local.city && D.tripTier) {
+      const near = Object.values(S.teams).filter(t => t.num !== player && ['local', 'drive'].includes(D.tripTier(local.city, local.hubOf(t)))).length;
+      size = U.clamp(near + 1, Math.min(8, size), size);
+    }
     if (def.hub) ev.hub = def.hub; // the city, where the event has one of its own
+    else if (local && def.kind === 'scrimmage' && local.city) ev.hub = local.city; // (3.5.2) the scrimmage is in the team's city
     const ai = def.teams && def.teams.length >= 11 ? def.teams.filter(n => S.teams[n] && n !== player) : G.AI.pickAttendees(S.teams, rng, size - 1, ev.region, ev.star, exclude, def.kind === 'champs', local);
     ev.teams = [player].concat(ai);
     ai.forEach(n => { ev.caps[n] = G.AI.entry(S.teams[n], year, weekMult, diffMult, rng); });

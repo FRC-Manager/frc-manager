@@ -385,7 +385,7 @@
   ];
   // chatter the classic games bring along: [title, text] with {student}, {driver} and {mentor} filled in
   Object.keys(G.Seasons).filter(k => /^\d{4}$/.test(k)).forEach(k => ((G.Seasons[k].news || {}).chatter || []).forEach((c, i) => CHAT.push({ id: 'g' + k + '_' + i, req: S => S.year === Number(k) && inSeason(S), title: c[0],
-    body: S => c[1].replace('{student}', student(S)).replace('{driver}', driver(S)).replace('{mentor}', mentor(S)) })));
+    body: S => { const f = { student: student(S), driver: driver(S), mentor: mentor(S) }; return c[1].replace(/\{(student|driver|mentor)\}/g, (x, k) => f[k]); } }))); // (3.5.2) every mention, the same person each time
 
   // =================================================================
   // v2.9.3: more of the world in the inbox. None of this ever gets a pop-up: it sits in the Inbox for whoever reads it.
@@ -574,6 +574,10 @@
     { id: 'c35near', cd: 300, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c); }, title: 'Round the corner', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCity(s.name, c) === c)); return 'Two people from ' + sp.name + ' came by after work: they are here in ' + c + ' too, ' + R().pick(['twenty minutes away', 'two bus stops down the road', 'on the other side of the river']) + ', and one of them has a ' + R().pick(['niece', 'nephew', 'neighbour']) + ' on the team. They stayed for drive practice and left with ' + R().int(2, 5) + ' keyrings ' + student(S) + ' had printed that afternoon.'; } },
     { id: 'c35far', cd: 400, req: S => { const c = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : ''; return !!c && !!D.sponsorCity && S.sponsors.some(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c))); }, title: 'A stamp nobody had seen', body: S => { const c = G.Geo.cityOf(S), sp = R().pick(S.sponsors.filter(s => !D.sponsorIntl(s.name) && D.sponsorCities(s.name).length > 0 && !D.sponsorCities(s.name).some(x => D.landOf(x) === D.landOf(c)))); return 'The sponsor banner from ' + sp.name + ' came all the way from ' + D.sponsorCity(sp.name, c) + ', across a border, with customs forms in two languages and a stamp nobody had seen before. ' + student(S) + ' kept the envelope. ' + mentor(S) + ' says a company that far away does not write to many teams, so the thank-you video had better be good.'; } },
     // (3.5.1)
+    // (3.5.2)
+    { id: 'c352bag', cd: 6, req: S => S.phase === 'build' && S.week >= 5 && !!S.cal && G.Era.of(S).bag, title: 'The number on the whiteboard', body: S => { const n = 8 - S.week; return 'Somebody has written a number on the shop whiteboard in red marker: ' + n + (n === 1 ? '. Underneath, in smaller letters: "this is the week".' : '. Every week it goes down by one, and every week ' + student(S) + ' asks whether it can be made to go down slower.') + ' ' + mentor(S) + ' has started bringing the bag to meetings, folded, so that nobody forgets what it is for.'; } },
+    { id: 'c352scrim', cd: 300, req: S => S.phase === 'build' && S.week === 7 && !!S.scrimmage && G.World.on(S), title: 'Everybody we know', body: S => 'The list for Saturday\'s scrimmage came out: most of the teams are from ' + (G.Geo.cityOf(S) || 'town') + ' and the towns around it. ' + student(S) + ' knows somebody on half of them and has already started a group chat. ' + mentor(S) + ' says a scrimmage is where you find out what breaks, so nobody should be embarrassed when it does.' },
+    { id: 'c352bagged', cd: 400, req: S => S.phase === 'comp' && S.week <= 2 && G.Career.bagged(S) && G.Robot.secondRuns(S), title: 'The other robot', body: S => 'The robot in the bag is the one the team chose on Stop Build Day. The other one is on the practice field every afternoon, and ' + student(S) + ' says it drives better already. ' + mentor(S) + ' says that is what everybody says about the robot in the shop.' },
     { id: 'c351renew', cd: 200, req: S => (S.offers || []).some(o => o.renew), title: 'The form on the fridge', body: S => { const o = S.offers.find(x => x.renew); return 'The renewal form from ' + o.name + ' is held to the shop fridge by a swerve-module magnet. ' + student(S) + ' has drawn an arrow to the signature line. ' + mentor(S) + ' says a sponsor that asks to stay has already said the nice part, and the rest is your decision.'; } },
     { id: 'c351board', cd: 300, req: S => !!(S.season && S.season.board && S.season.board.done && S.season.board.verdict != null) && (S.phase === 'comp' || S.phase === 'champs'), title: 'After the visit', body: S => { const v = S.season.board.verdict; return v > 0 ? 'A photograph went round the school on Monday: three board members in safety glasses, one of them holding a wrench the wrong way round. ' + student(S) + ' has printed it for the pit.' : 'Nobody has mentioned the board\'s visit since Monday. ' + student(S) + ' has put a new line on the pit checklist anyway: "check who is in the stands".'; } },
     { id: 'c351grant', cd: 400, req: S => (S.inbox || []).slice(0, 40).some(m => m.reply && m.reply.key === 'edugrant' && m.replied != null), title: 'Four minutes of paperwork', body: S => student(S) + ' timed the grant form: four minutes, including finding a pen. ' + mentor(S) + ' has asked for every form to be like that one. ' + student2(S, '') + ' is spending the grant, on paper, for the third time this week.' },
@@ -719,7 +723,13 @@
   // everyone watches them, and one local rival's. Each message carries a picture of the robot the team will play with.
   const revealWin = S => (S.phase === 'build' && S.week >= 5) || (S.phase === 'comp' && S.week <= 2);
   const winLeft = S => (S.phase === 'build' ? 10 - S.week : 3 - S.week); // turns left in the window, this one included
-  const mmss = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  // (3.5.2) A reveal exactly as long as the team number: its digits read as a time, the last two the seconds (4756:
+  // 47:56, 254: 2:54, 10432: 1:04:32). A number whose digits cannot be a time (1678) is counted in seconds instead.
+  N.revealLen = function (n) {
+    const ss = n % 100, mm = Math.floor(n / 100) % 100, hh = Math.floor(n / 10000), p = x => String(x).padStart(2, '0');
+    if (ss < 60 && mm < 60) return (hh ? hh + ':' + p(mm) : String(mm)) + ':' + p(ss);
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' seconds';
+  };
   // a team's reveal style stays the same from year to year: a render that stays up as long as the team number, a
   // cinematic video, a teaser, raw practice footage, a live stream, one picture on the forum with no words, or nothing
   // at all (the picture is somebody's photo from a scrimmage)
@@ -728,7 +738,7 @@
   const styleText = (t, a, b, S) => {
     const ago = S && S.phase === 'comp' ? 'before the season started' : 'last weekend'; // scrimmages are around Week 0
     const st = styleOf(t);
-    if (st === 'render') { const n = t.num, len = n >= 100 && n < 1000 && n % 100 < 60 ? Math.floor(n / 100) + ':' + String(n % 100).padStart(2, '0') : mmss(n); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
+    if (st === 'render') { const len = N.revealLen(t.num); return 'The whole reveal is one rendered image of the robot that stays on screen for ' + len + ': their team number, as every year. Nobody skips it. ' + a + ' watched all of it twice and swears the render moved.'; }
     if (st === 'cinematic') return R().pick(['Drone shots, slow motion and a soundtrack that sounds expensive. The robot is on screen for nine seconds in total, and those nine seconds have been looped a thousand times.',
       'A film, not a video: a sunrise, a countdown, sparks in slow motion, and the robot rolling out of fog to a drum hit. ' + a + ' says the fog machine alone must have cost more than our drivetrain.']);
     if (st === 'teaser') return 'Twelve seconds: a wheel, a flash of bumper, a noise that might be a climber. The forum has a frame-by-frame thread and ' + b + ' has posted in it eleven times.';
