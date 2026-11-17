@@ -370,6 +370,7 @@
       ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(-h * 0.7, -h * 0.6, h * 1.0, h * 1.2);
       ctx.fillStyle = COL.fuel; ctx.fillRect(-h * 0.7, -h * 0.6 + h * 1.2 * (1 - fill), h * 1.0, h * 1.2 * fill);
       ctx.strokeStyle = '#333'; ctx.lineWidth = 1; for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-h * 0.7 + i * h / 3, -h * 0.6); ctx.lineTo(-h * 0.7 + i * h / 3, h * 0.6); ctx.stroke(); }
+      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.strokeRect(-h * 0.7, -h * 0.6, h * 1.0, h * 1.2); // (3.5.3) the hopper's walls: empty when it holds nothing
     }
     // manipulator
     const mp = lk.manip;
@@ -408,7 +409,7 @@
       const ang = o.aim != null ? o.aim - (r.hd || 0) : 0;
       ctx.beginPath(); ctx.arc(-h * 0.1, 0, sz * 0.24, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.stroke();
       ctx.translate(-h * 0.1, 0); ctx.rotate(ang); ctx.fillStyle = '#e8edf2'; ctx.fillRect(0, -sz * 0.05, sz * 0.36, sz * 0.1);
-      if (sh === 'rotor') { ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; for (let i = 0; i < 6; i++) { const g = i * Math.PI / 3; ctx.beginPath(); ctx.arc(Math.cos(g) * sz * 0.14, Math.sin(g) * sz * 0.14, sz * 0.03, 0, 7); ctx.stroke(); } } // the rotor that feeds it
+      if (sh === 'rotor') { ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, sz * 0.17, 0, 7); ctx.stroke(); ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1; for (let i = 0; i < 6; i++) { const g = i * Math.PI / 3; ctx.beginPath(); ctx.moveTo(Math.cos(g) * sz * 0.05, Math.sin(g) * sz * 0.05); ctx.lineTo(Math.cos(g) * sz * 0.17, Math.sin(g) * sz * 0.17); ctx.stroke(); } } // the rotor that feeds it: a spoked wheel (3.5.3: it drew six rings that looked like balls)
       ctx.restore();
     } else if (sh === 'hood' || sh === 'pivot') {
       ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.6, -h * 0.4, h * 0.8, h * 0.8);
@@ -423,17 +424,39 @@
       // 2026 wide dumper: a bank of flywheels across the front, four fuel balls wide (4 x 15 cm), under an adjustable hood
       ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.16, -h * 0.72, h * 0.5, h * 1.44);
       ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.beginPath(); ctx.arc(h * 0.05, 0, h * 0.72, -0.85, 0.85); ctx.stroke(); // the hood
+      // (3.5.3) the flywheels seen from above: edge-on wheels with team-colour treads on one axle (they were drawn as
+      // round yellow discs, which read as fuel)
+      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.018); ctx.beginPath(); ctx.moveTo(h * 0.41, -h * 0.7); ctx.lineTo(h * 0.41, h * 0.7); ctx.stroke();
       for (let i = 0; i < 4; i++) {
         const yy = (i - 1.5) * sz * 0.17;
-        ctx.beginPath(); ctx.arc(h * 0.41, yy, sz * 0.075, 0, 7); ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fill();
-        ctx.beginPath(); ctx.arc(h * 0.41, yy, sz * 0.03, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill();
+        ctx.fillStyle = '#15181c'; ctx.fillRect(h * 0.27, yy - sz * 0.055, h * 0.28, sz * 0.11);
+        ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(h * 0.27, yy - sz * 0.055, h * 0.05, sz * 0.11); ctx.fillRect(h * 0.5, yy - sz * 0.055, h * 0.05, sz * 0.11);
       }
     }
     // 2020 revolver indexer: a drum of five 7-inch power cells (about 20 inches across) in front of the shooter
-    if (lk.indexer === 'revolver') { ctx.beginPath(); ctx.arc(h * 0.42, 0, sz * 0.25, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = '#ffd84a'; for (let i = 0; i < 5; i++) { const g = i * Math.PI * 0.4 + (o.t || 0) * 2; ctx.beginPath(); ctx.arc(h * 0.42 + Math.cos(g) * sz * 0.15, Math.sin(g) * sz * 0.15, sz * 0.085, 0, 7); ctx.fill(); } }
-    // algae mech
-    if (lk.algae === 'net') { ctx.beginPath(); ctx.arc(-h * 0.55, h * 0.45, sz * 0.12, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
-    else if (lk.algae === 'proc') { ctx.fillStyle = COL.algae; ctx.fillRect(-h * 0.8, h * 0.35, h * 0.3, h * 0.3); }
+    // (3.5.3) five pockets around a hub; a power cell sits in a pocket only when the robot holds one (they were always drawn)
+    if (lk.indexer === 'revolver') {
+      const rx = h * 0.42, R0 = sz * 0.25, cells = r.held && (!r.heldType || r.heldType === 'cell') ? Math.min(5, r.held) : 0, pc = Rd.PIECES.cell;
+      ctx.beginPath(); ctx.arc(rx, 0, R0, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) { const g = (i + 0.5) * Math.PI * 0.4; ctx.beginPath(); ctx.moveTo(rx + Math.cos(g) * R0 * 0.25, Math.sin(g) * R0 * 0.25); ctx.lineTo(rx + Math.cos(g) * R0, Math.sin(g) * R0); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(rx, 0, R0 * 0.22, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill();
+      for (let i = 0; i < 5; i++) {
+        const g = i * Math.PI * 0.4, px = rx + Math.cos(g) * sz * 0.155, py = Math.sin(g) * sz * 0.155;
+        ctx.beginPath(); ctx.arc(px, py, sz * 0.07, 0, 7);
+        if (i < cells) { ctx.fillStyle = pc ? pc.col : COL.fuel; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.stroke(); } else { ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.stroke(); }
+      }
+    }
+    // algae mechanisms (3.5.3: hardware only; the algae shows when the robot holds one): a pivoting roller arm for the
+    // net, a low roller box for the processor
+    const algaeAt = lk.algae === 'net' ? [-h * 0.5, h * 0.5] : lk.algae === 'proc' ? [-h * 0.62, h * 0.52] : null;
+    if (lk.algae === 'net') {
+      ctx.fillStyle = '#4a525b'; ctx.fillRect(-h * 0.85, h * 0.36, h * 0.7, h * 0.28);
+      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = Math.max(1.5, sz * 0.03); [h * 0.42, h * 0.62].forEach(yy => { ctx.beginPath(); ctx.moveTo(-h * 0.82, yy); ctx.lineTo(-h * 0.18, yy); ctx.stroke(); });
+    } else if (lk.algae === 'proc') {
+      ctx.fillStyle = '#4a525b'; ctx.fillRect(-h * 0.84, h * 0.36, h * 0.44, h * 0.32);
+      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = Math.max(1.5, sz * 0.03); ctx.beginPath(); ctx.moveTo(-h * 0.84, h * 0.52); ctx.lineTo(-h * 0.4, h * 0.52); ctx.stroke();
+    }
     // climber (rear = -x)
     const cl = lk.climber;
     if (cl && cl !== 'none') {
@@ -442,10 +465,22 @@
       const len = cl === 'arms' || cl === 'triple' ? 0.32 : cl === 'hook2' ? 0.22 : 0.16;
       [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(-h * 0.85, sd * h * 0.6); ctx.lineTo(-h * 0.85 - sz * len, sd * h * 0.6); ctx.stroke(); });
     }
-    // held piece
-    if (r.held && !lk.hopper) {
+    // held piece (3.5.3: in the mechanism that holds it, not on top of the robot's middle; the hopper and the revolver
+    // show their own)
+    if (r.held && !lk.hopper && !(lk.indexer === 'revolver' && (!r.heldType || r.heldType === 'cell'))) {
       const t = r.heldType;
       const col = t === 'cone' ? COL.cone : t === 'cube' ? COL.cube : t === 'algae' ? COL.algae : t === 'coral' ? COL.coral : G.S && r.year === 2024 ? COL.note : null;
+      const ex = r.vx || 0, ang = o.aim != null ? o.aim - (r.hd || 0) : 0;
+      const at = t === 'algae' && algaeAt ? algaeAt : lk.shooter === 'dump' ? [-h * 0.32, 0]
+        : mp === 'tele' ? [-h * 0.62 + h * (1.15 + 0.95 * ex) + h * 0.07, 0] : mp === 'turretlift' ? [Math.cos(ang) * sz * (0.27 + 0.2 * ex), Math.sin(ang) * sz * (0.27 + 0.2 * ex)]
+        : mp === 'elevwrist' ? [h * 0.62, 0] : mp === 'elevator' ? [h * 0.18, 0] : mp === 'arm' ? [h * 0.95, 0] : mp === 'dja' ? [h * 0.95, 0]
+        : sh === 'turret' || sh === 'rotor' || sh === 'hood' || sh === 'pivot' || sh === 'fixed' ? [h * 0.4, 0] : [0, 0];
+      ctx.translate(at[0], at[1]);
+      // plain balls (2022 cargo) sit side by side across the robot, in its own frame; the other pieces are drawn upright
+      const plain = !(t === 'cone' || t === 'cube' || t === 'coral' || t === 'algae' || Rd.PIECES[t] || o.year === 2024);
+      if (plain) {
+        for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc(0, (i - (r.held > 1 ? 0.5 : 0)) * sz * 0.26, sz * 0.12, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+      } else {
       ctx.rotate(-(r.hd || 0));
       if (t === 'cone') { ctx.beginPath(); ctx.moveTo(0, -sz * 0.2); ctx.lineTo(sz * 0.16, sz * 0.14); ctx.lineTo(-sz * 0.16, sz * 0.14); ctx.closePath(); ctx.fillStyle = COL.cone; ctx.fill(); }
       else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-sz * 0.14, -sz * 0.14, sz * 0.28, sz * 0.28); }
@@ -464,8 +499,9 @@
         }
       }
       else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, sz * 0.15, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = 4; ctx.stroke(); }
-      else { for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc((i - (r.held > 1 ? 0.5 : 0)) * sz * 0.26, 0, sz * 0.12, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); } }
       ctx.rotate(r.hd || 0);
+      }
+      ctx.translate(-at[0], -at[1]);
     }
     ctx.restore();
     // labels (unrotated)
@@ -586,11 +622,19 @@
       else if (sh === 'hood' || sh === 'pivot') { ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, 0, 7); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.15 * s, Math.PI * 1.15, Math.PI * 1.75); ctx.stroke(); }
       else if (sh === 'fixed') { ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.9); ctx.fillRect(-0.05 * s, -0.05 * s, 0.32 * s, 0.1 * s); ctx.restore(); }
       else if (sh === 'dump') { ctx.beginPath(); ctx.moveTo(sx - 0.2 * s, sy); ctx.lineTo(sx + 0.15 * s, sy); ctx.lineTo(sx + 0.22 * s, sy - 0.16 * s); ctx.lineTo(sx - 0.27 * s, sy - 0.16 * s); ctx.closePath(); ctx.fill(); }
-      else if (sh === 'wide') { ctx.fillRect(sx - 0.05 * s, sy - 0.12 * s, 0.42 * s, 0.24 * s); ctx.fillStyle = lk.c2 || '#ffcf4a'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(sx + 0.05 * s + i * 0.12 * s, sy, 0.045 * s, 0, 7); ctx.fill(); } ctx.fillStyle = '#2f353c'; }
+      else if (sh === 'wide') {
+        // (3.5.3) the housing with its flywheels seen side-on: dark wheels on axles with a team-colour rim (not balls)
+        ctx.fillRect(sx - 0.05 * s, sy - 0.12 * s, 0.42 * s, 0.24 * s);
+        for (let i = 0; i < 3; i++) { const wx = sx + 0.05 * s + i * 0.12 * s; ctx.beginPath(); ctx.arc(wx, sy, 0.048 * s, 0, 7); ctx.fillStyle = '#15181c'; ctx.fill(); ctx.strokeStyle = '#7d868f'; ctx.lineWidth = 2; ctx.stroke(); ctx.beginPath(); ctx.arc(wx, sy, 0.016 * s, 0, 7); ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fill(); ctx.strokeStyle = '#7d868f'; ctx.lineWidth = 1; for (let sp = 0; sp < 3; sp++) { const g = sp * 2.094; ctx.beginPath(); ctx.moveTo(wx + Math.cos(g) * 0.016 * s, sy + Math.sin(g) * 0.016 * s); ctx.lineTo(wx + Math.cos(g) * 0.044 * s, sy + Math.sin(g) * 0.044 * s); ctx.stroke(); } }
+        ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx + 0.17 * s, sy + 0.1 * s, 0.24 * s, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); ctx.fillStyle = '#2f353c'; // the hood
+      }
       ctx.fillStyle = '#2f353c'; ctx.fillRect(sx - 0.03 * s, sy, 0.06 * s, top - sy);
     }
     // hopper
-    if (lk.hopper) { const hh = Math.min(0.5, 0.15 + lk.hopper / 120) * s * (low ? 0.6 : 1); ctx.strokeStyle = '#aab3bc'; ctx.lineWidth = 2; ctx.strokeRect(x0 + 0.06 * s, top - hh, fw * 0.55, hh); ctx.fillStyle = 'rgba(255,216,74,0.35)'; ctx.fillRect(x0 + 0.06 * s, top - hh * 0.5, fw * 0.55, hh * 0.5); }
+    // (3.5.3) an empty hopper: walls and a mesh, no fuel in it (it was drawn half full)
+    if (lk.hopper) { const hh = Math.min(0.5, 0.15 + lk.hopper / 120) * s * (low ? 0.6 : 1), hx = x0 + 0.06 * s, hw = fw * 0.55; ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(hx, top - hh, hw, hh); ctx.strokeStyle = 'rgba(170,179,188,0.45)'; ctx.lineWidth = 1; for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(hx + i * hw / 6, top - hh); ctx.lineTo(hx + i * hw / 6, top); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(hx, top - hh / 2); ctx.lineTo(hx + hw, top - hh / 2); ctx.stroke(); ctx.strokeStyle = '#aab3bc'; ctx.lineWidth = 2; ctx.strokeRect(hx, top - hh, hw, hh); }
+    // (3.5.3) the revolver: a drum in front of the shooter, ribbed, with a team-colour band
+    if (lk.indexer === 'revolver') { const dx = cx + 0.12 * s, dw = 0.3 * s, dh = 0.13 * s; ctx.fillStyle = '#2f353c'; ctx.fillRect(dx, top - dh, dw, dh); ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1; for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(dx + i * dw / 5, top - dh); ctx.lineTo(dx + i * dw / 5, top); ctx.stroke(); } ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(dx, top - dh, dw, 0.018 * s); }
     // intake
     const it = lk.intake;
     if (it && it !== 'none') {
@@ -609,7 +653,14 @@
       if (cl === 'triple') { ctx.fillRect(x0 - 0.3 * s, gy - 0.03 * s, 0.3 * s, 0.03 * s); ctx.fillRect(x0 + fw, gy - 0.03 * s, 0.3 * s, 0.03 * s); } // the partners' ramps, folded down
     }
     // algae
-    if (lk.algae === 'net' || lk.algae === 'proc') { ctx.beginPath(); ctx.arc(x0 + fw * 0.75, top - 0.15 * s, 0.07 * s, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
+    // (3.5.3) the algae mechanism without an algae in it: a pivot, an arm and two rollers (high for the net, low for the processor)
+    if (lk.algae === 'net' || lk.algae === 'proc') {
+      const net = lk.algae === 'net', px = x0 + fw * 0.62, py = top - 0.04 * s, ang = net ? -1.0 : -0.35, L = (net ? 0.34 : 0.24) * s;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
+      ctx.fillStyle = '#4a525b'; ctx.fillRect(0, -0.025 * s, L, 0.05 * s);
+      [L * 0.55, L].forEach(rx => { ctx.beginPath(); ctx.arc(rx, 0, 0.032 * s, 0, 7); ctx.fillStyle = '#15181c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke(); });
+      ctx.restore(); ctx.beginPath(); ctx.arc(px, py, 0.025 * s, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill();
+    }
     // vision camera
     if (lk.vision) { ctx.fillStyle = '#111'; ctx.fillRect(cx + 0.25 * s, top - 0.12 * s, 0.06 * s, 0.05 * s); ctx.fillStyle = '#4cff8a'; ctx.fillRect(cx + 0.31 * s, top - 0.11 * s, 0.015 * s, 0.03 * s); if (lk.vision > 1) { ctx.fillStyle = '#111'; ctx.fillRect(x0 + 0.1 * s, top - 0.16 * s, 0.06 * s, 0.05 * s); } }
     // LEDs

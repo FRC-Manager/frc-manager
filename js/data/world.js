@@ -293,7 +293,7 @@
   // version of the same one costs VER per step; a different concept costs 0.2–0.65 (more for very different ones).
   // Weekly shop driving, driver practice, event practice and matches win it back. In matches each subsystem's
   // stats are multiplied by 1 − EFFECT × (1 − familiarity).
-  D.FAM = { NEW: 0.35, VER: 0.04, WEEK: 0.18, OFF: 0.25, PRACTICE: 12, MATCH: 0.06, BLOCK: 0.12, EFFECT: 0.15 };
+  D.FAM = { NEW: 0.35, VER: 0.04, PARTS: 0.03, WEEK: 0.18, OFF: 0.25, PRACTICE: 12, MATCH: 0.06, BLOCK: 0.12, EFFECT: 0.15 }; // PARTS (3.5.3): other robot parts on a unit
   D.TEST_COST = 40;         // $ per development-testing hour (prototype parts and materials)
   D.TEST_PER_PROJ = 5;      // test hours one project can absorb per week (×4 per offseason month)
   D.TEST_GAIN = 0.025;      // each test hour on a project adds 2.5% to that project's progress this week
@@ -535,6 +535,12 @@
   // ---------- Second robot drills ----------
   D.DEF_DRILL_HOURS = 18;   // driver-practice hours with two running robots for full "playing through defense" skill (resets each season)
   D.DEF_DRILL_EFFECT = 0.35; // a fully drilled drive team loses this much less to a defender (speed, cycle time, accuracy)
+  // (3.5.3) A second robot on another control system (S.vendorPref2): fam, the share of the drivers' practice on it
+  // that carries over to the competition robot; path, the share of the matching-chassis path bonus left (code to port)
+  D.CTRL2 = { fam: 0.7, path: 0.5 };
+  D.CAN2_DEV = 0.85; // (3.5.3) development on a second robot whose CAN bus is overloaded (no CAN FD hub, or too small a one): testing and path planning
+  // (3.5.3) Practice-day installs in the bag years: the work a subsystem's packed parts take (Robot.installWork)
+  D.INSTALL_WORK = { mech: 2, part: 1 };
   D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%
   D.CHASSIS_PATH_XP = 3;    // ... and adds Autonomous Pathing XP every week it runs
   D.ELEC_SHAKE_HOURS = 30;  // testing hours with a second robot running until the electrical shakedown is complete (resets each season)

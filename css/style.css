@@ -184,6 +184,7 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 .batt i { position: absolute; left: 1px; right: 1px; bottom: 1px; border-radius: 1px; }
 /* Impact odds + rating */
 .statrow.wide { grid-template-columns: 175px 1fr 38px; }
+.statrow.pa { grid-template-columns: 110px 1fr 30px 26px; gap: 6px; } .statrow .pa-v { font-size: 11px; font-weight: 600; text-align: left; font-variant-numeric: tabular-nums; }
 .imp { display: grid; grid-template-columns: 46px 1fr 34px; gap: 8px; align-items: center; margin: 3px 0 10px; }
 .imp > b { text-align: right; font-variant-numeric: tabular-nums; }
 .imp:not(:has(.bar)) { display: block; }
@@ -270,6 +271,24 @@ table.t.tight th, table.t.tight td { padding: 5px 5px; }
 .diagram .node { display: inline-flex; align-items: center; gap: 6px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 9px; font-size: 12px; }
 .diagram .node .ico { color: var(--accent2); }
 .diagram .arr { color: var(--dim); }
+/* (3.5.3) How a robot is made: the chain on the left, parts coming in from the right */
+.rmap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; margin: 10px 0 14px; max-width: 760px; }
+.rmap .rm-c1 { grid-column: 1; } .rmap .rm-c2 { grid-column: 2; display: flex; align-items: flex-end; gap: 6px; }
+.rmap .rm-r4 { grid-row: 4; } .rmap .rm-r5 { grid-row: 5; }
+.rm-box { background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 7px 10px; font-size: 12px; flex: 1; min-width: 0; }
+.rm-box .rm-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; } .rm-box .rm-h .ico { color: var(--accent2); }
+.rm-box .rm-w { margin-left: auto; font-size: 10.5px; color: var(--dim); }
+.rm-box .rm-t { color: var(--muted); margin-top: 3px; line-height: 1.35; }
+.rm-box.rm-unit, .rm-box.rm-robot { border-color: var(--accent2); }
+.rm-box.rm-build { border-style: dashed; } .rm-box.rm-rparts { border-style: dashed; }
+.rm-down { font-size: 11px; color: var(--dim); padding: 3px 0 3px 18px; } .rm-down span { color: var(--accent2); font-size: 14px; }
+.rm-side { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10.5px; color: var(--dim); width: 62px; text-align: center; align-self: center; }
+.rm-side .rm-arr { color: var(--accent2); font-size: 18px; line-height: 1; }
+@media (max-width: 600px) {
+  .rmap { grid-template-columns: minmax(0, 1fr); }
+  .rmap .rm-c2 { grid-column: 1; grid-row: auto; margin: 4px 0 2px 18px; }
+  .rm-side { width: 44px; } .rm-side .rm-arr { transform: rotate(90deg); }
+}
 .matchhead { gap: 8px; } .matchhead .ico { color: var(--accent2); }
 /* selling parts */
 .sellrow { padding: 6px 0; border-top: 1px solid var(--line); }
@@ -654,3 +673,7 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 .vch-ed { border: 1px solid color-mix(in srgb, var(--vc) 60%, transparent); color: var(--vc); background: rgba(0,0,0,.25); }
 .sp-desc { color: var(--text, #e8edf2); opacity: .82; font-style: italic; margin: 1px 0 2px; }
 .outcome-fx { gap: 6px; margin-top: 8px; }
+/* (3.5.3) the Garage: a subsystem's electronics, under its row */
+table.t.slots tr.elec-row td { padding: 0 6px 6px; border-top: none; }
+table.t.slots tr.elec-row td:first-child { width: auto; }
+table.t.slots tr.elec-row select.inp { width: 108px; font-size: 11px; padding: 2px 3px; }

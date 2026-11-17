@@ -20,13 +20,13 @@
     { id: 'motor', name: 'Motor + controller', short: 'Motors', icon: 'motor', elec: true, max: 50, desc: 'Drivetrains use 4–8, most mechanisms 1–3.' },
     { id: 'enc', name: 'Absolute encoder', short: 'Encoders', icon: 'sensor', elec: true, max: 20, desc: 'One per swerve module, plus arms, elevators, hoods and turrets.' },
     { id: 'ctrl', name: 'Control & power hub', short: 'Control hubs', icon: 'chip', elec: true, max: 3, desc: 'Power distribution, CAN network and IMU. One per robot.' },
-    { id: 'wcd', name: 'West Coast drive set', short: 'Drive sets', icon: 'gear', vend: true, group: 'drive', max: 6, desc: 'Gearbox, wheels, belts and bearing blocks for one side of a West Coast drive. A drivetrain uses 2 (motors not included). The best a West Coast drive can run on.' },
+    { id: 'wcd', name: 'West Coast drive set', short: 'Drive sets', icon: 'gear', vend: true, group: 'drive', max: 6, desc: 'Gearbox, wheels, belts and bearing blocks for one side of a West Coast drive. A drivetrain uses 2, with 3 motors on each (motors not included). The best a West Coast drive can run on.' },
     { id: 'swerve', name: 'Swerve module', short: 'Swerve modules', icon: 'swerve', elec: true, group: 'drive', max: 10, desc: 'Four per swerve drivetrain (motors not included).' },
     { id: 'kdrive', name: 'Kit drivetrain', short: 'Kit drivetrain sets', icon: 'gear', max: 6, desc: 'One side of the kit chassis: gearbox, wheels and frame rails. A kitbot tank drive uses 2, and nothing else can use them. Two come free at every Kickoff. The slowest way to drive.' },
-    { id: 'gearbox', name: 'Drive gearbox', short: 'Drive gearboxes', icon: 'gear', max: 10, desc: 'A sturdy two-stage gearbox with its wheel shafts, for any drive but swerve. Mecanum uses 4. Two of them also drive a kit chassis (faster and stronger than the kit drivetrain) or a West Coast drive (slower and weaker than a vendor drive set).' },
+    { id: 'gearbox', name: 'Drive gearbox', short: 'Drive gearboxes', icon: 'gear', max: 10, desc: 'Lumen\'s standard two-stage gearbox with its wheel shafts, the same design every year, for any drive but swerve. Mecanum uses 4. Two of them also drive a kit chassis (faster and stronger than the kit drivetrain) or a West Coast drive (slower and weaker than a vendor drive set).' },
     { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 32, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The Kit low-profile gearbox only fits kit motors.' },
-    { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'Vision Level 1 needs one, Level 2 needs two.' },
-    { id: 'canfd', name: 'CAN FD hub', short: 'CAN FD hubs', icon: 'chip', vend: true, opt: true, max: 3, desc: 'A second, much faster CAN bus for the motors and encoders. Optional, one per robot: from the 2023 season a robot with more of them than its bus can carry freezes now and then in matches.' },
+    { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'The competition robot needs one for Vision Level 1, two for Level 2. The second robot takes as many while a Vision Level is being built, to test it there.' },
+    { id: 'canfd', name: 'CAN FD hub', short: 'CAN FD hubs', icon: 'chip', vend: true, opt: true, max: 3, desc: 'A second, much faster CAN bus for the motors and encoders. Optional, one per robot: from the 2023 season a robot with more of them than its bus can carry freezes now and then, in matches or on the bench.' },
     { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
     { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },
     { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
@@ -75,6 +75,8 @@
     if (v === 'K') return { id: cat + 'K', cat, v, gen: 0, name: { motor: 'Kit brushed motor + controller', enc: 'Kit low-profile encoder', ctrl: 'Kit control hub', kdrive: 'Kit drivetrain', gearbox: 'Kitbot gearbox', pgear: 'Kit low-profile gearbox' }[cat] || (D.PART_CAT[cat] && D.PART_CAT[cat].kop ? D.PART_CAT[cat].name : 'Kit part'), price: D.KOP_PRICE[cat] || 0, perf: D.KOP_PERF[cat] || 0.05, kop: true };
     if (v === 'C') {
       const c = D.PART_CAT[cat];
+      // (3.5.3) the drive gearbox is Lumen's: one standard design it never upgrades (the id stays, for the shelves of old saves)
+      if (cat === 'gearbox') return { id: 'gearboxC', cat, v: 'B', gen: 1, name: 'Lumen standard drive gearbox', kind: 'the same every year', price: D.COTS_PRICE[cat], perf: 0.33, fixed: true };
       return { id: cat + 'C', cat, v, gen: 1, name: c.name, price: D.COTS_PRICE[cat], perf: 0.6 };
     }
     const p = ELEC_PRICE[cat][v] * (1 + 0.12 * (gen - 1));
@@ -142,7 +144,7 @@
   D.DRIVE_CATS = ['wcd', 'swerve'];
   // What a drive runs on (calendar careers), from the lowest performance to the best:
   //  - the kit drivetrain (Kit of Parts): the kit chassis only;
-  //  - COTS Drive gearboxes: a kit chassis (2, DRIVE_UP on its speed and push ceilings), mecanum (4, nothing else fits)
+  //  - Lumen standard drive gearboxes (3.5.3; COTS until then, one design, never upgraded): a kit chassis (2, DRIVE_UP on its speed and push ceilings), mecanum (4, nothing else fits)
   //    or a West Coast drive (2, counted as a drive set of quality WCD_GEARBOX_Q);
   //  - vendor drive sets: a West Coast drive (2; their quality is the product's performance, 0.36 to 0.7).
   // West Coast ceilings: speed +10q − 4, push +6q − 2. The better part is used whenever the shelf has it (D.DRIVE_ALT:
@@ -168,6 +170,13 @@
   // what the vision hardware does on the competition robot (G.Cap.build): a better camera aims better, a switch cuts comms
   // dropouts, an accelerator finds game pieces and targets
   D.VISION_HW = { camAcc: 5, camVision: 20, swDrop: 0.6, swVision: 2, swAcc: 1, accVision: 6, accIntake: 3, accAuto: 3 };
+  // (3.5.3) What robot parts add to a unit while it runs on them (G.Robot.partsLive), at part performance 1: the
+  // drivetrain's Speed from its motors and swerve modules (its drive parts: G.Parts.driveQ), a scorer's Scoring Speed,
+  // an intake's Intake and the other mechanisms' main stat from their own motors, Autonomous from the robot's encoders.
+  // Reliability: each unit's own parts' wear (wearRel at fully worn) and planetary gearboxes (pgearRel at full cover).
+  // (About 70% of what parts once added to the ceilings: that share was only reached through upgrades, this counts from v1.)
+  D.PARTS_LIVE = { speed: 6.5, swerve: 3, scoreSpd: 5, intake: 3, mech: 2, auto: 4, wearRel: 10, pgearRel: 4 };
+  D.PARTS_LIVE_MECH = ['endgame', 'algae', 'amp', 'feed', 'fuel']; // the stats L.mech applies to (Grip, Accuracy, Range: the design's)
 
   // ---------- The second-hand market ----------
   // What a used part fetches follows the news: a technology that has been overtaken is worth less from the day its

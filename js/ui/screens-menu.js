@@ -261,6 +261,22 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.3', title: 'Robot parts that matter, two robots, cleaner drawings', notes: [
+      'Robot parts now count on the unit they are fitted to, while it runs on them: a drivetrain on better motors is faster, a scorer on better motors scores faster, an intake takes in faster, worn parts make that unit fail more often and planetary gearboxes make it fail less. Ceilings no longer depend on parts. The Garage shows what each unit\'s parts add. Saves from before are converted when they load.',
+      'A new guide topic, How a robot is made, draws the whole chain: subsystem, concept, version, unit and robot, with build parts going into units and robot parts going onto robots. The game says unit for a built one everywhere, and the glossary has the new terms.',
+      'The Inventory sorts parts the same way: Control system and Drive & add-ons for robot parts, Build parts for kits, GridTube, pneumatics and servo kits.',
+      'The drive gearbox is Lumen\'s now: the Lumen standard drive gearbox, in the Lumen column of Drive & add-ons. Lumen makes one design and never upgrades it, and buying it counts towards your Lumen loyalty like any Lumen order. Gearboxes already on the shelf carry over.',
+      'Stop Build Day: the bagged robot keeps the robot parts it went into the bag with, and they can\'t be sold meanwhile. At each event the team fits the best parts there are, with no practice-day work.',
+      'Drivers know each unit by its concept, version and robot parts: other parts on a unit cost a little familiarity, another version a little more.',
+      'The second robot can carry vision cameras and a CAN FD hub of its own. A Vision Level is tested on it only with the cameras for that level, and from 2023 an overloaded CAN bus on it makes development there count 85%. The Design Office and the Garage say when either applies.',
+      'A part that a vendor warns is about to sell out is still on the shelf the week the warning arrives, so its Order button works.',
+      'The second robot can run another control system than the competition robot (Inventory: Second robot uses), at a cost: practice on it teaches the drivers less about the competition robot, and code tried on it has to be ported.',
+      'Before every event, a unit the competition robot lacks goes along from storage or from the other robot. In the Stop Build Day years it travels in the crate and goes on at practice day, so a bagged test chassis gets the units of the robot at home. The Garage says what will go, and the window that picks the robot for the bag says what each one lacks.',
+      'Bagged: a unit can be packed from the other robot as well as from storage, and anything the bagged robot lacks can be packed.',
+      'The Garage lists the robot parts on every unit of both robots, the optional ones too (planetary gearboxes, network switch, cameras, ML accelerator, CAN FD hub), and each unit or robot can take another vendor\'s parts first. At events the competition robot always takes the best parts. Stored units carry none.',
+      'Install Upgrade: a unit for a subsystem the robot does not have yet takes twice as long to fit as a newer version; three practice blocks fit a whole robot.',
+      'Robot drawings show game pieces only when the robot holds them: the revolver\'s pockets, the algae mechanisms, the hopper and the flywheels no longer come with pieces drawn in, and a held piece sits in the mechanism that holds it.'
+    ] },
     { v: '3.5.2', title: 'Stop Build Day fixes', notes: [
       'In a season with Stop Build Day, the window that asks which of your two robots goes in the bag now always opens. It was lost when a shop incident or a team dispute came up the same week, and so were the other pop-ups of that week (a first-time story, a vendor launch).',
       'Headquarters, the Design Office and the Garage count down the weeks to Stop Build Day. Until the choice is made, Headquarters asks for it and Continue waits.',

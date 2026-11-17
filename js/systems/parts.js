@@ -197,7 +197,9 @@
       const e = D.PART_CAT[x.prod.cat].elec;
       const ly = season && e && !x.kop && P.loyalOn(S) && S.loyal && S.loyal[x.prod.v] ? D.LOYALTY.stock * S.loyal[x.prod.v].lvl : 0;
       const p = season ? (e ? D.STOCK.elec : D.STOCK.cots) + d + (x.isNew ? D.STOCK.newRelease : 0) + ly + D.STOCK.demand * (0.5 - P.demand(S, x)) : D.STOCK.off;
-      st[x.prod.id] = x.kop ? true : season && held[x.prod.id] === 'due' ? false : rng.chance(U.clamp(p, 0.08, 1)); // Kit of Parts items never sell out; a warned shortage comes true
+      // Kit of Parts items never sell out; a warned shortage comes true next week ('due'), and (3.5.2) the week of the
+      // warning itself ('new': the vendor's email arrives in this same turn) the part is still on the shelf, as it says
+      st[x.prod.id] = x.kop ? true : season && held[x.prod.id] === 'due' ? false : season && held[x.prod.id] === 'new' ? true : rng.chance(U.clamp(p, 0.08, 1));
     });
     // a stock alert is made this turn ('new') and comes true at the next roll, the week after ('due')
     const nx = {}; Object.keys(held).forEach(id => { if (held[id] !== 'due') nx[id] = 'due'; });
@@ -211,7 +213,8 @@
   P.buyRoom = function (S, prodId) {
     const prod = PROD[prodId]; if (!prod) return 0;
     const nv = prod.perf * 0.65 + 0.35;
-    return G.Shop.partMax(S, prod.cat) - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9).length;
+    const kept = P.lockedIds(S);
+    return G.Shop.partMax(S, prod.cat) - P.count(S, prod.cat) + P.items(S, prod.cat).filter(it => value(it) < nv - 1e-9 && !kept[it.id]).length;
   };
 
   // ======================= inventory =======================
@@ -229,7 +232,8 @@
   P.trim = function (S, cat, max) {
     const list = S.inv[cat] || [];
     if (list.length <= max) return 0;
-    list.sort((a, b) => value(b) - value(a));
+    const kept = P.lockedIds(S); // never the parts on the bagged robot (3.5.3)
+    list.sort((a, b) => (kept[b.id] ? 1 : 0) - (kept[a.id] ? 1 : 0) || value(b) - value(a));
     const drop = list.length - max;
     list.length = max;
     return drop;
@@ -247,8 +251,9 @@
     const pick = list => list.sort((a, b) => rank(b) - rank(a)).slice(0, D.BOOTH.items).map(x => x.prod);
     const out = [];
     // the control system vendor: Apex or Lumen (Sterling or Lumen before 2020), whichever is at this event
-    const vs = ['A', 'B'].filter(v => sale.some(x => x.prod.v === v && ['motor', 'enc', 'ctrl', 'pgear', 'canfd'].includes(x.prod.cat)));
-    if (vs.length) { const v = vs[rng.int(0, vs.length - 1)], items = pick(sale.filter(x => x.prod.v === v && ['motor', 'enc', 'ctrl', 'pgear', 'canfd'].includes(x.prod.cat))), b = P.brand(items[0]);
+    const BC = ['motor', 'enc', 'ctrl', 'pgear', 'canfd', 'gearbox']; // (3.5.3) Lumen brings its standard drive gearbox too
+    const vs = ['A', 'B'].filter(v => sale.some(x => x.prod.v === v && BC.includes(x.prod.cat)));
+    if (vs.length) { const v = vs[rng.int(0, vs.length - 1)], items = pick(sale.filter(x => x.prod.v === v && BC.includes(x.prod.cat))), b = P.brand(items[0]);
       out.push({ id: 'ctl', name: D.VENDORS[b].name, color: D.VENDORS[b].color, items }); }
     const cots = pick(sale.filter(x => x.prod.v === 'L' || x.prod.v === 'C'));
     if (cots.length) { const lw = cots.some(p => p.v === 'L'); out.push({ id: 'cots', name: lw ? 'Lanternworks and COTS parts' : 'COTS parts', color: D.VENDORS[lw ? 'L' : 'C'].color, items: cots }); }
@@ -342,6 +347,7 @@
     const pr = PROD[it.p];
     if (!pr || !pr.price || pr.v === 'K') return 'Kit of Parts items can\'t be resold';
     if (it.h <= D.SELL_MIN) return 'Only parts above ' + Math.round(D.SELL_MIN * 100) + '% condition can be sold';
+    if (P.lockedIds(S)[it.id]) return 'It is on the bagged competition robot until its next event';
     const c = D.PART_CAT[cat];
     if (P.sellRoom(S, cat) < 1) return c.kit ? 'This kit is built into the robot' : 'Your robots use all of these ' + c.short.toLowerCase() + '. Buy replacements first.';
     return null;
@@ -458,6 +464,9 @@
     if (Object.keys(prac).length) prac.ctrl = 1;
     const cams = (R.visionLvl || 0) + (S.projects.some(p => p.type === 'vision') ? 1 : 0);
     if (cams && G.Era.of(S).vision.cam) comp.camera = cams; // before 2018: home-made vision, no camera product
+    // (3.5.3) while a Vision Level is being built, the second robot takes as many cameras as that level needs, so the team
+    // can test it there too. Optional on it (P.optOn): without them the project gets no testing on it (G.Robot.vision2)
+    if (comp.camera && prac.ctrl && S.projects.some(p => p.type === 'vision')) prac.camera = (R.visionLvl || 0) + 1;
     // optional parts (D.PART_CAT[].opt): never a shortage, only a bonus when they are there (calendar careers)
     if (S.cal) {
       if (mech.comp) comp.pgear = mech.comp;
@@ -465,7 +474,8 @@
       if (comp.ctrl) comp.nswitch = 1;
       if (prac.ctrl) prac.nswitch = 1;
       if (R.visionLvl) comp.accel = 1;
-      if (comp.ctrl && G.Era.of(S).canBus) comp.canfd = 1; // a CAN FD hub: the competition robot only (it is matches where the bus overloads)
+      if (comp.ctrl && G.Era.of(S).canBus) comp.canfd = 1; // a CAN FD hub: matches are where the bus overloads
+      if (prac.ctrl && G.Era.of(S).canBus) prac.canfd = 1; // (3.5.3) and the second robot: an overloaded bus slows development on it (D.CAN2_DEV)
     }
     return { comp, prac, sub: resolveDrive(S, comp, prac) };
   };
@@ -485,14 +495,14 @@
     return sub;
   }
   // What a drive concept's speed and push ceilings get from the parts it runs on: { speed, push, on }, with on =
-  // 'kdrive' (kit drivetrain), 'gearbox' (Drive gearboxes) or 'wcd' (vendor drive sets). For the drive that is on the
-  // competition robot it is what is fitted; for a concept not built yet, what the shelf would give it.
-  P.driveQ = function (S, cid) {
+  // 'kdrive' (kit drivetrain), 'gearbox' (Drive gearboxes) or 'wcd' (vendor drive sets). For the drive that is on
+  // robot bi (default: the competition robot) it is what is fitted; for a concept not built yet, what the shelf would give it.
+  P.driveQ = function (S, cid, bi) {
     const z = { speed: 0, push: 0, on: null }, west = cid === 'wcd' || cid === 'wcd8';
     if (!S || !S.cal || !S.inv || (!west && cid !== 'kit')) return z;
-    const R = S.robot, cur = R && R.bots ? R.bots[R.comp || 0].subs.drive : null;
+    const R = S.robot, b = R && R.bots ? (bi == null ? R.comp || 0 : bi) : null, cur = b != null ? R.bots[b].subs.drive : null;
     let on = null, q = 0;
-    if (cur && cur.ver && cur.concept === cid) { const pp = P.profile(S); on = pp.driveOn; q = pp.wcd; }
+    if (cur && cur.ver && cur.concept === cid) { const pp = P.profile(S, b === (R.comp || 0) ? 'comp' : 'prac'); on = pp.driveOn; q = pp.wcd; }
     else if (west) { const l = order(S, 'wcd'); if (l.length >= 2) { on = 'wcd'; q = (PROD[l[0].p].perf + PROD[l[1].p].perf) / 2; } else if (P.count(S, 'gearbox') >= 2) on = 'gearbox'; }
     else on = P.count(S, 'gearbox') >= 2 ? 'gearbox' : 'kdrive';
     if (!on) return z;
@@ -502,12 +512,12 @@
   // one line for the concept list: what this drive can run on, and what yours would run on today
   P.driveNote = function (S, cid) {
     // swerve: bought modules once someone sells them (2020), a machined set before that
-    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? (G.Era.of(S).swerve.cnc ? 'Nobody sells swerve modules yet: the team machines its own (needs CNC Machining, three times the hours, much more material; it tops out lower and breaks down often).' : 'Nobody sells swerve modules yet: the team machines its own (needs a Manual Machine Shop or CNC Machining, twice the hours; still fragile).') : 'Runs on 4 swerve modules from the Inventory (Control system tab), with their motors and encoders.';
+    if (cid === 'swerve' && S) return S.cal && !G.Era.of(S).swerve.cots ? (G.Era.of(S).swerve.cnc ? 'Nobody sells swerve modules yet: the team machines its own (needs CNC Machining, three times the hours, much more material; it tops out lower and breaks down often).' : 'Nobody sells swerve modules yet: the team machines its own (needs a Manual Machine Shop or CNC Machining, twice the hours; still fragile).') : 'Runs on 4 swerve modules from the Inventory (Drive & add-ons tab), with their motors and encoders.';
     if (!S || !S.cal) return '';
     const west = cid === 'wcd' || cid === 'wcd8', d = P.driveQ(S, cid), f = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v));
-    if (west) return 'Runs on 2 vendor drive sets (best), or on 2 COTS Drive gearboxes when there are no sets for it (slower and weaker). ' + (d.on === 'wcd' ? 'Yours would run on drive sets' : d.on === 'gearbox' ? 'Yours would run on Drive gearboxes' : 'You have neither on the shelf') + (d.on ? ': Speed ' + f(d.speed) + ', Pushing ' + f(d.push) + ' (counted in the ceilings above).' : '.');
-    if (cid === 'kit') return 'Runs on 2 kit drivetrain sets, or on 2 COTS Drive gearboxes when you have them to spare (faster and stronger). ' + (d.on === 'gearbox' ? 'Yours would run on Drive gearboxes: Speed +' + D.DRIVE_UP.speed + ', Pushing +' + D.DRIVE_UP.push + ' (counted in the ceilings above).' : 'Yours would run on the kit drivetrain.');
-    if (cid === 'mec') return 'Runs on 4 COTS Drive gearboxes. The kit drivetrain only fits the kit chassis.';
+    if (west) return 'Runs on 2 vendor drive sets (best), or on 2 Lumen standard drive gearboxes when there are no sets for it (slower and weaker). ' + (d.on === 'wcd' ? 'Yours would run on drive sets' : d.on === 'gearbox' ? 'Yours would run on standard drive gearboxes' : 'You have neither on the shelf') + (d.on ? ': Speed ' + f(d.speed) + ', Pushing ' + f(d.push) + ' (added to the drivetrain while it runs on them).' : '.');
+    if (cid === 'kit') return 'Runs on 2 kit drivetrain sets, or on 2 Lumen standard drive gearboxes when you have them to spare (faster and stronger). ' + (d.on === 'gearbox' ? 'Yours would run on standard drive gearboxes: Speed +' + D.DRIVE_UP.speed + ', Pushing +' + D.DRIVE_UP.push + ' (added to the drivetrain while it runs on them).' : 'Yours would run on the kit drivetrain.');
+    if (cid === 'mec') return 'Runs on 4 Lumen standard drive gearboxes. The kit drivetrain only fits the kit chassis.';
     return '';
   };
   // a bill of materials as the shelf resolves it for one side: Drive gearboxes where they stand in for sets or kit parts
@@ -520,10 +530,12 @@
   // Missing parts if the robots also needed `extra` (on the competition robot, or on the other one when to = 'prac')
   // Each missing category says how many each robot needs (comp, prac) and how many are on the shelf (have).
   // Optional parts (planetary gearboxes, network switches, ML accelerators) are never missing.
+  // (3.5.3) parts a robot takes when the shelf has them and never misses: the optional ones, and the second robot's cameras
+  P.optOn = (side, cat) => !!(D.PART_CAT[cat] && D.PART_CAT[cat].opt) || (side === 'prac' && cat === 'camera');
   P.shortage = function (S, extra, to) {
-    const n = P.need(S, extra, to), tot = addB(addB({}, n.comp), n.prac);
-    const miss = [];
-    Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (!D.PART_CAT[cat].opt && tot[cat] > have) miss.push({ cat, n: tot[cat] - have, need: tot[cat], have, comp: n.comp[cat] || 0, prac: n.prac[cat] || 0 }); });
+    const n = P.need(S, extra, to), pr = {}; Object.keys(n.prac).forEach(c => { if (!P.optOn('prac', c)) pr[c] = n.prac[c]; });
+    const tot = addB(addB({}, n.comp), pr), miss = [];
+    Object.keys(tot).forEach(cat => { const have = P.count(S, cat); if (!D.PART_CAT[cat].opt && tot[cat] > have) miss.push({ cat, n: tot[cat] - have, need: tot[cat], have, comp: n.comp[cat] || 0, prac: pr[cat] || 0 }); });
     return miss;
   };
   // "Needs 2 more motors (Robot 1 uses 22, Robot 2 would use 24: 46 in all, 44 on the shelf; the shelf holds 44 at most)"
@@ -542,7 +554,12 @@
     return l.length > 1 ? l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1] : l[0] || '';
   };
   // where a part is sold: the Inventory tab and the section to scroll to (UI ids inv-<cat>, inv-drive)
-  P.shopAt = (S, cat) => ({ tab: ['motor', 'enc', 'ctrl', 'swerve', 'wcd', 'kdrive', 'pgear', 'canfd'].includes(cat) ? 'elec' : 'cots', anchor: S && S.cal && ['swerve', 'wcd', 'kdrive'].includes(cat) ? 'inv-drive' : 'inv-' + cat });
+  // (3.5.3) tabs: Control system (motors, encoders, hubs), Drive & add-ons (the other robot parts), Build parts (the rest)
+  P.shopAt = (S, cat) => {
+    const cal = !!(S && S.cal), elec = ['motor', 'enc', 'ctrl'].includes(cat) || (cat === 'swerve' && !cal);
+    const drive = !elec && ['swerve', 'wcd', 'kdrive', 'gearbox', 'pgear', 'canfd', 'camera', 'nswitch', 'accel'].includes(cat);
+    return { tab: elec ? 'elec' : drive ? 'drive' : 'cots', anchor: cal && ['swerve', 'wcd', 'kdrive'].includes(cat) ? 'inv-drive' : cal && ['camera', 'nswitch', 'accel'].includes(cat) ? 'inv-camera' : 'inv-' + cat };
+  };
   // Mechanical kits built into subsystems (on either robot or in storage) or reserved by running builds
   P.kitsUsed = function (S, cat) {
     let used = 0;
@@ -564,9 +581,78 @@
     const rank = it => { const p = PROD[it.p]; if (!p) return 0; let v = value(it); if (pref && D.PART_CAT[cat].elec) v += p.v === pref ? 2 : p.v === 'K' ? 1 : 0; return v; };
     return list.sort((a, b) => rank(b) - rank(a));
   }
+  const rank2 = (it, pref) => { const p = PROD[it.p]; return p ? value(it) + (p.v === pref ? 2 : 0) : 0; };
+  // (3.5.3) The control system a robot runs: the vendor (slot) of its control hub, else of most of its motors and
+  // sensors ('A' premium, 'B' value, 'K' kit). null with no electronics. side: 'comp' or 'prac'.
+  P.ctrlSys = function (S, side) {
+    const a = P.alloc(S), l = a[side === 'prac' ? 'prac' : 'comp'], hub = (l.ctrl || [])[0];
+    if (hub && PROD[hub.p]) return PROD[hub.p].v;
+    const n = {}; ['motor', 'enc'].forEach(cat => (l[cat] || []).forEach(it => { const v = PROD[it.p] && PROD[it.p].v; if (v) n[v] = (n[v] || 0) + 1; }));
+    const ks = Object.keys(n); return ks.length ? ks.sort((x, y) => n[y] - n[x])[0] : null;
+  };
+  // ... and whether the two robots run different ones (both must run: a second robot without electronics differs from nothing)
+  P.sysDiffer = function (S) {
+    if (!S.robot || !S.robot.bots || !S.cal || !G.Robot.twoBots(S)) return false;
+    const a = P.ctrlSys(S, 'comp'), b = P.ctrlSys(S, 'prac');
+    return !!(a && b && a !== b);
+  };
+  // (3.5.3) What each subsystem of robot bi uses, by category: { sub: { cat: n }, robot: { cat: n } }. The robot's own
+  // parts (control hub, network switch, cameras and accelerator, CAN FD hub) are 'robot'. Stored and packed units have
+  // no electronics: only what is fitted (or being built for a slot) takes parts.
+  P.subNeed = function (S, bi, n0) {
+    const R = S.robot, out = {}; if (!R || !R.bots) return out;
+    const n = n0 || P.need(S), side = bi === (R.comp || 0) ? 'comp' : 'prac', tot = n[side], sb = (n.sub && n.sub[side]) || {}, sum = {};
+    G.Seasons[R.year].subs.forEach(sd => {
+      if (sd.id === 'soft') return;
+      const b = Object.assign({}, P.slotBom(S, bi, sd.id));
+      if (sd.id === 'drive') Object.keys(sb).forEach(k => { if (sb[k] && b[k]) { b[D.DRIVE_ALT[k]] = (b[D.DRIVE_ALT[k]] || 0) + b[k]; delete b[k]; } }); // Drive gearboxes standing in
+      else if (S.cal && b.motor && tot.pgear) b.pgear = b.motor; // one planetary gearbox per mechanism motor
+      if (Object.keys(b).length) { out[sd.id] = b; Object.keys(b).forEach(c => { sum[c] = (sum[c] || 0) + b[c]; }); }
+    });
+    const rb = {}; Object.keys(tot).forEach(c => { const d = tot[c] - (sum[c] || 0); if (d > 0) rb[c] = d; });
+    if (Object.keys(rb).length) out.robot = rb;
+    return out;
+  };
+  // The vendor a subsystem's electronics come from first: the player's choice for it (S.subPref['bi:sub']), else the
+  // robot's (the competition robot: S.vendorPref; the other: S.vendorPref2); null = the best parts there are
+  // At an event the team packs the best parts there are for the competition robot: its own choices per subsystem wait
+  // at home, and only the robot's (S.vendorPref, one control system) counts.
+  let noLock = false, evMode = false;
+  P.atEvent = S => evMode || !!(S.event && S.event.stage !== 'done');
+  // (3.5.3) Stop Build Day: the bagged competition robot keeps the robot parts it went into the bag with, piece by piece
+  // (after an event: the ones the team fitted there), until its next event, where the team fits the best there are.
+  // S.bagParts = { key, by: { sub: { cat: [item ids] } } }. Kept parts can't be sold or recycled meanwhile.
+  const bagKey = S => S.year + ':' + ((S.robot && S.robot.comp) || 0);
+  P.bagLocked = S => !noLock && !!(S.robot && S.robot.bots && G.Robot && G.Robot.bagLock && G.Robot.bagLock(S));
+  P.lockedIds = S => {
+    const b = S.bagParts, o = {};
+    if (b && b.key === bagKey(S) && P.bagLocked(S)) Object.keys(b.by).forEach(k => Object.keys(b.by[k]).forEach(c => b.by[k][c].forEach(id => { o[id] = 1; })));
+    return o;
+  };
+  function takeSnap(S) {
+    let a; noLock = true; evMode = S.bagEv === S.year;
+    try { a = P.alloc(S); } finally { noLock = false; evMode = false; }
+    const by = {}; Object.keys(a.by.comp).forEach(k => { by[k] = {}; Object.keys(a.by.comp[k]).forEach(c => { by[k][c] = a.by.comp[k][c].map(it => it.id); }); });
+    S.bagParts = { key: bagKey(S), by };
+  }
+  P.subPref = (S, bi, k) => {
+    const comp = bi === ((S.robot && S.robot.comp) || 0);
+    if (comp && P.atEvent(S)) return S.vendorPref || null;
+    const p = S.subPref && S.subPref[bi + ':' + k]; if (p) return p;
+    return comp ? S.vendorPref || null : S.vendorPref2 || null;
+  };
   P.alloc = function (S) {
-    const n = P.need(S), comp = {}, prac = {}, short = {}, pshort = {};
-    const R = S.robot;
+    // the bagged competition robot keeps its parts (P.bagLocked); out of the bag season the record goes
+    const lock = P.bagLocked(S);
+    if (lock && (!S.bagParts || S.bagParts.key !== bagKey(S))) takeSnap(S);
+    else if (!lock && !noLock && S.bagParts && (P.atEvent(S) || !(G.Career.bagged && G.Career.bagged(S)))) delete S.bagParts; // at the event the record starts again
+    const keep = lock && S.bagParts ? S.bagParts.by : null, kept = keep ? P.lockedIds(S) : {};
+    const n = P.need(S), comp = {}, prac = {}, short = {}, pshort = {}, by = { comp: {}, prac: {} };
+    const R = S.robot, ci = R ? R.comp || 0 : 0;
+    // (3.5.3) subsystem by subsystem, the competition robot first: each takes what it needs from what is left, its own
+    // vendor first (P.subPref), else the best; the drivetrain first, the robot's own parts last
+    const sn = R && R.bots ? { comp: P.subNeed(S, ci, n), prac: P.subNeed(S, 1 - ci, n) } : null;
+    const keysOf = side => { const o = sn[side], ks = Object.keys(o).filter(k => k !== 'robot'); ks.sort((a, b) => (a === 'drive' ? -1 : 0) - (b === 'drive' ? -1 : 0)); if (o.robot) ks.push('robot'); return ks; };
     D.PART_CATS.forEach(c => {
       const list = order(S, c.id);
       if (c.kit) { // kits sit where they were built in
@@ -574,18 +660,32 @@
         comp[c.id] = list.slice(0, kc); prac[c.id] = list.slice(kc, kc + kp); return;
       }
       const nc = n.comp[c.id] || 0, np = n.prac[c.id] || 0;
-      comp[c.id] = list.slice(0, nc); prac[c.id] = list.slice(nc, nc + np);
+      if (!sn) { comp[c.id] = list.slice(0, nc); prac[c.id] = list.slice(nc, nc + np); }
+      else {
+        let left = list.slice();
+        [['comp', ci, comp], ['prac', 1 - ci, prac]].forEach(([side, bi, got]) => {
+          got[c.id] = [];
+          keysOf(side).forEach(k => {
+            const want = (sn[side][k] || {})[c.id] || 0; if (!want) return;
+            // in the bag: the very parts it had (then, for a unit being built for it, free ones); nobody else takes them
+            const mine = side === 'comp' && keep && keep[k] && keep[k][c.id] ? left.filter(it => keep[k][c.id].includes(it.id)).slice(0, want) : [];
+            const pref = c.elec ? P.subPref(S, bi, k) : null, l0 = keep ? left.filter(it => !kept[it.id]) : left, l = pref ? l0.slice().sort((x, y) => rank2(y, pref) - rank2(x, pref)) : l0, take = mine.concat(l.slice(0, want - mine.length));
+            left = left.filter(it => !take.includes(it)); got[c.id] = got[c.id].concat(take);
+            ((by[side][k] = by[side][k] || {})[c.id] = take);
+          });
+        });
+      }
       if (c.opt) return; // optional: a bonus when fitted, never short
       if (nc > comp[c.id].length) short[c.id] = nc - comp[c.id].length;
-      if (np > prac[c.id].length) pshort[c.id] = np - prac[c.id].length;
+      if (np > prac[c.id].length && !P.optOn('prac', c.id)) pshort[c.id] = np - prac[c.id].length;
     });
-    return { comp, prac, short, pshort, need: n };
+    return { comp, prac, short, pshort, need: n, by, subNeed: sn };
   };
   // What the competition robot's parts are worth: perf by category (0–1), average health, mixed control systems
   // cached on a cheap signature (robot, inventory sizes, wear tick), because ceilings ask for it a lot
   let pcache = {};
   const sig = S => (S.robot && S.robot.bots ? S.robot.bots.map(b => Object.keys(b.subs).map(k => b.subs[k] && b.subs[k].ver ? b.subs[k].concept + b.subs[k].ver : '-').join(',')).join('/') + 'c' + (S.robot.comp || 0) + 'v' + S.robot.visionLvl : '') + '|' +
-    D.PART_CATS.map(c => P.count(S, c.id)).join(',') + '|' + S.vendorPref + '|' + S.projects.map(p => p.type + p.sub + p.concept + (p.bot == null ? '' : p.bot)).join(',') + '|' + (S.wearTick || 0);
+    D.PART_CATS.map(c => P.count(S, c.id)).join(',') + '|' + S.vendorPref + '|' + (S.vendorPref2 || '') + '|' + JSON.stringify(S.subPref || {}) + (P.atEvent(S) ? 'E' : '') + (P.bagLocked(S) ? 'B' + (S.bagParts ? S.bagParts.key : '') : '') + '|' + S.projects.map(p => p.type + p.sub + p.concept + (p.bot == null ? '' : p.bot)).join(',') + '|' + (S.wearTick || 0);
   // which: 'comp' (the competition robot, default) or 'prac' (the other robot)
   P.profile = function (S, which) {
     const k = sig(S) + (which || 'comp');
@@ -624,8 +724,29 @@
       if (cams.length) out.cam = cams.reduce((s, it) => { const p = PROD[it.p]; return s + p.perf * (p.id === 'cameraL1' && G.Era.of(S).vision.tags ? D.CAM_OLD_TAGS : 1); }, 0) / cams.length;
       out.nsw = (lists.nswitch || []).length ? (lists.nswitch[0].h > 0.5 ? 1 : 0.6) : 0;
       out.accel = (lists.accel || []).length ? 1 : 0; }
+    // (3.5.3) what each unit's own parts are worth, for their live effects (G.Robot.partsLive): { sub: { motor, enc,
+    // swerve, health, pgear } }, perf by category as above but over that unit's parts only
+    { const bs = (a.by && a.by[side]) || {}, sns = (a.subNeed && a.subNeed[side]) || {}; out.subs = {};
+      Object.keys(sns).forEach(k => {
+        if (k === 'robot') return;
+        const nd = sns[k], got = bs[k] || {}, o = { health: 1 };
+        let sh = 0, sn = 0;
+        ['motor', 'enc', 'swerve'].forEach(cat => { const m = nd[cat] || 0; if (m) o[cat] = (got[cat] || []).reduce((s, it) => s + PROD[it.p].perf, 0) / m; });
+        Object.keys(got).forEach(cat => (got[cat] || []).forEach(it => { sh += it.h; sn++; }));
+        if (sn) o.health = sh / sn;
+        // what the drivers feel of its parts (motors, swerve modules, what a drive runs on): driver familiarity (G.Robot.famOf)
+        o.sig = ['motor', 'swerve', 'wcd', 'gearbox', 'kdrive'].reduce((l, cat) => l.concat((got[cat] || []).map(it => it.p)), []).filter((x, i, l) => l.indexOf(x) === i).sort().join(',');
+        const M = nd.pgear || 0;
+        if (M) {
+          const kM = (got.motor || []).filter(it => PROD[it.p].v === 'K').length, gl = got.pgear || [];
+          const kg = gl.filter(it => PROD[it.p].v === 'K'), vg = gl.filter(it => PROD[it.p].v !== 'K').sort((x, y) => PROD[y.p].perf - PROD[x.p].perf);
+          const ku = Math.min(kg.length, kM), vu = Math.min(vg.length, M - ku);
+          o.pgear = (ku * D.KOP_PERF.pgear + vg.slice(0, vu).reduce((s, it) => s + PROD[it.p].perf * (0.6 + 0.4 * it.h), 0)) / M;
+        }
+        out.subs[k] = o;
+      }); }
     // the CAN bus (competition robot, from 2023): motors and encoders against what the bus carries, with a CAN FD hub or without
-    { const base = side === 'comp' ? G.Era.of(S).canBus : 0;
+    { const base = G.Era.of(S).canBus; // (3.5.3) both robots: the second one's bus counts for development on it
       if (base) {
         const hub = (lists.canfd || [])[0], dev = (need.motor || 0) + (need.enc || 0), cap = hub ? PROD[hub.p].bus || base : base;
         out.can = { dev, cap, hub: hub ? PROD[hub.p].name : null, over: Math.max(0, dev - cap) / 8 }; // every 8 devices over the limit: one more unit of overload
@@ -634,6 +755,9 @@
   }
   // the competition robot's CAN bus: { dev, cap, hub, over } (null before 2023, in old careers or without a robot)
   P.canBus = S => (S.robot && S.cal ? P.profile(S).can || null : null);
+  // (3.5.3) the second robot's bus, and how much development on it counts: D.CAN2_DEV while it is overloaded, else 1
+  P.can2 = S => (S.robot && S.robot.bots && S.cal ? P.profile(S, 'prac').can || null : null);
+  P.dev2K = S => { const c = P.can2(S); return c && c.over > 0 ? D.CAN2_DEV : 1; };
   P.devMult = S => { if (!S.robot) return 1; const pp = P.profile(S); return pp.mixed ? D.MIX_HOURS : pp.kopMix ? D.KOP_MIX_HOURS : 1; };
 
   // ======================= wear =======================

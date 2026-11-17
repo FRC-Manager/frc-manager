@@ -212,14 +212,8 @@
   Robot.ceil = function (S, year, subId, c, stat) {
     const era = G.Era.of(S), tb = subId === 'drive' && c.id === 'swerve' && !era.swerve.cots; // team-built swerve (before 2020)
     let v = (c.ceil[stat] || 0) * (tb ? era.swerve.ceil : 1) + 3 * lvlFor(S, subId, c, stat);
-    // better motors, swerve modules and sensors raise ceilings (parts on the competition robot)
-    if (S.robot && (stat === 'speed' || stat === 'push' || stat === 'scoreSpd' || stat === 'auto')) {
-      const pp = G.Parts.profile(S);
-      if (subId === 'drive' && stat === 'speed') v += 9 * pp.motor + (c.id === 'swerve' ? 4 * pp.swerve : 0);
-      if (subId === 'drive') v += G.Parts.driveQ(S, c.id)[stat] || 0; // what it runs on: kit drivetrain, Drive gearboxes or vendor drive sets
-      if (stat === 'scoreSpd') v += 7 * pp.motor;
-      if (stat === 'auto') v += 6 * pp.enc + (era.vision.tags ? 2 * (S.robot.visionLvl || 0) : 0); // AprilTags: the robot knows where it is
-    }
+    // (3.5.3) robot parts no longer raise ceilings: they add to a unit live while it runs on them (Robot.partsLive)
+    if (S.robot && stat === 'auto' && era.vision.tags) v += 2 * (S.robot.visionLvl || 0); // AprilTags: the robot knows where it is
     if (stat === 'vision') v = Math.min(v, era.vision.ceil);
     return Math.min(99, Math.round(v));
   };
@@ -261,15 +255,44 @@
     if (bi < 0) return null;
     const miss = G.Parts.shortage(S, extraFor(S, bi, subId, c), bi === (R.comp || 0) ? 'comp' : 'prac');
     // Drive gearboxes can stand in for drive sets and for the kit drivetrain: say so when those are what is missing
-    const alt = subId === 'drive' && miss.some(m => D.DRIVE_ALT[m.cat]) ? '. A West Coast drive or a kit chassis also runs on 2 Drive gearboxes (Subsystem COTS)' : '';
+    const alt = subId === 'drive' && miss.some(m => D.DRIVE_ALT[m.cat]) ? '. A West Coast drive or a kit chassis also runs on 2 Lumen standard drive gearboxes (Inventory: Drive & add-ons)' : '';
     return miss.length ? G.Parts.shortText(miss) + alt : null;
   };
   Robot.reqOk = function (S, c) { return null; };
   Robot.weightOf = (R, bi) => Math.round(Object.keys(R.bots[bi].subs).reduce((s, k) => s + (k !== 'soft' && R.bots[bi].subs[k] && R.bots[bi].subs[k].ver ? R.bots[bi].subs[k].w : 0), 0));
   Robot.weight = S => (S.robot ? Robot.weightOf(S.robot, S.robot.comp || 0) : 0);
+  // (3.5.3) What robot parts add to each unit of robot bi while it runs on them: { stat: { sub: { stat: +n } }, rel:
+  // { sub: +n } }. A unit's version holds what the design can do; its parts add on top, live: the drivetrain's motors,
+  // swerve modules and drive parts its Speed (and Pushing), a scorer's motors its Scoring Speed, an intake's its Intake,
+  // the other mechanisms' a little of their main stat, the robot's encoders the code's Autonomous. Reliability: each
+  // unit's own parts' wear and planetary gearboxes (a unit without mechanism motors counts the robot's).
+  Robot.partsLive = function (S, bi) {
+    const R = S.robot, out = { stat: {}, rel: {} };
+    if (!R || !R.bots || !S.inv || !R.bots[bi]) return out;
+    const pp = G.Parts.profile(S, bi === (R.comp || 0) ? 'comp' : 'prac'), L = D.PARTS_LIVE, subs = R.bots[bi].subs;
+    Object.keys(subs).forEach(k => {
+      const u = subs[k]; if (!u || !u.ver) return;
+      const st = {}, q = pp.subs && pp.subs[k];
+      if (k === 'soft') { if (u.stats && u.stats.auto != null && pp.enc) st.auto = L.auto * pp.enc; }
+      else if (k === 'drive') {
+        const m = q ? q.motor || 0 : 0, dq = G.Parts.driveQ(S, u.concept, bi);
+        st.speed = L.speed * m + (u.concept === 'swerve' ? L.swerve * ((q && q.swerve) || 0) : 0) + (dq.speed || 0);
+        if (dq.push) st.push = dq.push;
+      } else if (q && q.motor) Object.keys(u.stats || {}).forEach(s => {
+        const w = s === 'scoreSpd' ? L.scoreSpd : s === 'intake' ? L.intake : D.PARTS_LIVE_MECH.includes(s) ? L.mech : 0;
+        if (w) st[s] = w * q.motor;
+      });
+      Object.keys(st).forEach(s => { st[s] = Math.round(st[s] * 10) / 10; if (!st[s]) delete st[s]; });
+      if (Object.keys(st).length) out.stat[k] = st;
+      if (k !== 'soft') out.rel[k] = Math.round((-L.wearRel * (1 - (q ? q.health : pp.health)) + L.pgearRel * (q && q.pgear != null ? q.pgear : pp.pgear || 0)) * 10) / 10;
+    });
+    return out;
+  };
+  // A unit's stat as it plays: its version's, plus what its parts add (Robot.partsLive), at most 99
+  Robot.liveStat = (v, add) => (add ? Math.min(99, Math.round(v + add)) : v);
   Robot.capOf = function (S, bi) {
     const R = S.robot;
-    return G.Cap.build(R.year, R.bots[bi].subs, { autoTier: R.autoTier, visionLvl: R.visionLvl, pp: G.Parts.profile(S, bi === (R.comp || 0) ? 'comp' : 'prac') });
+    return G.Cap.build(R.year, R.bots[bi].subs, { autoTier: R.autoTier, visionLvl: R.visionLvl, pp: G.Parts.profile(S, bi === (R.comp || 0) ? 'comp' : 'prac'), live: Robot.partsLive(S, bi) });
   };
   Robot.cap = S => Robot.capOf(S, S.robot.comp || 0);
   Robot.lookOf = function (S, bi) {
@@ -291,18 +314,28 @@
     const A = Robot.coreAreas(ca), B = Robot.coreAreas(cb), inter = A.filter(x => B.includes(x)).length, uni = new Set(A.concat(B)).size || 1;
     return U.clamp(0.2 + 0.3 * (1 - inter / uni) + 0.04 * Math.abs(ca.cx - cb.cx), 0.15, 0.65);
   };
-  // Familiarity the drivers would have with unit u (null for robot code and empty slots)
-  Robot.famOf = function (R, k, u) {
+  // (3.5.3) the robot parts the drivers feel on the unit in slot k of robot bi (motors, swerve modules, what a drive runs
+  // on), as product ids; null where nothing is known (no robot parts, old careers)
+  Robot.partSig = function (S, bi, k) {
+    if (!S || !S.cal || !S.inv || !S.robot || !S.robot.bots || bi == null || bi < 0) return null;
+    const q = (G.Parts.profile(S, bi === (S.robot.comp || 0) ? 'comp' : 'prac').subs || {})[k];
+    return q && q.sig ? q.sig : null;
+  };
+  // Familiarity the drivers would have with unit u (null for robot code and empty slots): the unit they know best is the
+  // same concept and version on the same robot parts; another version costs a little (D.FAM.VER a version), other robot
+  // parts on it a little less (D.FAM.PARTS, 3.5.3), another concept a lot. bi: the robot it is on, for its parts.
+  Robot.famOf = function (R, k, u, bi) {
     if (k === 'soft' || !u || !u.ver || u.concept === 'none') return null;
     const m = R.fam && R.fam[k];
     if (!m) return D.FAM.NEW;
-    if (m.c === u.concept) return m.f * Math.max(0.7, 1 - D.FAM.VER * Math.abs(u.ver - m.ver));
-    return m.f * (1 - Robot.famDrop(R.year, k, m.c, u.concept));
+    const sig = m.pv && bi != null && G.S && G.S.robot === R ? Robot.partSig(G.S, bi, k) : null, pk = sig && sig !== m.pv ? 1 - D.FAM.PARTS : 1;
+    if (m.c === u.concept) return m.f * Math.max(0.7, 1 - D.FAM.VER * Math.abs(u.ver - m.ver)) * pk;
+    return m.f * (1 - Robot.famDrop(R.year, k, m.c, u.concept)) * pk;
   };
   const FAM_W = { drive: 1.5, frame: 0.5 };
   Robot.famAvg = function (R, bi) {
     const s = R.bots[bi].subs; let t = 0, w = 0;
-    Object.keys(s).forEach(k => { const f = Robot.famOf(R, k, s[k]); if (f == null) return; const wt = FAM_W[k] || 1; t += f * wt; w += wt; });
+    Object.keys(s).forEach(k => { const f = Robot.famOf(R, k, s[k], bi); if (f == null) return; const wt = FAM_W[k] || 1; t += f * wt; w += wt; });
     return w ? t / w : null;
   };
   // The drive team drives robot bi: their know-how moves to its subsystems, then closes g of the gap to 1
@@ -310,16 +343,20 @@
     const R = S.robot; if (!R || !R.bots || bi == null || bi < 0) return;
     R.fam = R.fam || {};
     const s = R.bots[bi].subs, ci = R.comp || 0;
+    // (3.5.3) a second robot on another control system responds differently (motor curves, sensors, code): what the
+    // drivers learn on it carries over only partly to the competition robot
+    if (bi !== ci && g && G.Parts.sysDiffer && G.Parts.sysDiffer(S)) g *= D.CTRL2.fam;
     Object.keys(s).forEach(k => {
-      const f = Robot.famOf(R, k, s[k]); if (f == null) return;
+      const f = Robot.famOf(R, k, s[k], bi); if (f == null) return;
       const cu = bi !== ci ? R.bots[ci].subs[k] : null;
       if (cu && cu.ver && cu.concept !== 'none' && cu.concept !== s[k].concept) {
         // driving a different mechanism (a test chassis): general skills carry over partly to the competition robot's one
-        const fc = Robot.famOf(R, k, cu);
-        if (fc != null) R.fam[k] = { c: cu.concept, ver: cu.ver, f: Math.min(1, fc + (1 - fc) * (g || 0) * 0.4) };
+        const fc = Robot.famOf(R, k, cu, ci);
+        if (fc != null) R.fam[k] = { c: cu.concept, ver: cu.ver, f: Math.min(1, fc + (1 - fc) * (g || 0) * 0.4), pv: Robot.partSig(S, ci, k) || undefined };
         return;
       }
-      R.fam[k] = { c: s[k].concept, ver: s[k].ver, f: Math.min(1, f + (1 - f) * (g || 0)) };
+      // (3.5.3) they learn it on the robot parts it has here
+      R.fam[k] = { c: s[k].concept, ver: s[k].ver, f: Math.min(1, f + (1 - f) * (g || 0)), pv: Robot.partSig(S, bi, k) || undefined };
     });
   };
   // Match multiplier on a subsystem's stats
@@ -340,15 +377,58 @@
   // fit everything in the crate to the competition robot; returns the names of what went on
   // A stored unit worth packing for the bagged robot: the newest version of the design, or one identical to the unit in
   // the bag (a fresher spare). Older units stay in storage, where they can be taken apart.
-  Robot.packable = (R, u) => { const t = R.subs[u.sub]; return Robot.isLatest(R, u.sub, u) || !!(t && t.ver && t.concept === u.concept && t.ver === u.ver); };
+  // (3.5.3) ... and, worth packing too: any unit for a slot the bagged robot has empty (a test chassis that was bagged),
+  // and a newer version of the concept in the bag, or the designed concept when the bag holds an old one
+  Robot.packable = (R, u) => { const t = R.subs[u.sub], d = R.design[u.sub]; return Robot.isLatest(R, u.sub, u) || !t || !t.ver || (t.concept === u.concept && u.ver >= t.ver) || (!!d && u.concept === d.concept && t.concept !== d.concept); };
+  // (3.5.3) The competition robot goes to an event without a mechanism that is built and waiting at home (a test
+  // chassis made the competition robot, mechanisms left on the other robot or in storage): the team takes it along.
+  // For each empty slot, the best unit there is (storage first, then the other robot). In the bag it travels in the
+  // crate and is fitted on practice day (Install Upgrade); otherwise it is fitted before the trip, if the robot stays
+  // under the weight limit and the parts allow it. Returns the names of what was taken.
+  Robot.autoCrate = function (S) {
+    const R = S.robot; if (!R || !R.bots || R.year !== S.year) return [];
+    const ci = R.comp || 0, oi = 1 - ci, bag = !!Robot.bagLock(S), out = [], rank = u => (Robot.isLatest(R, u.sub, u) ? 1e4 : 0) + (R.design[u.sub] && u.concept === R.design[u.sub].concept ? 1e3 : 0) + u.ver * 10 + u.cond / 100;
+    G.Seasons[R.year].subs.forEach(sd => {
+      const k = sd.id; if (k === 'soft' || k === 'drive') return;
+      const t = R.bots[ci].subs[k]; if (t && t.ver) return;
+      if ((R.held || []).some(h => h.k === k && h.u)) return; // already packed
+      const cand = (R.store || []).filter(u => u.sub === k && u.ver).map(u => ({ u, from: -1 }));
+      const o = R.bots[oi].subs[k]; if (o && o.ver) cand.push({ u: o, from: oi });
+      cand.sort((a, b) => rank(b.u) - rank(a.u) || (a.from < 0 ? -1 : 1) - (b.from < 0 ? -1 : 1));
+      for (const c of cand) {
+        const c0 = G.Seasons.concept(R.year, k, c.u.concept), nm = (c0 ? c0.name : sd.name) + ' v' + c.u.ver + (c.from >= 0 ? ' (from ' + R.bots[oi].name + ')' : ' (from storage)');
+        if (bag) {
+          if (c.from < 0) R.store = R.store.filter(x => x !== c.u); else R.bots[oi].subs[k] = emptyUnit(k);
+          hold(S, { k, u: c.u, crate: true }); out.push(nm); break;
+        }
+        if (Robot.weightOf(R, ci) + c.u.w > Robot.WEIGHT_LIMIT) continue;
+        const before = missingTotal(S), snap = { store: R.store.slice(), o: R.bots[oi].subs[k] };
+        if (c.from < 0) R.store = R.store.filter(x => x !== c.u); else R.bots[oi].subs[k] = emptyUnit(k);
+        R.bots[ci].subs[k] = c.u; S.wearTick = (S.wearTick || 0) + 1;
+        if (missingTotal(S) > before) { R.bots[ci].subs[k] = emptyUnit(k); R.store = snap.store; R.bots[oi].subs[k] = snap.o; S.wearTick++; continue; }
+        out.push(nm); break;
+      }
+    });
+    return out;
+  };
   // maxSubs (practice day, bag years): only what is packed for that many subsystems goes on, the biggest gain in robot
   // strength first; the rest stays in the crate for the next block
-  Robot.installHeld = function (S, maxSubs) {
+  // (3.5.3) How long a subsystem's packed parts take to fit, in install work: a whole mechanism the robot does not
+  // have yet (an empty slot, or another concept) takes D.INSTALL_WORK.mech, a newer version of the one on the robot
+  // or a set of new parts (an upgrade, hardening, lightweighting) D.INSTALL_WORK.part.
+  Robot.installWork = function (S, k) {
+    const R = S.robot, t = R.bots[R.comp || 0].subs[k], W = D.INSTALL_WORK;
+    return Robot.held(S).filter(h => h.k === k).reduce((m, h) => Math.max(m, h.u && (!t || !t.ver || t.concept !== h.u.concept) ? W.mech : W.part), 0);
+  };
+  // maxWork (practice day, bag years): only as much as one block's install work fits, the biggest gain in robot
+  // strength first (always at least one subsystem); the rest stays in the crate for the next block
+  Robot.installHeld = function (S, maxWork) {
     const R = S.robot; if (!R || !Robot.held(S).length) return [];
     let keep = [];
-    if (maxSubs != null) {
-      const gain = Robot.heldGains(S), ks = Object.keys(gain);
-      const pick = ks.sort((a, b) => gain[b] - gain[a]).slice(0, Math.max(1, maxSubs));
+    if (maxWork != null) {
+      const gain = Robot.heldGains(S), ks = Object.keys(gain).sort((a, b) => gain[b] - gain[a]), pick = [];
+      let used = 0;
+      ks.forEach(k => { const w = Robot.installWork(S, k); if (!pick.length || used + w <= maxWork) { pick.push(k); used += w; } });
       keep = R.held.filter(h => !pick.includes(h.k)); R.held = R.held.filter(h => pick.includes(h.k));
     }
     const ci = R.comp || 0, names = Robot.heldNames(S), done = [];
@@ -380,7 +460,9 @@
     return done;
   };
   // how many subsystems' packed parts one practice block can fit: a full practice day fits everything the game can need
-  Robot.installPerBlock = (S, blocks) => Math.max(1, Math.ceil(G.Seasons[S.robot.year].subs.filter(sd => sd.id !== 'soft').length / Math.max(1, blocks || 3)));
+  // (3.5.3) in install work (Robot.installWork): three blocks fit a whole robot's mechanisms, whatever the event's
+  // practice day holds, and a block fits twice as many upgrades as new mechanisms
+  Robot.installPerBlock = S => Math.max(D.INSTALL_WORK.mech, Math.ceil(D.INSTALL_WORK.mech * G.Seasons[S.robot.year].subs.filter(sd => sd.id !== 'soft' && sd.id !== 'drive').length / 3));
   // what fitting each subsystem's packed parts alone adds to the robot's strength: { sub: gain }, tried on a copy (new
   // units and upgrades break ties ahead of hardening and lightweighting)
   // Strength trials run on a copy of the robot (heldGains, powerPacked). The copy is linked like the real robot (R.subs is a
@@ -407,6 +489,14 @@
     S.robot = trialCopy(R0); trial = true;
     try { Robot.installHeld(S); Robot.installPending(S); return G.Cap.power(S.robot.year, Robot.cap(S)); }
     finally { trial = false; const w2 = S.wearTick || 0; S.robot = R0; S.wearTick = Math.max(wt, w2) + 1; } // a fresh tick: nothing the trial cached is reused
+  };
+  // (3.5.3) what Robot.autoCrate would take to the next event, tried on a copy: names, nothing changes
+  Robot.cratePreview = function (S) {
+    if (!S.robot || !S.robot.bots) return [];
+    const R0 = S.robot, wt = S.wearTick || 0;
+    S.robot = trialCopy(R0); trial = true;
+    try { return Robot.autoCrate(S); }
+    finally { trial = false; const w2 = S.wearTick || 0; S.robot = R0; S.wearTick = Math.max(wt, w2) + 1; }
   };
   // take a packed unit out of the crate again (back to storage)
   Robot.unpack = function (S, i) {
@@ -437,12 +527,14 @@
     if (f.bi === bi) return null;
     { const bag = Robot.bagLock(S), ci = R.comp || 0;
       if (bag && (bi === ci || f.bi === ci)) {
-        // a stored unit can be packed for the next event; nothing comes off the bagged robot, and nothing goes straight onto it
-        if (f.bi < 0 && bi === ci) {
-          if (!Robot.packable(R, f.u)) return 'Only the newest version (v' + R.design[f.k].ver + ') or a unit identical to the one in the bag can be packed. Older units stay in storage, where they can be taken apart.';
-          R.store = R.store.filter(x => x !== f.u); hold(S, { k: f.k, u: f.u }); return null;
+        // a unit in storage or on the other robot can be packed for the next event; nothing comes off the bagged robot,
+        // and nothing goes straight onto it (3.5.3: from the other robot too, which leaves its slot empty)
+        if (f.bi !== ci && bi === ci) {
+          if (!Robot.packable(R, f.u)) return 'Only a unit the bagged robot lacks, a newer version of the one in the bag, or one identical to it can be packed. Older units stay where they are.';
+          if (f.bi < 0) R.store = R.store.filter(x => x !== f.u); else R.bots[f.bi].subs[f.k] = emptyUnit(f.k);
+          hold(S, { k: f.k, u: f.u }); return null;
         }
-        return bag + ' Only units from storage can be packed for it; they are fitted on practice day.';
+        return bag + ' Units can be packed for it from storage or from the other robot; they are fitted on practice day.';
       } }
     const k = f.k, before = missingTotal(S), snap = { store: R.store.slice(), a: R.bots[0].subs[k], b: R.bots[1].subs[k] };
     if (f.bi < 0) { R.store = R.store.filter(x => x !== f.u); install(R, bi, k, f.u); }
@@ -957,26 +1049,45 @@
   // How validated a project is: 0 (untested) … 1 (fully tested) → better upgrade quality on completion
   Robot.testQ = p => Math.min(1, (p.test || 0) / Math.max(1, p.need * D.TEST_Q));
   // Share development-testing hours between projects that are getting work this turn (each can absorb testCap).
-  Robot.testPlan = function (S, devH, give, limited) {
-    const out = {}, cap = Robot.testCap(S);
+  // skip: projects that can't use these hours; out0: what earlier hours already gave (3.5.3)
+  Robot.testPlan = function (S, devH, give, limited, skip, out0) {
+    const out = Object.assign({}, out0 || {}), cap = Robot.testCap(S);
     let left = Math.max(0, devH);
     for (let pass = 0; pass < 4 && left > 0.05; pass++) {
       // a project can only absorb testing in proportion to the build work going into it this turn
       const capOf = p => Math.min(cap, D.TEST_SHARE * (give[p.id] || 0));
-      const act = S.projects.filter(p => (limited ? Robot.chassisTestable(p) : Robot.testable(p)) && capOf(p) - (out[p.id] || 0) > 0.01);
+      const act = S.projects.filter(p => (limited ? Robot.chassisTestable(p) : Robot.testable(p)) && !(skip && skip(p)) && capOf(p) - (out[p.id] || 0) > 0.01);
       if (!act.length) break;
       const each = left / act.length;
       act.forEach(p => { const t = Math.min(each, capOf(p) - (out[p.id] || 0)); out[p.id] = (out[p.id] || 0) + t; left -= t; });
     }
     return { give: out, idle: left };
   };
-  // Apply this turn's hours (and development-testing hours); returns completed project names and testing use
-  Robot.work = function (S, hours, mods, devH, limited) {
+  // (3.5.3) A Vision Level is tested on the second robot only when it carries the cameras for that level (G.Parts.need
+  // gives it them while the project runs, if the shelf has them). True when no such project needs them.
+  Robot.vision2 = function (S) {
+    const R = S.robot, p = S.projects.find(x => x.type === 'vision');
+    if (!p || !R || !R.bots || !S.cal || !S.inv || !G.Era.of(S).vision.cam) return true;
+    return (G.Parts.alloc(S).prac.camera || []).length >= (R.visionLvl || 0) + 1;
+  };
+  // Apply this turn's hours (and development-testing hours); returns completed project names and testing use.
+  // dev2 (3.5.3): the part of devH that runs on the second robot, which a Vision Level project can't use without its cameras
+  // The week's testing hours shared out: the second robot's first (no Vision Level without its cameras), then the rest.
+  // give: what each project's testing is worth (the second robot's hours count G.Parts.dev2K: less on an overloaded
+  // CAN bus); raw: the hours each one used.
+  Robot.testShare = function (S, devH, dev2, give, limited) {
+    const no2 = dev2 > 0 && !Robot.vision2(S) ? p => p.type === 'vision' : null, k = dev2 > 0 ? G.Parts.dev2K(S) : 1;
+    if (!no2 && k === 1) { const t = Robot.testPlan(S, devH || 0, give, limited); return { give: t.give, raw: t.give, idle: t.idle }; }
+    const b = Robot.testPlan(S, Math.min(dev2, devH || 0), give, limited, no2), r = Robot.testPlan(S, Math.max(0, (devH || 0) - dev2), give, limited, null, b.give);
+    const eff = {}; Object.keys(r.give).forEach(id => { eff[id] = r.give[id] - (1 - k) * (b.give[id] || 0); });
+    return { give: eff, raw: r.give, idle: b.idle + r.idle };
+  };
+  Robot.work = function (S, hours, mods, devH, limited, dev2) {
     const a = Robot.alloc(S, hours, mods), done = [];
-    const tp = Robot.testPlan(S, devH || 0, a.give, limited), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
+    const tp = Robot.testShare(S, devH, dev2, a.give, limited), perH = D.TEST_GAIN / (S.phase === 'off' ? 4 : 1);
     let bonus = 0;
     let polished = 0;
-    const pathBoost = Robot.chassisMatch(S) ? D.CHASSIS_PATH : 0; // paths tried on a second robot that drives the same way
+    const pathBoost = Robot.chassisMatch(S) ? D.CHASSIS_PATH * (G.Parts.sysDiffer(S) ? D.CTRL2.path : 1) * G.Parts.dev2K(S) : 0; // paths tried on a second robot that drives the same way (3.5.3: less, when its control system differs and the code needs porting, or its CAN bus is overloaded)
     if (pathBoost && hours > 0 && S.phase !== 'off') Robot.addXP(S, 'autoPath', D.CHASSIS_PATH_XP);
     S.projects.forEach(p => {
       const h = a.give[p.id] || 0, t = tp.give[p.id] || 0, ph = a.pol[p.id] || 0;
@@ -1080,7 +1191,7 @@
           if (ref) { R.fam = R.fam || {}; const f0 = Robot.famOf(R, p.sub, nu) || 0; R.fam[p.sub] = { c: p.concept, f: Math.max(f0, rfit.fam), ver: nu.ver }; } }
         const core = Robot.coreAreas(c);
         c.areas.forEach(a => Robot.addXP(S, a, Math.round(30 * ef.gain * (core.includes(a) ? 1 : 0.5) * (ref ? ref.k.xp : 1))));
-        G.Career.inbox(S, 'Built: ' + c.name + (ref ? ' (' + ref.name + ')' : ''), 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + (ref ? ' (v2, copied from the ' + ref.name + '; upgrades from here are your own work)' : ' (v1)') + ', ' + (bag ? 'packed for your next event. The competition robot is in the bag, so the new mechanism is fitted in the pits on practice day (Install Upgrade)' : 'fitted to ' + where(ci)) + '.' + (had && !bag ? ' The old one is in storage (Garage).' : '') +
+        G.Career.inbox(S, 'Built: ' + c.name + (ref ? ' (' + ref.name + ')' : ''), 'Your ' + G.Seasons.sub(year, p.sub).name + ' is now a ' + c.name + (ref ? ' (v2, copied from the ' + ref.name + '; upgrades from here are your own work)' : ' (v1)') + ', ' + (bag ? 'packed for your next event. The competition robot is in the bag, so the new unit is fitted in the pits on practice day (Install Upgrade)' : 'fitted to ' + where(ci)) + '.' + (had && !bag ? ' The old one is in storage (Garage).' : '') +
           (first > 0.5 ? ' This is the team\'s first time building one, so expect teething problems.' : cov > 0.99 ? ' The COTS kits took the guesswork out of it.' : cov > 0 ? ' COTS kits covered part of it.' : '') +
           (ref ? (rfit.share > 0.99 ? ' The drivers practised on the ' + ref.name + '\'s simulator model and drills while it was built, so they start out knowing it.' : ' The ' + ref.name + '\'s simulator model and drills are of the whole robot and only part of it is on yours, so the drivers start at ' + Math.round(rfit.fam * 100) + '% (' + Math.round(ref.k.fam * 100) + '% with the whole robot), and it is a little less proven on your robot.') : ' The drive team will need practice to get used to it.') + qt + pt, 'dev');
         break;
@@ -1107,7 +1218,7 @@
           : bi >= 0 ? 'in storage: it could not go on ' + R.bots[bi].name + '. ' + (Robot.lastShort || 'Not enough parts') : p.basic ? 'in storage (the robot it was for has a drivetrain now)' : 'in storage as a spare';
         // a robot that runs at last (a test chassis, or the drivetrain of a copy): say what a second robot gives
         const runsNow = at >= 0 && at !== (R.comp || 0) && p.sub === 'drive';
-        G.Career.inbox(S, p.basic ? 'Test chassis ready' : 'Built: another ' + c.name, (p.basic ? 'A ' + c.name + ' test chassis is ' : 'A v' + u.ver + ' ' + c.name + ' is ready: ') + place + '. Move subsystems between robots in the Garage.' + pt +
+        G.Career.inbox(S, p.basic ? 'Test chassis ready' : 'Built: another ' + c.name, (p.basic ? 'A ' + c.name + ' test chassis is ' : 'A v' + u.ver + ' ' + c.name + ' is ready: ') + place + '. Move units between robots in the Garage.' + pt +
           (runsNow ? ' ' + Robot.secondText(S) : ''), 'dev');
         break;
       }
@@ -1136,7 +1247,7 @@
         else { if (!soft && tgt) Object.assign(tgt, { ver: des.ver, stats: Object.assign({}, des.stats), w: des.w, rel: des.rel }); if (hid) tgt.hidden++; }
         (c.areas || []).forEach((a, i) => Robot.addXP(S, a, Math.round(30 * ef.gain * (i === 0 ? 1 : 0.4))));
         const onComp = soft || tgt === R.subs[p.sub];
-        const note = soft ? '' : !tgt ? ' No robot has this mechanism right now: build a copy to use v' + des.ver + '.' : onComp ? '' : ' Fitted to ' + where(R.bots.findIndex(b => b.subs[p.sub] === tgt)) + '.';
+        const note = soft ? '' : !tgt ? ' No robot has a unit of it right now: build a copy to use v' + des.ver + '.' : onComp ? '' : ' Fitted to ' + where(R.bots.findIndex(b => b.subs[p.sub] === tgt)) + '.';
         if (S.event && S.event.stage !== 'done' && !soft && onComp) { R.pending.push(p.sub); G.Career.inbox(S, 'Upgrade ready: ' + p.name, 'Install it in the pits (practice block) to use it at this event. ' + changes.join(', '), 'dev', { plot: true, prio: true }); }
         else G.Career.inbox(S, 'Upgrade complete: ' + p.name, (changes.join(', ') || 'Already near the ceiling.') + (bagU ? ' The competition robot is in the bag: the new parts are packed and go on at your next event (Install Upgrade on practice day).' : note) + qt + pt, 'dev');
         break;
@@ -1277,16 +1388,17 @@
     return n;
   };
   Robot.matchEntry = function (S, ev) {
-    const R = S.robot, subs = {};
-    // drivers who don't know a subsystem well get less out of it
+    const R = S.robot, subs = {}, live = Robot.partsLive(S, R.comp || 0);
+    // drivers who don't know a subsystem well get less out of it (what its parts add too)
     Object.keys(R.subs).forEach(k => {
-      const u = R.subs[k], f = Robot.famOf(R, k, u);
+      const u = R.subs[k], f = Robot.famOf(R, k, u, R.comp || 0);
       if (f == null) { subs[k] = u; return; }
       const m = Robot.famMult(f), st = {};
       Object.keys(u.stats).forEach(s => { st[s] = Math.round(u.stats[s] * m); });
       subs[k] = Object.assign({}, u, { stats: st });
+      if (live.stat[k]) Object.keys(live.stat[k]).forEach(s => { live.stat[k][s] *= m; });
     });
-    const cap = G.Cap.build(R.year, subs, { autoTier: R.autoTier, visionLvl: R.visionLvl, pp: G.Parts.profile(S) });
+    const cap = G.Cap.build(R.year, subs, { autoTier: R.autoTier, visionLvl: R.visionLvl, pp: G.Parts.profile(S), live });
     if (R.pending.length) cap.scoreSpd = Math.round(cap.scoreSpd * 0.97);
     const dt = G.Career.driveTeam(S);
     const out = {

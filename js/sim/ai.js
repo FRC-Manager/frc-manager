@@ -16,7 +16,7 @@
       balance: 20, ampSkill: 0, algaeSkill: 0, traverse: 40, feed: 40, endLevel: 0, storage: 1,
       autoTier: extra.autoTier || 0, visionLvl: extra.visionLvl || 0
     };
-    const rels = []; let weight = 0; let built = 0;
+    const rels = [], live = extra.live || null; let weight = 0; let built = 0;
     G.Seasons[year].subs.forEach(sd => {
       const s = subs[sd.id];
       if (!s || !s.ver) {
@@ -27,9 +27,11 @@
       const c = G.Seasons.concept(year, sd.id, s.concept);
       if (!c) return;
       built++;
-      Object.keys(s.stats || {}).forEach(k => { cap[STAT_KEY[k] || k] = s.stats[k]; });
+      // (3.5.3) the player's robot: what each unit's parts add, live (G.Robot.partsLive)
+      const add = live && live.stat[sd.id];
+      Object.keys(s.stats || {}).forEach(k => { cap[STAT_KEY[k] || k] = add && add[k] ? Math.min(99, Math.round(s.stats[k] + add[k])) : s.stats[k]; });
       Object.assign(cap, c.caps || {});
-      if (sd.id !== 'soft') rels.push(s.rel == null ? 70 : s.rel);
+      if (sd.id !== 'soft') rels.push((s.rel == null ? 70 : s.rel) + (live && live.rel[sd.id] || 0));
       weight += s.w == null ? c.w : s.w;
     });
     // Games with an End Effector (the gripper at the end of the lift). Without one the robot cannot hold a game piece.
@@ -55,13 +57,14 @@
     const avg = rels.length ? U.avg(rels) : 60, mn = rels.length ? Math.min(...rels) : 60;
     // the player's parts: sensors help reliability, worn parts fail more, mixed control systems cost a little everywhere
     const pp = extra.pp;
-    cap.rel = U.clamp(0.6 * avg + 0.4 * mn + (pp ? 3 * pp.enc - 10 * (1 - pp.health) - (pp.mixed ? 3 : pp.kopMix ? 2 : 0) : 0), 5, 99);
+    // (3.5.3) with live parts (the player's robot) each unit's own wear and gearboxes are already in its reliability
+    cap.rel = U.clamp(0.6 * avg + 0.4 * mn + (pp ? 3 * pp.enc - (live ? 0 : 10 * (1 - pp.health)) - (pp.mixed ? 3 : pp.kopMix ? 2 : 0) : 0), 5, 99);
     cap.brown = pp ? (1.25 - 0.5 * pp.motor) * (1 + 0.6 * (1 - pp.health)) : 1.25;
     if (pp) { const k = (0.97 + 0.03 * pp.health) * (pp.mixed ? 0.98 : pp.kopMix ? 0.99 : 1); cap.speed = Math.round(cap.speed * k); cap.scoreSpd = Math.round(cap.scoreSpd * k); }
     // optional hardware (calendar careers): planetary gearboxes keep mechanisms running; the vision hardware of the day
     if (pp) {
       const VH = G.Data.VISION_HW, vl = cap.visionLvl || 0;
-      if (pp.pgear) cap.rel = U.clamp(cap.rel + 4 * pp.pgear, 5, 99);
+      if (pp.pgear && !live) cap.rel = U.clamp(cap.rel + 4 * pp.pgear, 5, 99);
       if (vl && pp.cam != null) { cap.accuracy += Math.round(VH.camAcc * (pp.cam - 0.6) * vl); cap.vision += Math.round(VH.camVision * (pp.cam - 0.6)); }
       if (pp.nsw) { cap.netSw = pp.nsw; if (vl) { cap.vision += VH.swVision; cap.accuracy += VH.swAcc; } }
       if (pp.accel && vl) { cap.vision += VH.accVision; cap.intake += VH.accIntake; cap.auto += VH.accAuto; }

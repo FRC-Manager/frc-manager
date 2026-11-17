@@ -251,7 +251,7 @@
     cal = cal.slice(0, order.length);
     const scen = o.scenario ? D.SCENARIOS.find(s => s.id === o.scenario) : null;
     const S = G.S = {
-      v: 1, mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: custom ? (o.shuffle ? 'random' : 'custom') : o.order || 'real', customGames: !!custom,
+      v: 1, liveParts: 1, mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: custom ? (o.shuffle ? 'random' : 'custom') : o.order || 'real', customGames: !!custom,
       settings: Object.assign({ noFail: false }, o.settings || {}), scenario: scen ? scen.id : null, maxEvents: scen && scen.maxEvents ? scen.maxEvents : 4,
       order, cal, pxY: cal[0], si: -1, upcoming: 0, year: order[0], phase: 'off', month: 5, week: 0, preseason: o.mode === 'career',
       money: scen && scen.money ? scen.money : P.money, ledger: [], morale: scen && scen.morale ? scen.morale : 65, support: P.support, rep: P.rep,
@@ -1051,6 +1051,17 @@
       S.demoWear = null;
       arrival.cond = Math.round(G.Robot.condAvg(S));
     }
+    // (3.5.3) the team brings every robot part and fits the best there are on the competition robot: what it went into
+    // the bag with is free again, and what the team fits here is what it keeps in the bag afterwards (G.Parts.bagLocked)
+    if (S.bagParts) delete S.bagParts;
+    if (C.bagged(S)) S.bagEv = S.year;
+    S.wearTick = (S.wearTick || 0) + 1;
+    // (3.5.3) a mechanism the competition robot lacks, built and waiting at home, goes along (in the crate, in the bag years)
+    if (S.robot && def.kind !== 'einstein' && G.Robot.autoCrate) {
+      const took = G.Robot.autoCrate(S);
+      if (took.length) arrival.notes.push((G.Robot.held(S).some(h => h.crate) ? 'The competition robot lacked them, so the team packed them in the crate: ' + took.join(', ') + '. They go on at practice day (Install Upgrade).' : 'The competition robot lacked them, so the team fitted them before the trip: ' + took.join(', ') + '.'));
+      G.Robot.held(S).forEach(h => { delete h.crate; });
+    }
     if (S.robot && G.Robot.held(S).length && S.team.home && G.World.on(S) && (def.dist || def.kind === 'dcmp')) {
       const fit = G.Robot.installHeld(S);
       if (fit.length) arrival.notes.push('Robot access window: in the six hours before the event the team fitted ' + fit.join(', ') + '.');
@@ -1202,7 +1213,13 @@
     const drive = Math.round(h * split);
     // driver practice on the real game needs this season's game elements (offseason: last season's game)
     const elem = lvl ? G.Parts.elemQ(S, G.Parts.elemYear(S)) : D.CHASSIS_ELEM;
-    return { total: h, drive, dev: h - drive, unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
+    // (3.5.3) the development hours that run on the second robot: all of them without a Practice Field or while the
+    // competition robot is in the bag, else its share on the field (a Vision Level needs its cameras there: G.Robot.vision2)
+    const on2 = !chassis ? 0 : !lvl || C.bagged(S) ? h : Math.min(h, Math.round(D.TEST_BOT_HOURS * Math.max(G.Robot.secondShare(S), D.CHASSIS_SHARE) * (eventWeek ? 0.5 : 1)));
+    // (3.5.3) a second robot whose CAN bus is overloaded (from 2023, without a big enough CAN FD hub) freezes on the
+    // bench now and then: its development hours count D.CAN2_DEV (G.Robot.testShare)
+    const k2 = on2 ? G.Parts.dev2K(S) : 1;
+    return { total: h, drive, dev: h - drive, dev2: Math.min(h - drive, Math.round(on2 * (1 - split))), can2Slow: k2 < 1, unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
   };
   C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
   // Driver practice: drive-team skills, confidence and familiarity with the robot they drive; uses a few spare parts
@@ -1255,7 +1272,7 @@
     // two robots that both run: the team picks the one that goes in the bag (the competition robot by default)
     if (G.Robot.runnable(S.robot, 0) && G.Robot.runnable(S.robot, 1)) { S.bagPick = true; (S.launchQueue = S.launchQueue || []).push({ kind: 'bagPick' }); }
     if (!(S.storySeen = S.storySeen || {}).bagday) C.tellStory(S, D.STORY_BAG);
-    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New mechanisms and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and program projects carry on as usual.', 'dev', { prio: true });
+    else C.inbox(S, 'Stop Build Day', 'The competition robot is in the bag until the season ends. ' + (second ? 'Your second robot carries the work: hardware projects keep their full speed, and the drivers practise on it.' : 'With no second robot, hardware projects run at half speed and the drive team cannot practise at home.') + ' New units and upgrades you finish now are packed and fitted on practice day at your next event (Install Upgrade). Software and program projects carry on as usual.', 'dev', { prio: true });
   };
 
   // Stop Build Day: put the chosen robot in the bag (it becomes the competition robot). Only on the day itself.
@@ -1374,7 +1391,7 @@
   function processWork(S, hours, th) {
     const inc = G.Shop.turnMods(S); // shop incidents: one turn only
     const mods = mergeMods(mergeMods(inc, G.Shop.boostMods(S)), C.bagMods(S));
-    const r = G.Robot.work(S, hours, mods, th ? th.dev : 0, !!(th && th.limited));
+    const r = G.Robot.work(S, hours, mods, th ? th.dev : 0, !!(th && th.limited), th ? th.dev2 || 0 : 0);
     // the drive team drives the robot around the shop every week (practice-field time comes on top)
     if (S.robot && S.robot.bots && S.lastEventTurn !== turnKey(S)) G.Robot.famDrive(S, G.Robot.driveBot(S), S.phase === 'off' ? D.FAM.OFF : D.FAM.WEEK);
     S.lastWork = { hours, used: Math.round(r.used), idle: Math.round(r.spare), polished: Math.round(r.polished || 0), done: r.done, mods: inc ? G.Shop.modsText(inc) : '' };
@@ -3653,7 +3670,21 @@
     // v2.9.9: End Effectors became their own knowledge area. Until then claws and grippers taught Arms & Wrists and Ground
     // Intakes, so a career starts it from half of the better of those two.
     if (S.know && S.know.effector == null) S.know.effector = Math.round(0.5 * Math.max(S.know.arm || 0, S.know.intake || 0));
+    // (3.5.3) Robot parts add to a unit live now (G.Robot.partsLive) instead of raising the ceilings. A save from before
+    // has that share inside its stats: what is above today's ceiling (which no longer counts parts) comes off, once.
+    if (!S.liveParts) { try { trimToCeil(S); } catch (e) { /* no robot to trim */ } S.liveParts = 1; }
   };
+  function trimToCeil(S) {
+    const R = S.robot; if (!R || !R.bots || !R.design) return;
+    const year = R.year, cut = (k, x) => {
+      const c = x && x.stats && G.Seasons.concept(year, k, x.concept); if (!c || !c.ceil) return;
+      Object.keys(x.stats).forEach(st => { if (c.ceil[st] == null) return; const cl = G.Robot.ceil(S, year, k, c, st); if (x.stats[st] > cl) x.stats[st] = cl; });
+    };
+    Object.keys(R.design).forEach(k => { if (R.design[k] && R.design[k].ver) cut(k, R.design[k]); });
+    if (R.soft) cut('soft', R.soft);
+    G.Robot.allUnits(R).forEach(u => cut(u.sub, u));
+    (R.held || []).forEach(h => { if (h.u) cut(h.k, h.u); if (h.set && h.set.stats) cut(h.k, { concept: h.concept, stats: h.set.stats }); });
+  }
   // STEM support fund: emergency money when the balance is under $1,000, at a cost in reputation. Twice per program year at most.
   C.stemFundInfo = function (S) {
     const key = G.Parts.buyIdx(S), used = S.stemFund && S.stemFund.key === key ? S.stemFund.n : 0;

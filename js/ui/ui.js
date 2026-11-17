@@ -82,7 +82,9 @@
 
   // ---------------- components ----------------
   UI.bar = (v, max, col, mark) => '<div class="bar"><i style="width:' + U.clamp(100 * v / (max || 100), 0, 100) + '%;background:' + (col || 'var(--data)') + '"></i>' + (mark != null ? '<b style="left:' + U.clamp(100 * mark / (max || 100), 0, 100) + '%"></b>' : '') + '</div>';
-  UI.stat = (n, v, ceil, col) => '<div class="statrow"><span class="n">' + h(n) + '</span>' + UI.bar(v, 100, col, ceil) + '<span class="v">' + Math.round(v) + '</span></div>';
+  // add (3.5.3): what the unit's robot parts add to it while it runs on them, shown after the version's own value
+  UI.stat = (n, v, ceil, col, add) => '<div class="statrow' + (add != null ? ' pa' : '') + '"><span class="n">' + h(n) + '</span>' + UI.bar(v, 100, col, ceil) + '<span class="v">' + Math.round(v) + '</span>' +
+    (add != null ? '<span class="pa-v ' + (Math.round(add) < 0 ? 'bad' : 'good') + '" title="What its robot parts add while it runs on them">' + (Math.round(add) ? (add > 0 ? '+' : '−') + Math.abs(Math.round(add)) : '') + '</span>' : '') + '</div>';
   UI.card = (title, body, extra, cls) => '<div class="card ' + (cls || '') + '"><div class="ct">' + title + '<span class="sp"></span>' + (extra || '') + '</div>' + body + '</div>';
   UI.tag = (t, k) => '<span class="tag ' + (k || '') + '">' + h(t) + '</span>';
   // Blue banner (simplified FRC style): emblem, award, year, event
@@ -210,8 +212,11 @@
   UI.A.preorderGo = () => { UI.closeModal(); UI.st.partsTab = 'pre'; UI.go('parts'); };
   UI.bagPickModal = function () {
     const S = G.S, R = S.robot, ci = R.comp || 0;
-    const card = bi => { const b = R.bots[bi], cap = G.Robot.capOf(S, bi); return '<div class="card flat' + (bi === ci ? ' hl' : '') + '"><div class="row"><b>' + h(b.name) + '</b>' + (bi === ci ? UI.tag('Competition robot', 'acc') : '') + '</div>' + UI.sideCanvas(G.Robot.lookOf(S, bi), 'blue', S.team.num, 300, 140) +
+    // (3.5.3) what a robot lacks that the other one (or storage) has: it travels to every event in the crate
+    const lacks = bi => G.Seasons[R.year].subs.filter(sd => sd.id !== 'soft' && sd.id !== 'drive' && !(R.bots[bi].subs[sd.id] && R.bots[bi].subs[sd.id].ver) && ((R.bots[1 - bi].subs[sd.id] && R.bots[1 - bi].subs[sd.id].ver) || (R.store || []).some(u => u.sub === sd.id))).map(sd => sd.name.toLowerCase());
+    const card = bi => { const b = R.bots[bi], cap = G.Robot.capOf(S, bi), l = lacks(bi); return '<div class="card flat' + (bi === ci ? ' hl' : '') + '"><div class="row"><b>' + h(b.name) + '</b>' + (bi === ci ? UI.tag('Competition robot', 'acc') : '') + '</div>' + UI.sideCanvas(G.Robot.lookOf(S, bi), 'blue', S.team.num, 300, 140) +
       '<div class="kv"><span class="k">Power</span><span>' + G.Cap.power(R.year, cap) + '</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condOf ? G.Robot.condOf(R, bi) : G.Robot.condAvg(S)) + '%</span></div>' +
+      (l.length ? '<div class="xs muted mt">It has no ' + h(l.join(', ')) + ': the team takes ' + (l.length > 1 ? 'them' : 'it') + ' to its first event in the crate and fits ' + (l.length > 1 ? 'them' : 'it') + ' on practice day.</div>' : '') +
       '<button class="btn ' + (bi === ci ? 'primary' : '') + ' mt" data-act="bagPick" data-arg="' + bi + '">Bag ' + h(b.name) + '</button></div>'; };
     UI.modal('<div class="xs muted">STOP BUILD DAY</div><h2>Which robot goes in the bag?</h2><p class="sm muted">The bagged robot competes and may only be touched at events. The other one stays in the shop for practice and development.</p><div class="grid g2">' + card(ci) + card(1 - ci) + '</div>', { wide: true, lock: true });
   };
@@ -553,7 +558,7 @@
       (S.lastKop && S.lastKop.year === S.year ? '<div class="hint mt">' + UI.icon('box', 14) + ' <b>' + (S.lastKop.rookie ? 'Rookie Kit of Parts' : 'Kit of Parts') + '</b>: ' + h(G.Parts.kopText(S.lastKop.kit)) + ' are on your shelves' + (S.lastKop.rookie ? ' (rookies get a bigger kit)' : '') + '.' + (S.lastKop.full.length ? ' Full shelves recycled their weakest parts: ' + h(S.lastKop.full.join(', ')) + '.' : '') + '</div>' : '') +
       (function () { // mechanism kits this game could use that nobody sells yet (they arrive in the summer of 2021)
         const miss = G.Parts.kitsMissing(S, S.year).map(c => D.PART_CAT[c].short.replace(/ kits$/, '').toLowerCase());
-        return miss.length ? '<div class="hint mt">' + UI.icon('gear', 14) + ' No ' + miss.join(', ').replace(/, ([^,]*)$/, ' or $1') + ' kits are sold yet: those builds take their full hours. More mechanism kits arrive in the summer of 2021. ' + UI.q('parts', 'Mechanism kits (optional)') + '</div>' : '';
+        return miss.length ? '<div class="hint mt">' + UI.icon('gear', 14) + ' No ' + miss.join(', ').replace(/, ([^,]*)$/, ' or $1') + ' kits are sold yet: those builds take their full hours. More mechanism kits arrive in the summer of 2021. ' + UI.q('parts', 'Build parts') + '</div>' : '';
       })() +
       '<div class="row mt"><span class="sp"></span><button class="btn primary" data-act="kickoffDone">Start the season ▶</button></div>', { wide: true, after: () => { const c = document.getElementById('kfield'); G.Render.preview(c, S.year); } });
   };
@@ -739,16 +744,19 @@
     const R = S.robot, year = R.year, ci = R.comp || 0, lock = G.Robot.garageLock(S);
     let o = UI.head('Garage', 'garage', h(G.Career.seasonName(S, year)) + (S.phase === 'off' ? ' — last season\'s robots (used at offseason events)' : '') + '. Two robots: choose which one competes and which one the drivers practice on.', 'garage');
     o += UI.bagCountdown(S); // (3.5.2)
-    if (lock) o += '<div class="warnbox mb">' + h(lock) + ' Spares identical to the competition robot\'s subsystems can still be swapped in from the event screen.</div>';
+    if (lock) o += '<div class="warnbox mb">' + h(lock) + ' Spares identical to the competition robot\'s units can still be swapped in from the event screen.</div>';
     if (G.Career.bagged(S)) { const k = G.Career.bagK(S); o += '<div class="warnbox mb">' + UI.icon('garage', 14) + ' <b>Stop Build Day:</b> the competition robot is in the bag until the season ends and may only be touched at events. ' + (G.Robot.secondRuns(S) ? 'Your second robot carries the work: hardware projects keep their full speed and the drivers practise on it.' : 'With no second robot, hardware projects run at ' + (k > 0.5 ? Math.round(k * 100) + '% speed' : 'half speed') + ' and the drive team cannot practise at home.') + ' Whatever you finish for it now is packed and fitted on practice day at your next event.</div>';
       const held = G.Robot.held(S), names = G.Robot.heldNames(S), dist = S.team.home && G.World.on(S);
       if (held.length) o += '<div class="card mb" style="border-left:3px solid var(--warn)"><div class="ct">' + UI.icon('box', 16) + ' Packed for the next event ' + UI.tag(held.length + (held.length === 1 ? ' item' : ' items'), 'warn') + '</div><div class="sm muted mb">Made while the competition robot was in the bag. ' + (dist ? 'Your team fits them in the robot access window before its next district event.' : 'Use <b>Install Upgrade</b> on practice day to fit them; until then the robot competes as it was bagged.') + '</div>' +
-        names.map((nm, i) => '<div class="row sm mb"><span>' + h(nm) + '</span><span class="sp"></span>' + (held[i].u ? '<button class="btn sm" data-act="garageUnpack" data-arg="' + i + '" title="Back to storage">Unpack</button>' : '<span class="xs muted">new parts for the mechanism on the robot</span>') + '</div>').join('') + '</div>'; }
+        names.map((nm, i) => '<div class="row sm mb"><span>' + h(nm) + '</span><span class="sp"></span>' + (held[i].u ? '<button class="btn sm" data-act="garageUnpack" data-arg="' + i + '" title="Back to storage">Unpack</button>' : '<span class="xs muted">new parts for the unit on the robot</span>') + '</div>').join('') + '</div>'; }
     o += '<div class="row mb"><label class="row sm" title="Teams name their robots. The name goes into your History with the robot\'s drawing.">' + UI.icon('garage', 14) + ' This season\'s robot is called <input class="inp sm" style="width:220px" maxlength="28" placeholder="give it a name" value="' + h(R.nick || '') + '" data-chg="robotNick"></label></div>';
+    // (3.5.3) what the competition robot lacks and the team will take along to its next event
+    if (S.phase !== 'off' && R.year === S.year && !lock) { const tk = G.Robot.cratePreview(S); if (tk.length) o += '<div class="hint mb">' + UI.icon('box', 14) + ' <b>For the next event:</b> the competition robot lacks ' + (tk.length > 1 ? 'these' : 'this') + ', so the team takes ' + (tk.length > 1 ? 'them' : 'it') + ' along: ' + h(tk.join(', ')) + (G.Career.bagged(S) ? '. In the crate, fitted on practice day.' : '.') + '</div>'; }
     o += '<div class="grid g2 mb">' + [0, 1].map(bi => botCard(S, bi, lock)).join('') + '</div>';
     o += storageCard(S, lock);
     // the competition robot in detail
-    const cap = G.Robot.cap(S), w = G.Robot.weight(S);
+    const cap = G.Robot.cap(S), w = G.Robot.weight(S), live = S.cal ? G.Robot.partsLive(S, ci) : null;
+    const add = (k, st) => (live ? (live.stat[k] && live.stat[k][st]) || 0 : null);
     o += '<h2 class="mt">' + h(R.bots[ci].name) + ' (competition robot)</h2><div class="grid g3">';
     o += UI.card('Overall', UI.stat('Speed', cap.speed) + UI.stat('Agility', cap.agility) + UI.stat('Pushing', cap.push) + UI.stat('Intake', cap.intake) + UI.stat('Scoring speed', cap.scoreSpd) + UI.stat('Accuracy', cap.accuracy) +
       (cap.rmax ? UI.stat('Range', cap.range) : '') + UI.stat('Endgame', cap.endgame) + UI.stat('Autonomous', cap.auto) + UI.stat('Vision', cap.vision) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) +
@@ -756,16 +764,54 @@
     G.Robot.describe(S).forEach(d => {
       const s = d.sub, c = s && s.ver ? G.Seasons.concept(year, d.id, s.concept) : null;
       if (!c) return;
-      o += UI.card(h(d.name) + ' ' + UI.tag('v' + s.ver, 'acc'), '<div class="b mb">' + h(c.name) + '</div>' + Object.keys(s.stats).map(k => UI.stat(D.STAT[k] || k, s.stats[k], G.Robot.ceil(S, year, d.id, c, k))).join('') +
-        (d.id !== 'soft' ? UI.stat('Reliability', s.rel, null, UI.colorFor(s.rel)) + UI.stat('Condition', s.cond, null, UI.colorFor(s.cond)) + '<div class="sm muted">' + s.w.toFixed(1) + ' lb · complexity ' + c.cx + (R.pending.includes(d.id) ? ' · <span class="warn">upgrade waiting for install</span>' : '') + '</div>' + (R.design[d.id] && R.design[d.id].concept === s.concept ? UI.workLine(R.design[d.id], c) : '') : '<div class="mt">' + UI.softLine(S, R) + '</div>'));
+      o += UI.card(h(d.name) + ' ' + UI.tag('v' + s.ver, 'acc'), '<div class="b mb">' + h(c.name) + '</div>' + Object.keys(s.stats).map(k => UI.stat(D.STAT[k] || k, s.stats[k], G.Robot.ceil(S, year, d.id, c, k), null, add(d.id, k))).join('') +
+        (d.id !== 'soft' ? UI.stat('Reliability', s.rel, null, UI.colorFor(s.rel), live ? live.rel[d.id] || 0 : null) + UI.stat('Condition', s.cond, null, UI.colorFor(s.cond)) + '<div class="sm muted">' + s.w.toFixed(1) + ' lb · complexity ' + c.cx + (R.pending.includes(d.id) ? ' · <span class="warn">upgrade waiting for install</span>' : '') + '</div>' + (R.design[d.id] && R.design[d.id].concept === s.concept ? UI.workLine(R.design[d.id], c) : '') : '<div class="mt">' + UI.softLine(S, R) + '</div>'));
     });
-    o += '</div><p class="sm muted mt">White marks show each stat\'s current ceiling (concept + knowledge + parts). Upgrades close part of the gap each time.</p>';
-    o += '<div class="hint mt">' + UI.icon('team', 14) + ' <b>Driver familiarity</b>: a new mechanism starts around ' + Math.round(D.FAM.NEW * 100) + '% and practice and matches bring it to 100%. In matches a subsystem gives ' + Math.round(100 - D.FAM.EFFECT * 100) + '–100% of its stats, so let the drivers practice on the robot they will compete with. ' + UI.q('garage', 'Driver familiarity') + '</div>';
+    o += '</div><p class="sm muted mt">Bars show each unit\'s version, the white marks its ceiling (concept + knowledge): upgrades close part of the gap each time.' + (live ? ' <span class="good">+N</span> is what its robot parts add while it runs on them.' : '') + '</p>';
+    o += '<div class="hint mt">' + UI.icon('team', 14) + ' <b>Driver familiarity</b>: a new concept starts around ' + Math.round(D.FAM.NEW * 100) + '% and practice and matches bring it to 100%. In matches a unit gives ' + Math.round(100 - D.FAM.EFFECT * 100) + '–100% of its stats, so let the drivers practice on the robot they will compete with. ' + UI.q('garage', 'Driver familiarity') + '</div>';
     return o;
   } };
+  // (3.5.3) The robot parts on one unit of one robot (or the robot's own: control hub, network, vision, CAN), as the
+  // shelf shares them out, with the vendor it takes first, and what they add to the unit while it runs on them (live).
+  // Optional parts (planetary gearboxes, the network switch, the ML accelerator, the CAN FD hub) are marked; stored and
+  // packed units carry no robot parts.
+  function elecRow(S, al, bi, k, live) {
+    if (!S.cal || !S.inv || !al || !al.subNeed) return '';
+    const R = S.robot, side = bi === (R.comp || 0) ? 'comp' : 'prac', want = (al.subNeed[side] || {})[k], got = (al.by[side] || {})[k] || {};
+    if (!want || !Object.keys(want).length) return '';
+    const P = G.Parts, cats = Object.keys(want).filter(c => D.PART_CAT[c] && !D.PART_CAT[c].kit), elec = cats.some(c => D.PART_CAT[c].elec);
+    const parts = cats.map(c => {
+      const l = got[c] || [], by = {}; l.forEach(it => { const p = P.prod(it.p); const nm = p ? p.name : c; by[nm] = (by[nm] || 0) + 1; });
+      const hAvg = l.length ? Math.round(100 * l.reduce((t, it) => t + it.h, 0) / l.length) : null, miss = want[c] - l.length, opt = G.Parts.optOn(side, c);
+      const what = Object.keys(by).map(nm => by[nm] + '× ' + h(nm)).join(', '), lc = s => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s), nm = lc(D.PART_CAT[c].short);
+      return '<span class="nowrap" title="' + h(D.PART_CAT[c].name) + (opt ? ' (optional: a bonus when fitted)' : '') + (hAvg != null ? ' · health ' + hAvg + '%' : '') + '">' +
+        (opt ? (what ? what + (miss > 0 ? ' <span class="muted">(' + l.length + ' of ' + want[c] + ')</span>' : '') : '<span class="dim">no ' + h(nm) + ' (optional)</span>')
+          : (what || '<span class="bad">no ' + h(nm) + '</span>') + (miss > 0 && what ? ' <span class="bad">short of ' + miss + '</span>' : '')) + '</span>';
+    }).join(' · ');
+    const robotRow = k === 'robot', cur = robotRow ? (side === 'comp' ? S.vendorPref : S.vendorPref2) || '' : (S.subPref && S.subPref[bi + ':' + k]) || '';
+    const bagged = side === 'comp' && G.Parts.bagLocked(S); // (3.5.3) in the bag its parts stay as they are
+    const opts = (robotRow ? [['', 'Best parts']] : [['', 'As the robot']]).concat([['A', UI.sysName(S, 'A')], ['B', UI.sysName(S, 'B')], ['K', 'Kit of Parts']]);
+    const sel = elec && !(bagged && !robotRow) ? '<select class="inp sm" data-chg="subPref" data-bot="' + bi + '" data-sub="' + k + '" title="' + (bagged ? 'In the bag its parts stay as they are: this is the vendor the team fits first at the next event' : robotRow ? 'The vendor this robot takes its control system parts from first' : 'The vendor this unit takes its motors and sensors from first') + '">' + opts.map(o => '<option value="' + o[0] + '"' + (o[0] === cur ? ' selected' : '') + '>' + h(o[1]) + '</option>').join('') + '</select>' : '';
+    // (3.5.3) the second robot's cameras: a Vision Level being built is tested on it only with them
+    const vp = robotRow && side === 'prac' && S.projects.some(p => p.type === 'vision') && want.camera, vn = (R.visionLvl || 0) + 1;
+    const visNote = vp ? (G.Robot.vision2(S) ? '<div class="xs good">Its camera' + (vn > 1 ? 's let' : ' lets') + ' the team test Vision Level ' + vn + ' on it.</div>' : '<div class="xs warn">Without ' + vn + ' camera' + (vn > 1 ? 's' : '') + ' of its own, Vision Level ' + vn + ' is not tested on it.</div>') : '';
+    const evNote = visNote + (robotRow && bagged ? '<div class="xs muted">In the bag: its robot parts stay as they are. At the next event the team fits the best parts there are.</div>'
+      : robotRow && side === 'comp' && S.subPref && Object.keys(S.subPref).some(x => x.indexOf(bi + ':') === 0) ? '<div class="xs muted">At events the competition robot takes the best parts there are: its choices per unit apply at home.</div>' : '');
+    // what these parts add to the unit (the robot row: the encoders' share of the robot code's Autonomous)
+    const sk = robotRow ? 'soft' : k, sa = live && live.stat[sk] ? live.stat[sk] : {}, fx = Object.keys(sa).filter(s => Math.round(sa[s])).map(s => (D.STAT[s] || s) + ' +' + Math.round(sa[s]));
+    if (!robotRow && live && Math.round(live.rel[k] || 0)) fx.push('reliability ' + (live.rel[k] > 0 ? '+' : '−') + Math.abs(Math.round(live.rel[k])));
+    const fxH = fx.length ? '<div class="xs"><span class="muted">' + (robotRow ? 'Its encoders add:' : 'They add:') + '</span> ' + fx.map(x => '<span class="' + (/−/.test(x) ? 'bad' : 'good') + '">' + h(x) + '</span>').join(' · ') + '</div>' : '';
+    return '<tr class="elec-row"><td colspan="3"><div class="row gap4 xs">' + UI.icon('chip', 12) + (robotRow ? '<b>Robot\'s own parts</b>' : '') + '<span class="sp muted">' + parts + '</span>' + sel + '</div>' + fxH + evNote + '</td></tr>';
+  }
+  UI.A.subPref = (v, el) => {
+    const S = G.S, bi = Number(el.dataset.bot), k = el.dataset.sub, R = S.robot;
+    if (k === 'robot') { if (bi === (R.comp || 0)) S.vendorPref = v || null; else S.vendorPref2 = v || null; }
+    else { S.subPref = S.subPref || {}; if (v) S.subPref[bi + ':' + k] = v; else delete S.subPref[bi + ':' + k]; }
+    S.wearTick = (S.wearTick || 0) + 1; UI.render();
+  };
   // One robot: its subsystems (installed units), familiarity, and the actions to change them
   function botCard(S, bi, lock) {
-    const R = S.robot, year = R.year, b = R.bots[bi], ci = R.comp || 0, di = G.Robot.driveBot(S), run = G.Robot.runnable(R, bi);
+    const R = S.robot, year = R.year, b = R.bots[bi], ci = R.comp || 0, di = G.Robot.driveBot(S), run = G.Robot.runnable(R, bi), al = S.cal && S.inv ? G.Parts.alloc(S) : null, live = al ? G.Robot.partsLive(S, bi) : null;
     const any = Object.keys(b.subs).some(k => k !== 'soft' && b.subs[k] && b.subs[k].ver);
     const bag = G.Career.bagged(S), inBag = bag && bi === ci; // Stop Build Day: the bagged robot is out of reach until its next event
     let o = '<div class="card botcard' + (bi === ci ? ' comp' : '') + (inBag ? ' bagged' : '') + '"><div class="ct">' + UI.icon('garage', 18) + '<b class="lg">' + h(b.name) + '</b>' + (bi === ci ? UI.tag('Competition robot', 'acc') : '') + (inBag ? UI.tag('In the bag', 'warn') : '') + (bi === di ? UI.tag('Drivers practice here', 'info') : '') + '</div>';
@@ -774,20 +820,22 @@
       o += '<div class="botimg">' + UI.sideCanvas(G.Robot.lookOf(S, bi), 'blue', S.team.num, 340, 160) + '</div>' +
         '<div class="kv"><span class="k">Power</span><span>' + G.Cap.power(year, cap) + '</span><span class="k">Weight</span><span class="' + (w > 125 ? 'bad b' : '') + '">' + w + ' / 125 lb</span><span class="k">Condition</span><span>' + Math.round(G.Robot.condOf(R, bi)) + '%</span></div>' +
         (fam != null ? '<div class="statrow wide mt"><span class="n">Driver familiarity</span>' + UI.bar(fam * 100, 100, UI.colorFor(fam * 100)) + '<span class="v">' + Math.round(fam * 100) + '%</span></div>' : '') +
+        (S.cal && G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac') ? '<div class="xs muted">Control system: <b>' + h(UI.sysName(S, G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac'))) + '</b>' + (pp.mixed ? ' <span class="warn">· mixed with the other vendor\'s parts: projects take 10% longer</span>' : pp.kopMix ? ' <span class="warn">· with kit parts: projects take 5% longer</span>' : '') + (bi !== ci && G.Parts.sysDiffer(S) ? ' <span class="warn">· not the competition robot\'s: practice here carries over ' + Math.round(D.CTRL2.fam * 100) + '%</span>' : '') + '</div>' : '') + // (3.5.3)
         (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Inventory).</div>' : '') +
-        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? ': overloaded, it will freeze now and then in matches. ' + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '');
-    } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build subsystems (Design Office: Build copy) or fit stored ones.</div></div>';
+        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? (bi === ci ? ': overloaded, it will freeze now and then in matches. ' : ': overloaded, development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ') + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '');
+    } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build units (Design Office: Build copy) or fit stored ones.</div></div>';
     o += '<table class="t slots mt">' + G.Seasons[year].subs.filter(sd => sd.id !== 'soft').map(sd => {
-      const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u);
+      const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u, bi);
       const tag = !c || G.Robot.isLatest(R, k, u) ? '' : u.concept === d.concept ? UI.tag('v' + d.ver + ' designed', 'warn') : UI.tag('old concept', 'warn');
-      const other = R.bots[1 - bi].subs[k], opts = R.store.filter(x => x.sub === k && (!inBag || G.Robot.packable(R, x))).map(x => ['s', x]).concat(other && other.ver && !inBag ? [['o', other]] : []); // the bagged robot: only the newest version or one identical to the bagged unit can be packed
-      const optHtml = opts.map(([wh, x]) => { const xc = G.Seasons.concept(year, k, x.concept); return '<option value="' + x.uid + '">' + (wh === 'o' ? 'Swap with ' + h(R.bots[1 - bi].name) + ': ' : inBag ? 'Pack for the next event: ' : 'From storage: ') + h(xc ? xc.name : String(x.concept)) + ' v' + x.ver + ' (' + Math.round(x.cond) + '%)</option>'; }).join('');
+      // the bagged robot: what it lacks, a newer version or a unit identical to the bagged one can be packed, from storage or (3.5.3) from the other robot
+      const other = R.bots[1 - bi].subs[k], opts = R.store.filter(x => x.sub === k && (!inBag || G.Robot.packable(R, x))).map(x => ['s', x]).concat(other && other.ver && (!inBag || G.Robot.packable(R, other)) ? [['o', other]] : []);
+      const optHtml = opts.map(([wh, x]) => { const xc = G.Seasons.concept(year, k, x.concept); return '<option value="' + x.uid + '">' + (wh === 'o' ? (inBag ? 'Pack from ' : 'Swap with ') + h(R.bots[1 - bi].name) + ': ' : inBag ? 'Pack for the next event: ' : 'From storage: ') + h(xc ? xc.name : String(x.concept)) + ' v' + x.ver + ' (' + Math.round(x.cond) + '%)</option>'; }).join('');
       const act = lock || (!opts.length && !c) ? '' : '<select class="inp sm" data-chg="garagePlace" data-bot="' + bi + '" data-sub="' + k + '"><option value="">' + (c ? 'Change…' : 'Fit…') + '</option>' + optHtml + (c ? '<option value="off">Take it off (to storage)</option>' : '') + '</select>';
       return '<tr><td><div class="b sm">' + h(sd.name) + '</div><div class="xs">' + (c ? h(c.name) + ' <span class="acc">v' + u.ver + '</span> ' + tag : '<span class="dim">empty</span>') + '</div></td>' +
         '<td class="xs">' + (c ? '<div class="row gap4" title="Condition ' + Math.round(u.cond) + '%"><span class="muted">cond</span><span class="mini">' + UI.bar(u.cond, 100, UI.colorFor(u.cond)) + '</span></div>' +
           (f != null ? '<div title="Driver familiarity"><span class="muted">fam</span> <b class="' + (f < 0.6 ? 'warn' : f >= 0.85 ? 'good' : '') + '">' + Math.round(f * 100) + '%</b></div>' : '') : '') + '</td>' +
-        '<td class="num">' + act + '</td></tr>';
-    }).join('') + '</table>';
+        '<td class="num">' + act + '</td></tr>' + elecRow(S, al, bi, k, live);
+    }).join('') + elecRow(S, al, bi, 'robot', live) + '</table>';
     if (bag) o += inBag ? '<div class="xs muted mt">' + UI.icon('lock', 12) + ' In the bag until the season ends: it may only be touched at events.</div>' : '';
     else o += '<div class="row wrap gap4 mt">' + (bi !== ci ? '<button class="btn sm" data-act="setComp" data-arg="' + bi + '" ' + (run && !lock ? '' : 'disabled') + '>Make it the competition robot</button>' : '') +
       (bi !== di ? '<button class="btn sm" data-act="setDrive" data-arg="' + bi + '" ' + (run ? '' : 'disabled title="Needs a drivetrain"') + '>Drivers practice on it</button>' : '') + '</div>';
@@ -820,7 +868,7 @@
   function storageCard(S, lock) {
     const R = S.robot, year = R.year, order = G.Seasons[year].subs.map(sd => sd.id);
     const list = R.store.slice().sort((a, b) => order.indexOf(a.sub) - order.indexOf(b.sub) || b.ver - a.ver);
-    let body = '<div class="sm muted mb">Built subsystems that are not on a robot: up to ' + D.STORE_MAX + ' of each kind. One identical to the competition robot\'s is a spare at events. Take old ones apart for spare parts. ' + UI.q('garage', 'Storage and spares') + '</div>';
+    let body = '<div class="sm muted mb">Units that are not on a robot: up to ' + D.STORE_MAX + ' of each kind. One identical to the competition robot\'s is a spare at events. They carry no robot parts: a unit takes its motors and sensors from the shelf when it is fitted. Take old ones apart for spare parts. ' + UI.q('garage', 'Storage and spares') + '</div>';
     // event spares per subsystem: identical units in storage or on the other robot, at most STORE_MAX + 1
     { const ks = order.filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver), mx = G.Robot.SPARE_MAX();
       if (ks.length) body += '<div class="row wrap gap4 mb xs"><span class="muted">Event spares (most ' + mx + ' each):</span>' + ks.map(k => { const n = G.Robot.spareCount(S, k); return UI.tag(G.Seasons.sub(year, k).name + ' ' + n + '/' + mx, n ? 'good' : ''); }).join('') + '</div>'; }
@@ -871,7 +919,7 @@
     let o = UI.head('Design Office', 'design', 'Choose development directions, run projects, research for the future.', 'design');
     o += UI.bagCountdown(S); // (3.5.2)
     o += UI.devBanner(S);
-    if (G.Career.bagged(S)) o += '<div class="warnbox mb"><b>Stop Build Day:</b> the competition robot is in the bag. ' + (G.Career.bagK(S) < 1 ? 'Fabrication projects run at ' + Math.round(G.Career.bagK(S) * 100) + '% speed (a second robot removes the penalty)' : 'Your second robot keeps fabrication projects at full speed') + '. New mechanisms and upgrades are packed when they are finished and fitted on practice day at your next event (Install Upgrade)' + (G.Robot.held(S).length ? ': <b>' + G.Robot.held(S).length + ' packed now</b>' : '') + '. Software and program projects are not affected.</div>';
+    if (G.Career.bagged(S)) o += '<div class="warnbox mb"><b>Stop Build Day:</b> the competition robot is in the bag. ' + (G.Career.bagK(S) < 1 ? 'Fabrication projects run at ' + Math.round(G.Career.bagK(S) * 100) + '% speed (a second robot removes the penalty)' : 'Your second robot keeps fabrication projects at full speed') + '. New units and upgrades are packed when they are finished and fitted on practice day at your next event (Install Upgrade)' + (G.Robot.held(S).length ? ': <b>' + G.Robot.held(S).length + ' packed now</b>' : '') + '. Software and program projects are not affected.</div>';
     if (S.phase === 'build' || S.phase === 'kickoff') o += '<div class="row wrap mb"><label class="row sm"><input type="checkbox" data-chg="overtime" ' + (S.overtime ? 'checked' : '') + '> Overtime this week (+30% hours, −6 morale, ' + U.money(200) + ')</label></div>';
     o += UI.card(UI.it('clock', 'Team hours this ' + (S.phase === 'off' ? 'month' : 'week')), UI.hoursPanel(S) + UI.fatigueLine(S));
     o += '<div class="mt">' + UI.card('Testing hours ' + (function () { const th = C.testHours(S), pf = G.Shop.lvl(S, 'pfield') > 0, r2 = G.Robot.secondRuns(S); return th.unlocked ? UI.tag('from ' + [pf ? 'the practice field' : '', r2 ? (G.Robot.secondShare(S) > 0 ? 'the second robot' : 'the test chassis') : ''].filter(Boolean).join(' and '), 'info') : UI.tag('from a test or second robot and a practice field'); })(), UI.testPanel(S)) + '</div>';
@@ -908,7 +956,7 @@
         o += UI.card(h(d.name) + (busy ? ' ' + UI.tag('in progress', 'info') : '') + (copying ? ' ' + UI.tag('copy being built', 'info') : ''), body + '<div class="row wrap gap4 mt">' + btns + '</div>');
       });
       o += UI.card('Program projects', '<div class="col">' +
-        '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">"Build copy" here makes more of a finished subsystem. The Garage has shortcuts for a test chassis (a copy of the drivetrain) and a full copy (a copy of each subsystem). ' + UI.q('design', 'Copies and fabrication') + '</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
+        '<div class="row"><div class="sp"><b>Second robot</b><div class="xs muted">"Build copy" here makes another unit of a finished design. The Garage has shortcuts for a test chassis (a copy of the drivetrain) and a full copy (a copy of each subsystem). ' + UI.q('design', 'Copies and fabrication') + '</div></div><button class="btn sm" data-act="nav" data-arg="garage">Garage</button></div>' +
         simpleRow('impact', 'Impact Award submission', 'Write your Impact story. Required to compete for the Impact Award this season (see HQ for your odds).') +
         wfaRow() +
         seasonRow('pit', 'Pit crew training', 'pitTrained', 'Timed repair drills: repairs between matches at events go about 30% faster for the rest of the season (extra hours: a little more).', v => 'Trained for this season: repairs between matches about ' + Math.round((v - 1) * 100) + '% faster.') +
@@ -1073,7 +1121,7 @@
     if (!th.unlocked) return compact ? '' : '<div class="sm muted">No testing hours yet. They come from a <b>test chassis or second robot</b> (Garage) and from a <b>Practice Field</b> (Workshop), for testing upgrades or driver practice. ' + UI.q('design', 'Testing hours') + '</div><div class="row mt"><button class="btn sm" data-act="nav" data-arg="garage">Garage</button><button class="btn sm" data-act="nav" data-arg="workshop">Workshop</button></div>';
     if (!th.total) return compact ? '' : '<div class="sm muted">No testing time this turn.</div>';
     const unit = th.unit, conf = G.Robot.eventStart(S, { year: S.year }).conf, pw = S.practiceWeeks || 0;
-    const devN = S.projects.filter(th.limited ? G.Robot.chassisTestable : G.Robot.testable).length, cap = G.Robot.testCap(S), devUse = Math.round(th.dev - G.Robot.testPlan(S, th.dev, C.hoursPlan(S).give, th.limited).idle);
+    const devN = S.projects.filter(th.limited ? G.Robot.chassisTestable : G.Robot.testable).length, cap = G.Robot.testCap(S), devUse = Math.round(th.dev - G.Robot.testShare(S, th.dev, th.dev2 || 0, C.hoursPlan(S).give, th.limited).idle);
     if (compact) return '<div class="sm mt"><span class="muted">Testing ' + th.total + ' h:</span> <span class="info">' + th.dev + ' h dev</span> · <span class="dat">' + th.drive + ' h driving</span> · confidence ' + Math.round(conf * 100) + '%</div>';
     const pct = v => Math.round(100 * v / Math.max(1, th.total));
     let o = (th.limited ? '<div class="hint mb">' + UI.icon('garage', 14) + ' <b>Test chassis</b>: no Practice Field, so these hours are in the shop or parking lot. Development testing works on robot code, autos, vision and drivetrain projects only, at half the cost; driver practice counts ' + Math.round(D.CHASSIS_ELEM * 100) + '%. A Practice Field (Workshop) unlocks full testing.</div>' : '') +
@@ -1106,8 +1154,15 @@
     }
     if (S.robot && S.robot.year === S.year && S.phase !== 'off' && G.Robot.runnable(S.robot, G.Robot.other(S.robot))) {
       const R = S.robot, cd = G.Robot.compDrive(S), od = R.bots[G.Robot.other(R)].subs.drive, fam = k => D.DRIVE_FAMILY[k];
-      dv += G.Robot.chassisMatch(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' Path planning: ' + h(R.bots[G.Robot.other(R)].name) + ' drives like the competition robot (' + fam(od.concept) + '), so auto routines and auto upgrades develop ' + Math.round(D.CHASSIS_PATH * 100) + '% faster, and the team gains Autonomous Pathing XP every week.</div>'
+      dv += G.Robot.chassisMatch(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' Path planning: ' + h(R.bots[G.Robot.other(R)].name) + ' drives like the competition robot (' + fam(od.concept) + '), so auto routines and auto upgrades develop ' + Math.round(D.CHASSIS_PATH * (G.Parts.sysDiffer(S) ? D.CTRL2.path : 1) * G.Parts.dev2K(S) * 100) + '% faster, and the team gains Autonomous Pathing XP every week.</div>'
         : cd ? '<div class="xs muted mt">Path planning: ' + h(R.bots[G.Robot.other(R)].name) + ' is a ' + fam(od.concept) + ' drive and the competition robot is ' + fam(cd) + ', so paths tested on it don\'t carry over. (Tank: Kitbot and West Coast. Holonomic: Mecanum and Swerve.)</div>' : '';
+      // (3.5.3) a Vision Level is tested on the second robot only with the cameras for it
+      const vp = S.projects.find(p => p.type === 'vision'), nc = (R.visionLvl || 0) + 1;
+      if (vp && S.cal && G.Era.of(S).vision.cam && th.dev2 > 0) dv += G.Robot.vision2(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' ' + h(R.bots[G.Robot.other(R)].name) + ' carries the camera' + (nc > 1 ? 's' : '') + ' for Vision Level ' + nc + ', so it is tested there too.</div>'
+        : '<div class="xs warn mt">Vision Level ' + nc + ' gets no testing on ' + h(R.bots[G.Robot.other(R)].name) + ': it needs ' + nc + ' vision camera' + (nc > 1 ? 's' : '') + ' of its own (Inventory: Drive & add-ons).</div>';
+      // (3.5.3) its CAN bus
+      const c2 = G.Parts.can2(S);
+      if (c2 && c2.over > 0) dv += '<div class="xs warn mt">' + h(R.bots[G.Robot.other(R)].name) + '\'s CAN bus is overloaded (' + c2.dev + ' motors and encoders, it carries ' + c2.cap + '): development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ' + (c2.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory: Drive & add-ons).') + '</div>';
     }
     if (S.robot && S.robot.year === S.year && S.phase !== 'off' && (G.Robot.secondRuns(S) || S.elecShake > 0)) {
       const es = S.elecShake || 0, E = D.ELEC_SHAKE_EFFECT, on = G.Robot.secondRuns(S);
@@ -1476,7 +1531,7 @@
     o += '<div class="card mb"><div class="ct">' + (tab === 'team' ? 'Team & program facilities' : 'Technical facilities') + '<span class="sp"></span>' + (tab === 'tech' ? UI.tag('+' + G.Shop.facilitySlots(S) + ' project slots', G.Shop.facilitySlots(S) ? 'acc' : '') + ' ' : '') + UI.tag('Upkeep ' + U.money(G.Shop.upkeep(S)) + '/season (all)') + '</div>' +
       '<div class="xs muted mb">' + (tab === 'team' ? 'Where the team meets, rests and shows what it has won, its own FTC teams and the trailer.' : 'Machines, the programming and CAD rooms, the parts shelf, the practice field and the pit.') + '</div>' +
       '<div class="grid g2">' + D.EQUIP.filter(inTab).sort((a, b) => D.EQUIP_TEAM.indexOf(a.id) - D.EQUIP_TEAM.indexOf(b.id)).map(e => facilityBox(S, e)).join('') + '</div></div>';
-    o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Motors, electronics, mechanism kits, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Inventory</button></div>';
+    o += '<div class="row mt">' + UI.icon('parts', 16) + '<span class="sm muted">Robot parts, build parts, game elements, spare parts and batteries are in the </span><button class="btn sm" data-act="nav" data-arg="parts">Inventory</button></div>';
     return o;
   } };
   UI.A.shopTab = t => { UI.st.shopTab = t; UI.render(); };
