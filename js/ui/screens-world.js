@@ -16,7 +16,7 @@
     return '#' + a.map((v, j) => Math.round(v + (b[j] - v) * f).toString(16).padStart(2, '0')).join('');
   };
   const inkOn = c => { const x = rgb(c); return 0.299 * x[0] + 0.587 * x[1] + 0.114 * x[2] > 140 ? '#0b0b0b' : '#ffffff'; };
-  const EV_COL = '#9085e9', ME_COL = '#f5b800', ELITE_COL = '#ff4f8b', LAND = '#1d242c', WATER = '#0b141c', EDGE = '#34404c';
+  const EV_COL = '#9085e9', ME_COL = '#f5b800', ELITE_COL = '#ff4f8b', SPO_COL = '#3ecf8e', LAND = '#1d242c', WATER = '#0b141c', EDGE = '#34404c';
   const f1 = v => (v == null ? '—' : v.toFixed(1));
   const iconBody = name => UI.icon(name, 24).replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 
@@ -36,7 +36,7 @@
   // (3.5) the map is the whole world: zoom 1 shows all of it, about 5 one part of the world, up to KMAX a single city.
   // It opens on the part of the world your team is in.
   const KMAX = 64;
-  const MS = () => { const st = UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, city: true, type: 'all', smin: 0, smax: 100, wk: 'all' }; if (st.city === undefined) st.city = true; return st; };
+  const MS = () => { const st = UI.st.map = UI.st.map || { k: 1, cx: G.Geo.W / 2, cy: G.Geo.H / 2, show: 'both', reg: true, dist: true, cmp: true, city: true, type: 'all', smin: 0, smax: 100, wk: 'all' }; if (st.city === undefined) st.city = true; if (st.spo === undefined) st.spo = true; return st; };
   const clampView = st => {
     st.k = U.clamp(st.k, 1, KMAX);
     const vw = G.Geo.W / st.k, vh = G.Geo.VH / st.k;
@@ -105,7 +105,7 @@
     const opt = (v, cur, label) => '<option value="' + v + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + label + '</option>';
     let o = '<div class="row wrap wm-f mb">' +
       flab('Show', '<div class="segs">' + [['both', 'Teams and events'], ['teams', 'Teams'], ['events', 'Events']].map(x => '<button class="btn sm ' + (st.show === x[0] ? 'sel' : '') + '" data-act="wmShow" data-arg="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>') +
-      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships'], ['city', 'Cities']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
+      flab('Layers', '<div class="segs">' + [['reg', 'Areas'], ['dist', 'Districts'], ['cmp', 'Championships'], ['city', 'Cities'], ['spo', 'Sponsors']].map(x => '<button class="btn sm ' + (st[x[0]] ? 'sel' : '') + '" data-act="wmLayer" data-arg="' + x[0] + '" title="Show or hide this layer">' + x[1] + '</button>').join('') + '</div>') +
       flab('Filter by team type', '<select class="inp fsel" data-chg="wmType">' + opt('all', st.type, 'All types') + opt('district', st.type, 'District teams') + opt('regional', st.type, 'Regional teams') + opt('rookie', st.type, 'Rookies') + opt('qual', st.type, 'Championship qualified') + opt('elite', st.type, 'Elite teams') + '</select>') +
       flab('Filter by strength', '<select class="inp fsel" data-chg="wmSmin" title="Weakest team shown">' + [0, 20, 30, 40, 50, 60, 70, 80].map(v => opt(v, st.smin, v)).join('') + '</select><span class="xs muted">to</span>' +
       '<select class="inp fsel" data-chg="wmSmax" title="Strongest team shown">' + [30, 40, 50, 60, 70, 80, 90, 100].map(v => opt(v, st.smax, v)).join('') + '</select>') +
@@ -190,6 +190,20 @@
         });
     }
     svg += champs;
+    // ---- (3.5.1) your signed sponsors, each in its city (a local business: the shop nearest to you; an international
+    // company: the office that writes to you). One mark a city, a thin line to your team, the names in the tip.
+    if (st.spo !== false && (S.sponsors || []).length && D.sponsorCity) {
+      const at = {}, SLOT = { title: 'title sponsor', partner: 'partner', grant: 'grant' };
+      S.sponsors.forEach(sp => { const c = (sp.contact && sp.contact.office === 'branch' && sp.contact.city) || D.sponsorCity(sp.name, myAt.hub); if (c && Geo.hub(c)) (at[c] = at[c] || []).push(sp); });
+      Object.keys(at).forEach(c => {
+        const hb = Geo.hub(c), p = Geo.xy(hb.lon, hb.lat), l = at[c].slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)), r = 6 / k, x = p[0] + 9 / k, y = p[1] - 9 / k, far = Math.hypot(p[0] - myPos[0], p[1] - myPos[1]) > 14 / k;
+        svg += '<g data-tip="' + h((l.length > 1 ? 'Your sponsors in ' : 'Your sponsor in ') + c + '\n' + l.map(sp => sp.name + ' (' + (SLOT[sp.slot] || sp.slot) + (D.sponsorIntl && D.sponsorIntl(sp.name) ? ', international' : '') + ')').join('\n')) + '">' +
+          (far ? '<line x1="' + myPos[0].toFixed(1) + '" y1="' + myPos[1].toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + SPO_COL + '" stroke-opacity=".45" stroke-width="1" stroke-dasharray="1 3" vector-effect="non-scaling-stroke"/>' : '') +
+          '<rect x="' + (x - r).toFixed(2) + '" y="' + (y - r).toFixed(2) + '" width="' + (2 * r).toFixed(2) + '" height="' + (2 * r).toFixed(2) + '" rx="' + (r * 0.35).toFixed(2) + '" fill="' + SPO_COL + '" stroke="#0b0b0b" stroke-width="1.2" vector-effect="non-scaling-stroke"/>' +
+          '<text x="' + x.toFixed(2) + '" y="' + (y + r * 0.55).toFixed(2) + '" font-size="' + px(9) + '" fill="#0b141c" font-weight="800" text-anchor="middle" class="wm-lbl">' + (l.length > 1 ? l.length : '$') + '</text>' +
+          (k >= 3 ? '<text x="' + (x + r * 1.6).toFixed(1) + '" y="' + (y + 3.5 / k).toFixed(1) + '" font-size="' + px(10.5) + '" fill="' + SPO_COL + '" font-weight="700" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">' + h(l.length > 1 ? l[0].name + ' +' + (l.length - 1) : l[0].name) + '</text>' : '') + '</g>';
+      });
+    }
     // ---- the marked team: a gold ring and its number, a dashed line from yours
     if (mk) { const x = mk.xy[0], y = mk.xy[1], r = 9 / k;
       svg += '<g class="wm-hit" data-act="wmTeam" data-arg="l:' + mk.t.num + '" data-tip="' + h('Team ' + mk.t.num + ' ' + mk.t.name + '\n' + G.Geo.areaName(mk.t.region, mk.t.home) + ' · strength ' + mk.t.str + '\n' + (mk.mi < 12 ? 'Across town' : 'About ' + mk.mi + ' miles from you')) + '">' +
@@ -204,7 +218,7 @@
         '<text x="' + (x - r * 1.1).toFixed(1) + '" y="' + (y - r * 0.5).toFixed(1) + '" font-size="' + px(12) + '" fill="' + ME_COL + '" font-weight="800" text-anchor="end" class="wm-lbl wm-halo" stroke-width="' + px(3) + '">You</text></g>'; }
     svg += '</svg>';
     const leg = '<div class="wm-leg"><div class="xs b">Team strength</div><div class="wm-grad" style="background:linear-gradient(90deg,' + RAMP.join(',') + ')"></div><div class="row xs muted"><span>' + RAMP_AT[0] + '</span><span class="sp"></span><span>50</span><span class="sp"></span><span>' + RAMP_AT[5] + '+</span></div>' +
-      '<div class="xs muted">Circle size: how many teams</div><div class="wm-keys xs"><span><i class="k-ev"></i>Events</span><span><i class="k-myev"></i>Your events</span><span><i class="k-me">★</i>Your team</span><span><i class="k-elite"></i>Elite team</span>' + (st.cmp ? '<span><i class="k-cmp"></i>Championship</span>' : '') + '</div></div>';
+      '<div class="xs muted">Circle size: how many teams</div><div class="wm-keys xs"><span><i class="k-ev"></i>Events</span><span><i class="k-myev"></i>Your events</span><span><i class="k-me">★</i>Your team</span><span><i class="k-elite"></i>Elite team</span>' + (st.spo !== false && (S.sponsors || []).length ? '<span><i class="k-spo"></i>Your sponsors</span>' : '') + (st.cmp ? '<span><i class="k-cmp"></i>Championship</span>' : '') + '</div></div>';
     o += '<div class="wmap" id="wmap">' + svg + leg +
       '<div class="wm-zoom"><button class="btn sm" data-act="wmZoom" data-arg="in" title="Zoom in">+</button><button class="btn sm" data-act="wmZoom" data-arg="out" title="Zoom out">−</button><button class="btn sm" data-act="wmZoom" data-arg="home" title="Your part of the world">⌂</button><button class="btn sm" data-act="wmZoom" data-arg="reset" title="The whole map">⟲</button></div>' +
       '<div class="wm-tip" id="wmtip"></div></div>';

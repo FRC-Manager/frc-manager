@@ -116,7 +116,7 @@
 
   function updateRobot(m, r) {
     r.px = r.x; r.py = r.y;
-    if (r.dead) { r.label = r.tipped ? 'TIPPED' : 'DISABLED'; return; }
+    if (r.dead) { r.label = r.tipped ? 'TIPPED' : r.noPower ? 'NO POWER' : 'DISABLED'; return; }
     if (r.fault && m.t >= r.fault.until) { r.fault = null; if (r.st === 'idle') r.label = ''; }
     for (const k in r.jam) if (r.jam[k] && m.t >= r.jam[k]) r.jam[k] = 0;
     if (r.disableAt && m.t >= r.disableAt) {
@@ -744,6 +744,7 @@
   const elecPoor = r => U.clamp((100 - r.cap.rel) / 60, 0, 1.3) + (100 - r.cond) / 200 + r.hidden * 0.3 + (r.batt < 0.8 ? 0.3 : 0);
   // in contact this tick: being defended, or pinned against the robot it is defending
   const inContact = r => !!r.defBy || (r.st === 'defend' && r.defT && dist(r, r.defT) < 1.5);
+  const BATT_HZ = 0.00002; // (3.5.1) a battery that comes unplugged, a second (clean electrics, no contact)
   const CAN_HZ = 0.006; // CAN bus overloads a second per unit of overload (one in every 1.1 matches with twice the devices the bus carries)
   function faultRoll(m, r) {
     const c = r.cap, P = PACE[r.plan.pace], FP = m.R.faults || {};
@@ -755,6 +756,9 @@
     }
     const hb = 0.00012 * P.brown * (r.batt < 0.8 ? 2 : 1) * (c.brown || 1) * (FP.brown || 1) * (1 - r.elecK);
     if (m.rng.next() < hb * DT) { triggerFault(m, r, 'brown'); return; }
+    // (3.5.1) the battery connector works loose: rare (about one match in 300 for a clean robot), more often with poor
+    // electrics, and three times as likely while the robot is being hit. No power for the rest of the match.
+    if (m.rng.next() < BATT_HZ * (1 + 4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * m.diff * (1 - r.elecK) * DT) { triggerFault(m, r, 'battery'); return; }
     // brief comms dropouts are common: radio resets, loose connectors, hard hits. Poor electronics and contact make them more frequent and longer.
     if (!r.fault) {
       const hc = 0.0005 * (1 + 2.4 * elecPoor(r)) * (inContact(r) ? 3 : 1) * (FP.comms || 1) * m.diff * (1 - r.elecK) * (1 - (1 - G.Data.VISION_HW.swDrop) * (c.netSw || 0)); // a network switch: fewer dropouts
@@ -789,6 +793,7 @@
         break;
       }
       case 'tip': r.dead = true; r.tipped = true; r.st = 'dead'; msg = 'TIPPED OVER'; break;
+      case 'battery': r.dead = true; r.noPower = true; r.st = 'dead'; msg = 'Battery disconnected — no power'; break;
       case 'can': r.fault = { stall: true, until: m.t + rng.range(2, 4.5), label: 'CAN BUS' }; msg = 'CAN bus overload'; break;
     }
     r.stats.faults.push(msg);

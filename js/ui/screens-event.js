@@ -715,11 +715,15 @@
       '<div class="xs muted">Battery charge ' + Math.round((ev.batt || 1) * 100) + '% · spares ' + S.parts.spares + (ev.lastRepair != null ? ' · used ' + ev.lastRepair + ' spares in repairs' : '') + (ev.lastTurn ? ' · pit time before this match: ' + ev.lastTurn + ' match slot' + (ev.lastTurn === 1 ? '' : 's') : '') + ' · Coach Calls: ' + G.Career.coachCalls(S, UI.st.match.kind === 'po') + '</div>';
     const pa = G.Ev.playerAlliance(ev);
     if (UI.st.match.kind === 'po' && pa >= 0 && !ev.timeouts[pa]) o += '<button class="btn sm mt" data-act="timeout">Call alliance timeout (extra repairs)</button>';
-    // Super pit: one full repair before this match, on the subsystem the player picks (spare parts as usual)
+    // Super pit: one full repair before this match (spare parts as usual). (3.5.1) The crew has already done it, on the
+    // subsystem that was in the worst shape; the player can have another one repaired instead.
     if (G.Shop.superPit(S) && R) {
       const ks = G.Seasons[R.year].subs.filter(sd => sd.id !== 'soft' && R.subs[sd.id] && R.subs[sd.id].ver && R.subs[sd.id].cond < 99.5).sort((a, b) => R.subs[a.id].cond - R.subs[b.id].cond);
-      o += '<div class="row wrap gap4 mt">' + UI.icon('pitcart', 14) + '<span class="sm b">Super pit</span>' + (ev.superSeq === ev.pmSeq ? '<span class="xs good">full repair done for this match</span>' : !ks.length ? '<span class="xs muted">everything is at 100%</span>' : S.parts.spares < 1 ? '<span class="xs warn">no spare parts for a full repair</span>' :
-        '<select class="inp sm" id="superSub">' + ks.map(sd => '<option value="' + sd.id + '">' + h(sd.name) + ' (' + Math.round(R.subs[sd.id].cond) + '%)</option>').join('') + '</select><button class="btn sm" data-act="superFix">Full repair</button>') + '</div>';
+      const rec = ev.superSeq === ev.pmSeq ? ev.superRec : null, nm = k => ((G.Seasons[R.year].subs.find(sd => sd.id === k) || {}).name || k);
+      const pick = '<select class="inp sm" id="superSub">' + ks.map(sd => '<option value="' + sd.id + '">' + h(sd.name) + ' (' + Math.round(R.subs[sd.id].cond) + '%)</option>').join('') + '</select>';
+      o += '<div class="row wrap gap4 mt">' + UI.icon('pitcart', 14) + '<span class="sm b">Super pit</span>' +
+        (rec ? '<span class="xs good">the crew fully repaired the <b>' + h(nm(rec.k)) + '</b> (' + Math.round(rec.cond0) + '% → ' + Math.round(R.subs[rec.k].cond) + '%)</span>' + (ks.length ? pick + '<button class="btn sm" data-act="superFix" title="The crew repairs this one instead: the first repair is taken back, with its spare parts">Repair this instead</button>' : '')
+          : ev.superSeq === ev.pmSeq ? '<span class="xs good">full repair done for this match</span>' : !ks.length ? '<span class="xs muted">everything is at 100%</span>' : S.parts.spares < 1 ? '<span class="xs warn">no spare parts for a full repair</span>' : pick + '<button class="btn sm" data-act="superFix">Full repair</button>') + '</div>';
     }
     o += '<div class="mt">' + nextStrip(ev, obj) + '</div>';
     o += '<div class="row mt"><button class="btn primary lg" data-act="watch">Watch ▶</button><button class="btn" data-act="simThis">Simulate</button><span class="sp"></span><button class="btn ghost" data-act="nav" data-arg="event">Back</button></div></div>';
@@ -729,7 +733,7 @@
   UI.A.plan = (v, el) => { const k = el.dataset.k; const ev = Ev(); ev.plan[k] = (k === 'endLevel' || k === 'defTarget') ? (v === '' ? null : Number(v)) : v; UI.render(); };
   UI.A.planChk = (v, el) => { Ev().plan[el.dataset.k] = v; };
   UI.A.suggest = (v, el) => { const ev = Ev(); if (v) ev.suggest[Number(el.dataset.t)] = v; else delete ev.suggest[Number(el.dataset.t)]; };
-  UI.A.superFix = () => { const el = document.getElementById('superSub'); if (!el) return; const r = G.Robot.superFix(G.S, Ev(), el.value); if (typeof r === 'string') return UI.err(r); UI.toast('Super pit: back to ' + r.cond + '% (' + r.used + ' spare' + (r.used === 1 ? '' : 's') + ' used)', 'good'); UI.render(); };
+  UI.A.superFix = () => { const el = document.getElementById('superSub'); if (!el) return; const r = G.Robot.superSwitch(G.S, Ev(), el.value); if (typeof r === 'string') return UI.err(r); UI.toast('Super pit: back to ' + r.cond + '% (' + r.used + ' spare' + (r.used === 1 ? '' : 's') + ' used)', 'good'); UI.render(); };
   UI.A.timeout = () => { const ev = Ev(), pa = G.Ev.playerAlliance(ev); ev.timeouts[pa] = true; const sp = G.Robot.pitRepair(G.S, 4, 2); UI.toast('Timeout! Extra repairs done (' + sp + ' spares used).', 'good'); UI.render(); };
   UI.A.simThis = function () {
     const ev = Ev(), c = UI.st.match, obj = curMatchObj();
@@ -815,6 +819,16 @@
     if (m.R.aimAt) return m.R.aimAt(m, r); // the classic games name their own target
     if (m.year === 2022) return m.hub; if (m.year === 2024) return m.spk[r.a]; if (m.year === 2026) return m.hub[r.a]; return null;
   }
+  // (3.5.1) the Robot Signal Light: dark with no power; steady while the robot is disabled (the match has not begun or
+  // is over, comms are lost, a brownout, the referee switched it off); blinking while it is enabled
+  function rslOf(m, r) {
+    if (r.noPower) return 'off';
+    if (m.done || !(m.t > 0)) return 'on';
+    if (r.dead && !r.tipped) return 'on';
+    if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
+    return 'blink';
+  }
+  UI.rslOf = rslOf;
   function draw(L) {
     const m = L.m, ctx = L.ctx, s = L.cv.width / G.Engine.FW;
     G.Render.field(ctx, m.year, s, m);
@@ -826,7 +840,7 @@
       rr.x = r.px + (r.x - r.px) * al; rr.y = r.py + (r.y - r.py) * al;
       if (r.isPlayer) rr.look = Object.assign({}, r.look);
       const g = aimFor(m, r);
-      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year });
+      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });
     });
     G.Render.fx(ctx, s, m);
   }

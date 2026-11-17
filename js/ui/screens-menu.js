@@ -59,6 +59,11 @@
   };
   // the city the team will stand in (as C.newGame and the map will have it)
   UI.ngHub = n => G.Geo.teamPos(Number(n.num) || 1, n.region, UI.ngHome(n), UI.ngCy(n), UI.ngZone(n), false, n.place || null).hub;
+  // (3.5.1) how far the Championship of the first season is from the city the team will stand in (travel goes by miles)
+  UI.ngChamps = function (n) {
+    try { const ch = G.Era.champs(n.start), city = ch.cities[ch.n > 1 ? G.Era.champsSide(n.region) : 0], t = D.tripTier(UI.ngHub(n), city);
+      return t === 'local' ? 'The Championship is in your own city. ' : t === 'drive' ? 'The Championship is a drive away. ' : 'The Championship is an ordinary flight away. '; } catch (e) { return 'The Championship is an ordinary flight away. '; }
+  };
   // a district that will form in part of this area: will the team be asked to join? (it is, where it stands inside)
   UI.ngFut = function (n) {
     if (n.mode !== 'career' || n.home) return '';
@@ -132,7 +137,7 @@
       const where = d ? G.Geo.districtCities(d.id, nReg) : A ? sites.filter((x, i, a) => a.indexOf(x) === i) : G.Geo.regionalCities(n.region, n.start, nReg);
       o += '<div class="hint mt"><b>Travel:</b> ' + (d ? 'your ' + nReg + ' district events are close to home (' + h(where.join(', ')) + '). '
         : nReg ? 'in ' + n.start + ' ' + h(D.regionThe(n.region)) + ' holds ' + (A ? '' : 'about ') + nReg + ' regional' + (nReg > 1 ? 's' : '') + ' (' + h(where.join(', ')) + '). ' : '<span class="warn">no regional at home in ' + n.start + '.</span> ') +
-        (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : 'The Championship is an ordinary flight away. ') + UI.q('world', 'Flying overseas') + '</div>';
+        (far ? 'Every event in another part of the world is a <b>flight overseas</b>, the Championship included: dearer than an ordinary flight (' + U.money(D.TRAVEL.intl.cost, ngPx) + ' for a team of 25), harder on the robot, and never a trip for the team trailer. ' : UI.ngChamps(n)) + UI.q('world', 'Flying overseas') + '</div>';
     }
     // avatar and colours (the whole UI picks up the primary colour)
     o += '<div class="grid g3 mt"><div><div class="sm muted mb">Team colour</div><div class="swatches">' + UI.TEAM_COLORS.map(c => '<button class="swatch ' + (n.c1 === c.hex ? 'on' : '') + '" style="background:' + c.hex + '" title="' + c.name + '" data-act="ngSet" data-arg="c1|' + c.hex + '"></button>').join('') + '</div>' +
@@ -256,6 +261,22 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.1', title: 'Renewals by choice, travel by miles, and more letters', notes: [
+      'Sponsors: a sponsor whose deal has ended no longer renews by itself. If it wants to stay, its offer joins the list marked Renewal, and signing it is your choice. Leaving it unsigned costs nothing.',
+      'International partners write when they sign and when they offer to renew, from their branch near you or from their head office, and so does the printer maker. A head office in your own area always writes itself.',
+      'Reach a bonus target and a title sponsor or an international partner sends one short email for everything reached that day. The school does the same for a program goal.',
+      'Travel is counted in miles from your city to the event\'s: the same city or up to 60 miles is local, up to 450 miles by road is a drive, more is a flight. The Championship and Summit Champs follow the same rule, a team on an island flies to everything off it, and a district\'s own events are never a flight.',
+      'Students can pay their own way to an event (Headquarters): about a third of the travel bill, at a cost in morale and reputation, with weaker scouting and slower pit repairs at that event.',
+      'The Super pit crew repairs the subsystem in the worst shape before every match by itself. On the pre-match page you can have it repair another one instead.',
+      'The school board: once a season the school\'s assistant asks whether the board may watch an event. What it sees moves Program Support, and a second email tells you what it thought.',
+      'A small grant from the education office of your city and a company near you, in about six offseasons of ten: an email in the Inbox with one reply, Apply, which lapses like any other reply when you press Continue.',
+      'Letters from FIRST: every December a preview of the season to come (events, districts, the Championship, what changes in the rules), a letter when you qualify for the District Championship or the Championship, and one when your area has no regional, with the nearest areas that do and half the registration fee of your first event paid. A regional that is new or back is announced too. FIRST Tech Challenge writes when you found your first own FTC team.',
+      'In matches a battery connector can work loose (rare, more often with poor electrics and under hits), and every robot shows its Robot Signal Light: blinking when enabled, steady when disabled, dark with no power.',
+      'The World map marks your signed sponsors, each in its city (the Sponsors layer).',
+      'Feeder programs: the cap now counts your own FTC teams with the outside programs (it still starts at 3), and outside programs are named after schools of your part of the world.',
+      'Nobody joins your team under a name somebody on it already has.',
+      'Wording follows the part of the world: a bake sale is a sausage sizzle in one place and a charity bazaar in another, and doughnuts are not the Friday treat everywhere.'
+    ] },
     { v: '3.5', title: 'FRC Manager 3.5: the whole world, and ten games that never were', notes: [
       'Ten fantasy games: FULL TILT, MAINLINE, STATION KEEPING, HIGH RISE, GALE FORCE, DEEP FREEZE, EVEN KEEL, MOTHERLODE, SIGNAL FIRE and BRIDGEWORK. Fictional games in the 2026 match format, each with its own field, rules, Design Office, coach calls, published designs and news. Their Kickoff briefings are on the main menu.',
       'Three ways to play them: a Single Season Challenge (as the 2027 season), a random-order career with as many fantasy seasons as you choose, or a custom career with your own start year and list of games, real and fantasy, as listed or shuffled. STRONGHOLD stays in 2016 or 2017.',

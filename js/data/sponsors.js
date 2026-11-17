@@ -1486,7 +1486,7 @@
       maker: ['Co-founder', 'Head of Education Programmes', 'Community Lead']
     },
     subject: ['{co} is on the robot', 'Welcome aboard, from {co}', 'It is official: {co} and Team {num}', 'Our logo, your robot'],
-    renewSubject: ['{co} is staying', 'Same again: {co} and Team {num}', 'We have renewed'],
+    renewSubject: ['{co} would like to stay', 'Same again? {co} and Team {num}', 'Our offer to renew'],
     open: ['The contract came back signed this morning, so I can stop pretending not to care.', 'It is done: the paperwork is signed, and there is a photograph of your robot on the wall outside my office.', 'I have just been told that we sponsor a robotics team now. I was the one who told them, but it was still nice to hear.', 'The contract is signed and filed. I would like to say something more personal than a contract does.'],
     intro: ['For the students who have not met us: {co} {desc}', 'In case anybody on the team asks what the name on the robot does: {co} {desc}', 'In case anybody on the team asks what the name on all those stickers does: {co} {desc}', 'You know us from the logo. For the record, {co} {desc}'],
     // One letter in four puts the name "on the bumpers". By the rules a bumper carries the team number and nothing
@@ -1570,6 +1570,21 @@
     // ---------- the printer maker (D.SPONSOR_MAKER) ----------
     // A partner, but it writes like a title sponsor when it signs and when it renews (C.makerMail): what it makes,
     // what teams do to its printers, why this team, what it asks, and what it sends when things go well.
+    // (3.5.1) An international partner: a short letter when it signs and when it offers to renew, written from the
+    // branch near the team or from the head office. {office}: "our Seoul office" or "our head office in Zurich";
+    // {hq}: the head office's city; {desc}: what the company does.
+    intl: {
+      subject: ['{co} and Team {num}', 'Welcome to the {co} partner programme', 'From {office}: a partnership'],
+      open: ['I am writing from {office}.', 'This comes to you from {office}.', 'Greetings from {office}.'],
+      branch: ['The programme is run from {hq}, but the teams are chosen where they live, and here that means us.', 'We are the nearest {co} office to your workshop, which makes Team {num} ours to look after.', 'Head office in {hq} signs the cheques. We are the ones who will come to your events.'],
+      hq: ['Most of our partner teams hear from a branch. Yours is close enough to hear from us directly.', 'We support teams in a great many places, and every one of them is chosen here, at a table with a map on it.', 'Every partner team is a pin on the map in our corridor. Yours went in this week.'],
+      who: ['In case the name is new to you: {co} {desc}. Robots are not our business, but the people who build them tend to become our colleagues.', 'You may know us already: {co} {desc}. We are a partner like your others, with a logo that people recognise in a few more airports.', 'A word on who we are: {co} {desc}. Supporting school teams is the part of the job that everybody here volunteers for.'],
+      ask: ['What we ask is on the agreement: {goals}. There is a bonus for {each}.', 'The targets are modest and written down: {goals}, with a bonus for {each}.'],
+      close: ['Send us a photograph of the robot with the logo on it. It goes on the wall.', 'If you are ever near {office}, come by. Bring the robot.', 'We look forward to a good season together.'],
+      renewSubject: ['{co} would like to stay', 'From {office}: another season?', 'Our offer to renew'],
+      renewOpen: ['I am writing from {office} again, with good news from the budget meeting.', 'The partner review came round, and yours was a short conversation.', 'This comes from {office}: we would like to stay on the robot.'],
+      renewSeason: { all: ['You did everything we asked: {goals}.', 'The targets were met, all of them: {goals}.'], some: ['Not everything came off, {missed} for one, but we saw what the team did.', 'We noticed {missed} did not happen, and we noticed everything else as well.'], none: ['The targets were missed this time, and we would still like to stay.', 'It was not the season either of us wrote down, and we are offering again all the same.'] }
+    },
     maker: {
       subject: ['{co} is on your team', 'Hello from the print room', 'We make printers. You break parts. Perfect.'],
       open: ['The agreement is signed. Around here that is the fastest thing we have finished all year that did not come out of a nozzle.', 'It is official: {co} sponsors Team {num}. Somebody here has already printed your team number in carbon-filled nylon and glued it to the coffee machine.', 'The paperwork is done, which leaves me free to write the part I was looking forward to.'],
@@ -1586,7 +1601,7 @@
       gift: ['One more thing. We are not the kind of sponsor that sends a cheque and stays away. If things go well between us, do not be surprised by a crate at the workshop door: printers for the prototyping lab, or tools for the electronics bench. It is what we know, so it is what we give.', 'We also like to give things that plug in. When a partnership goes well we send equipment as well as money: a better prototyping lab, or a better electronics workbench. We would not know what else to buy you.'],
       close: ['Print something we would not dare to.', 'See you at the first event. We will be the people photographing your brackets.', 'Go and build it. And keep the printer door closed while it runs.'],
       ps: ['P.S. Please stop printing timing belt pulleys on the draft setting. We can tell.', 'P.S. Yes, the printers are loud. We know. We are working on it.', 'P.S. If a part fails in a match, put it in a bag and write the match number on it. Our materials people collect them.'],
-      renewSubject: ['{co} is staying', 'Another season of printing', 'Same again, from the print room'],
+      renewSubject: ['{co} would like to stay', 'Another season of printing?', 'Same again, from the print room'],
       renewOpen: { high: ['We are staying. The meeting took less time than a calibration cube.', 'Nobody here needed persuading: we are staying.'], mid: ['We talked it over between two print jobs, and we are staying.', 'One meeting, one pot of coffee, and the answer is yes.'], low: ['It was a longer talk than we expected, but we are staying.', 'I will be honest: not everybody here said yes at once. We are renewing.'] },
       renewSeason: {
         all: ['Every target met: {goals}. The list is pinned above the test bench.', 'You did everything we asked ({goals}), and your failure reports were better written than ours.'],

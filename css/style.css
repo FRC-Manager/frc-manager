@@ -564,6 +564,7 @@ table.t th[title] { cursor: help; text-decoration: underline dotted; text-underl
 .wm-keys .k-myev { background: #9085e9; transform: rotate(45deg); box-shadow: 0 0 0 2px #0b141c, 0 0 0 3.5px #f5b800; }
 .wm-keys .k-me { color: #f5b800; width: auto; height: auto; font-size: 13px; line-height: 1; }
 .wm-keys .k-elite { background: #ff4f8b; border: 1.5px solid #fff; border-radius: 50%; }
+.wm-keys .k-spo { background: #3ecf8e; border-radius: 2px; }
 /* an elite team (3.1) */
 .etag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 0 5px; border-radius: 4px; line-height: 16px; color: #fff; background: #d6336c; vertical-align: 1px; }
 .wm-keys .k-cmp { border: 2px solid #f5c542; border-radius: 50%; background: #2a2410; }
@@ -589,6 +590,11 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 /* 3.1.1: an email in the Inbox */
 .msg .mailhd { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(127, 127, 127, 0.08); border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.6; }
 .msg .mailhd span { display: inline-block; min-width: 58px; color: var(--dim); }
+/* (3.5.1) an email shown as a pop-up: the same header and letter as in the Inbox */
+.mailpop .mailhd { margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(127, 127, 127, 0.08); border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.6; }
+.mailpop .mailhd span { display: inline-block; min-width: 58px; color: var(--dim); }
+.mailpop .mailbody { white-space: pre-wrap; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 10px 2px 4px; }
+.mailpop .msgnote { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(127, 127, 127, 0.08); }
 .msg .mb.mailbody { color: var(--text, inherit); font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 4px 2px; }
 .msg .revpic { max-width: 480px; }
 .msg .revpic canvas { width: 100%; height: auto; display: block; border-radius: 6px; }

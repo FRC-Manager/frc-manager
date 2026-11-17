@@ -372,7 +372,9 @@
     // did not renew, or whose contract you ended, stays away for a year.
     const round = S.offerRound = (S.offerRound || 0) + 1, gone = S.sponsorGone || {};
     Object.keys(gone).forEach(n => { if (gone[n] < round) delete gone[n]; });
-    const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone)));
+    // (3.5.1) a renewal offer made since the last list stays on this one; an older one is gone (its company makes no other offer this autumn)
+    const keep = (S.offers || []).filter(o => o.renew && (o.renew.round == null || o.renew.round >= round - 1)), lapsed = (S.offers || []).filter(o => o.renew && !keep.includes(o));
+    const used = new Set(S.sponsors.map(s => s.name).concat(Object.keys(gone), keep.map(o => o.name), lapsed.map(o => o.name)));
     S.sponsors.map(s => s.name).concat(Object.keys(gone)).forEach(n => { const now = (D.SPONSOR_RENAMED || {})[n]; if (now) used.add(now); }); // a sponsor of an earlier version, under its old name: the same company
     // (3.5) Every company has a city (D.SPONSOR_AT), and a team hears from the companies around it: mostly those
     // close to its own city, then the rest of its land, now and then one from a land next door (D.sponsorRings).
@@ -428,7 +430,7 @@
     for (let i = 0; i < 6; i++) { const left = 6 - i, own = IN ? ownLeft() : 0, p = !IN ? 0 : own >= left ? IN.chance : 1 - (own / left) * (1 - IN.chance);
       offers.push(make('partner', i === mk ? MK : IN && rng.chance(p) ? intl() : null)); }
     for (let i = 0; i < rng.int(1, 2); i++) offers.push(make('grant'));
-    S.offers = offers.filter(Boolean);
+    S.offers = keep.concat(offers.filter(Boolean));
     if (MK && S.mode === 'career' && !S.makerSeen && S.offers.some(o => o.type === MK.type)) { // its first offer: a note in the Inbox
       S.makerSeen = 1;
       C.inbox(S, MK.name + ' is looking for teams', 'The printer maker ' + MK.name + ' has started to sponsor robotics teams all over the world, and one of this autumn\'s partner offers is theirs. It is an international company and a partner like the others (+' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review, as all of them bring), with one difference: when ' + MK.name + ' gives equipment, it gives what it knows, a level of the Prototyping Lab or of the Electronics Workbench.', 'money', { note: 'Finance: Sponsor offers. Its offer is not on every year\'s list.' });
@@ -451,6 +453,7 @@
     if (o.slot === 'partner' && S.sponsors.filter(s => s.slot === 'partner').length >= C.partnerSlots(S)) return 'All partner slots are full';
     if (o.slot === 'grant' && S.sponsors.some(s => s.slot === 'grant')) return 'You can only hold one grant at a time';
     const sp = Object.assign({}, o, { seasonsLeft: o.length, sat: 60, paidYear: null, goals: o.goals.map(g => Object.assign({}, g)) });
+    if (o.renew) { sp.sat = o.renew.sat == null ? 60 : o.renew.sat; if (o.renew.contact) sp.contact = o.renew.contact; sp.renewed = 1; delete sp.renew; } // (3.5.1) a renewal: the same people, as satisfied as they were
     sp.contact = C.sponsorContact(sp); // who writes for it, from now on
     S.sponsors.push(sp);
     S.offers = S.offers.filter(x => x !== o);
@@ -470,8 +473,10 @@
       if (!sp.undo || !sp.undo.say) return;
       const terms = (sp.slot === 'title' ? 'Title sponsor' : sp.slot === 'grant' ? 'Grant' : 'Partner sponsor') + ': ' + U.money(sp.base) + ' a season for ' + sp.length + ' season' + (sp.length === 1 ? '' : 's') + '.' + (sp.paidYear === S.year ? '' : ' The first payment arrives at Kickoff.') +
         (sp.slot === 'partner' && D.sponsorIntl && D.sponsorIntl(sp.name) ? ' An international partner: +' + ((D.SPONSOR_INTL || {}).rep || 0) + ' reputation at every season review.' : '');
-      if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'sign', { terms });
+      if (sp.renewed) { C.inbox(S, 'Renewed: ' + sp.name, terms.replace(/^(Title sponsor|Grant|Partner sponsor): /, m => m.replace(': ', ', renewed: ')), 'money'); delete sp.renewed; } // (3.5.1) their letter came with the offer
+      else if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'sign', { terms });
       else if (C.isMaker(sp)) C.makerMail(S, sp, 'sign', { terms }); // the printer maker writes too
+      else if (C.isIntl(sp) && D.SPONSOR_MAIL && D.SPONSOR_MAIL.intl) C.intlMail(S, sp, 'sign', { terms }); // (3.5.1) ... and an international partner, from its branch or its head office
       else C.inbox(S, 'Signed: ' + sp.name, terms, 'money');
     });
     S.mentors.forEach(m => { if (m.undo) C.inbox(S, 'Mentor joined: ' + m.name, D.MENTOR_ROLES.find(r => r.id === m.role).name + ' (' + U.stars(m.stars) + ').', 'staff'); });
@@ -480,14 +485,27 @@
   // The company's side of the contract: always the same person in the same post for the same company.
   // (its people carry the names of the company's own city, the one nearest to you; an international company's keep
   // the international mix; a company with no city, your home's)
+  const myCity = () => (G.S && G.Geo && G.Geo.cityOf ? G.Geo.cityOf(G.S) : '');
+  C.isIntl = sp => !!(sp && D.sponsorIntl && D.sponsorIntl(sp.name) && !C.isMaker(sp));
+  // (3.5.1) An international company (the printer maker too) writes from the office that looks after the team: always
+  // its head office when that is in the team's own area, else, more often than not, a branch in the team's city.
+  // { office: 'hq' | 'branch', city }
+  C.intlOffice = function (sp) {
+    const hq = D.sponsorCity ? D.sponsorCity(sp.name, '') : '', me = myCity(), hb = hq && G.Geo && G.Geo.hub ? G.Geo.hub(hq) : null;
+    if (!hq || !me || (hb && G.S && G.S.team && hb.r === G.S.team.region)) return { office: 'hq', city: hq || '' };
+    return G.makeRng(hashS('office:' + sp.name + ':' + me) || 3).chance(0.7) ? { office: 'branch', city: me } : { office: 'hq', city: hq };
+  };
+  // "our Seoul office", "our head office in Zurich" (a contact from before 3.5.1 has no office: the head office)
+  C.officeText = function (sp, who) { const hq = D.sponsorCity ? D.sponsorCity(sp.name, '') : ''; return who && who.office === 'branch' && who.city ? 'our ' + who.city + ' office' : hq ? 'our head office in ' + hq : 'our head office'; };
   C.sponsorWho = function (sp) {
-    if (D.sponsorIntl && D.sponsorIntl(sp.name)) return 'intl';
-    const hub = D.sponsorCity ? D.sponsorCity(sp.name, G.S && G.Geo && G.Geo.cityOf ? G.Geo.cityOf(G.S) : '') : '';
+    if (D.sponsorIntl && D.sponsorIntl(sp.name)) { const c = sp.contact ? sp.contact.city : C.intlOffice(sp).city; return c ? { hub: c } : 'intl'; } // the people of the office that writes (an older save's contact: the international mix)
+    const hub = D.sponsorCity ? D.sponsorCity(sp.name, myCity()) : '';
     return hub ? { hub } : undefined;
   };
   C.sponsorContact = function (sp) {
     if (sp.contact) return sp.contact; // set on the day it signs
     const r = G.makeRng(hashS('contact:' + sp.name) || 7), M = D.SPONSOR_MAIL, roles = (M && (M.roles[sp.type] || M.roles.eng)) || ['Partnerships Manager']; // (a page without the letters' texts still signs sponsors)
+    if (D.sponsorIntl && D.sponsorIntl(sp.name)) { const o = C.intlOffice(sp); return { name: D.personName(r, o.city ? { hub: o.city } : 'intl'), role: r.pick(o.office === 'branch' ? ['Branch Manager', 'Regional Partnerships Lead', 'Community Programmes Coordinator', 'Site Director'] : ['Global Partnerships Manager', 'Head of Community Programmes', 'Director of Education Partnerships']), office: o.office, city: o.city }; }
     return { name: D.personName(r, C.sponsorWho(sp)), role: r.pick(roles) };
   };
   const lcFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
@@ -511,7 +529,7 @@
       P.push(M.renewTerms[dir].replace('{n}', numWord(sp.seasonsLeft) + ' more season' + (sp.seasonsLeft === 1 ? '' : 's')).replace('{base}', U.money(sp.base)) + ' ' + fill(r.pick(M.renewAsk)).replace('{goals}', listAnd(goals)) + ' ' + r.pick(M.expect[sp.exp] || M.expect.Medium));
       P.push(r.pick(M.close[type]));
       C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(M.renewSubject)), P.join('\n\n'), 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name,
-        { note: 'Title sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season.' }, 'money');
+        { note: info.note || 'Title sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season.' }, 'money');
       return;
     }
     const desc = D.sponsorDesc(sp.name), trade = (M.trade.find(x => x.re.test(sp.name)) || { t: M.tradeType[type] }).t;
@@ -540,20 +558,22 @@
     const colleague = D.personName(r, C.sponsorWho(sp)).split(' ')[0];
     const fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{who\}/g, colleague);
     const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1, P = [];
-    const sign = 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name, gives = ' When ' + sp.name + ' gives equipment, it is a level of the Prototyping Lab or of the Electronics Workbench.';
+    // (3.5.1) like the other international companies, it says which office is writing: the branch near the team or the head office
+    const from = who.office ? 'I am writing from ' + C.officeText(sp, who) + '. ' : '', at = who.office && who.city ? ' (' + who.city + ')' : '';
+    const sign = 'Yours,\n' + who.name + '\n' + who.role + ', ' + sp.name + at, gives = ' When ' + sp.name + ' gives equipment, it is a level of the Prototyping Lab or of the Electronics Workbench.';
     info = info || {};
     if (kind === 'renew') {
       const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt);
       const tone = sp.sat >= 80 ? 'high' : sp.sat >= 55 ? 'mid' : 'low', how = !missed.length ? 'all' : missed.length === goals.length ? 'none' : 'some';
-      P.push(r.pick(K.renewOpen[tone]) + ' ' + r.pick(K.renewSeason[how]).replace('{goals}', listAnd(goals)).replace('{missed}', listAnd(missed)));
+      P.push(from + r.pick(K.renewOpen[tone]) + ' ' + r.pick(K.renewSeason[how]).replace('{goals}', listAnd(goals)).replace('{missed}', listAnd(missed)));
       const dir = info.oldBase == null || sp.base === info.oldBase ? 'same' : sp.base > info.oldBase ? 'up' : 'down';
       P.push(M.renewTerms[dir].replace('{n}', numWord(sp.seasonsLeft) + ' more season' + (sp.seasonsLeft === 1 ? '' : 's')).replace('{base}', U.money(sp.base)) + ' ' + fill(r.pick(M.renewAsk)).replace('{goals}', listAnd(goals)) + ' ' + r.pick(K.renewGift));
       P.push(r.pick(K.close));
       C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.renewSubject)), P.join('\n\n'), sign,
-        { note: 'Partner sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season. Partners like short deals: expect to talk again next autumn.' }, 'money');
+        { note: info.note || 'Partner sponsor renewed: ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft === 1 ? '' : 's') + ' at ' + U.money(sp.base) + ' a season. Partners like short deals: expect to talk again next autumn.' }, 'money');
       return;
     }
-    P.push(fill(r.pick(K.open)) + ' ' + r.pick(K.who));
+    P.push(from + fill(r.pick(K.open)) + ' ' + r.pick(K.who));
     P.push(r.pick(K.trade));
     const last = S.history[S.history.length - 1], wonEv = last && (last.events || []).find(e => e.won), why = ['any', 'any'];
     if (wonEv) why.push('won', 'won', 'won'); if (last && last.champs) why.push('champs', 'champs');
@@ -564,6 +584,33 @@
     P.push(r.pick(K.gift));
     P.push(r.pick(K.close));
     C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.subject)), P.join('\n\n'), sign + '\n\n' + r.pick(K.ps), { note: (info.terms || '') + gives }, 'money');
+  };
+  // ---------- an international partner's letters (3.5.1) ----------
+  // Shorter than a title sponsor's: where it is written from (the branch near the team, or the head office), what the
+  // company is, what it asks. kind, info: as C.sponsorMail.
+  C.intlMail = function (S, sp, kind, info) {
+    const M = D.SPONSOR_MAIL, K = M.intl, who = C.sponsorContact(sp), r = G.makeRng(hashS('intl:' + kind + ':' + sp.name + ':' + S.year + ':' + (S.offerRound || 0)) || 5);
+    const hq = D.sponsorCity ? D.sponsorCity(sp.name, '') : '', branch = who.office === 'branch' && who.city, office = C.officeText(sp, who);
+    const desc = D.sponsorDesc(sp.name).replace(/\.$/, ''), fill = t => String(t).replace(/\{co\}/g, sp.name).replace(/\{num\}/g, S.team.num).replace(/\{team\}/g, S.team.name).replace(/\{office\}/g, office).replace(/\{hq\}/g, hq || 'head office').replace(/\{desc\}/g, lcFirst(desc));
+    const goalTxt = g => M.goal[g.id] || D.GOALS[g.id].text.toLowerCase(), goals = sp.goals.map(goalTxt), many = goals.length > 1, P = [];
+    const sign = 'Kind regards,\n' + who.name + '\n' + who.role + ', ' + sp.name + (branch ? ' (' + who.city + ')' : hq ? ' (' + hq + ')' : '');
+    info = info || {};
+    if (kind === 'renew') {
+      const met = info.met || sp.goals.map(g => !!g.met), missed = sp.goals.filter((g, i) => !met[i]).map(goalTxt), how = !missed.length ? 'all' : missed.length === goals.length ? 'none' : 'some';
+      P.push(fill(r.pick(K.renewOpen)) + ' ' + fill(r.pick(K.renewSeason[how])).replace('{goals}', listAnd(goals)).replace('{missed}', listAnd(missed)));
+      const dir = info.oldBase == null || sp.base === info.oldBase ? 'same' : sp.base > info.oldBase ? 'up' : 'down';
+      P.push(M.renewTerms[dir].replace('{n}', numWord(sp.seasonsLeft) + ' more season' + (sp.seasonsLeft === 1 ? '' : 's')).replace('{base}', U.money(sp.base)) + ' ' + fill(r.pick(M.renewAsk)).replace('{goals}', listAnd(goals)));
+      P.push(fill(r.pick(K.close)));
+      C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.renewSubject)), P.join('\n\n'), sign, { note: info.note || '' }, 'money');
+      return;
+    }
+    P.push(fill(r.pick(K.open)) + ' ' + fill(r.pick(branch ? K.branch : K.hq)));
+    if (desc) P.push(fill(r.pick(K.who)));
+    let ask = fill(r.pick(K.ask)).replace('{goals}', listAnd(goals)).replace('{each}', many ? 'each' : 'it');
+    if (sp.obligations.length) ask += ' ' + r.pick(M.oblig).replace('{n}', numWord(sp.obligations.length) + ' date' + (sp.obligations.length === 1 ? '' : 's')).replace('{list}', sp.obligations.join('; '));
+    P.push(ask);
+    P.push(fill(r.pick(K.close)));
+    C.letter(S, who.name + ' (' + sp.name + ')', fill(r.pick(K.subject)), P.join('\n\n'), sign, { note: info.terms || '' }, 'money');
   };
   // A deal signed this turn can be taken back until time moves on (the offer returns to the list)
   C.canUnsign = (S, sp) => !!(sp && sp.undo && sp.undo.turn === turnKey(S));
@@ -691,16 +738,44 @@
       award: s.awards.length > 0, techAward: tech, quality: has('quality') || has('eie'), autoAward: has('auto') || has('ic'), impactAward: has('impact') || has('ei'),
       avgRP: final && avgRP >= 2, outreach: s.outreach >= 2, events2: evs.length >= 2, dcmp: !!s.dcmpQualified
     };
-    S.sponsors.forEach(sp => sp.goals.forEach(g => {
-      if (!g.met && check[g.id]) {
+    // (3.5.1) One message for everything a sponsor's targets paid at this check: a short email from a title sponsor,
+    // an international partner or the printer maker (its contact person writes), one line for all the others together.
+    const plain = [];
+    S.sponsors.forEach(sp => {
+      const hit = [];
+      sp.goals.forEach(g => {
+        if (g.met || !check[g.id]) return;
         g.met = true;
         const bonus = g.bonus * (C.hasPerk(S, 'bonusBoost') && sp.perk === 'bonusBoost' ? 1.5 : 1);
         g.paid = bonus;
         C.earn(S, bonus, 'Bonus: ' + sp.name + ' — ' + C.goalText(S, D.GOALS[g.id].text));
         sp.sat = Math.min(100, sp.sat + 10);
-        C.letter(S, sp.name, 'Sponsor bonus: ' + U.money(bonus), 'Everyone here has been following your season, and we are thrilled: "' + C.goalText(S, D.GOALS[g.id].text) + '", done. As promised, a bonus of ' + U.money(bonus) + ' is on its way.', 'Congratulations,\n' + sp.name, { note: '+' + U.money(bonus) + ' (Finance). The sponsor is happier with the partnership.' });
-      }
-    }));
+        hit.push({ text: C.goalText(S, D.GOALS[g.id].text), bonus });
+      });
+      if (!hit.length) return;
+      const sum = U.sum(hit.map(x => x.bonus)), what = listAnd(hit.map(x => '"' + x.text + '"'));
+      if (sp.slot === 'title' || C.isIntl(sp) || C.isMaker(sp)) {
+        const who = C.sponsorContact(sp), r = G.makeRng(hashS('bonus:' + sp.name + ':' + S.year + ':' + hit.length + ':' + sum) || 9), many = hit.length > 1;
+        C.letter(S, who.name + ' (' + sp.name + ')', (many ? 'Targets met: ' : 'Target met: ') + U.money(sum),
+          r.pick(['The result reached us before your message did.', 'Somebody here was watching the stream at their desk, so the whole floor knows.', 'I have just been shown the standings.', 'Good news travels fast in this building.']) + ' ' + what + ': done. ' +
+          (many ? 'The bonuses we agreed, ' + U.money(sum) + ' in all, are' : 'The bonus we agreed, ' + U.money(sum) + ', is') + ' on ' + (many ? 'their' : 'its') + ' way to the team account. ' + r.pick(['Please tell the students.', 'Well done to everybody in the shop.', 'Keep going.', 'We will put it in the staff newsletter.']),
+          'Congratulations,\n' + who.name + '\n' + who.role + ', ' + sp.name, { note: '+' + U.money(sum) + ' (Finance). The sponsor is happier with the partnership.' }, 'money');
+      } else plain.push({ sp, hit, sum });
+    });
+    if (plain.length) C.inbox(S, (plain.length > 1 ? 'Sponsor bonuses: ' : 'Sponsor bonus: ') + U.money(U.sum(plain.map(x => x.sum))), plain.map(x => x.sp.name + ': ' + x.hit.map(y => y.text + ' (+' + U.money(y.bonus) + ')').join(', ')).join('\n') + '\n\nPaid today (Finance). ' + (plain.length > 1 ? 'These sponsors are' : 'The sponsor is') + ' happier with the partnership.', 'money');
+    C.checkProgramGoals(S);
+  };
+  // (3.5.1) The school writes when a program goal is reached: once for each goal, one email for all that are new.
+  // (Not for a goal that can still be lost: the top half at every regional is settled at the season review.)
+  C.checkProgramGoals = function (S) {
+    const s = S.season, hit = ((s && s.goals) || []).filter(g => !g.told && g.id !== 'topHalf' && D.PROGRAM_GOALS[g.id] && D.PROGRAM_GOALS[g.id].check(s));
+    if (!hit.length || S.mode !== 'career') return;
+    hit.forEach(g => { g.told = 1; });
+    const r = G.makeRng(hashS('pg:' + S.year + ':' + hit.map(g => g.id).join(',')) || 11), all = s.goals.every(g => g.told || g.id === 'topHalf'), many = hit.length > 1;
+    C.letter(S, 'The program director' + atSchool(S), (many ? 'Program goals reached: ' : 'Program goal reached: ') + hit.map(g => C.goalText(S, D.PROGRAM_GOALS[g.id].text)).join(', '),
+      r.pick(['I saw the result this morning and wanted you to hear it from me first.', 'The result was on my desk before the first bell.', 'The principal stopped me in the corridor to ask whether it was true. It is.']) + ' ' + listAnd(hit.map(g => '"' + C.goalText(S, D.PROGRAM_GOALS[g.id].text) + '"')) + ': ' + (many ? 'those were on' : 'that was on') + ' the list we agreed at Kickoff, and ' + (many ? 'they are' : 'it is') + ' done. ' +
+      (all ? 'That is the whole list. I will say so at the season review.' : 'It will count at the season review. The rest of the list still stands.') + ' Please pass on my congratulations to the students and the mentors.',
+      'With thanks,\nThe program director', { note: 'Program goals are settled at the season review: each one met raises Program Support.', school: true }, 'goal');
   };
 
   // ======================= mentors & students =======================
@@ -816,7 +891,7 @@
     S.regionals.forEach(r => {
       if (!S.registered.includes(r.id)) return;
       const done = S.eventsDone[r.id], res = done && S.season.events.find(e => e.id === r.id);
-      add('c' + r.week, 'event', (done ? '✓ ' : '') + r.name + (res ? ' — ' + res.finish : ' (' + D.TRAVEL[D.travelTier(S.team.region, r.region, r.local)].name.toLowerCase() + ')'), done ? 'good' : 'acc');
+      add('c' + r.week, 'event', (done ? '✓ ' : '') + r.name + (res ? ' — ' + res.finish : ' (' + D.TRAVEL[C.travelTierOf(S, Object.assign({ kind: 'regional' }, r))].name.toLowerCase() + ')'), done ? 'good' : 'acc');
     });
     // regionals you could still register for (only for weeks that have not happened yet)
     for (let w = 1; w <= 6; w++) {
@@ -892,14 +967,35 @@
   // How the team gets there: local, drive, fly — or, with a team trailer, a long drive instead of flying the robot.
   // (3.5) An event in another part of the world is a flight overseas (intl): dearer, harder on the robot, and no trip
   // for the trailer. The Championship is in the middle of North America: overseas for every team from outside it.
+  // (3.5.1) The city an event is held in: the Championship's, Summit Champs', an event's own (def.hub), or where the
+  // World map has it. '' when it cannot be told (a single season's regionals, a scrimmage).
+  C.eventCity = function (S, def) {
+    if (!def || !G.Geo || !G.Geo.hub) return '';
+    try {
+      if (def.kind === 'champs') return C.champs(S).city || '';
+      if (def.summit || def.id === D.SUMMIT.id) return D.SUMMIT.city || '';
+      if (def.hub && G.Geo.hub(def.hub)) return def.hub;
+      if (G.World.on(S) && S.wseason) { const e = S.wseason.events.find(x => x.id === def.id); if (e) return G.Geo.eventPos(S.wseason, e).hub || ''; }
+    } catch (x) { /* an event the map does not know */ }
+    return '';
+  };
+  // (3.5.1) By miles, from the team's city to the event's (D.tripTier): the same city or a short trip is local, up to
+  // a day's drive is a drive, more is a flight, and a city no road reaches is always a flight, with no trailer. A
+  // district's own events are never a flight. Where either city is unknown, by areas as before.
   C.travelMode = function (S, def) {
     if (def.kind === 'einstein') return 'none';
-    const home = S.team.region;
-    let tier = def.kind === 'champs' ? (D.overseas(home, 'Midwest') ? 'intl' : 'fly') : def.kind === 'dcmp' ? 'drive' : def.kind === 'regional' ? D.travelTier(home, def.region, def.local) : 'local';
-    if (def.kind === 'offseason') tier = def.summit ? D.travelTier(home, D.SUMMIT.region, false) : 'drive'; // Summit Champs: California
-    if (tier === 'fly' && G.Shop.lvl(S, 'trailer')) return 'trailer';
+    const home = S.team.region, me = G.Geo && G.Geo.cityOf ? G.Geo.cityOf(S) : '', at = def.kind === 'scrimmage' ? '' : C.eventCity(S, def);
+    let tier = me && at && D.tripTier ? D.tripTier(me, at) : null, road = true;
+    if (tier) { road = D.roadNet(me) === D.roadNet(at); if (tier === 'fly' && road && S.team.home && (def.kind === 'dcmp' || def.dist === S.team.home)) tier = 'drive'; }
+    else {
+      tier = def.kind === 'champs' ? (D.overseas(home, 'Midwest') ? 'intl' : 'fly') : def.kind === 'dcmp' ? 'drive' : def.kind === 'regional' ? D.travelTier(home, def.region, def.local) : 'local';
+      if (def.kind === 'offseason') tier = def.summit ? D.travelTier(home, D.SUMMIT.region, false) : 'drive'; // Summit Champs: California
+    }
+    if (tier === 'fly' && road && G.Shop.lvl(S, 'trailer')) return 'trailer';
     return tier;
   };
+  // ... for a list (the Calendar): the tier, with a trailer's long drive counted as the flight it replaces
+  C.travelTierOf = (S, def) => { const m = C.travelMode(S, def); return m === 'trailer' ? 'fly' : m === 'none' ? 'local' : m; };
   C.byAir = mode => mode === 'fly' || mode === 'intl';
   // A bigger team costs more to move: the robot's freight and the tools cost every team the same, the seats, rooms and
   // meals grow with the students who go. The D.TRAVEL prices are for a team of 25 (×0.72 at 15, ×1.42 at 40).
@@ -910,16 +1006,26 @@
     let c = D.TRAVEL[tier].cost * (def.kind === 'offseason' && !def.summit ? 0.4 : 1) * (mode === 'trailer' ? D.TRAILER_LONG : 1) * C.travelSize(S);
     if (!C.byAir(tier)) c *= G.Shop.travelMult(S);
     if (C.hasPerk(S, 'travelDiscount')) c *= 0.75;
+    if (C.selfPayOn(S, def)) c *= D.SELF_PAY.cost; // (3.5.1) the students pay their own way
     return Math.round(c);
   };
+  // (3.5.1) Students pay for their own travel to one event (chosen before leaving, on Headquarters): the team pays far
+  // less, but it costs morale and reputation, the more the farther the trip, and fewer students come, so scouting and
+  // the repairs between matches are a little weaker at that event (D.SELF_PAY).
+  C.selfPayOn = (S, def) => !!(def && S.selfPay && S.selfPay === def.id && def.kind !== 'einstein');
+  C.selfPayCost = function (S, def) { const m = C.travelMode(S, def), P = D.SELF_PAY; return { morale: P.morale[m] || 0, rep: P.rep[m] || 0 }; };
+  C.setSelfPay = function (S, def, on) { S.selfPay = on && def && def.kind !== 'einstein' ? def.id : null; };
   C.startEvent = function (S, def) {
     if (S.event) return S.event; // never overwrite an event in progress
     S.lastEventTurn = turnKey(S);
+    const self = C.selfPayOn(S, def);
     if (def.kind !== 'einstein') {
       const tc = C.travelCost(S, def);
-      if (tc) C.spend(S, tc, 'Travel: ' + def.name);
+      if (tc) C.spend(S, tc, 'Travel: ' + def.name + (self ? ' (students paid their own way)' : ''));
       if (def.kind === 'dcmp') C.spend(S, D.FEES.dcmp, 'Registration: ' + def.name);
     }
+    if (self) { const k = C.selfPayCost(S, def); S.morale = U.clamp(S.morale - k.morale, 0, 100); if (k.rep) C.addRep(S, -k.rep); S.selfPaid = S.turnSeq || 0; }
+    S.selfPay = null;
     if (def.kind === 'einstein') return C.startEinstein(S, def);
     const mode = C.travelMode(S, def), fly = C.byAir(mode), intl = mode === 'intl';
     if (intl) S.lastEventIntl = turnKey(S); // jet lag (fatigueNext)
@@ -950,7 +1056,9 @@
       if (fit.length) arrival.notes.push('Robot access window: in the six hours before the event the team fitted ' + fit.join(', ') + '.');
     }
     if (['regional', 'dcmp', 'champs'].includes(def.kind)) G.Parts.loyalSample(S);
+    if (self) arrival.notes.push('The students paid their own way, and not all of them could: a thinner scouting crew and fewer hands in the pit this event.');
     const ev = G.Ev.start(Object.assign({ year: S.year }, def));
+    if (self) ev.selfPay = true;
     ev.batts = S.parts.batts.map(() => 1);
     ev.arrival = arrival;
     if (def.summit) { ev.summit = true; C.summitConference(S, ev); } // Summit Champs: the mentor conference comes before practice
@@ -1249,6 +1357,7 @@
     // new turn: random news, team chatter, (rarely) a shop incident or a school/sponsor opportunity
     delete S.lastOutcome; // the result of last turn's decision has been seen
     if (['off', 'build', 'comp'].includes(S.phase)) { G.News.turn(S); G.Shop.rollIncident(S); C.rollDispute(S); G.Shop.rollBoost(S); C.rollDonation(S); }
+    C.boardInvite(S); C.eduGrantMonth(S); // (3.5.1) the school board asks to watch this week's event; the offseason grant from the education office
     G.Parts.rollStock(S);
     if (S.phase === 'build' || S.phase === 'comp') C.weeklySuggestion(S);
     S.overtime = false;
@@ -1358,6 +1467,7 @@
     if (mo === 'Nov') C.summitNews(S);
     C.chalMonth(S); // vendor challenges: a new one announced, this month's, the results (3.1.3)
     if (mo === 'Dec') C.researchWarn(S); // R&D closes at Kickoff (3.1.3)
+    if (mo === 'Dec') C.seasonPreview(S); // (3.5.1) FIRST: what next season looks like
     if (mo === 'Aug') { C.refreshMarket(S); C.inbox(S, 'Mentor market refreshed', 'New mentor candidates are available (Mentors screen).', 'staff'); }
     if (mo === 'Sep') {
       S.students.forEach(s => s.grade++);
@@ -1516,6 +1626,8 @@
     C.spend(S, fee, 'Registration: ' + r.name);
     S.registered.push(id);
     (S.regUndo = S.regUndo || {})[id] = fee - C.regFee0(S, S.registered.length - 1); // the late fee, if one was charged
+    // (3.5.1) an area with no regional of its own: FIRST pays part of the first event's fee (C.farSeasonNote)
+    if (S.regSubsidy && !S.regSubsidy.used && S.wseason && S.regSubsidy.cy === S.wseason.cy) { S.regSubsidy.used = id; C.earn(S, S.regSubsidy.amt, 'FIRST registration subsidy'); }
     return null;
   };
   // Until you press Continue, a registration made this turn can be taken back for everything it cost. Keys: a regional's
@@ -1534,6 +1646,7 @@
     }
     delete S.regUndo[key];
     if (back) C.spend(S, -back, 'Registration undone: ' + name);
+    if (S.regSubsidy && S.regSubsidy.used === key) { delete S.regSubsidy.used; C.spend(S, S.regSubsidy.amt, 'FIRST registration subsidy returned'); }
     return null;
   };
   // Weeks from now until a calendar slot (offseason months count as four weeks)
@@ -1582,6 +1695,8 @@
     else if (d.kind === 'einstein') return d.festival ? 'The Festival of Champions cannot be skipped: both champion alliances are expected, and the trip is paid for' : 'You can\'t skip Einstein';
     else { S.eventsDone[d.id] = true; (S.season.skipped = S.season.skipped || []).push(d.name); }
     C.inbox(S, 'Skipped: ' + d.name, 'The team stayed home from ' + d.name + '. Fees for events this close are not refunded.', 'event');
+    // (3.5.1) the school board had been invited to this one
+    { const B = S.season.board; if (B && B.visit === d.id && !B.done) { B.done = 1; B.verdict = -1; B.delta = -2; S.support = U.clamp(S.support - 2, 0, 100); C.inbox(S, 'The board had cleared its weekend', 'The school board was invited to the ' + d.name + ', and the team did not go. The assistant has sent the apologies. Program Support −2.', 'goal'); } }
     return null;
   };
   C.markFull = function (S) { S.regionals.forEach(r => { if (!S.registered.includes(r.id) && G.R.chance(0.3)) r.full = true; }); };
@@ -1592,13 +1707,16 @@
     ev.lastTurn = turn;
     ev.pmSeq = (ev.pmSeq || 0) + 1; // one Super pit full repair per match
     if (ev.lastPlayerMatch >= 0 || ev.stage === 'playoffs') {
-      const sp = G.Robot.pitRepair(S, turn, opts && opts.timeout ? 2.5 : 1);
+      const sp = G.Robot.pitRepair(S, turn, (opts && opts.timeout ? 2.5 : 1) * (ev.selfPay ? D.SELF_PAY.repair : 1)); // (3.5.1) fewer hands in the pit when the students paid their own way
       ev.lastRepair = sp;
     }
-    // simulated matches: the Super pit crew fully repairs whatever is in the worst shape
-    if (opts && opts.sim && G.Shop.superPit(S) && S.robot) {
+    // (3.5.1) The Super pit crew always fully repairs whatever is in the worst shape, before every match, watched or
+    // simulated. On the pre-match page you can have it repair another subsystem instead (G.Robot.superSwitch: ev.superRec
+    // says what was done, so that it can be taken back).
+    ev.superRec = null;
+    if (G.Shop.superPit(S) && S.robot) {
       const R = S.robot, ks = Object.keys(R.subs).filter(k => k !== 'soft' && R.subs[k] && R.subs[k].ver && R.subs[k].cond < 99.5).sort((a, b) => R.subs[a].cond - R.subs[b].cond);
-      if (ks.length) { const r = G.Robot.superFix(S, ev, ks[0]); if (r && typeof r === 'object') ev.lastRepair = (ev.lastRepair || 0) + r.used; }
+      if (ks.length) { const c0 = R.subs[ks[0]].cond, r = G.Robot.superFix(S, ev, ks[0]); if (r && typeof r === 'object') { ev.lastRepair = (ev.lastRepair || 0) + r.used; ev.superRec = { k: ks[0], cond0: c0, fix: R.subs[ks[0]].cond - c0, used: r.used }; } }
     }
     // batteries
     const rate = G.Shop.chargeRate(S), fleet = S.parts.batts;
@@ -1611,18 +1729,102 @@
     G.Ev.rollIncident(S, ev);
   };
   // October: registration for next season opens (the inbox message; the pop-up in the UI says the same)
-  // (3.5) When registration opens, a regional team outside North America hears what its own area holds next season:
-  // its first regional ever, or none at all (then every event is a flight, and most of them overseas).
+  // ---------- letters from FIRST (3.5.1) ----------
+  const FIRST_REG = 'FIRST Robotics Competition (Event Registration)', FIRST_UPD = 'FIRST Robotics Competition (Team Updates)', FIRST_CMP = 'FIRST Robotics Competition (Championship)', FIRST_SIGN = 'The FIRST Robotics Competition team';
+  // the season before cy that was played (2021 was not)
+  const prevCy = cy => (cy - 1 === 2021 ? 2020 : cy - 1);
+  // (3.5) When registration opens, a regional team outside North America hears what its own area holds next season.
+  // (3.5.1) FIRST writes it: the area's first regional, a regional that is back after a season without one, or none
+  // at all. With none, the letter names the nearest areas that hold events and FIRST pays part of the registration
+  // fee of the team's first event (D.REG_SUBSIDY of the fee, credited when the team registers: C.register).
   C.farSeasonNote = function (S) {
     if (!G.World.on(S) || S.team.home || !S.wseason || !D.WORLD_AREAS[S.team.region]) return;
-    const r = S.team.region, cy = S.wseason.cy, A = D.WORLD_AREAS[r], home = S.regionals.filter(e => e.region === r), The = D.regionThe(r).replace(/^t/, 'T');
+    const r = S.team.region, cy = S.wseason.cy, A = D.WORLD_AREAS[r], home = S.regionals.filter(e => e.region === r), the = D.regionThe(r);
+    const prev = prevCy(cy), had = prev >= 2016 ? D.sitesOf(r, prev).length : -1;
     if (home.length) {
-      if (A.first === cy) C.inbox(S, 'A regional at home', The + ' holds its first regional in ' + cy + ': the ' + home[0].name + ' in ' + home[0].hub + '. No ocean to cross for it, and half the teams in the pits will be neighbours. It will fill quickly: register while there is room (Calendar).', 'event', { prio: true });
+      const first = A.first === cy, back = !first && had === 0;
+      if (!first && !back) return;
+      C.letter(S, FIRST_REG, first ? 'A regional in ' + the + ' for the first time' : 'The regional in ' + the + ' is back',
+        (first ? 'We are glad to tell you that ' + the + ' holds its first regional in ' + cy + ': the ' + home[0].name + ' in ' + home[0].hub + '.' : 'After a season without one, ' + the + ' has a regional again in ' + cy + ': the ' + home[0].name + ' in ' + home[0].hub + '.') +
+        ' It took a venue, a field crew and a great many volunteers from the teams of the area, and we thank every one of them.\n\nFor your team it means an event with no ocean to cross, where half the pits will be neighbours. ' + (home.length > 1 ? 'It is one of ' + home.length + ' events in the area this season. ' : '') + 'Events close to home fill quickly: please register while there is room.',
+        'See you there,\n' + FIRST_SIGN, { note: 'Calendar: registration for ' + cy + ' is open.', school: true, prio: true }, 'event');
       return;
     }
-    const near = (D.NEAR[r] || []).filter(x => S.regionals.some(e => e.region === x)), sea = near.filter(x => D.overseas(r, x));
-    C.inbox(S, 'No regional at home in ' + cy, The + ' holds no regional in ' + cy + '. ' + (near.length ? 'The teams here usually travel to ' + near.map(D.regionThe).join(' or ') + (sea.length === near.length ? ', a flight overseas' : sea.length ? ' (some of it overseas)' : ', an ordinary flight') + '. ' : '') +
-      'A flight overseas costs about ' + U.money(Math.round(D.TRAVEL.intl.cost * C.travelSize(S) / 100) * 100) + ' for your team, is harder on the robot than an ordinary one, and the team trailer cannot make the trip. Budget for it before you register (Calendar): one event well prepared is a season too.', 'event', { prio: true });
+    const near = (D.NEAR[r] || []).filter(x => S.regionals.some(e => e.region === x)), sea = near.filter(x => D.overseas(r, x)), sub = Math.round(D.FEES.firstRegional * (D.REG_SUBSIDY || 0.5));
+    const evs = S.regionals.filter(e => near.includes(e.region) && !e.dist).sort((a, b) => near.indexOf(a.region) - near.indexOf(b.region) || a.week - b.week).slice(0, 4);
+    S.regSubsidy = { cy, amt: sub };
+    C.letter(S, FIRST_REG, 'No regional in ' + the + ' in ' + cy + ': support for your first event',
+      'We are sorry to tell you that ' + the + ' holds no regional in ' + cy + '. ' + (had > 0 ? 'Last season\'s event cannot be held again this year.' : 'We could not find a venue and enough volunteers for one this season.') + ' Every team of your area will have to travel to compete.\n\n' +
+      (near.length ? 'The teams there usually go to ' + near.map(D.regionThe).join(' or ') + (sea.length === near.length ? ', a flight overseas' : sea.length ? ', some of it overseas' : '') + '.' + (evs.length ? ' Events with room at the moment: ' + evs.map(e => e.name + ' (' + e.region + ', week ' + e.week + ')').join('; ') + '.' : '') : 'Any regional with room will take you.') +
+      '\n\nSo that the journey does not cost you the season, FIRST will pay ' + U.money(sub) + ' towards the registration fee of your team\'s first event of ' + cy + '. There is nothing to apply for: the amount is credited the day you register.',
+      'With our thanks for travelling,\n' + FIRST_SIGN,
+      { note: 'Registration subsidy: +' + U.money(sub) + ' when you register for your first event of ' + cy + ' (Calendar). A flight overseas costs about ' + U.money(Math.round(D.TRAVEL.intl.cost * C.travelSize(S) / 100) * 100) + ' for your team, is harder on the robot than an ordinary one, and the team trailer cannot make the trip.', school: true, prio: true }, 'event');
+  };
+  // December: what next season looks like, from FIRST. How many regionals and district events, the districts (new
+  // ones first), the Championship, what changes in the rules of play and of the robot from the season before, and a
+  // reminder to register and to preorder. Nothing about the game itself: that is for Kickoff.
+  C.seasonPreview = function (S) {
+    if (S.mode !== 'career' || !S.cal) return;
+    const cy = C.cyNext(S); if (!cy) return;
+    const E = G.Era, prev = prevCy(cy), era = E.at(cy), was = prev >= S.cal[0] || prev >= 2016 ? E.at(prev) : null, hasPrev = !!was && prev >= 2016, L = [], N = [];
+    const pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+    if (G.World.on(S) && S.wseason && S.wseason.cy === cy) {
+      const ev = S.wseason.events, reg = ev.filter(e => e.kind === 'regional' && !e.dist).length, de = ev.filter(e => e.kind === 'regional' && e.dist).length, ds = G.World.districtsOf(S, cy), nu = ds.filter(d => d.from === cy);
+      L.push('Events: ' + pl(reg, 'regional') + ' around the world' + (ds.length ? ', and ' + pl(de, 'district event') + ' in ' + pl(ds.length, 'district') + ', each with its District Championship in week 7' : '') + '.');
+      if (nu.length) L.push('New this season: ' + listAnd(nu.map(d => 'the ' + d.name + ' (' + d.region + ')')) + '. Teams there play two-day district events for points, and the area holds fewer regionals.');
+      const mine = S.regionals.filter(e => (S.team.home ? e.dist === S.team.home : e.region === S.team.region && !e.dist)).length;
+      L.push(S.team.home ? 'Your district, the ' + D.DISTRICT[S.team.home].name + ', holds ' + pl(mine, 'event') + '.' : mine ? D.regionThe(S.team.region).replace(/^t/, 'T') + ' holds ' + pl(mine, 'regional') + '.' : D.regionThe(S.team.region).replace(/^t/, 'T') + ' holds no regional this season.');
+    }
+    const ch = E.champs(cy), chWas = hasPrev ? E.champs(prev) : null;
+    L.push('Championship: ' + (ch.n > 1 ? 'two, in ' + ch.cities.join(' and ') + (ch.final ? ', and the two winning alliances meet at the Festival of Champions in July' : '') : 'one, in ' + ch.cities[0]) + ', with ' + ch.divs + ' divisions' + (ch.n > 1 ? ' each' : '') + (chWas && (chWas.n !== ch.n || chWas.cities.join() !== ch.cities.join() || chWas.divs !== ch.divs) ? ' (last season: ' + (chWas.n > 1 ? 'two, in ' + chWas.cities.join(' and ') : 'one, in ' + chWas.cities[0]) + ', ' + chWas.divs + ' divisions)' : '') + '.');
+    L.push('Qualifying: ' + (E.wildcards(cy) ? 'a regional team qualifies by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or on a wildcard as a finalist' : 'a regional team qualifies by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or through the Regional Pool, the points of its two best regionals') + '; a district team through its district\'s points list.');
+    // what is different from the season before
+    if (hasPrev) {
+      if (E.playoffs(cy) !== E.playoffs(prev)) N.push(E.playoffs(cy) === 'de' ? 'Playoffs are double elimination from this season: eight alliances, an upper and a lower bracket, and finals that are still best of three.' : 'Playoffs are single elimination: every series best of three.');
+      if (!!era.bag !== !!was.bag) N.push(era.bag ? 'Stop Build Day applies: the competition robot is bagged at the end of the build season.' : 'Stop Build Day is abolished. There is no bag any more: teams may work on the competition robot until they load in at their event.');
+      if (!!era.vision.tags !== !!was.vision.tags && era.vision.tags) N.push('The field carries AprilTags from this season, in place of the reflective tape. A camera that reads them tells the robot where it is on the field.');
+      if (E.wildcards(cy) !== E.wildcards(prev)) N.push('The Regional Pool replaces the wildcards: Championship places not won outright go to the regional teams with the most points from their two best events.');
+      if (ch.fmt !== chWas.fmt) N.push('Einstein is played ' + (ch.fmt === 'de' ? 'as a double-elimination bracket' : ch.fmt === 'rr' ? 'as a round robin between the division champions, then a final' : 'as a single-elimination bracket') + '.');
+    }
+    const tech = ((S.techSeen || {}).rules || []).map(id => (D.TECH_RULES.find(x => x.id === id) || {}).title).filter(Boolean);
+    const rules = N.length ? N.map(x => '• ' + x).join('\n') : '• The tournament rules are as they were last season.';
+    const robot = tech.length ? 'Robot rules: the changes we published in May stand (' + tech.join('; ') + '). The full robot rules come with the game manual at Kickoff.' : 'Robot rules: no changes beyond those in the game manual, which is published at Kickoff.';
+    const reg = S.registered.length, nextY = G.Parts.nextYear ? G.Parts.nextYear(S) : null, pre = nextY != null && G.Parts.elemPending ? G.Parts.elemPending(S, nextY).length : 0;
+    C.letter(S, FIRST_UPD, 'The ' + cy + ' season: what to expect',
+      'Kickoff is next month. Before the game is revealed, here is the shape of the ' + cy + ' season.\n\n' + L.map(x => '• ' + x).join('\n') + '\n\n' + (hasPrev ? 'What changes from ' + prev + ':\n' : 'How the tournament is played:\n') + (hasPrev ? rules : ['• Playoffs: ' + (E.playoffs(cy) === 'de' ? 'double elimination, finals best of three.' : 'single elimination, every series best of three.'), era.bag ? '• Stop Build Day: the competition robot is bagged when the build season ends.' : '• No Stop Build Day: teams work on the robot until they load in.'].join('\n')) + '\n\n' + robot + '\n\n' +
+      'Two reminders. ' + (reg ? 'Your team is registered for ' + pl(reg, C.evWord(S)) + '; events still have room, and after Kickoff a late registration costs more.' : 'Your team is not registered for any event yet: please register this month, since the season cannot start without one.') + ' ' +
+      (pre ? 'Your field element order is in and ships with the Kit of Parts.' : 'Field elements for the new game can be preordered until Kickoff and ship with the Kit of Parts; after that they are sold while stocks last.'),
+      'See you at Kickoff,\n' + FIRST_SIGN, { note: 'Calendar: registration. Inventory: field element preorders.', school: true }, 'event');
+  };
+  // Qualified for the Championship, or for the District Championship: FIRST writes. why: how the place was earned.
+  C.mailChampsQualified = function (S, why) {
+    if (S.mode !== 'career' || !S.season || S.season.cmpMailed) return;
+    S.season.cmpMailed = 1;
+    const CH = C.champs(S), fee = D.FEES.champs;
+    C.letter(S, FIRST_CMP, 'Team ' + S.team.num + ' has qualified for the ' + C.calYear(S) + ' FIRST Championship',
+      'Congratulations. Team ' + S.team.num + ' ' + S.team.name + ' has earned a place at the ' + C.calYear(S) + ' FIRST Championship' + (CH.n > 1 ? ' in ' + CH.city : ' in ' + CH.cities[0]) + (why ? ': ' + lcFirst(String(why)) : '') + '.\n\n' +
+      'You will play in one of ' + CH.divs + ' divisions' + (CH.n > 1 ? ' at your Championship' : '') + '; the division is drawn when registration closes. Division champions go on to Einstein.\n\n' +
+      'Registration is ' + U.money(fee) + ', paid when the team travels. Please book early, tell your sponsors, and bring spare parts: it is a long event.',
+      'Congratulations again,\n' + FIRST_SIGN, { note: 'The Championship comes after the last competition week: register and travel from Headquarters when its turn arrives.', school: true }, 'event');
+  };
+  C.mailDcmpQualified = function (S) {
+    if (S.mode !== 'career' || !S.season || S.season.dcmpMailed || !S.team.home || !D.DISTRICT[S.team.home]) return;
+    S.season.dcmpMailed = 1;
+    const d = D.DISTRICT[S.team.home], e = G.World.on(S) ? G.World.dcmpEvent(S, S.team.home) : null;
+    C.letter(S, 'FIRST Robotics Competition (' + d.name + ')', 'Team ' + S.team.num + ' has qualified for the ' + d.short + ' District Championship',
+      'Congratulations. With ' + (S.season.dPts != null ? S.season.dPts + ' district points' : 'its district points') + (S.season.dRank ? ', ' + U.ord(S.season.dRank) + ' on the list' : '') + ', Team ' + S.team.num + ' ' + S.team.name + ' has earned a place at the ' + (e ? e.name : d.name + ' Championship') + ' in week 7.\n\n' +
+      'Points there count three times, and the best of the final list go on to the FIRST Championship. Registration is ' + U.money(D.FEES.dcmp) + ', paid when the team travels.',
+      'See you in week 7,\n' + FIRST_SIGN, { note: 'The District Championship is played in competition week 7 (Headquarters).', school: true }, 'event');
+  };
+  // Your first own FTC team: FIRST Tech Challenge writes
+  C.mailFtcWelcome = function (S, pg) {
+    if (S.mode !== 'career' || S.ftcWelcomed) return;
+    S.ftcWelcomed = 1;
+    C.letter(S, 'FIRST Tech Challenge (Team Registration)', 'Welcome to FIRST Tech Challenge: ' + pg.name,
+      'Thank you for registering ' + pg.name + '. A team that meets in the workshop of a FIRST Robotics Competition team starts with a great deal: tools, mentors, and older students who have made every mistake already.\n\n' +
+      'Your season starts in September, with league meets through the autumn and a championship in the winter. The robots are smaller, the teams are up to fifteen students, and the engineering notebook counts as much as the robot.\n\n' +
+      'Two requests from us. Let the students do the building, even when it is slower. And bring the team to an event of yours: nothing recruits like the big field.',
+      'Good luck with the first season,\nThe FIRST Tech Challenge team', { note: 'Your own FTC team sends you stronger recruits every September, and its season shows in the Inbox (Team: Feeder programs).', school: true }, 'staff');
   };
   C.regNotice = function (S) {
     const d = S.team.home && G.World.on(S) ? D.DISTRICT[S.team.home] : null;
@@ -1647,6 +1849,7 @@
       ev.log.push(msg);
       G.Career.inbox(S, 'Hard fall at ' + ev.name, msg, 'event');
     }
+    if (rr.faults.some(f => /^Battery disconnected/.test(f))) { ev.log.push('Your robot\'s battery connector came apart in the match: no power from that moment on. The pit crew has taped and zip-tied it.'); S.battOut = S.turnSeq || 0; } // (3.5.1)
     if (rr.tipDmg) ev.log.push('Your robot tipped over: the parts up high (' + G.Robot.UPPER.filter(k => S.robot.subs[k] && S.robot.subs[k].ver).map(k => G.Seasons.sub(S.robot.year, k).name.toLowerCase()).join(', ') + ') took a knock.');
     if (rr.faults.some(f => /^Dropped by a partner/.test(f))) {
       const msg = 'A partner\'s buddy climber let go of your robot on the way up: the drivetrain took most of it, and everything else took some. The pit crew will need spares. To stay on the ground next time, tick "Don\'t let a partner carry us" in the match plan.';
@@ -1863,8 +2066,9 @@
       else if (r.awards.includes('ei')) why = 'Engineering Inspiration Award at ' + ev.name;
       else if (r.awards.includes('ras')) why = 'Rookie All-Star Award at ' + ev.name;
       else if (r.finalist && C.wildEra(S) && C.wildcard(S, ev)) why = 'Wildcard: finalist at ' + ev.name + ', where a team that had already qualified earned another place';
-      if (why) { S.season.champsQualified = true; S.season.champsReason = why; C.inbox(S, 'Qualified for the Championship!', why + '. Register when the Championship turn arrives.', 'event'); }
+      if (why) { S.season.champsQualified = true; S.season.champsReason = why; C.inbox(S, 'Qualified for the Championship!', why + '. Register when the Championship turn arrives.', 'event'); C.mailChampsQualified(S, why); }
     }
+    C.boardOutcome(S, ev); // (3.5.1) the school board was in the stands
     C.checkSponsorGoals(S, false);
     // wildcards handed out at this regional (through 2024), for the summary and the result page
     if (ev.kind === 'regional' && !ev.dist && C.wildEra(S) && G.World.on(S)) { const we = S.wseason.events.find(x => x.id === ev.id); if (we && we.res && we.res.cards) r.wild = { cards: we.res.cards, to: we.res.wild.slice() }; }
@@ -2392,6 +2596,105 @@
     return null;
   };
 
+  // ======================= a grant from the education office (3.5.1) =======================
+  // In the offseason, in about six seasons of ten (D.EDU_GRANT), the office that runs the schools around the team
+  // and a company of the team's city (never a local business) give every team of the area a small grant. The email
+  // takes a reply, Apply, and lapses like any other reply when Continue is pressed: it is in the Inbox and nowhere
+  // else (no pop-up, no priority mark). Its dice are its own: the game's random numbers are not touched.
+  C.eduGrantMonth = function (S) {
+    const EG = D.EDU_GRANT; if (!EG || S.mode !== 'career' || S.phase !== 'off' || !G.News || !G.News.replyExtra) return;
+    const key = S.upcoming + ':' + (S.offYear || 0);
+    if (!S.eduGrant || S.eduGrant.key !== key) { const r0 = G.makeRng(hashS('edu:' + S.team.num + ':' + S.team.name + ':' + key) || 5); S.eduGrant = { key, month: r0.chance(EG.chance) ? r0.int(EG.months[0], EG.months[1]) : -1 }; }
+    const E = S.eduGrant; if (E.sent || E.month !== S.month) return;
+    E.sent = 1;
+    const r = G.makeRng(hashS('edu2:' + S.team.num + ':' + key) || 7), city = myCity(), hb = city && G.Geo.hub(city), area = hb && D.US_REGIONS.includes(hb.r) ? 'US' : S.team.region;
+    const body = (D.EDU_BODY[area] || D.EDU_BODY[S.team.region] || D.EDU_BODY.US).replace('{city}', city || S.team.region);
+    const kind = r.pick(['tech', 'eng', 'mfg', 'soft']), co = (city && D.sponsorDraw && D.sponsorDraw(r, D.sponsorRings(kind, city), true)) || r.pick(D.sponsorPool(kind, S.team.home, S.team.region));
+    const amt = Math.round(r.range(EG.amt[0], EG.amt[1]) / 250) * 250, desc = D.sponsorDesc(co).replace(/\.$/, ''), who = D.personName(r);
+    C.letter(S, who + ' (' + body + ')', 'A grant for our school robotics teams, with ' + co,
+      'Good news in an official envelope, for once. This year the ' + body + ' and ' + co + ' have set up a small fund for the school robotics teams of ' + (city || 'our area') + ': ' + U.money(amt) + ' for each team, to spend on tools, parts or travel as you see fit.\n\n' +
+      (desc ? co + ' ' + lcFirst(desc) + '. ' : '') + 'They asked for nothing in return but a photograph of the robot for their notice board.\n\nThere is no competition and no report to write: every team that applies receives the grant. Please send the form back before the month is out.',
+      'With best wishes for the season,\n' + who + '\nSchools Programme Officer, ' + body,
+      Object.assign(G.News.replyExtra(S, 'edugrant', { data: { amt, from: body } }, 0), { note: 'Reply "Apply" this month and the team receives ' + U.money(amt) + '. Like any reply, it lapses when you press Continue.' }), 'money');
+  };
+
+  // ======================= the school board comes to watch (3.5.1) =======================
+  // Once a season the assistant at the school asks whether the board may watch an event. With one event it asks
+  // before that one; with two, before the first, and before the second if you said no; with three or more, before
+  // the nearer of the first two, then before the nearer of the next two. Two emails at most, one visit at most. The
+  // board comes with an expectation (the program goals and how strong the team is); what it sees moves Program Support.
+  C.boardEvents = S => S.regionals.filter(r => S.registered.includes(r.id)).sort((a, b) => a.week - b.week);
+  // how far an event is: by the way the team travels there, then by miles
+  C.tripRank = function (S, r) {
+    const mode = C.travelMode(S, Object.assign({ kind: 'regional' }, r)), tier = { local: 0, drive: 1, trailer: 2, fly: 2, intl: 3 }[mode] || 0;
+    let mi = 0; try { if (G.World.on(S) && S.wseason) { const e = S.wseason.events.find(x => x.id === r.id); if (e) mi = G.Geo.miles(G.Geo.myPos(S), G.Geo.eventPos(S.wseason, e).xy); } } catch (x) { mi = 0; }
+    return tier * 100000 + mi;
+  };
+  // the event the next invitation is for (null: no more invitations this season)
+  C.boardTarget = function (S) {
+    const B = (S.season && S.season.board) || {}, asked = B.asked || [], list = C.boardEvents(S);
+    if (!list.length || B.visit || asked.length >= 2) return null;
+    let cand;
+    if (!asked.length) cand = list.length >= 3 ? list.slice(0, 2) : list.slice(0, 1);
+    else { const j = list.findIndex(r => r.id === asked[asked.length - 1]); cand = j < 0 ? list.slice(0, 2) : list.slice(j + 1, j + 3); }
+    cand = cand.filter(r => !S.eventsDone[r.id] && !asked.includes(r.id) && !(S.phase === 'comp' && r.week < S.week));
+    return cand.length ? cand.slice().sort((a, b) => C.tripRank(S, a) - C.tripRank(S, b) || a.week - b.week)[0] : null;
+  };
+  // What the board expects to see: 1 a team that holds its own, 2 the playoffs, 3 a deep playoff run. Half from the
+  // program goals, half from how the team has been doing (this season's events, else last season's, else its profile).
+  C.boardExpect = function (S) {
+    const ids = ((S.season && S.season.goals) || []).map(g => g.id), gl = ids.some(i => ['winEvent', 'divPlayoffs', 'einstein'].includes(i)) ? 3 : ids.some(i => ['playoffs1', 'playoffs2', 'dcmp', 'dTop10', 'champs'].includes(i)) ? 2 : 1;
+    const evs = S.season.events.filter(e => e.kind === 'regional' && e.size), last = S.history[S.history.length - 1], old = last ? (last.events || []).filter(e => e.size && e.rank) : [];
+    const pc = l => U.avg(l.map(e => e.rank / e.size)), form = evs.length ? pc(evs) : old.length ? pc(old) : { rookie: 0.65, established: 0.45, powerhouse: 0.25 }[S.profile] || 0.5;
+    const sl = form <= 0.2 ? 3 : form <= 0.45 ? 2 : 1, level = U.clamp(Math.round((gl + sl) / 2 + 0.01), 1, 3);
+    return { level, form, text: ['', 'a robot that plays every match and finishes in the top two thirds', 'the team in the playoffs', 'the team deep in the playoffs: a semifinal at least'][level] };
+  };
+  // what the board saw: 2 delighted, 1 satisfied, -1 disappointed, -2 badly disappointed
+  C.boardVerdict = function (level, r) {
+    const deep = ['Winner', 'Finalist', 'Semifinalist', '3rd place', '4th place'].includes(r.finish), aw = (r.awards || []).length > 0, top = r.size ? r.rank / r.size : 1;
+    const got = r.won ? 4 : deep ? 3 : r.playoffs ? 2 : top <= 0.667 || aw ? 1 : 0, need = level;
+    return got >= need + 1 || r.won ? 2 : got >= need || (aw && got >= need - 1) ? 1 : got >= need - 1 ? -1 : -2;
+  };
+  const assistant = S => D.personName(G.makeRng(hashS('assistant:' + S.team.num + ':' + S.team.name) || 3));
+  const assistantFrom = S => assistant(S) + ' (assistant to the principal' + atSchool(S) + ')';
+  // each competition week: is this the event to ask about?
+  C.boardInvite = function (S) {
+    if (S.mode !== 'career' || S.phase !== 'comp' || !G.News || !G.News.replyExtra) return;
+    const e = C.eventThisTurn(S); if (!e || !e.def || e.def.kind !== 'regional') return;
+    const B = S.season.board = S.season.board || { asked: [] }, t = C.boardTarget(S);
+    if (!t || t.id !== e.def.id) return;
+    B.asked.push(t.id);
+    const X = C.boardExpect(S), again = C.boardTarget(S), n = 2 + (hashS('bn:' + S.year + S.team.num) % 3); // again: the event a second invitation would be for
+    C.letter(S, assistantFrom(S), 'The board would like to watch the team at the ' + t.name,
+      'The school board has asked whether it may come and watch the robotics team this week, at the ' + t.name + '. ' + ['Two', 'Three', 'Four'][n - 2] + ' members would make the trip, and the principal would come with them.\n\n' +
+      'They have the program goals for the year in front of them, and they have followed the results. In plain words, they expect to see ' + X.text + '. A good weekend in front of the board does the program a great deal of good; a poor one they will have seen as well.\n\n' +
+      'Shall I send the invitation? ' + (again ? 'If this is not the right event, say so and I will ask once more, before the ' + again.name + '.' : B.asked.length > 1 ? 'I will not trouble you with this again this season.' : 'It is your only event on my list, so I will not ask again this season.'),
+      'Kind regards,\n' + assistant(S) + '\nAssistant to the principal',
+      Object.assign(G.News.replyExtra(S, 'boardInvite', { data: { ev: t.id, name: t.name, level: X.level } }, 0), { note: 'Invite the board before you leave for the event. If it sees what it expects, Program Support rises; if not, it falls. Saying no costs nothing.', prio: true }), 'goal');
+    (S.launchQueue = S.launchQueue || []).push({ kind: 'mail', id: S.inbox[0].id });
+  };
+  C.boardReply = function (S, d, yes) {
+    const B = S.season.board = S.season.board || { asked: [] };
+    if (yes) { B.visit = d.ev; B.level = d.level || C.boardExpect(S).level; return 'The invitation went out the same afternoon. The board will be in the stands at the ' + d.name + '.'; }
+    const n = C.boardTarget(S);
+    return n ? 'Understood. The assistant will ask once more, before the ' + n.name + '.' : 'Understood. The board will not be asked again this season.';
+  };
+  // after the event the board watched: its verdict, Program Support, and the assistant's second email
+  C.boardOutcome = function (S, ev) {
+    const B = S.season && S.season.board; if (!B || B.visit !== ev.id || B.done || !ev.result) return;
+    B.done = 1;
+    const r = ev.result, v = C.boardVerdict(B.level || 2, r), E = D.BOARD_VISIT || { delighted: 6, satisfied: 4, let: -4, bad: -6 }, d = v === 2 ? E.delighted : v === 1 ? E.satisfied : v === -1 ? E.let : E.bad;
+    S.support = U.clamp(S.support + d, 0, 100); B.verdict = v; B.delta = d;
+    const what = r.won ? 'the team won the event' : r.playoffs ? 'the team reached the playoffs (' + String(r.finish).toLowerCase() + ')' : 'the team finished ' + U.ord(r.rank) + ' of ' + r.size + ' and missed the playoffs', aw = (r.awardNames || []).length ? ' and came home with ' + listAnd(r.awardNames.map(a => 'the ' + a)) : '';
+    const say = v === 2 ? 'I have not seen the board in such a mood since the new library opened. ' + ['One of them asked where to buy a team shirt.', 'They talked about it for the whole drive back.', 'The chair has asked for the robot at the next public meeting.'][hashS(ev.id) % 3]
+      : v === 1 ? 'The board saw what it came to see: ' + what + aw + '. They were pleased, and they said so in the car and again on Monday.'
+      : v === -1 ? 'The board came hoping for a little more than it saw: ' + what + aw + '. Nobody was unkind about it, but the questions on Monday were about money.'
+      : 'I will be plain: it was not the weekend to have the board in the stands. They saw that ' + what + ', and the drive home was quiet.';
+    C.letter(S, assistantFrom(S), 'After the ' + ev.name + ': what the board thought',
+      'Thank you for having the board at the ' + ev.name + '.\n\n' + (v === 2 ? 'They saw that ' + what + aw + '. ' : '') + say + '\n\n' + (d > 0 ? 'It will help when the budget is discussed.' : 'It can be mended: results at the next event will reach them too, and the season review counts for more than one weekend.'),
+      'Kind regards,\n' + assistant(S) + '\nAssistant to the principal', { note: 'Program Support ' + (d > 0 ? '+' : '') + d + ' (now ' + Math.round(S.support) + ').' }, 'goal');
+  };
+
   // ======================= a new district forms =======================
   // July: a district that forms next season is announced. A regional team in its area chooses whether to join; everybody
   // else reads the story.
@@ -2529,13 +2832,14 @@
   function poolCheck(S) {
     if (S.season.champsQualified) return;
     const tot = C.poolTotal(S);
-    if (tot >= C.poolThreshold(S)) { S.season.champsQualified = true; S.season.champsReason = 'Regional Pool wildcard (' + tot + ' pts)'; C.inbox(S, 'Championship wildcard!', 'Your Regional Pool total of ' + tot + ' points earned a Championship spot.', 'event'); }
+    if (tot >= C.poolThreshold(S)) { S.season.champsQualified = true; S.season.champsReason = 'Regional Pool wildcard (' + tot + ' pts)'; C.inbox(S, 'Championship wildcard!', 'Your Regional Pool total of ' + tot + ' points earned a Championship spot.', 'event'); C.mailChampsQualified(S, 'a place from the Regional Pool, with ' + tot + ' points'); }
     else if (S.season.events.length) C.inbox(S, 'Regional Pool', 'Your pool total was ' + tot + ' points; the wildcard cut-off was ' + C.poolThreshold(S) + '. No Championship invitation this year.', 'event');
   }
   C.toChamps = function (S) {
     if (!S.season.champsQualified && !(S.team.home && G.World.on(S)) && !C.wildEra(S)) poolCheck(S); // a district team's place comes from its district's list; before 2025 there is no pool
     if (!S.season.champsQualified && S.mode === 'career' && (S.lastChampSi != null ? S.lastChampSi === S.si - 1 : S.lastChamp === S.year - 1 && S.orderMode === 'real')) { S.season.champsQualified = true; S.season.champsReason = 'Defending champions'; }
     if (!S.season.champsQualified && S.hallOfFame != null && S.hallOfFame < S.si) { S.season.champsQualified = true; S.season.champsReason = 'Hall of Fame team'; }
+    if (S.season.champsQualified) C.mailChampsQualified(S, S.season.champsReason); // (3.5.1) FIRST writes (once a season, however the place came)
     if (!S.season.champsQualified && C.wildEra(S) && !(S.team.home && G.World.on(S)) && S.season.events.length) C.inbox(S, 'No Championship invitation', 'Regional teams reach the Championship by winning a regional, with the Impact, Engineering Inspiration or Rookie All-Star award, or on a wildcard as a finalist. It did not happen this year.', 'event');
     const wf = G.World.on(S) && S.mode === 'career' ? C.rollWfa(S) : null; // the Woodie Flowers Award is decided as the Championship begins
     S.phase = 'champs';
@@ -2792,21 +3096,28 @@
     { const n = C.intlPartners(S).length, r = n * ((D.SPONSOR_INTL || {}).rep || 0); if (r > 0) { S.rep = U.clamp(Math.round((S.rep + r) * 10) / 10, 0, 100); s.intlRep = r; } }
     // sponsors
     S.lastSponsor = Object.assign({ year: S.year }, C.sponsorSeason(S)); // kept for the offseason: sponsors that leave take their numbers with them
-    const left = [];
+    const left = [], renewing = [];
     S.sponsors.forEach(sp => {
       sp.goals.forEach(g => { if (!g.met) sp.sat = Math.max(0, sp.sat - 8); });
       if (sp.exp === 'High' && !s.events.some(e => e.playoffs)) sp.sat = Math.max(0, sp.sat - 10);
       if (sp.exp === 'High' && C.highExpect(S) && !(s.events.some(e => e.won) || s.champsQualified)) sp.sat = Math.max(0, sp.sat - 12); // top programs are expected to win
       sp.seasonsLeft--;
       if (sp.seasonsLeft <= 0) {
-        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner; sp.seasonsLeft = G.R.int(TM.renew[0], TM.renew[1]); const oldBase = sp.base; sp.base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250;
-          if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, sp, 'renew', { oldBase, met: sp.goals.map(g => !!g.met) }); // (3.5) a title sponsor writes
-          else if (C.isMaker(sp)) C.makerMail(S, sp, 'renew', { oldBase, met: sp.goals.map(g => !!g.met) }); // ... and so does the printer maker
-          else C.inbox(S, (sp.slot === 'grant' ? 'Grant renewed: ' : 'Sponsor renewed: ') + sp.name, 'They renewed for ' + sp.seasonsLeft + ' more season' + (sp.seasonsLeft > 1 ? 's' : '') + ' at ' + U.money(sp.base) + (sp.slot === 'partner' ? ' a season. Partners like short deals: expect to talk again next autumn.' : sp.slot === 'grant' ? ' a season. The foundation liked what the grant paid for.' : '.'), 'money'); }
+        // (3.5.1) A sponsor that wants to stay does not renew by itself any more: its new terms go on the offer list,
+        // marked Renewal, and the choice is yours. Not signing costs nothing.
+        if (G.R.chance(C.renewChance(sp))) { const TM = D.SPONSOR_TERMS[sp.slot] || D.SPONSOR_TERMS.partner, len = G.R.int(TM.renew[0], TM.renew[1]), oldBase = sp.base, base = Math.round(sp.base * (0.9 + sp.sat / 250) / 250) * 250, met = sp.goals.map(g => !!g.met);
+          const o = { id: U.uid('o'), name: sp.name, type: sp.type, typeName: sp.typeName, slot: sp.slot, base, length: len, goals: sp.goals.map(g => ({ id: g.id, bonus: g.bonus, met: false })), obligations: (sp.obligations || []).slice(), perk: sp.perk || null, exp: sp.exp,
+            renew: { sat: sp.sat, oldBase, contact: sp.contact || null, round: S.offerRound || 0 } };
+          renewing.push(sp); S.offers.unshift(o);
+          const view = Object.assign({}, sp, { base, seasonsLeft: len }), how = 'Renewal offer: ' + len + ' more season' + (len > 1 ? 's' : '') + ' at ' + U.money(base) + ' a season. It is on the Finance page, marked Renewal: sign it there if you want them back. Leaving it unsigned costs nothing.';
+          if (sp.slot === 'title' && D.SPONSOR_MAIL && D.SPONSOR_MAIL.roles[sp.type]) C.sponsorMail(S, view, 'renew', { oldBase, met, note: how }); // (3.5) a title sponsor writes
+          else if (C.isMaker(sp)) C.makerMail(S, view, 'renew', { oldBase, met, note: how }); // ... and so does the printer maker
+          else if (C.isIntl(sp) && D.SPONSOR_MAIL && D.SPONSOR_MAIL.intl) C.intlMail(S, view, 'renew', { oldBase, met, note: how }); // ... and an international partner
+          else C.inbox(S, sp.name + ' would like to renew', (sp.slot === 'grant' ? 'The foundation liked what the grant paid for and offers it again: ' : 'They would like to stay with the team: ') + len + ' more season' + (len > 1 ? 's' : '') + ' at ' + U.money(base) + ' a season. The offer is on the Finance page, marked Renewal. Sign it if you want them back; leaving it unsigned costs nothing.', 'money'); }
         else left.push(sp);
       }
     });
-    S.sponsors = S.sponsors.filter(x => !left.includes(x));
+    S.sponsors = S.sponsors.filter(x => !left.includes(x) && !renewing.includes(x));
     left.forEach(sp => C.sponsorLeft(S, sp)); // (3.5) not on this October's list: back next year at the earliest
     if (left.length) C.inbox(S, 'Sponsors leaving', left.map(x => x.name).join(', ') + ' did not renew. ' + (left.length > 1 ? 'They' : 'It') + ' will not be back on the list for a year. Look for new offers in October.', 'money');
     // mentors
@@ -3278,16 +3589,17 @@
     return { n: Math.min(D.FEEDER_MAX, 3 + fm + fr), biz, rep, fm, fr };
   };
   C.outsidePrograms = S => (S.programs || []).filter(p => !p.own).length;
-  C.feederCapWhy = S => { const c = C.feederCap(S); return 'Room for ' + c.n + ' outside programs: 3, ' + (c.fm ? '+' + c.fm + ' from your ' + c.biz + '★ Business & Outreach Mentor, ' : '') + (c.fr ? '+' + c.fr + ' from your reputation, ' : '') + 'at most ' + D.FEEDER_MAX + '. A Business & Outreach Mentor (2★, 4★) and reputation (50, 80) open more. Your own FTC teams don\'t count.'; };
+  C.feederCapWhy = S => { const c = C.feederCap(S); return 'Room for ' + c.n + ' feeder programs, your own FTC teams included: 3, ' + (c.fm ? '+' + c.fm + ' from your ' + c.biz + '★ Business & Outreach Mentor, ' : '') + (c.fr ? '+' + c.fr + ' from your reputation, ' : '') + 'at most ' + D.FEEDER_MAX + '. A Business & Outreach Mentor (2★, 4★) and reputation (50, 80) open more.'; };
   C.addProgram = function (S, focus, own, noCap) { // noCap: an older save's programs, which keep running
     S.programs = S.programs || [];
     if (S.programs.length >= D.FEEDER_MAX) return 'You can run at most ' + D.FEEDER_MAX + ' feeder programs';
-    if (!own && !noCap && C.outsidePrograms(S) >= C.feederCap(S).n) return C.feederCapWhy(S);
+    if (!noCap && S.programs.length >= C.feederCap(S).n) return C.feederCapWhy(S); // (3.5.1) the cap counts every program, your own FTC teams too
     if (own && C.ownTeams(S) >= C.ownMax(S)) return C.ownMax(S) ? 'Your FTC Team Space has room for ' + C.ownMax(S) + ' team' + (C.ownMax(S) > 1 ? 's' : '') + ': upgrade it in the Workshop for another' : 'Build an FTC Team Space in the Workshop first';
     const used = new Set(S.programs.map(p => p.name)), rng = G.R;
     let name, g = 0;
-    do { name = own ? S.team.name + ' FTC ' + 'ABCDEF'[Math.min(5, C.ownTeams(S) + g)] : rng.pick(D.FEEDER_SCHOOLS) + ' ' + rng.pick(D.FEEDER_KINDS); g++; } while (used.has(name) && g < 30);
+    do { name = own ? S.team.name + ' FTC ' + 'ABCDEF'[Math.min(5, C.ownTeams(S) + g)] : (D.feederName ? D.feederName(rng, S.team) : rng.pick(D.FEEDER_SCHOOLS) + ' ' + rng.pick(D.FEEDER_KINDS)); g++; } while (used.has(name) && g < 30);
     S.programs.push(Object.assign({ id: U.uid('fp'), name, focus: D.FEEDER_FOCUS[focus] ? focus : 'balanced', years: 0 }, own ? { own: true } : {}));
+    if (own && !noCap) C.mailFtcWelcome(S, S.programs[S.programs.length - 1]); // (3.5.1) your first own FTC team: FIRST Tech Challenge writes
     S.feeders = S.programs.length;
     return null;
   };

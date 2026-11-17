@@ -208,6 +208,7 @@
     if (L.kind === 'story') return UI.storyModal(L, S.launchQueue.length - 1);
     if (L.kind === 'pandemic') { S.launchQueue.shift(); return UI.pandemicModal(); }
     if (L.kind === 'district') { S.launchQueue.shift(); return UI.districtModal(); }
+    if (L.kind === 'mail') return UI.mailModal(L, S.launchQueue.length - 1); // (3.5.1) an email that asks for an answer now
     if (L.kind === 'loyalty') { S.launchQueue.shift(); return UI.loyaltyModal(); }
     if (L.kind === 'prize') { S.launchQueue.shift(); return UI.prizeModal(); } // a vendor challenge prize (3.1.3)
     if (L.kind === 'merch') return UI.merchModal(L, S.launchQueue.length - 1); // no prize: the entrants' merch box (3.1.3)
@@ -392,6 +393,18 @@
   };
   UI.A.launchWork = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.st.shopTab = 'tech'; UI.go('workshop'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
   UI.A.launchKnow = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.go('know'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
+  // (3.5.1) An email that asks for an answer this turn (the school board's invitation), shown when it arrives. It is
+  // in the Inbox too, with the same buttons, until Continue is pressed.
+  UI.mailModal = function (L, more) {
+    const S = G.S, m = S.inbox.find(x => x.id === L.id), opts = m ? G.News.replyOptions(S, m) : [];
+    if (!m || !opts.length) { S.launchQueue.shift(); return UI.launchModal(); }
+    m.read = true;
+    UI.modal('<div class="mailpop"><div class="xs muted">EMAIL</div>' + (m.mail ? '<div class="mailhd"><div><span>From</span>' + h(m.mail.from) + '</div><div><span>To</span>' + h(m.mail.to) + '</div><div><span>Subject</span><b>' + h(m.mail.subject) + '</b></div></div>' : '<h2>' + h(m.title) + '</h2>') +
+      '<div class="mb mailbody">' + h(m.body) + '</div>' + (m.note ? '<div class="xs muted mb msgnote">' + UI.icon('info', 12) + ' ' + h(m.note) + '</div>' : '') +
+      '<div class="row wrap gap4 mt"><span class="xs muted">Also in your inbox.</span><span class="sp"></span>' + opts.map(o => '<button class="btn' + (o.i === 0 ? ' primary' : '') + '" data-act="mailReply" data-arg="' + m.id + '|' + o.i + '"' + (o.ok ? '' : ' disabled') + '>' + h(o.text) + '</button>').join('') +
+      '<button class="btn" data-act="launchNext">' + (more ? 'Later (' + more + ' more)' : 'Decide later') + '</button></div></div>', { wide: true });
+  };
+  UI.A.mailReply = arg => { const S = G.S, p = String(arg).split('|'), res = G.News.reply(S, p[0], Number(p[1])); if (res) UI.toast(res, 'good'); G.Save.write('auto'); UI.A.launchNext(); UI.render(); };
   UI.A.launchNext = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); else { UI.closeModal(); UI.regReminder(); } };
   UI.A.launchWorkshop = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.st.shopTab = 'tech'; UI.go('workshop'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
   UI.A.launchDesign = () => { const S = G.S; if (S.launchQueue) S.launchQueue.shift(); UI.closeModal(); UI.go('design'); if (S.launchQueue && S.launchQueue.length) UI.launchModal(); };
@@ -478,6 +491,7 @@
     if (boosts.length) o += '<div class="hint mb"><b>Active boosts:</b> ' + boosts.join(' · ') + '</div>';
     return o;
   };
+  UI.A.selfPay = v => { const S = G.S, ev = G.Career.eventThisTurn(S); if (ev && ev.def) G.Career.setSelfPay(S, ev.def, !!v); UI.render(); };
   UI.A.skipChamps = () => { G.S.champsDeclined = true; UI.closeModal(); UI.toast('Championship skipped.'); UI.render(); };
   UI.A.skipEvent = () => {
     const ev = G.Career.eventThisTurn(G.S); if (!ev || !ev.def) return;
@@ -626,7 +640,13 @@
       const ap = d.watch ? null : C.arrivalPreview(S, d);
       const arr = ap ? ' · Robot arrives at ' + (ap.notes.length ? '<span class="warn">about ' + ap.cond + '%</span> (' + h(ap.notes.join(', ')) + ')' + (ap.spares > 0 ? ' — buy ' + ap.spares + ' spare part' + (ap.spares > 1 ? 's' : '') + ' in the Inventory tab first' : '') : '<span class="good">100%</span>') : '';
       const fat = d.kind !== 'einstein' && C.inSeason(S) ? ' · Team fatigue <b class="' + (S.fatigue > 40 ? 'warn' : '') + '">' + Math.round(S.fatigue) + ' (' + C.fatigueLabel(S.fatigue) + ')</b>' : '';
-      return box('This week: ' + h(d.name), (d.watch ? 'Your matches are over, but your team is in the running for the FIRST Impact Award, presented on Einstein. Watch the finals from the stands.' : cost + arr + fat), '<button class="btn primary lg" data-act="goEvent">Go to event ▶</button>' + (d.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip</button>' : ''));
+      // (3.5.1) students pay their own way: a far smaller travel bill, at a price
+      let own = '';
+      if (d.kind !== 'einstein' && D.SELF_PAY && C.travelCost(S, d) > 0) {
+        const on = C.selfPayOn(S, d), k = C.selfPayCost(S, d), full = on ? Math.round(C.travelCost(S, d) / D.SELF_PAY.cost) : C.travelCost(S, d), low = on ? C.travelCost(S, d) : Math.round(full * D.SELF_PAY.cost);
+        own = '<label class="row sm mt" title="The team pays ' + U.money(low) + ' instead of ' + U.money(full) + '. Not every student can pay: fewer make the trip, so scouting is less sure and the repairs between matches are slower at this event."><input type="checkbox" data-chg="selfPay" ' + (on ? 'checked' : '') + '> Students pay their own way <span class="xs muted">· travel ' + U.money(low) + ' instead of ' + U.money(full) + ' · morale −' + k.morale + (k.rep ? ', reputation −' + k.rep : '') + ' · weaker scouting and pit repairs this event</span></label>';
+      }
+      return box('This week: ' + h(d.name), (d.watch ? 'Your matches are over, but your team is in the running for the FIRST Impact Award, presented on Einstein. Watch the finals from the stands.' : cost + arr + fat + own), '<button class="btn primary lg" data-act="goEvent">Go to event ▶</button>' + (d.kind !== 'einstein' ? '<button class="btn" data-act="skipEvent">Skip</button>' : ''));
     }
     const tips = {
       off: S.preseason ? 'Pre-season: sign sponsors (Finance), hire mentors, stock up on parts (Inventory), register for events (Calendar), start research (Design Office).' : 'Offseason: research, offseason events (Calendar), outreach (Team), sponsors in October, parts before Kickoff. Rule changes arrive in May and new designs in summer: both date your tech knowledge.',
@@ -1358,7 +1378,7 @@
     programs: 'Feeder programs: three established balanced programs give 100. Outreach-focus programs and your own FTC teams count for more.',
     rep: 'Your reputation, as shown in the top bar.' };
   function feederCard(S) {
-    const C = G.Career, list = S.programs || [], fo = C.feederOutlook(S), full = list.length >= D.FEEDER_MAX, cap = C.feederCap(S), out = C.outsidePrograms(S), capFull = full || out >= cap.n;
+    const C = G.Career, list = S.programs || [], fo = C.feederOutlook(S), full = list.length >= D.FEEDER_MAX, cap = C.feederCap(S), out = C.outsidePrograms(S), capFull = full || list.length >= cap.n;
     const AT = { drive: 'Drive', aware: 'Aware', comp: 'Comp', mech: 'Mech', hp: 'HP', strat: 'Strat' };
     const sel = pg => '<select class="inp" style="width:auto;flex:none" data-chg="progFocus" data-id="' + pg.id + '" title="Changing the focus costs a year of growth (free while the program is new)">' + Object.keys(D.FEEDER_FOCUS).map(k => '<option value="' + k + '"' + (pg.focus === k ? ' selected' : '') + '>' + h(D.FEEDER_FOCUS[k].name) + '</option>').join('') + '</select>';
     const rows = list.map(pg => {
@@ -1368,12 +1388,12 @@
     }).join('');
     const look = fo.n ? Object.keys(AT).map(k => AT[k] + ' <b>+' + Math.round(fo.attr[k]) + '</b>').join(' · ') : '';
     const body = '<div class="sm muted mb">FLL, FTC, camps and clubs that grow your next generation: ' + U.money(D.FEEDER_COST) + ' a year each, full strength after three school years. They bring students every September, with the skills their focus trains. ' + UI.q('team', 'Feeder programs') + ' ' +
-      'Outside programs: <b>' + out + ' of ' + cap.n + '</b> <span class="xs" title="' + h(C.feederCapWhy(S)) + '">(outreach mentor and reputation open more)</span>. ' +
-      (C.ownMax(S) ? 'Your FTC Team Space runs ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' own FTC team' + (C.ownMax(S) > 1 ? 's' : '') + ' (not counted).' : '') + '</div>' +
+      'Programs: <b>' + list.length + ' of ' + cap.n + '</b> <span class="xs" title="' + h(C.feederCapWhy(S)) + '">(outreach mentor and reputation open more)</span>. ' +
+      (C.ownMax(S) ? 'Your FTC Team Space runs ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' own FTC team' + (C.ownMax(S) > 1 ? 's' : '') + ', which count too.' : '') + '</div>' +
       (list.length ? rows : '<p class="muted">No feeder programs yet. Start one: it pays off next September and keeps growing after that.</p>') +
       (fo.n ? '<div class="hint mt"><b>Next September</b>: about +' + fo.size.toFixed(1) + ' extra recruits, and ' + Math.round(fo.share * 100) + '% of core recruits come through your programs. Average recruit skill bonus: ' + look + '. Impact "Feeder programs": <b>' + Math.round(Math.min(100, fo.impact / 3 * 100)) + '</b>/100. Cost ' + U.money(C.programCost(S)) + '/yr.</div>' : '');
     return '<div class="mt">' + UI.card(UI.it('sprout', 'Feeder programs ') + UI.tag(list.length + '/' + D.FEEDER_MAX, full ? 'warn' : ''), body,
-      (C.ownMax(S) ? '<button class="btn sm" data-act="addOwnProg" ' + (full || C.ownTeams(S) >= C.ownMax(S) ? 'disabled' : '') + ' title="Your own FTC team in the FTC Team Space: ' + U.money(D.FTC_OWN.cost) + ' a year, much stronger recruits. ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' running.">+ Own FTC team</button>' : '') +
+      (C.ownMax(S) ? '<button class="btn sm" data-act="addOwnProg" ' + (capFull || C.ownTeams(S) >= C.ownMax(S) ? 'disabled' : '') + ' title="' + (capFull && !full ? h(C.feederCapWhy(S)) + ' ' : '') + 'Your own FTC team in the FTC Team Space: ' + U.money(D.FTC_OWN.cost) + ' a year, much stronger recruits. ' + C.ownTeams(S) + ' of ' + C.ownMax(S) + ' running.">+ Own FTC team</button>' : '') +
       '<button class="btn sm primary" data-act="addProg" ' + (capFull ? 'disabled' : '') + ' title="' + h(capFull && !full ? C.feederCapWhy(S) : U.money(D.FEEDER_COST) + ' a year, paid in September') + '">+ Start a program</button>') + '</div>';
   }
   UI.A.addOwnProg = () => { const e = G.Career.addProgram(G.S, 'balanced', true); if (e) return UI.err(e); const pg = G.S.programs[G.S.programs.length - 1]; UI.toast(pg.name + ' founded. Pick its focus (free while it is new).', 'good'); UI.render(); };
@@ -1532,7 +1552,7 @@
       const li = [];
       if (!nx.settled) {
         li.push('Under contract: <b>' + U.money(nx.contract) + '</b> from ' + pl(nx.contractN, 'sponsor') + (nx.bonus ? ', bonuses up to ' + U.money(nx.bonus) : '') + '.');
-        if (nx.renew.length) li.push('Up for renewal after this season: ' + nx.renew.map(r => h(r.name) + ' (<b class="' + (r.chance >= 0.6 ? 'good' : r.chance >= 0.4 ? 'warn' : 'bad') + '">' + Math.round(r.chance * 100) + '%</b> chance, then ' + U.money(r.base) + ')').join(', ') + '. The chance is their satisfaction at the season review (every missed goal costs 8 points), and satisfied sponsors also pay more.');
+        if (nx.renew.length) li.push('May offer to renew after this season: ' + nx.renew.map(r => h(r.name) + ' (<b class="' + (r.chance >= 0.6 ? 'good' : r.chance >= 0.4 ? 'warn' : 'bad') + '">' + Math.round(r.chance * 100) + '%</b> chance, then ' + U.money(r.base) + ')').join(', ') + '. The chance is their satisfaction at the season review (every missed goal costs 8 points), and satisfied sponsors also offer more. A renewal is an offer: you sign it, or not.');
         if (nx.ending.length) li.push('Ends after this season: ' + nx.ending.map(h).join(', ') + '.');
         li.push('New offers for open slots arrive in October.');
       } else li.push(nx.open.length ? 'Open slots: ' + nx.open.map(x => pl(x.n, x.k === 'partner' ? 'partner' : x.k)).join(', ') + (S.offers.length ? '. Offers are waiting below.' : '. New offers arrive in October.') : 'Every sponsor slot is filled.');
@@ -1566,7 +1586,8 @@
       (S.sponsors.length && C.endSponsorOpen(S) ? '<div class="xs muted">Until Kickoff you can end a contract to free its slot, at a cost in reputation. ' + UI.q('money', 'Sponsors') + '</div>' : '') : '<p class="muted">No sponsors. Offers arrive in October.</p>');
     // offers
     o += UI.card('Sponsor offers', S.offers.length ? S.offers.slice().sort((a, b) => ['title', 'partner', 'grant'].indexOf(a.slot) - ['title', 'partner', 'grant'].indexOf(b.slot)).map(of =>
-      '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
+      '<div class="card flat mb"><div class="row wrap">' + UI.icon('sponsor', 18) + '<b>' + h(of.name) + '</b>' + UI.tag(of.slot === 'title' ? 'TITLE' : of.slot === 'grant' ? 'GRANT' : 'Partner', of.slot === 'title' ? 'acc' : '') + (of.renew ? UI.tag('Renewal', 'good') : '') + '<span class="sp"></span><b>' + U.money(of.base) + '</b><span class="xs muted">/season × ' + of.length + '</span></div>' +
+      (of.renew ? '<div class="xs good">Your sponsor until now, and it would like to stay' + (of.renew.oldBase != null && of.renew.oldBase !== of.base ? ' (it paid ' + U.money(of.renew.oldBase) + ' a season)' : '') + '. Not signing costs nothing.</div>' : '') +
       spDesc(of) + '<div class="xs muted">' + h(of.typeName) + spCity(of) + spIntl(of) + ' · expectations ' + of.exp + (of.perk ? ' · Perk: <span class="info">' + h(D.PERKS[of.perk].name) + '</span>' : '') + '</div>' + goalsTxt(of) +
       (of.obligations.length ? '<div class="xs warn">Obligations: ' + of.obligations.map(h).join('; ') + '</div>' : '') +
       '<div class="row mt"><span class="sp"></span>' + (sl[of.slot].n >= sl[of.slot].max ? '<span class="xs muted">' + (of.slot === 'partner' ? 'Partner slots full' : 'You already have a ' + (of.slot === 'title' ? 'title sponsor' : 'grant')) + '</span>' : '<button class="btn sm primary" data-act="signSp" data-arg="' + of.id + '">Sign</button>') + '</div></div>').join('') : '<p class="muted">No open offers. New offers arrive each October.</p>',
@@ -1621,11 +1642,11 @@
     const canScrim = (S.phase === 'kickoff' || (S.phase === 'build' && S.week < 7) || S.phase === 'off');
     o += UI.card('Week 0 scrimmage', '<div class="row"><div class="sp sm muted">Cheap practice event before Week 1: real matches, no rankings at stake. Boosts tuning and driver confidence for your first regional. ' + U.money(D.FEES.scrimmage) + ' + local travel.</div>' + (S.scrimmage ? (S.eventsDone['scrim' + S.year] ? UI.tag('done', 'good') : UI.tag('registered', 'good') + ' ' + (C.regUndoable(S, 'scrim') ? undoBtn('scrim') : '<button class="btn sm bad" data-act="withdrawScrim">Withdraw</button>')) : '<button class="btn sm" data-act="regScrim" ' + (canScrim ? '' : 'disabled') + '>Register</button>') + '</div>', '', 'mb');
     for (let w = 1; w <= 6; w++) {
-      const TO = { local: 0, drive: 1, fly: 2, intl: 3 }, tierOf = r => D.travelTier(S.team.region, r.region, r.local); // (3.5) the nearest first
+      const TO = { local: 0, drive: 1, fly: 2, intl: 3 }, tierOf = r => C.travelTierOf(S, Object.assign({ kind: 'regional' }, r)); // (3.5) the nearest first
       const list = S.regionals.filter(r => r.week === w).sort((a, b) => TO[tierOf(a)] - TO[tierOf(b)]);
       o += '<div class="card mb"><div class="ct">Week ' + w + (S.phase === 'comp' && S.week === w ? ' ' + UI.tag('this week', 'acc') : '') + '</div><table class="t"><tr><th>' + (dist ? 'District event' : 'Regional') + '</th><th>Region</th><th title="Travel for your ' + (S.studentsCount || S.students.length) + ' students: it grows with the team (the robot\'s freight costs the same for everyone)">Travel</th><th class="num">Teams</th><th title="How strong the field is, and how much more (or less) the team learns there than at a ★★★ event">Strength</th><th></th></tr>' +
         list.map(r => {
-          const tier = D.travelTier(S.team.region, r.region, r.local), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
+          const tier = tierOf(r), reg = S.registered.includes(r.id), why = C.canRegister(S, r);
           const city = G.Geo.eventCity(S, r); // every event names its city (a career's world; a single season has none)
           return '<tr class="' + (reg ? 'me' : '') + '"><td><b>' + h(r.name) + '</b></td><td>' + h(r.region) + (city ? ' <span class="xs muted">· ' + h(city) + '</span>' : '') + '</td><td>' + h(D.TRAVEL[tier].name) + ' ' + U.money(C.travelCost(S, Object.assign({ kind: 'regional' }, r))) + '</td><td class="num">' + r.size + '</td><td class="nowrap"><span class="acc">' + '★'.repeat(r.str) + '</span> <span class="xs muted" title="Experience at this event">×' + (+C.expMult(r).toFixed(2)) + ' XP</span></td><td>' +
             (reg ? (S.eventsDone[r.id] ? UI.tag('done', 'good') : C.regUndoable(S, r.id) ? undoBtn(r.id) : '<button class="btn sm bad" data-act="withdraw" data-arg="' + r.id + '" title="' + (C.refundable(S, 'c' + r.week) ? 'Half the fee back' : 'Less than a month away: no refund') + '">Withdraw</button>') : why ? '<span class="xs muted">' + h(why) + '</span>' : '<button class="btn sm primary" data-act="register" data-arg="' + r.id + '">Register</button>') + '</td></tr>';

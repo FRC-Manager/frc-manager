@@ -475,7 +475,7 @@
     if (team === S.team.num) { const en = G.Robot.matchEntry(S, ev); return { cap: en.cap, look: en.look, arch: 'Your robot', noise: 0 }; }
     const e = ev.caps[team];
     const sk = G.Career.mentorSkill(S, 'strat');
-    const noise = U.clamp(14 - sk / 10 - ((ev.scoutBonus || 0) + (G.Shop.superPit(S) ? 1 : 0)) * 3 - Math.min(6, (ev.rank[team] ? ev.rank[team].played : 0) * 0.5), 2, 16);
+    const noise = U.clamp(14 - sk / 10 - ((ev.scoutBonus || 0) + (G.Shop.superPit(S) ? 1 : 0)) * 3 - Math.min(6, (ev.rank[team] ? ev.rank[team].played : 0) * 0.5) + (ev.selfPay ? D.SELF_PAY.scout : 0), 2, 16 + (ev.selfPay ? D.SELF_PAY.scout : 0)); // (3.5.1) a thinner scouting crew when the students paid their own way
     const r = G.makeRng(hash(ev.seed, team));
     const est = {};
     ['speed', 'intake', 'scoreSpd', 'accuracy', 'endgame', 'auto', 'rel', 'push'].forEach(k => { est[k] = Math.round(U.clamp((e.cap[k] || 0) + r.norm(0, noise), 0, 100)); });

@@ -478,6 +478,15 @@
       ctx.fillStyle = r.dead ? 'rgba(20,20,20,0.6)' : 'rgba(255,170,0,0.35)'; ctx.fillRect(x - h, y - h, sz, sz);
       ctx.fillStyle = r.dead ? '#ff5c5c' : '#ffb020'; ctx.font = '800 ' + Math.round(sz * 0.5) + 'px system-ui'; ctx.fillText(r.dead ? '✕' : '!', x, y);
     }
+    // (3.5.1) the Robot Signal Light, as on a real robot: it blinks while the robot is enabled, shines steadily while
+    // it is disabled (before and after the match, comms lost, a brownout, the referee), and is dark with no power.
+    // o.rsl: 'blink', 'on' or 'off'; o.rslLit: the blink's phase. On a corner of the frame, above the fault shading.
+    if (o.rsl) {
+      const lit = o.rsl === 'on' || (o.rsl === 'blink' && o.rslLit), a = r.hd || 0, ox = -h * 0.52, oy = -h * 0.52, rx = x + ox * Math.cos(a) - oy * Math.sin(a), ry = y + ox * Math.sin(a) + oy * Math.cos(a), rr = Math.max(2.4, sz * 0.11);
+      if (lit) { ctx.beginPath(); ctx.arc(rx, ry, rr * 2.3, 0, 7); ctx.fillStyle = 'rgba(255,150,30,0.34)'; ctx.fill(); }
+      ctx.beginPath(); ctx.arc(rx, ry, rr, 0, 7); ctx.fillStyle = lit ? '#ffa726' : o.rsl === 'off' ? '#17191c' : '#6b4a1c'; ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = lit ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.35)'; ctx.stroke();
+    }
     if (r.defBy) { ctx.strokeStyle = 'rgba(255,90,90,0.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, sz * 0.75, 0, 7); ctx.stroke(); }
     if (lk.hopper && r.held) { ctx.font = '700 10px system-ui'; ctx.fillStyle = COL.fuel; ctx.strokeText(r.held, x, y - h - 7); ctx.fillText(r.held, x, y - h - 7); }
     ctx.restore();

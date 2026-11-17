@@ -621,6 +621,7 @@
       if (S.team.home === d.id) {
         const me = st.find(r => r.num === S.team.num), in_ = field.includes(S.team.num);
         S.season.dcmpQualified = in_; S.season.dRank = me ? me.rank : null; S.season.dPts = me ? me.pre : 0;
+        if (in_ && G.Career.mailDcmpQualified) G.Career.mailDcmpQualified(S); // (3.5.1) FIRST writes
         G.Career.inbox(S, in_ ? 'Qualified for the District Championship!' : 'District season over', in_
           ? 'You finished ' + U.ord(me.rank) + ' of ' + st.length + ' in the ' + d.name + ' with ' + me.pre + ' district points. The top ' + nd + ' play the ' + e.name + ' in week 7, where every point counts three times. Registration is ' + U.money(D.FEES.dcmp) + '. Attend from the HQ screen.'
           : 'You finished ' + U.ord(me ? me.rank : st.length) + ' of ' + st.length + ' in the ' + d.name + ' with ' + (me ? me.pre : 0) + ' district points. The District Championship cut-off was ' + ws.dq[d.id].cut + '. Your season ends here.', 'event');
@@ -641,6 +642,7 @@
         const me = list.find(x => x.num === S.team.num), row = st.find(r => r.num === S.team.num);
         S.season.dRank = row ? row.rank : S.season.dRank; S.season.dTotal = row ? row.total : 0;
         if (me && !S.season.champsQualified) { S.season.champsQualified = true; S.season.champsReason = me.why; }
+        if (me && G.Career.mailChampsQualified) G.Career.mailChampsQualified(S, me.why); // (3.5.1) FIRST writes
         G.Career.inbox(S, me ? 'Qualified for the Championship!' : 'No Championship place', me
           ? me.why + '. The ' + d.name + ' sends ' + n + ' teams to the Championship this year.'
           : 'The ' + d.name + ' sends ' + n + ' teams to the Championship. You finished ' + U.ord(row ? row.rank : st.length) + ' with ' + (row ? row.total : 0) + ' points.', 'event');

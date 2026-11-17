@@ -20,6 +20,74 @@
   D.GROUP = { West: 'NA', Southwest: 'NA', Midwest: 'NA', Northeast: 'NA', Southeast: 'NA', North: 'NA', 'Central America': 'NA', 'South America': 'SA', Europe: 'EME', Anatolia: 'EME', 'Middle East': 'EME', 'East Asia': 'EA', 'Asia Pacific': 'AP' };
   // where an area's teams go when they have to travel far (the world simulation's teams; yours go where you send them)
   D.NEAR = { 'South America': ['Central America', 'Southeast'], 'Central America': ['South America'], Europe: ['Anatolia', 'Northeast'], Anatolia: ['Europe', 'Middle East'], 'Middle East': ['Anatolia', 'Europe'], 'East Asia': ['Asia Pacific', 'West'], 'Asia Pacific': ['East Asia', 'West'] };
+  // (3.5.1) Who runs the schools around the team, by part of the world ({city}: the team's city): the sender of the
+  // offseason grant (C.eduGrantMonth). chance: of a grant in an offseason; amt: its size; months: when it comes (June to November).
+  D.EDU_BODY = { US: '{city} School District', North: '{city} District School Board', 'Central America': 'Municipal Education Office of {city}', 'South America': 'Municipal Education Office of {city}', Europe: '{city} Education Authority',
+    Anatolia: '{city} Provincial Education Directorate', 'Middle East': '{city} Municipal Education Department', 'East Asia': '{city} Education Bureau', 'Asia Pacific': '{city} Regional Education Office' };
+  D.EDU_GRANT = { chance: 0.6, amt: [1000, 2000], months: [1, 6] };
+  // (3.5.1) the school board watches an event: what its verdict does to Program Support
+  D.BOARD_VISIT = { delighted: 6, satisfied: 4, let: -4, bad: -6 };
+  // (3.5.1) How the team travels is a matter of miles, from its own city to the event's (D.TRIP): a short trip with
+  // no hotel, a drive, or a flight. Roads end at the sea: a city of D.ALONE has no road out of its own country, and
+  // the road networks below do not meet, so everything between them is a flight and no trailer makes the trip.
+  // Across an ocean it is a flight overseas, as before (D.overseas). The ids are only compared, never shown.
+  D.TRIP = { local: 60, drive: 450 };
+  D.ALONE = { Honolulu: 'a1', 'Santo Domingo': 'a2', Tokyo: 'a3', Seoul: 'a4', Manila: 'a5', Auckland: 'a6', Mumbai: 'a7', Delhi: 'a7', Taipei: 'a8', Taichung: 'a8', Chiayi: 'a8', Tainan: 'a8', Kaohsiung: 'a8' };
+  D.roadNet = function (city) {
+    if (D.ALONE[city]) return D.ALONE[city];
+    const hb = G.Geo && G.Geo.hub ? G.Geo.hub(city) : null; if (!hb) return '';
+    if (hb.r === 'Asia Pacific') return ['Singapore', 'Kuala Lumpur', 'Ho Chi Minh City'].includes(city) ? 'n5' : 'n6';
+    return { West: 'n1', Southwest: 'n1', Midwest: 'n1', Northeast: 'n1', Southeast: 'n1', North: 'n1', 'Central America': 'n1', 'South America': 'n2', Europe: 'n3', Anatolia: 'n3', 'Middle East': 'n7', 'East Asia': 'n4' }[hb.r] || hb.r;
+  };
+  D.tripMiles = function (a, b) { const p = G.Geo.hub(a), q = G.Geo.hub(b); return p && q ? G.Geo.miles(G.Geo.xy(p.lon, p.lat), G.Geo.xy(q.lon, q.lat)) : null; };
+  // local, drive, fly or intl, from one city of the map to another (null: one of them is not on the map)
+  D.tripTier = function (a, b) {
+    const p = G.Geo && G.Geo.hub ? G.Geo.hub(a) : null, q = p ? G.Geo.hub(b) : null; if (!p || !q) return null;
+    if (a === b) return 'local';
+    if (D.overseas(p.r, q.r)) return 'intl';
+    if (D.roadNet(a) !== D.roadNet(b)) return 'fly';
+    const mi = D.tripMiles(a, b);
+    return mi <= D.TRIP.local ? 'local' : mi <= D.TRIP.drive ? 'drive' : 'fly';
+  };
+  D.SUMMIT.city = 'San Jose'; // where Summit Champs is held
+  // (3.5.1) Students pay their own way to an event: cost, the share of the travel bill the team still pays; morale
+  // and rep, what it costs by the way the team travels; scout, added to the scouting noise; repair, the share of the
+  // usual repairs between matches (fewer students make the trip).
+  D.SELF_PAY = { cost: 0.35, morale: { local: 1, drive: 3, trailer: 6, fly: 6, intl: 9 }, rep: { local: 0, drive: 0.5, trailer: 1, fly: 1, intl: 1.5 }, scout: 2, repair: 0.85 };
+  // ---------- wording by part of the world (3.5.1) ----------
+  // The same thing under the name a team there would use: a bake sale is a sausage sizzle in one place and a charity
+  // bazaar in another, and doughnuts are not the Friday treat everywhere. Only words: nothing in play changes.
+  // na: North America (and what is used where a part of the world has no word of its own), la: Central and South
+  // America, eu: Europe, tr: Anatolia, il: the Middle East, ea: East Asia, ap: Asia Pacific.
+  D.CULTURE_OF = { West: 'na', Southwest: 'na', Midwest: 'na', Northeast: 'na', Southeast: 'na', North: 'na', 'Central America': 'la', 'South America': 'la', Europe: 'eu', Anatolia: 'tr', 'Middle East': 'il', 'East Asia': 'ea', 'Asia Pacific': 'ap' };
+  D.cultureOf = function (S0) { const S = S0 || G.S, r = S && S.team ? S.team.region : ''; return D.CULTURE_OF[r] || 'na'; };
+  D.WORDS = {
+    // team activities (D.ACTIVITIES): [name, description]; na is the activity as it is written there
+    bake: { la: ['Kermesse food stall', 'Tamales, sweet bread and a raffle after school.'], eu: ['Cake stall at the school fair', 'Home baking on a folding table.'], tr: ['Charity bazaar stall', 'Home cooking sold for the team fund. The pastries go first.'],
+      il: ['Stall at the school fair', 'Home baking and lemonade for the team fund.'], ea: ['Charity sale at the school fair', 'Snacks and student-made crafts for the team fund.'], ap: ['Sausage sizzle', 'A barbecue outside the hardware store on a Saturday morning.'] },
+    carwash: { la: ['Car wash', 'Weekend car wash in the school yard.'], eu: ['Flea market stall', 'Outgrown bikes, old books and a donations tin.'], tr: ['Car wash', 'Weekend car wash by the school gate.'], il: ['Car wash', 'Friday-morning car wash by the school gate.'],
+      ea: ['Recycling drive', 'Paper, bottles and old electronics collected for the team fund.'], ap: ['Car wash', 'Weekend car wash in the school car park.'] },
+    pizza: { la: ['Team taco & movie night'], eu: ['Team pizza & film night'], tr: ['Team pide & film night'], il: ['Team falafel & movie night'], ea: ['Team hot pot & movie night'], ap: ['Team barbecue & movie night'] },
+    demo: { la: [null, 'Show the robot in the town square or at a fair.'], eu: [null, 'Show the robot at a science festival or on the market square.'], tr: [null, 'Show the robot at a science festival or in a shopping centre.'], il: [null, 'Show the robot at a community centre or a science museum.'],
+      ea: [null, 'Show the robot at a science museum or in a shopping mall.'], ap: [null, 'Show the robot at a library or a school fete.'] },
+    camp: { la: [null, 'Run a week-long camp for secondary-school beginners.'], eu: [null, 'Run a week-long camp for younger pupils.'], tr: [null, 'Run a week-long camp for middle-school pupils.'], il: [null, 'Run a week-long camp for middle-school pupils.'], ea: [null, 'Run a week-long camp for junior-high pupils.'], ap: [null, 'Run a week-long holiday camp for younger pupils.'] },
+    printkits: { la: [null, 'Print simple robot kits for primary classrooms.'], eu: [null, 'Print simple robot kits for primary classrooms.'], tr: [null, 'Print simple robot kits for primary classrooms.'], il: [null, 'Print simple robot kits for primary classrooms.'], ea: [null, 'Print simple robot kits for primary classrooms.'], ap: [null, 'Print simple robot kits for primary classrooms.'] },
+    roadshow: { la: [null, 'Take the robot on tour to schools in the towns around the city.'], tr: [null, 'Take the robot on tour to village schools across the province.'], il: [null, 'Take the robot on tour to schools in the towns far from the centre.'], ea: [null, 'Take the robot on tour to schools out in the countryside.'], ap: [null, 'Take the robot on tour to regional and bush schools.'] },
+    // loose words in the news and the chatter
+    snackDay: { na: 'Donut Friday', la: 'Sweet bread Friday', eu: 'Pastry Friday', tr: 'Simit Friday', il: 'Rugelach Friday', ea: 'Bubble tea Friday', ap: 'Lamington Friday' },
+    snackLot: { na: 'two dozen donuts', la: 'two trays of sweet bread', eu: 'two boxes of pastries', tr: 'two dozen simit, still warm', il: 'two boxes of rugelach', ea: 'two dozen cups of bubble tea', ap: 'two dozen lamingtons' },
+    snackBoxes: { na: 'boxes of donuts', la: 'trays of sweet bread', eu: 'boxes of pastries', tr: 'bags of simit', il: 'boxes of rugelach', ea: 'trays of bubble tea', ap: 'boxes of lamingtons' },
+    fundraiser: { na: 'a car wash and a raffle', la: 'a kermesse and a raffle', eu: 'a cake stall and a tombola', tr: 'a charity bazaar and a raffle', il: 'a food stall and a raffle', ea: 'a charity sale and a lucky draw', ap: 'a sausage sizzle and a raffle' },
+    rally: { na: ['Pep rally invitation', null], la: ['School assembly invitation', 'Monday morning assembly'], eu: ['Open day invitation', 'school open day'], tr: ['School ceremony invitation', 'Monday flag ceremony'], il: ['School assembly invitation', 'whole-school assembly'], ea: ['School assembly invitation', 'Monday morning assembly'], ap: ['School assembly invitation', 'whole-school assembly'] },
+    freshmen: { na: 'freshmen', la: 'first-years', eu: 'first-years', tr: 'ninth-graders', il: 'ninth-graders', ea: 'first-years', ap: 'Year 9s' }
+  };
+  D.word = function (key, S) { const W = D.WORDS[key] || {}, c = D.cultureOf(S); return W[c] != null ? W[c] : W.na; };
+  // the activities take their name and their line from the table (what is not given there stays as written)
+  Object.keys(D.WORDS).forEach(id => { const a = (D.ACTIVITIES || []).find(x => x.id === id); if (!a) return; const base = [a.name, a.desc];
+    D.WORDS[id].na = base;
+    Object.defineProperty(a, 'name', { get: () => (D.word(id) || base)[0] || base[0], enumerable: true, configurable: true });
+    Object.defineProperty(a, 'desc', { get: () => (D.word(id) || base)[1] || base[1], enumerable: true, configurable: true }); });
+  D.REG_SUBSIDY = 0.5; // (3.5.1) an area with no regional of its own: the share of the first event's registration fee that FIRST pays
   D.overseas = (home, region) => (D.GROUP[home] || 'NA') !== (D.GROUP[region] || 'NA');
   D.TRAVEL.intl = { name: 'Fly overseas', cost: 15000 };
   D.INTL_KNOCKS = [6, 12];  // condition lost by a robot shipped overseas (an ordinary flight: 4 to 9)
@@ -459,10 +527,45 @@
     if (!hub && t.num != null && G.S && G.Geo && G.Geo.posOf) { try { hub = G.Geo.posOf(G.S, t, G.Geo.cyOf(G.S)).hub; } catch (e) { hub = null; } }
     return D.namesAt(hub) || NG[t.home] || NG[t.z] || NG[t.region] || NG[(D.REGION_OLD || {})[t.region]] || D.NAMES_INTL;
   };
+  // (3.5.1) the names in use on your team: students, mentors, the mentors on offer, guests, and you
+  D.namesTaken = function () {
+    const S = G.S, out = new Set(); if (!S) return out;
+    [S.students, S.mentors, S.market].forEach(l => (l || []).forEach(p => { if (p && p.name) out.add(p.name); }));
+    (S.guests || []).forEach(g => { if (g && g.m && g.m.name) out.add(g.m.name); });
+    if (S.team && S.team.lead) out.add(S.team.lead);
+    return out;
+  };
   D.personName = function (rng, who) {
-    const L = D.namesFor(who), f = rng.pick(L.first); let l = rng.pick(L.last);
-    if (l === f) l = L.last[(L.last.indexOf(l) + 1) % L.last.length]; // nobody is called Mitchell Mitchell
-    return f + ' ' + l;
+    const L = D.namesFor(who), taken = D.namesTaken(); let name = '';
+    for (let i = 0; i < 12; i++) { // nobody new carries the name of somebody on your team
+      const f = rng.pick(L.first); let l = rng.pick(L.last);
+      if (l === f) l = L.last[(L.last.indexOf(l) + 1) % L.last.length]; // nobody is called Mitchell Mitchell
+      name = f + ' ' + l; if (!taken.has(name)) break;
+    }
+    return name;
+  };
+
+  // ---------- outside feeder programs ----------
+  // (3.5.1) An outside program is named after a neighbourhood school of the team's part of the world and what runs
+  // there: schools (the general list where none is given), kinds (what the school levels are called there).
+  D.FEEDER_BY = {
+    West: { schools: ['Sierra Vista', 'Canyon Creek', 'Palm Grove', 'Redwood', 'El Dorado', 'Sunset', 'Pacific View', 'Los Robles', 'Desert Sky', 'Golden Hills'] },
+    Southwest: { schools: ['Mesa Verde', 'Saguaro', 'Rio Vista', 'Lone Star', 'Prairie Creek', 'Sagebrush', 'Red Rock', 'Bluebonnet', 'Cottonwood', 'High Plains'] },
+    Midwest: { schools: ['Lincoln', 'Prairie View', 'Maple Grove', 'Lakeshore', 'Oak Hill', 'Riverside', 'Cornerstone', 'Northview', 'Westside', 'Pine Ridge'] },
+    Northeast: { schools: ['Brookfield', 'Hillcrest', 'Fairview', 'Eastwood', 'Mill Pond', 'Harbor View', 'Chestnut Hill', 'Stony Brook', 'Liberty', 'Old Orchard'] },
+    Southeast: { schools: ['Magnolia', 'Cypress Creek', 'Peachtree', 'Palmetto', 'Live Oak', 'Dogwood', 'Bayou', 'Blue Ridge', 'Sandy Springs', 'Azalea'] },
+    North: { schools: ['Maple Ridge', 'Riverbend', 'Lakeview', 'Cedar Hill', 'Queen Street', 'Birchwood', 'Saint-Joseph', 'Parkdale', 'Elmwood', 'Glenmore'], kinds: ['Elementary FLL Explore', 'Middle School FLL', 'Junior High FTC', 'STEM Club', 'Library Maker Club', 'Summer Robotics Camp', 'Girls in STEM Club'] },
+    'Central America': { schools: ['Las Lomas', 'El Bosque', 'Valle Verde', 'San Miguel', 'La Paz', 'Los Pinos', 'Santa Fe', 'Las Palmas', 'El Mirador', 'Jardines del Sur'], kinds: ['Primary School FLL Explore', 'Secondary School FLL', 'Secondary School FTC', 'Science Club', 'Library Maker Club', 'Summer Robotics Course', 'Girls in STEM Club'] },
+    'South America': { schools: ['Vila Nova', 'Jardim das Flores', 'Santa Clara', 'Boa Vista', 'Bela Vista', 'Sao Jorge', 'Alto da Serra', 'Parque das Aguas', 'Nova Esperanca', 'Campo Belo'], kinds: ['Primary School FLL Explore', 'Middle School FLL', 'Technical School FTC', 'Science Club', 'Library Maker Club', 'Holiday Robotics Course', 'Girls in STEM Club'] },
+    Europe: { schools: ['Old Mill', 'Station Road', 'Riverside', 'Market Street', 'Church Lane', 'Linden Park', 'North Quay', 'Castle Hill', 'Windmill Lane', 'Canal Side'], kinds: ['Primary School FLL Explore', 'Lower Secondary FLL', 'Secondary School FTC', 'Science Club', 'Library Maker Club', 'Holiday Robotics Camp', 'Girls in STEM Club'] },
+    Anatolia: { schools: ['Cumhuriyet', 'Yildiz', 'Bahcelievler', 'Yesilvadi', 'Gunesli', 'Cinar', 'Incirli', 'Kordon', 'Sahil', 'Zeytinlik'], kinds: ['Primary School FLL Explore', 'Middle School FLL', 'Middle School FTC', 'Science Centre Robotics Club', 'Library Maker Club', 'Summer Robotics Course', 'Girls in STEM Club'] },
+    'Middle East': { schools: ['HaGefen', 'Rimon', 'HaTamar', 'Alonim', 'Nof Yam', 'HaEmek', 'Givat Oranim', 'Shaked', 'Dekel', 'HaYaar'], kinds: ['Primary School FLL Explore', 'Middle School FLL', 'Middle School FTC', 'Science Club', 'Community Centre Maker Club', 'Summer Robotics Camp', 'Girls in STEM Club'] },
+    'East Asia': { schools: ['Jianshe Road', 'Garden District', 'Riverside No. 3', 'East Gate', 'Bamboo Grove', 'Science Park', 'Lakeside Experimental', 'North Bridge', 'Harbour View', 'Cherry Hill'], kinds: ['Primary School FLL Explore', 'Junior High FLL', 'Junior High FTC', 'Science Club', 'Youth Centre Maker Club', 'Summer Robotics Course', 'Girls in STEM Club'] },
+    'Asia Pacific': { schools: ['Wattle Park', 'Kookaburra Creek', 'Harbour Road', 'Greenhills', 'Banksia', 'Riverside', 'Coral Bay', 'Ironbark', 'Lotus Garden', 'Southgate'], kinds: ['Primary School FLL Explore', 'Junior Secondary FLL', 'Secondary School FTC', 'STEM Club', 'Library Maker Club', 'Holiday Robotics Camp', 'Girls in STEM Club'] }
+  };
+  D.feederName = function (rng, team) {
+    const B = D.FEEDER_BY[(team && team.home) || ''] || D.FEEDER_BY[(team && team.region) || ''] || {};
+    return rng.pick(B.schools || D.FEEDER_SCHOOLS) + ' ' + rng.pick(B.kinds || D.FEEDER_KINDS);
   };
 
   // ---------- offseason events ----------

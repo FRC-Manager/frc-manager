@@ -1357,6 +1357,21 @@
       if (k && R.subs[k] && R.subs[k].ver) R.subs[k].cond = Math.max(0, R.subs[k].cond - 25);
     });
   };
+  // (3.5.1) Before a match the Super pit crew has already repaired the subsystem in the worst shape (ev.superRec). Have
+  // it repair k instead: the first repair is taken back (its condition and its spare parts) and the full repair goes to k.
+  Robot.superSwitch = function (S, ev, k) {
+    const R = S.robot, rec = ev && ev.superRec, P = S.parts, per = D.SPARE_COND_PER_UNIT;
+    if (!rec || ev.superSeq !== ev.pmSeq) return Robot.superFix(S, ev, k);
+    if (rec.k === k) return 'The crew has already repaired that one';
+    const u = R && R.subs[k]; if (!u || !u.ver || k === 'soft') return 'Nothing to repair';
+    if (u.cond >= 99.5) return 'Already at 100%';
+    const back = () => { const u0 = R.subs[rec.k]; if (u0) u0.cond = Math.max(0, u0.cond - rec.fix); P.spareUse = (P.spareUse || 0) - rec.fix / per; while (P.spareUse < -1e-9) { P.spares += 1; P.spareUse += 1; } P.spareUse = Math.max(0, P.spareUse); ev.superSeq = null; ev.lastRepair = Math.max(0, (ev.lastRepair || 0) - (rec.used || 0)); };
+    back();
+    const c0 = u.cond, r = Robot.superFix(S, ev, k);
+    if (typeof r === 'string') { const again = Robot.superFix(S, ev, rec.k); if (again && typeof again === 'object') ev.lastRepair = (ev.lastRepair || 0) + again.used; return r; } // it could not be done: the first repair stands
+    ev.lastRepair = (ev.lastRepair || 0) + r.used; ev.superRec = { k, cond0: c0, fix: u.cond - c0, used: r.used };
+    return r;
+  };
   Robot.pitRepair = function (S, turnaround, bonus) {
     const R = S.robot;
     let pts = (6 + 5 * Math.min(turnaround, 8)) * G.Shop.repairMult(S) * (1 + G.Career.mentorSkill(S, 'fab') / 200) * G.Career.techRepair(S) * (bonus || 1) * ((S.season && S.season.pitTrained) || 1); // a trained pit crew (program project) is quicker
