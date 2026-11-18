@@ -758,7 +758,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.3';
+  G.VERSION = '3.5.4';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -2810,7 +2810,9 @@ window.G = window.G || {};
   // (3.5.3) A second robot on another control system (S.vendorPref2): fam, the share of the drivers' practice on it
   // that carries over to the competition robot; path, the share of the matching-chassis path bonus left (code to port)
   D.CTRL2 = { fam: 0.7, path: 0.5 };
-  D.CAN2_DEV = 0.85; // (3.5.3) development on a second robot whose CAN bus is overloaded (no CAN FD hub, or too small a one): testing and path planning
+  // (3.5.3, both robots from 3.5.4) development at home on a robot whose CAN bus is overloaded (no CAN FD hub, or too
+  // small a one), or that carries cameras without a network switch: its testing hours (and the second robot's path planning)
+  D.DEV_K = { can: 0.85, nsw: 0.9 };
   // (3.5.3) Practice-day installs in the bag years: the work a subsystem's packed parts take (Robot.installWork)
   D.INSTALL_WORK = { mech: 2, part: 1 };
   D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%
@@ -5839,7 +5841,7 @@ window.G = window.G || {};
     { id: 'pgear', name: 'Planetary gearbox', short: 'Planetary gearboxes', icon: 'gear', vend: true, opt: true, max: 32, desc: 'One per motor on a mechanism (not the drivetrain). Optional: mechanisms whose motors have one break down less. Not part of the control system, so brands mix freely. The Kit low-profile gearbox only fits kit motors.' },
     { id: 'camera', name: 'Vision camera + coprocessor', short: 'Cameras', icon: 'camera', max: 4, desc: 'The competition robot needs one for Vision Level 1, two for Level 2. The second robot takes as many while a Vision Level is being built, to test it there.' },
     { id: 'canfd', name: 'CAN FD hub', short: 'CAN FD hubs', icon: 'chip', vend: true, opt: true, max: 3, desc: 'A second, much faster CAN bus for the motors and encoders. Optional, one per robot: from the 2023 season a robot with more of them than its bus can carry freezes now and then, in matches or on the bench.' },
-    { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster.' },
+    { id: 'nswitch', name: 'Network switch', short: 'Network switches', icon: 'chip', opt: true, max: 3, desc: 'Connects the camera, the robot controller and the radio on one network. Optional, one per robot: fewer comms dropouts, and the camera talks to the robot a little faster. On a robot with cameras it also keeps development at home at full speed.' },
     { id: 'accel', name: 'ML accelerator', short: 'ML accelerators', icon: 'chip', opt: true, max: 3, desc: 'A USB stick that runs object detection on the robot. Optional, one per robot with vision: the robot finds game pieces and lines up its shots better.' },
     { id: 'pneu', name: 'Pneumatics kit', short: 'Pneumatics', icon: 'air', max: 2, desc: 'Compressor, tank, valves and cylinders. Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds: a lot in the brushed-motor years, less every year after brushless motors arrive.' },
     { id: 'servo', name: 'Servo actuator kit', short: 'Servo kits', icon: 'motor', max: 2, desc: 'Small servos and linear actuators for what small cylinders used to do (big ones gave way to brushless motors). Speeds up intake, manipulator, end effector, climber and adjustable-hood shooter builds, more every year as air fades. With pneumatics too, the better of the two counts.' },
@@ -7061,7 +7063,8 @@ window.G = window.G || {};
       m.score[r.a][k] += pts; r.stats.pts += pts;
       if (!m.headless && label) m.fx.push({ k: 'pop', x: at ? at.x : r.x, y: at ? at.y : r.y, text: label, t: m.t, a: r.a });
     },
-    shotFx(m, r, to, hit) { if (!m.headless) m.fx.push({ k: 'shot', x0: r.x, y0: r.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a }); },
+    // lanes (3.5.4): how many pieces leave side by side (2026: a turret fires single file, fixed and hood shooters two abreast, the wide dumper four)
+    shotFx(m, r, to, hit) { if (!m.headless) m.fx.push({ k: 'shot', x0: r.x, y0: r.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2 }); },
     shootSpot(m, r, goal, zone) {
       const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? 1.1 : 1), rmin = c.rmin || 1.0;
       const d = dist(r, goal);
@@ -14281,14 +14284,15 @@ window.G = window.G || {};
   };
   // Apply this turn's hours (and development-testing hours); returns completed project names and testing use.
   // dev2 (3.5.3): the part of devH that runs on the second robot, which a Vision Level project can't use without its cameras
-  // The week's testing hours shared out: the second robot's first (no Vision Level without its cameras), then the rest.
-  // give: what each project's testing is worth (the second robot's hours count G.Parts.dev2K: less on an overloaded
-  // CAN bus); raw: the hours each one used.
+  // The week's testing hours shared out: the second robot's first (no Vision Level without its cameras), then the rest,
+  // which run on the competition robot. give: what each project's testing is worth (each robot's hours count
+  // G.Parts.devK: less on an overloaded CAN bus or with cameras and no network switch); raw: the hours each one used.
   Robot.testShare = function (S, devH, dev2, give, limited) {
-    const no2 = dev2 > 0 && !Robot.vision2(S) ? p => p.type === 'vision' : null, k = dev2 > 0 ? G.Parts.dev2K(S) : 1;
-    if (!no2 && k === 1) { const t = Robot.testPlan(S, devH || 0, give, limited); return { give: t.give, raw: t.give, idle: t.idle }; }
-    const b = Robot.testPlan(S, Math.min(dev2, devH || 0), give, limited, no2), r = Robot.testPlan(S, Math.max(0, (devH || 0) - dev2), give, limited, null, b.give);
-    const eff = {}; Object.keys(r.give).forEach(id => { eff[id] = r.give[id] - (1 - k) * (b.give[id] || 0); });
+    const d = devH || 0, no2 = dev2 > 0 && !Robot.vision2(S) ? p => p.type === 'vision' : null;
+    const k2 = dev2 > 0 ? G.Parts.devK(S, 'prac').k : 1, k1 = d > dev2 ? G.Parts.devK(S, 'comp').k : 1;
+    if (!no2 && k1 === 1 && k2 === 1) { const t = Robot.testPlan(S, d, give, limited); return { give: t.give, raw: t.give, idle: t.idle }; }
+    const b = Robot.testPlan(S, Math.min(dev2, d), give, limited, no2), r = Robot.testPlan(S, Math.max(0, d - dev2), give, limited, null, b.give);
+    const eff = {}; Object.keys(r.give).forEach(id => { const on2 = b.give[id] || 0; eff[id] = k2 * on2 + k1 * (r.give[id] - on2); });
     return { give: eff, raw: r.give, idle: b.idle + r.idle };
   };
   Robot.work = function (S, hours, mods, devH, limited, dev2) {
@@ -15983,10 +15987,9 @@ window.G = window.G || {};
     // (3.5.3) the development hours that run on the second robot: all of them without a Practice Field or while the
     // competition robot is in the bag, else its share on the field (a Vision Level needs its cameras there: G.Robot.vision2)
     const on2 = !chassis ? 0 : !lvl || C.bagged(S) ? h : Math.min(h, Math.round(D.TEST_BOT_HOURS * Math.max(G.Robot.secondShare(S), D.CHASSIS_SHARE) * (eventWeek ? 0.5 : 1)));
-    // (3.5.3) a second robot whose CAN bus is overloaded (from 2023, without a big enough CAN FD hub) freezes on the
-    // bench now and then: its development hours count D.CAN2_DEV (G.Robot.testShare)
-    const k2 = on2 ? G.Parts.dev2K(S) : 1;
-    return { total: h, drive, dev: h - drive, dev2: Math.min(h - drive, Math.round(on2 * (1 - split))), can2Slow: k2 < 1, unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
+    // what each robot's parts make of its hours (an overloaded CAN bus, cameras without a network switch): G.Parts.devK,
+    // applied in G.Robot.testShare
+    return { total: h, drive, dev: h - drive, dev2: Math.min(h - drive, Math.round(on2 * (1 - split))), unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
   };
   C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
   // Driver practice: drive-team skills, confidence and familiarity with the robot they drive; uses a few spare parts
@@ -16752,11 +16755,19 @@ window.G = window.G || {};
   // Strategy read (0..1): how well the team spots and runs a season's alternative strategies (2024 note feeding).
   // Built by management: a Strategy mentor, a drive coach with strategy skill, driver practice, and events played and scouted.
   C.metaInsight = function (S) {
-    if (!S.season) return 0;
-    const dt = C.driveTeam(S);
-    return U.clamp(0.05 + 0.3 * C.mentorSkill(S, 'strat') / 100 + 0.2 * (dt.coachStrat || 30) / 100
-      + 0.3 * Math.min(1, S.season.metaSeen || 0) + 0.15 * Math.min(1, (S.practiceWeeks || 0) / D.DRILL_CAP), 0, 1);
+    const p = C.metaParts(S); if (!p) return 0;
+    return U.clamp((p.base + p.mentor + p.coach + p.events + p.practice) / 100, 0, 1);
   };
+  // (3.5.4) what the strategy read is made of, in points of 100: a base 5, the Strategy mentor (up to 30), the drive
+  // coach's strategy (20), the events played and scouted this season (30), driver practice (15). null out of season.
+  C.metaParts = function (S) {
+    if (!S.season) return null;
+    const dt = C.driveTeam(S);
+    return { base: 5, mentor: 30 * C.mentorSkill(S, 'strat') / 100, coach: 20 * (dt.coachStrat || 30) / 100,
+      events: 30 * Math.min(1, S.season.metaSeen || 0), practice: 15 * Math.min(1, (S.practiceWeeks || 0) / D.DRILL_CAP) };
+  };
+  // ... and what it does in a game: null when the game has no strategy it changes
+  C.metaUse = year => ({ 2024: 'note feeding for Amplify', 2026: 'fuel hoarding while your hub is inactive' })[year] || null;
   C.onEventDone = function (S, ev) {
     const r = ev.result;
     // watching other alliances teaches the meta (more when it is common at the event, and with scouting focus)
@@ -19693,7 +19704,7 @@ window.G = window.G || {};
       if (prac.ctrl) prac.nswitch = 1;
       if (R.visionLvl) comp.accel = 1;
       if (comp.ctrl && G.Era.of(S).canBus) comp.canfd = 1; // a CAN FD hub: matches are where the bus overloads
-      if (prac.ctrl && G.Era.of(S).canBus) prac.canfd = 1; // (3.5.3) and the second robot: an overloaded bus slows development on it (D.CAN2_DEV)
+      if (prac.ctrl && G.Era.of(S).canBus) prac.canfd = 1; // (3.5.3) and the second robot: an overloaded bus slows development on it (D.DEV_K)
     }
     return { comp, prac, sub: resolveDrive(S, comp, prac) };
   };
@@ -19973,9 +19984,20 @@ window.G = window.G || {};
   }
   // the competition robot's CAN bus: { dev, cap, hub, over } (null before 2023, in old careers or without a robot)
   P.canBus = S => (S.robot && S.cal ? P.profile(S).can || null : null);
-  // (3.5.3) the second robot's bus, and how much development on it counts: D.CAN2_DEV while it is overloaded, else 1
+  // (3.5.3) the second robot's bus
   P.can2 = S => (S.robot && S.robot.bots && S.cal ? P.profile(S, 'prac').can || null : null);
-  P.dev2K = S => { const c = P.can2(S); return c && c.over > 0 ? D.CAN2_DEV : 1; };
+  // (3.5.4) How much development on a robot counts at home (side 'comp' or 'prac'): an overloaded CAN bus freezes it
+  // on the bench now and then (D.DEV_K.can), and cameras without a network switch flood its network (D.DEV_K.nsw, once
+  // the switch is sold). { k, can, nsw }: k multiplies its testing hours (and the second robot's path-planning help).
+  P.devK = function (S, side) {
+    const out = { k: 1, can: false, nsw: false };
+    if (!S.robot || !S.robot.bots || !S.cal || !S.inv) return out;
+    const pp = P.profile(S, side === 'prac' ? 'prac' : 'comp'), sw = D.LANTERN.find(L => L.cat === 'nswitch');
+    if (pp.can && pp.can.over > 0) { out.can = true; out.k *= D.DEV_K.can; }
+    if (pp.cam != null && !pp.nsw && sw && P.lanternOut(S, sw)) { out.nsw = true; out.k *= D.DEV_K.nsw; }
+    return out;
+  };
+  P.dev2K = S => P.devK(S, 'prac').k;
   P.devMult = S => { if (!S.robot) return 1; const pp = P.profile(S); return pp.mixed ? D.MIX_HOURS : pp.kopMix ? D.KOP_MIX_HOURS : 1; };
 
   // ======================= wear =======================
@@ -21067,6 +21089,9 @@ window.G = window.G || {};
     { id: 'c353bag', cd: 500, req: S => !!(S.cal && S.bagParts && G.Career.bagged(S)), title: 'Every serial number', body: S => 'The sheet that went into the bag with the robot lists every motor and sensor on it by serial number. ' + student(S) + ' says that way nobody will borrow one before the next event. Nobody has.' },
     { id: 'c353fam', cd: 500, req: S => !!(S.cal && S.robot && S.robot.bots && G.Robot.twoBots(S)), title: 'It feels lazy', body: S => student(S) + ' came off the practice robot saying one mechanism felt lazy. It runs on different motors from the competition robot\'s, and the drivers can feel it. ' + mentor(S) + ' has asked for the same parts on both, where the shelf allows.' },
     { id: 'c353gbx', cd: 600, req: S => !!(S.cal && S.inv && G.Parts.count(S, 'gearbox')), title: 'Same part number', body: S => 'Lumen\'s new catalogue arrived. ' + student(S) + ' found the standard drive gearbox on the same page with the same part number as in a catalogue from years ago. Lumen\'s rep says it is the one part they will never change, and ' + mentor(S) + ' says that is why every team has a pair of them somewhere.' },
+    { id: 'c354nsw', cd: 500, req: S => !!(S.cal && G.Parts.devK && (G.Parts.devK(S, 'comp').nsw || G.Parts.devK(S, 'prac').nsw)), title: 'The camera ate the network', body: S => student(S) + ' ran the new code on the bench and the robot kept dropping its connection. The camera was sending every frame over the same network as the controls. ' + mentor(S) + ' says a network switch costs less than another evening of this.' },
+    { id: 'c354read', cd: 600, req: S => !!(S.season && G.Career.metaUse(S.robot ? S.robot.year : S.year)), title: 'The whiteboard', body: S => 'The drive coach has started a whiteboard of what the best alliances do that nobody else does yet. ' + student(S) + ' adds a line after every event they watch. ' + mentor(S) + ' says reading the game is a skill like any other.' },
+    { id: 'c354shot', cd: 600, req: S => !!(S.robot && S.robot.year === 2026), title: 'Slow motion', body: S => student(S) + ' filmed the shooters at the last event at 240 frames a second. The turrets fire one ball after another, the fixed shooters two at a time, and the big dumpers four abreast. The video has more views than the reveal.' },
     { id: 'c353cam2', cd: 500, req: S => !!(S.cal && S.robot && S.robot.bots && S.projects.some(p => p.type === 'vision') && G.Robot.twoBots(S)), title: 'A camera for the practice robot', body: S => student(S) + ' has been writing the new vision code against the practice robot. ' + (G.Robot.vision2(S) ? 'It has its own camera now, and every test run ends with a screenshot of the target lock on the shop whiteboard.' : 'It has no camera, so every test is a guess until the competition robot is free. ' + mentor(S) + ' has put a second camera on the shopping list.') },
     { id: 'c353can2', cd: 500, req: S => !!(S.cal && G.Parts.can2 && G.Parts.can2(S) && G.Parts.can2(S).over > 0), title: 'The practice robot froze again', body: S => 'The practice robot stopped dead on the bench twice this week, with every motor and encoder on one CAN bus. ' + student(S) + ' says it is not the code. ' + mentor(S) + ' says it is the bus, and that a CAN FD hub would cost less than the hours.' },
     { id: 'c353elec', cd: 400, req: S => !!(S.subPref && Object.keys(S.subPref).length), title: 'Colour-coded', body: S => student(S) + ' has put coloured tape on every motor in the shop, one colour per vendor, so that nobody fits the wrong one to the wrong mechanism again. ' + mentor(S) + ' says the tape is the best wiring standard the team has ever had.' },
@@ -23416,7 +23441,13 @@ window.G = window.G || {};
         if (m.year === 2024) ring(ctx, s, x, y, 0.15, COL.note);
         else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
         else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
-        else if (m.year === 2026) { ball(ctx, s, x, y, 0.07, COL.fuel); ball(ctx, s, x - 0.18, y + 0.1, 0.06, COL.fuel); ball(ctx, s, x + 0.12, y - 0.14, 0.06, COL.fuel); }
+        else if (m.year === 2026) {
+          // (3.5.4) a turret fires single file (one ball after another along the flight), fixed and hood shooters two
+          // abreast, the wide dumper four abreast (across the flight)
+          const n = f.lanes || 2, dx = f.x1 - f.x0, dy = f.y1 - f.y0, L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;
+          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, 0.065, COL.fuel); }
+          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * 0.18; ball(ctx, s, x + px * o, y + py * o, 0.065, COL.fuel); }
+        }
         else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
         else circ(ctx, s, x, y, 0.1, '#d9dee3');
         ctx.restore();
@@ -24791,7 +24822,7 @@ window.G = window.G || {};
     if (S.robot) {
       const cap = G.Robot.cap(S), w = G.Robot.weight(S), off = S.phase === 'off';
       o += UI.card('Robot ' + UI.tag(S.robot.year + (off ? ' (last season)' : ''), off ? '' : 'acc'), UI.sideCanvas(G.Robot.look(S), 'blue', S.team.num, 360, 190) +
-        '<div class="mt">' + UI.stat('Speed', cap.speed) + UI.stat('Scoring', (cap.scoreSpd + cap.accuracy) / 2) + UI.stat('Intake', cap.intake) + UI.stat('Endgame', cap.endgame) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) + '</div>' +
+        '<div class="mt">' + UI.stat('Speed', cap.speed) + UI.stat('Scoring', (cap.scoreSpd + cap.accuracy) / 2) + UI.stat('Intake', cap.intake) + UI.stat('Endgame', cap.endgame) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) + (off ? '' : UI.stratRow(S)) + '</div>' +
         '<div class="row sm muted mt"><span>Weight <b class="' + (w > 125 ? 'bad' : '') + '">' + w + ' lb</b> / 125</span><span class="sp"></span><span>Auto v' + (S.robot.autoTier + 1) + ': ' + h(G.Seasons[S.robot.year].autoTiers[S.robot.autoTier]) + ' · Vision Lv ' + S.robot.visionLvl + '</span></div>', '<button class="btn sm" data-act="nav" data-arg="garage">Garage</button>');
     } else o += UI.card('Robot', '<p class="muted">No robot yet. The game is revealed at Kickoff in January. Until then, start pre-season research in the Design Office to build knowledge.</p>', '<button class="btn sm" data-act="nav" data-arg="design">Design Office</button>');
     // projects
@@ -24943,6 +24974,23 @@ window.G = window.G || {};
     o += '<div class="hint mt">' + UI.icon('team', 14) + ' <b>Driver familiarity</b>: a new concept starts around ' + Math.round(D.FAM.NEW * 100) + '% and practice and matches bring it to 100%. In matches a unit gives ' + Math.round(100 - D.FAM.EFFECT * 100) + '–100% of its stats, so let the drivers practice on the robot they will compete with. ' + UI.q('garage', 'Driver familiarity') + '</div>';
     return o;
   } };
+  // (3.5.4) The team's strategy read as a stat, with what it does in this season's game (and, with parts, what makes it)
+  UI.stratRow = function (S, parts) {
+    const p = G.Career.metaParts(S); if (!p) return '';
+    const r = Math.round(100 * G.Career.metaInsight(S)), use = G.Career.metaUse(S.robot ? S.robot.year : S.year);
+    return UI.stat('Strategy read', r, null, use ? null : 'var(--dim)') +
+      (parts ? '<div class="xs muted">Strategy mentor ' + Math.round(p.mentor) + '/30 · coach ' + Math.round(p.coach) + '/20 · events seen ' + Math.round(p.events) + '/30 · practice ' + Math.round(p.practice) + '/15 · base 5</div>' : '') +
+      '<div class="xs muted mb">' + (use ? 'This game: ' + h(use) + '.' : 'This game has no advanced strategy it changes.') + ' ' + UI.q('team', 'Strategy read') + '</div>';
+  };
+  // (3.5.4) Why development on robot bi counts less at home: its CAN bus is overloaded, or it has cameras and no network
+  // switch (G.Parts.devK). '' when neither.
+  UI.devKLine = function (S, bi, side, cls) {
+    const k = G.Parts.devK(S, side); if (k.k >= 1) return '';
+    const R = S.robot, nm = h(R.bots[bi].name), pp = G.Parts.profile(S, side), why = [];
+    if (k.can) why.push('its CAN bus is overloaded (' + pp.can.dev + ' of ' + pp.can.cap + ': ' + (pp.can.hub ? 'a bigger CAN FD hub' : 'a CAN FD hub') + ' fixes it)');
+    if (k.nsw) why.push('its cameras flood the network (no network switch)');
+    return '<div class="xs warn ' + (cls || '') + '">Development on ' + nm + ' counts ' + Math.round(k.k * 100) + '%: ' + why.join(' and ') + '. Inventory: Drive & add-ons.</div>';
+  };
   // (3.5.3) The robot parts on one unit of one robot (or the robot's own: control hub, network, vision, CAN), as the
   // shelf shares them out, with the vendor it takes first, and what they add to the unit while it runs on them (live).
   // Optional parts (planetary gearboxes, the network switch, the ML accelerator, the CAN FD hub) are marked; stored and
@@ -24994,7 +25042,8 @@ window.G = window.G || {};
         (fam != null ? '<div class="statrow wide mt"><span class="n">Driver familiarity</span>' + UI.bar(fam * 100, 100, UI.colorFor(fam * 100)) + '<span class="v">' + Math.round(fam * 100) + '%</span></div>' : '') +
         (S.cal && G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac') ? '<div class="xs muted">Control system: <b>' + h(UI.sysName(S, G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac'))) + '</b>' + (pp.mixed ? ' <span class="warn">· mixed with the other vendor\'s parts: projects take 10% longer</span>' : pp.kopMix ? ' <span class="warn">· with kit parts: projects take 5% longer</span>' : '') + (bi !== ci && G.Parts.sysDiffer(S) ? ' <span class="warn">· not the competition robot\'s: practice here carries over ' + Math.round(D.CTRL2.fam * 100) + '%</span>' : '') + '</div>' : '') + // (3.5.3)
         (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Inventory).</div>' : '') +
-        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? (bi === ci ? ': overloaded, it will freeze now and then in matches. ' : ': overloaded, development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ') + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '');
+        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? (bi === ci ? ': overloaded, it will freeze now and then in matches and on the bench. ' : ': overloaded, it freezes now and then on the bench. ') + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '') +
+        UI.devKLine(S, bi, bi === ci ? 'comp' : 'prac', ''); // (3.5.4) what that does to development on it
     } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build units (Design Office: Build copy) or fit stored ones.</div></div>';
     o += '<table class="t slots mt">' + G.Seasons[year].subs.filter(sd => sd.id !== 'soft').map(sd => {
       const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u, bi);
@@ -25332,9 +25381,11 @@ window.G = window.G || {};
       const vp = S.projects.find(p => p.type === 'vision'), nc = (R.visionLvl || 0) + 1;
       if (vp && S.cal && G.Era.of(S).vision.cam && th.dev2 > 0) dv += G.Robot.vision2(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' ' + h(R.bots[G.Robot.other(R)].name) + ' carries the camera' + (nc > 1 ? 's' : '') + ' for Vision Level ' + nc + ', so it is tested there too.</div>'
         : '<div class="xs warn mt">Vision Level ' + nc + ' gets no testing on ' + h(R.bots[G.Robot.other(R)].name) + ': it needs ' + nc + ' vision camera' + (nc > 1 ? 's' : '') + ' of its own (Inventory: Drive & add-ons).</div>';
-      // (3.5.3) its CAN bus
-      const c2 = G.Parts.can2(S);
-      if (c2 && c2.over > 0) dv += '<div class="xs warn mt">' + h(R.bots[G.Robot.other(R)].name) + '\'s CAN bus is overloaded (' + c2.dev + ' motors and encoders, it carries ' + c2.cap + '): development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ' + (c2.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory: Drive & add-ons).') + '</div>';
+    }
+    // (3.5.4) what each robot's parts make of the hours it is tested on: an overloaded CAN bus, cameras without a switch
+    if (S.robot && S.robot.bots && th.dev > 0) {
+      const R = S.robot, ci = R.comp || 0;
+      [[1 - ci, 'prac', th.dev2 || 0], [ci, 'comp', th.dev - (th.dev2 || 0)]].forEach(([bi, side, hrs]) => { if (hrs > 0) dv += UI.devKLine(S, bi, side, 'mt'); });
     }
     if (S.robot && S.robot.year === S.year && S.phase !== 'off' && (G.Robot.secondRuns(S) || S.elecShake > 0)) {
       const es = S.elecShake || 0, E = D.ELEC_SHAKE_EFFECT, on = G.Robot.secondRuns(S);
@@ -25578,7 +25629,7 @@ window.G = window.G || {};
       '<label class="f">Human player<select class="inp" data-chg="dt" data-k="hp">' + opts(S.driveTeam.hp) + '</select></label>' +
       '<label class="f">Coach<select class="inp" data-chg="dt" data-k="coach">' + opts(S.driveTeam.coach, true) + '</select></label>' +
       '<label class="f" title="Optional. In the pits before every match: Mechanism speeds up repairs, Composure catches mistakes such as wrong code, a loose bumper or a flat battery">Technician<select class="inp" data-chg="dt" data-k="tech">' + opts(S.driveTeam.tech, false, true) + '</select></label></div>' +
-      '<div class="row mt"><span class="xs muted sp">Each seat uses its own skills' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? '; in this game the human player sets the cycle speed' : '') + '. ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1). ' + UI.q('team', 'Drive team roles') + '</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
+      '<div class="row mt"><span class="xs muted sp">Each seat uses its own skills' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? '; in this game the human player sets the cycle speed' : '') + '. ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1). ' + UI.q('team', 'Drive team roles') + '</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>' + (G.Career.metaParts(S) ? '<div class="hr"></div>' + UI.stratRow(S, true) : ''));
     // activities
     const lim = G.Career.actLimits(S), C = G.Career, ir = C.impactRating(S);
     o += UI.card(UI.it('trophy', 'Impact Award ') + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),
@@ -26398,6 +26449,7 @@ window.G = window.G || {};
     o += '<div class="card"><div class="ct">Readiness</div>' + (S.robot ? UI.stat('Robot strength', pNow, pAll != null && pAll > pNow ? pAll : null) + '<div class="xs muted mb">Expected points it adds to an alliance' + (pAll != null && pAll !== pNow ? '; <b>' + pAll + '</b> with everything packed fitted' : '') + '.</div>' : '') + UI.stat('Robot tuning', ev.tune * 100) + UI.stat('Driver confidence', ev.conf * 100) + (S.robot ? UI.stat('Auto success', G.Engine.autoChance(G.Robot.cap(S).auto, ev.tuneAuto) * 100, G.Engine.autoChance(G.Robot.cap(S).auto, 0.2) * 100) : '') +
       UI.stat('Condition', G.Robot.condAvg(S), null, UI.colorFor(G.Robot.condAvg(S))) +
       (S.robot && G.Robot.famAvg(S.robot, S.robot.comp || 0) != null ? UI.stat('Driver familiarity', G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100, null, UI.colorFor(G.Robot.famAvg(S.robot, S.robot.comp || 0) * 100)) : '') +
+      UI.stratRow(S) + // (3.5.4)
       '<div class="sm mt">' + UI.icon('fatigue', 14) + ' Fatigue ' + UI.fatigueBar(ev.fatigue == null ? 30 : ev.fatigue) + ' <b>' + Math.round(ev.fatigue == null ? 30 : ev.fatigue) + '</b> (' + G.Career.fatigueLabel(ev.fatigue == null ? 30 : ev.fatigue) + ') · ' + UI.icon('scout', 14) + ' scouting credibility <b>' + Math.round((ev.scoutCred || 1) * 100) + '%</b></div>' + '<div class="sm muted mt">Batteries ' + S.parts.batts.length + ' (' + Math.round(G.Shop.fleetHealth(S) * 100) + '% health) · spares ' + S.parts.spares + ' · weight ' + G.Robot.weight(S) + ' lb</div>' +
       (ev.log.length ? '<div class="hr"></div>' + ev.log.slice(-6).map(l => '<div class="sm">• ' + h(l) + '</div>').join('') : '') + '</div></div>';
     return o + boothCard(ev);
@@ -27821,6 +27873,11 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.4', title: 'Testing at home, strategy read, 2026 shots', notes: [
+      'Development at home counts less on a robot whose CAN bus is overloaded (85%) or that carries cameras without a network switch (90%), on the competition robot as well as the second one. With only one robot all testing is on it. The Design Office and the Garage say when either applies.',
+      'Strategy read is shown as a number from 0 to 100 at Headquarters, on the Team page (with what it is made of) and at events, with what it does in this season\'s game.',
+      '2026: a turret fires fuel single file, fixed and hood shooters two abreast, and only the wide dumper four abreast.'
+    ] },
     { v: '3.5.3', title: 'Robot parts that matter, two robots, cleaner drawings', notes: [
       'Robot parts now count on the unit they are fitted to, while it runs on them: a drivetrain on better motors is faster, a scorer on better motors scores faster, an intake takes in faster, worn parts make that unit fail more often and planetary gearboxes make it fail less. Ceilings no longer depend on parts. The Garage shows what each unit\'s parts add. Saves from before are converted when they load.',
       'A new guide topic, How a robot is made, draws the whole chain: subsystem, concept, version, unit and robot, with build parts going into units and robot parts going onto robots. The game says unit for a built one everywhere, and the glossary has the new terms.',
@@ -29274,7 +29331,7 @@ window.G = window.G || {};
         'Split them between <b>development testing</b> (projects finish faster and come out better) and <b>driver practice</b> (skills, confidence and familiarity with the robot they practice on).',
         'On a test chassis without a Practice Field, development testing only works for robot code, autos, vision and drivetrain projects (at half the cost), and driver practice counts ' + Math.round(D.CHASSIS_ELEM * 100) + '%.',
         'On a Practice Field, driver practice needs this game\'s field elements (Inventory → Game elements) for full value.',
-        'With a second robot running, the same hours also build defense drills and the electrical shakedown (Garage guide).', 'What the second robot carries counts: a Vision Level project is tested on it only with the cameras for that level, and from 2023 an overloaded CAN bus on it (no big enough CAN FD hub) makes development on it count ' + Math.round(D.CAN2_DEV * 100) + '%. The Design Office says when either applies.'] },
+        'With a second robot running, the same hours also build defense drills and the electrical shakedown (Garage guide).', 'What a robot carries counts. A Vision Level project is tested on the second robot only with the cameras for that level. On either robot, an overloaded CAN bus (from 2023, no big enough CAN FD hub) makes development on it count ' + Math.round(D.DEV_K.can * 100) + '%, and cameras without a network switch ' + Math.round(D.DEV_K.nsw * 100) + '% (both: ' + Math.round(D.DEV_K.can * D.DEV_K.nsw * 100) + '%). The Design Office says when any of this applies.'] },
       { icon: 'incident', t: 'The state of the art moves', li: ['From your second season, each offseason opens with two <b>rule or vendor changes</b> for next season, and one month between July and September brings three <b>new designs spotted online</b>.', 'Each makes one knowledge area partly outdated: −25% XP for rule and vendor changes, −15% for new designs (banked XP far above the top level doesn\'t protect it).', 'A mentor who specializes in the area halves the loss. Research wins it back.', 'Know-how at <b>Level 4 or 5</b> is tuned to the way things were, so it adapts worst: a change costs it half as much again and always takes one level, with or without a specialist mentor (the mentor softens how far it falls within that level).'] },
       { icon: 'know', t: 'Tech Knowledge', li: ['Building and competing with a concept earns knowledge; research earns it directly.', 'Each level gives concepts that use the area +3 on their stat ceilings, 6% fewer build hours, +4 starting reliability and 5% better upgrades, in every later game.', 'An area you did not use in a season loses 20% of its XP as students graduate (10% with a Knowledge Base), unless a mentor specializes in it.', 'The <b>Knowledge Base</b> is not built once and forgotten: it covers the season it was built or last updated for. Every year after that it needs a ' + D.KB_UPKEEP_HOURS + '-hour update (Design Office); out of date, it protects nothing. It is built and updated in the offseason only, before Kickoff.'] }
     ] },
@@ -29296,9 +29353,9 @@ window.G = window.G || {};
         'The Control system tab shows each vendor\'s level, your points, and any voucher or sale you hold.',
         'A prize in a vendor\'s contest (Design & hours: Vendor challenges) is the same choice, from Lanternworks too: free parts at Kickoff, a voucher that adds to any you hold, or a sale. When a loyalty sale and a prize sale overlap, the bigger one counts, and the Inventory says which it is.'] },
       { icon: 'box', t: 'Kit of Parts and stock', d: flow([['truck', 'Offseason: everything in stock'], ['bolt', 'Kickoff: free kit'], ['incident', 'In season: popular parts sell out']]), li: ['Every team gets a free kit at every Kickoff: 4 brushed motors, 2 low-profile encoders, 2 kit drivetrain sets, from 2017 2 low-profile planetary gearboxes, and game pieces. Only rookies get a control hub, in a bigger first-season kit; veteran teams start with one leftover kit hub.', 'Every Kickoff also brings <b>KOP mechanism vouchers</b>: 2 in a rookie\'s first season, 1 in every other. Each one pays for a KOP subsystem kit (gripper, intake, shooter or lift) in Build parts until the next Kickoff.', 'In the offseason everything is in stock. In season a part is often <b>sold out</b> for the week, and how often depends on how many teams want it: a brand-new technology (the first brushless motor, the first swerve modules) is hard to get, the part it outclasses sits on the shelf, and a mechanism kit goes as fast as this game\'s robots use it. Stock up before Kickoff.', 'A <b>stock alert</b> in the Inbox names a part that will be out of stock next week; you can order it from the message that turn.', 'More <b>Kit of Parts</b> control system parts (brushed motors, low-profile encoders, a basic hub, kit drivetrain sets) can be bought any time: very cheap and never sold out, but much slower. Next to vendor parts they cost 5% more project hours and a little performance. They can\'t be resold.'] },
-      { icon: 'chip', t: 'CAN FD hubs', li: ['Modern motors and encoders talk to the robot hundreds of times a second. From the 2023 season a robot\'s CAN bus carries 14 of them; with more, the competition robot is a little less reliable and freezes for a few seconds now and then in matches (the further over, the more often: every 8 over is about one freeze a match). A swerve drive alone is 12.', 'A <b>CAN FD hub</b> gives it a second, faster bus: Apex and Lumen both sell one from June 2022 (the Apex FD Bridge carries 48 motors and encoders, the Lumen BusFD 40). Optional, one per robot.', 'The second robot\'s bus counts too: overloaded, it freezes on the bench now and then, so development on it (its testing hours and its help with autonomous paths) counts ' + Math.round(D.CAN2_DEV * 100) + '% until it has a big enough hub.', 'The Inventory and the Garage show how full the bus is.'] },
+      { icon: 'chip', t: 'CAN FD hubs', li: ['Modern motors and encoders talk to the robot hundreds of times a second. From the 2023 season a robot\'s CAN bus carries 14 of them; with more, the competition robot is a little less reliable and freezes for a few seconds now and then in matches (the further over, the more often: every 8 over is about one freeze a match). A swerve drive alone is 12.', 'A <b>CAN FD hub</b> gives it a second, faster bus: Apex and Lumen both sell one from June 2022 (the Apex FD Bridge carries 48 motors and encoders, the Lumen BusFD 40). Optional, one per robot.', 'An overloaded bus also freezes a robot on the bench now and then, on either robot: development on it at home (its testing hours, and the second robot\'s help with autonomous paths) counts ' + Math.round(D.DEV_K.can * 100) + '% until it has a big enough hub.', 'The Inventory and the Garage show how full each bus is.'] },
       { icon: 'gear', t: 'Planetary gearboxes', li: ['From the 2017 season both vendors sell planetary gearboxes for mechanism motors (not the drivetrain): one gearbox per motor. They are optional.', 'A unit whose motors have them, the better the more, breaks down less. The Garage shows them on each unit, the Your robots tab how many are covered.', 'They are not part of the control system: Sterling (later Apex) and Lumen gearboxes mix freely with either vendor\'s motors. The <b>Kit low-profile gearbox</b> only fits kit motors; two come in every Kickoff kit (four in a rookie kit).'] },
-      { icon: 'camera', t: 'Lanternworks: vision hardware', li: ['<b>Lanternworks</b> sells the vision hardware, in its own catalogue under Drive & add-ons, from the autumn of 2017. Vision Level 1 needs one camera on the competition robot, Level 2 two. While a Vision Level is being built the second robot takes as many, so the team can test it there; without them that project gets no testing on it.', '<b>Lantern 1</b> (from 2018) tracks reflective tape. <b>Lantern 2</b> (from 2023) reads AprilTags and replaces it in the store; a Lantern 1 still works, but with tags on the field it aims less well. A better camera improves accuracy and vision.', 'The <b>Lantern Link network switch</b> (optional, one per robot) puts the camera, controller and radio on one network: fewer comms dropouts in matches and a little better vision.', 'The <b>Lantern Spark ML accelerator</b> (optional, from 2023, one per robot with vision) runs object detection on the robot: it finds game pieces and lines up its shots better.'] },
+      { icon: 'camera', t: 'Lanternworks: vision hardware', li: ['<b>Lanternworks</b> sells the vision hardware, in its own catalogue under Drive & add-ons, from the autumn of 2017. Vision Level 1 needs one camera on the competition robot, Level 2 two. While a Vision Level is being built the second robot takes as many, so the team can test it there; without them that project gets no testing on it.', '<b>Lantern 1</b> (from 2018) tracks reflective tape. <b>Lantern 2</b> (from 2023) reads AprilTags and replaces it in the store; a Lantern 1 still works, but with tags on the field it aims less well. A better camera improves accuracy and vision.', 'The <b>Lantern Link network switch</b> (optional, one per robot) puts the camera, controller and radio on one network: fewer comms dropouts in matches and a little better vision. A robot with cameras and no switch also floods its own network on the bench: development on it at home counts ' + Math.round(D.DEV_K.nsw * 100) + '%.', 'The <b>Lantern Spark ML accelerator</b> (optional, from 2023, one per robot with vision) runs object detection on the robot: it finds game pieces and lines up its shots better.'] },
       { icon: 'air', t: 'Pneumatics and servo kits', li: ['A <b>pneumatics kit</b> or a <b>servo actuator kit</b> is a shop tool: one on the shelf speeds up every intake, manipulator, end effector, climber and adjustable-hood shooter project (builds, copies, upgrades, hardening). It is never used up. With both, the better one counts.', 'Pneumatics save the most in the brushed-motor years and less every year after brushless motors arrive (25% in 2016, 5% from 2024). Servo kits are sold from May 2022 and save 15% from the 2023 season, 20% from 2024.'] },
       { icon: 'garage', t: 'What builds use', li: ['A swerve drive uses 4 modules, 8 motors and 4 encoders; a West Coast drive 2 drive sets and 6 motors (3 a side); the kit chassis 4 motors, mecanum 4 motors and 4 gearboxes; most mechanisms 1–3 motors (plus a planetary gearbox each, if you want them).', 'Each robot needs one control hub; a <b>second robot</b> needs its own control system.', 'Robot parts are reusable: they go on a robot with each unit, the best ones on the competition robot, the rest on the other robot.'] },
       { icon: 'spare', t: 'Wear and slots', li: ['Parts wear in matches and practice. A unit on worn parts is barely slower but fails more often.', 'Each part type has a slot limit; buying more replaces your most worn parts. Replaced parts above 60% condition are sold for you, the rest are recycled.'] },
@@ -29332,6 +29389,9 @@ window.G = window.G || {};
         'A Finalist award brings +' + D.WFA.rep.wffa + ' reputation, the Award +' + D.WFA.rep.wfa + '. Each hangs a <b>blue banner</b> for the team (the Award\'s with the Championship honours), and shows on the mentor\'s row (Mentors) and under Mentor honours (History). A mentor who has received either never leaves the team on their own. The Award is presented on Einstein right after the FIRST Impact Award: a team whose mentor wins goes there to watch, qualified or not.',
         'Real winners include Glenn Lee of Team 359 (2017), Lucien Junkin of Team 118 (2020, a NASA chief engineer who had been a Finalist in 2005), Norman Morgan of Team 2468 (2024) and Debbie English of Team 4499 (2026).'] },
       { icon: 'team', t: 'Drive team roles', li: ['<b>Driver</b>: Driving (speed and line-up), Awareness (less time lost to defenders, fewer fouls), Composure.', '<b>Operator</b>: Mechanism skill (faster intake and scoring), Composure.', '<b>Human Player</b>: HP skill. In the games where the human player feeds the robot all match (2017, 2019, 2020, 2023, 2024, 2025) it sets how fast the robot is loaded: an expert crew needs about two thirds of the time an average one does, which is worth 5 to 10% of an alliance\'s score. An alliance uses its two best human players. In the others (2016, 2018, 2022, 2026) it hardly matters.', '<b>Coach</b>: Strategy (Coach Calls, reading the season\'s strategies). A student coaches when their Strategy beats the adult behind the glass.', '<b>Technician</b> (optional): Mechanism speeds up pit repairs, Composure catches pre-match mistakes such as wrong code or a loose bumper.', 'Skills grow by playing matches in a role and by driver practice. "Auto-pick best" fills all five seats.'] },
+      { icon: 'scout', t: 'Strategy read', li: ['How well the team spots and runs a game\'s advanced strategy, from 0 to 100. Headquarters, the Team page and the event screens show it.',
+        'It is built from a Strategy mentor (up to 30), the drive coach\'s Strategy skill (up to 20), the events the team plays and scouts this season (up to 30, more at events where the strategy is common, with scouting focus or a Super pit), and driver practice (up to 15), plus a base of 5.',
+        'It changes two games: <b>2024 CRESCENDO</b>, how often and how well your alliance lobs notes across the field to hoard them for Amplify, and <b>2026 REBUILT</b>, how often and how cleanly your alliance stockpiles fuel while its hub is inactive. In the other games it has no effect.'] },
       { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Feeder programs (FLL, camps, clubs, other schools\' FTC, and your own FTC teams) are capped together: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. The FTC Team Space also limits how many FTC teams of your own you run; FIRST Tech Challenge writes when you found the first. An outside program is named after a school of your part of the world. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
@@ -29478,7 +29538,7 @@ window.G = window.G || {};
         '<b>Buddy climb</b> (2018, 2019, 2020): one robot lifts a partner in the endgame.',
         '<b>Human player</b>: the student who feeds game pieces to the robot (in 2024 also the one who presses Amplify and throws the HIGH NOTES). <b>Amplify</b> (2024): ten seconds of 5-point Speaker notes. <b>Spotlight</b> (2024): a HIGH NOTE on a microphone, +1 for each robot onstage below it. <b>Drive coach</b>: the one who calls the strategy. <b>Technician</b>: the optional fifth member, for the pit.',
         '<b>Scouting credibility</b>: how far your scouts\' numbers can be trusted. <b>Pick list</b>: your order of preference at alliance selection.',
-        '<b>Strategy read</b>: how well your alliance plays a season\'s advanced strategies (feeding, hoarding, splitting stations).',
+        '<b>Strategy read</b> (0 to 100): how well your team spots and runs a game\'s advanced strategy: note feeding in 2024, fuel hoarding in 2026. Shown at Headquarters, on the Team page and at events.',
         '<b>Tiebreaker</b>: how a tied playoff match is decided before it is replayed.'] },
       { icon: 'team', t: 'The program', li: [
         '<b>Program Support</b>: the school\'s backing, moved by the season goals. At 0 the program is cut. It also decides your <b>workshop space</b>.',

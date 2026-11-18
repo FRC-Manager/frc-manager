@@ -1216,10 +1216,9 @@
     // (3.5.3) the development hours that run on the second robot: all of them without a Practice Field or while the
     // competition robot is in the bag, else its share on the field (a Vision Level needs its cameras there: G.Robot.vision2)
     const on2 = !chassis ? 0 : !lvl || C.bagged(S) ? h : Math.min(h, Math.round(D.TEST_BOT_HOURS * Math.max(G.Robot.secondShare(S), D.CHASSIS_SHARE) * (eventWeek ? 0.5 : 1)));
-    // (3.5.3) a second robot whose CAN bus is overloaded (from 2023, without a big enough CAN FD hub) freezes on the
-    // bench now and then: its development hours count D.CAN2_DEV (G.Robot.testShare)
-    const k2 = on2 ? G.Parts.dev2K(S) : 1;
-    return { total: h, drive, dev: h - drive, dev2: Math.min(h - drive, Math.round(on2 * (1 - split))), can2Slow: k2 < 1, unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
+    // what each robot's parts make of its hours (an overloaded CAN bus, cameras without a network switch): G.Parts.devK,
+    // applied in G.Robot.testShare
+    return { total: h, drive, dev: h - drive, dev2: Math.min(h - drive, Math.round(on2 * (1 - split))), unlocked: true, limited: !lvl, elem, canDrive, unit: S.phase === 'off' ? 'month' : 'week' };
   };
   C.setTestSplit = function (S, v) { S.testSplit = U.clamp(Number(v), 0, 1); };
   // Driver practice: drive-team skills, confidence and familiarity with the robot they drive; uses a few spare parts
@@ -1985,11 +1984,19 @@
   // Strategy read (0..1): how well the team spots and runs a season's alternative strategies (2024 note feeding).
   // Built by management: a Strategy mentor, a drive coach with strategy skill, driver practice, and events played and scouted.
   C.metaInsight = function (S) {
-    if (!S.season) return 0;
-    const dt = C.driveTeam(S);
-    return U.clamp(0.05 + 0.3 * C.mentorSkill(S, 'strat') / 100 + 0.2 * (dt.coachStrat || 30) / 100
-      + 0.3 * Math.min(1, S.season.metaSeen || 0) + 0.15 * Math.min(1, (S.practiceWeeks || 0) / D.DRILL_CAP), 0, 1);
+    const p = C.metaParts(S); if (!p) return 0;
+    return U.clamp((p.base + p.mentor + p.coach + p.events + p.practice) / 100, 0, 1);
   };
+  // (3.5.4) what the strategy read is made of, in points of 100: a base 5, the Strategy mentor (up to 30), the drive
+  // coach's strategy (20), the events played and scouted this season (30), driver practice (15). null out of season.
+  C.metaParts = function (S) {
+    if (!S.season) return null;
+    const dt = C.driveTeam(S);
+    return { base: 5, mentor: 30 * C.mentorSkill(S, 'strat') / 100, coach: 20 * (dt.coachStrat || 30) / 100,
+      events: 30 * Math.min(1, S.season.metaSeen || 0), practice: 15 * Math.min(1, (S.practiceWeeks || 0) / D.DRILL_CAP) };
+  };
+  // ... and what it does in a game: null when the game has no strategy it changes
+  C.metaUse = year => ({ 2024: 'note feeding for Amplify', 2026: 'fuel hoarding while your hub is inactive' })[year] || null;
   C.onEventDone = function (S, ev) {
     const r = ev.result;
     // watching other alliances teaches the meta (more when it is common at the event, and with scouting focus)

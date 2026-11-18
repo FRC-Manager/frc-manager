@@ -619,7 +619,7 @@
     if (S.robot) {
       const cap = G.Robot.cap(S), w = G.Robot.weight(S), off = S.phase === 'off';
       o += UI.card('Robot ' + UI.tag(S.robot.year + (off ? ' (last season)' : ''), off ? '' : 'acc'), UI.sideCanvas(G.Robot.look(S), 'blue', S.team.num, 360, 190) +
-        '<div class="mt">' + UI.stat('Speed', cap.speed) + UI.stat('Scoring', (cap.scoreSpd + cap.accuracy) / 2) + UI.stat('Intake', cap.intake) + UI.stat('Endgame', cap.endgame) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) + '</div>' +
+        '<div class="mt">' + UI.stat('Speed', cap.speed) + UI.stat('Scoring', (cap.scoreSpd + cap.accuracy) / 2) + UI.stat('Intake', cap.intake) + UI.stat('Endgame', cap.endgame) + UI.stat('Reliability', cap.rel, null, UI.colorFor(cap.rel)) + (off ? '' : UI.stratRow(S)) + '</div>' +
         '<div class="row sm muted mt"><span>Weight <b class="' + (w > 125 ? 'bad' : '') + '">' + w + ' lb</b> / 125</span><span class="sp"></span><span>Auto v' + (S.robot.autoTier + 1) + ': ' + h(G.Seasons[S.robot.year].autoTiers[S.robot.autoTier]) + ' · Vision Lv ' + S.robot.visionLvl + '</span></div>', '<button class="btn sm" data-act="nav" data-arg="garage">Garage</button>');
     } else o += UI.card('Robot', '<p class="muted">No robot yet. The game is revealed at Kickoff in January. Until then, start pre-season research in the Design Office to build knowledge.</p>', '<button class="btn sm" data-act="nav" data-arg="design">Design Office</button>');
     // projects
@@ -771,6 +771,23 @@
     o += '<div class="hint mt">' + UI.icon('team', 14) + ' <b>Driver familiarity</b>: a new concept starts around ' + Math.round(D.FAM.NEW * 100) + '% and practice and matches bring it to 100%. In matches a unit gives ' + Math.round(100 - D.FAM.EFFECT * 100) + '–100% of its stats, so let the drivers practice on the robot they will compete with. ' + UI.q('garage', 'Driver familiarity') + '</div>';
     return o;
   } };
+  // (3.5.4) The team's strategy read as a stat, with what it does in this season's game (and, with parts, what makes it)
+  UI.stratRow = function (S, parts) {
+    const p = G.Career.metaParts(S); if (!p) return '';
+    const r = Math.round(100 * G.Career.metaInsight(S)), use = G.Career.metaUse(S.robot ? S.robot.year : S.year);
+    return UI.stat('Strategy read', r, null, use ? null : 'var(--dim)') +
+      (parts ? '<div class="xs muted">Strategy mentor ' + Math.round(p.mentor) + '/30 · coach ' + Math.round(p.coach) + '/20 · events seen ' + Math.round(p.events) + '/30 · practice ' + Math.round(p.practice) + '/15 · base 5</div>' : '') +
+      '<div class="xs muted mb">' + (use ? 'This game: ' + h(use) + '.' : 'This game has no advanced strategy it changes.') + ' ' + UI.q('team', 'Strategy read') + '</div>';
+  };
+  // (3.5.4) Why development on robot bi counts less at home: its CAN bus is overloaded, or it has cameras and no network
+  // switch (G.Parts.devK). '' when neither.
+  UI.devKLine = function (S, bi, side, cls) {
+    const k = G.Parts.devK(S, side); if (k.k >= 1) return '';
+    const R = S.robot, nm = h(R.bots[bi].name), pp = G.Parts.profile(S, side), why = [];
+    if (k.can) why.push('its CAN bus is overloaded (' + pp.can.dev + ' of ' + pp.can.cap + ': ' + (pp.can.hub ? 'a bigger CAN FD hub' : 'a CAN FD hub') + ' fixes it)');
+    if (k.nsw) why.push('its cameras flood the network (no network switch)');
+    return '<div class="xs warn ' + (cls || '') + '">Development on ' + nm + ' counts ' + Math.round(k.k * 100) + '%: ' + why.join(' and ') + '. Inventory: Drive & add-ons.</div>';
+  };
   // (3.5.3) The robot parts on one unit of one robot (or the robot's own: control hub, network, vision, CAN), as the
   // shelf shares them out, with the vendor it takes first, and what they add to the unit while it runs on them (live).
   // Optional parts (planetary gearboxes, the network switch, the ML accelerator, the CAN FD hub) are marked; stored and
@@ -822,7 +839,8 @@
         (fam != null ? '<div class="statrow wide mt"><span class="n">Driver familiarity</span>' + UI.bar(fam * 100, 100, UI.colorFor(fam * 100)) + '<span class="v">' + Math.round(fam * 100) + '%</span></div>' : '') +
         (S.cal && G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac') ? '<div class="xs muted">Control system: <b>' + h(UI.sysName(S, G.Parts.ctrlSys(S, bi === ci ? 'comp' : 'prac'))) + '</b>' + (pp.mixed ? ' <span class="warn">· mixed with the other vendor\'s parts: projects take 10% longer</span>' : pp.kopMix ? ' <span class="warn">· with kit parts: projects take 5% longer</span>' : '') + (bi !== ci && G.Parts.sysDiffer(S) ? ' <span class="warn">· not the competition robot\'s: practice here carries over ' + Math.round(D.CTRL2.fam * 100) + '%</span>' : '') + '</div>' : '') + // (3.5.3)
         (pp.short ? '<div class="xs bad">Short of ' + pp.short + ' electronic part' + (pp.short > 1 ? 's' : '') + ': kit parts fill in (Inventory).</div>' : '') +
-        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? (bi === ci ? ': overloaded, it will freeze now and then in matches. ' : ': overloaded, development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ') + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '');
+        (pp.can ? '<div class="xs ' + (pp.can.over > 0 ? 'bad' : 'muted') + '">CAN bus: ' + pp.can.dev + ' of ' + pp.can.cap + ' motors and encoders' + (pp.can.over > 0 ? (bi === ci ? ': overloaded, it will freeze now and then in matches and on the bench. ' : ': overloaded, it freezes now and then on the bench. ') + (pp.can.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory).') : pp.can.hub ? ' (' + h(pp.can.hub) + ')' : '') + '</div>' : '') +
+        UI.devKLine(S, bi, bi === ci ? 'comp' : 'prac', ''); // (3.5.4) what that does to development on it
     } else o += '<div class="botimg empty">' + UI.icon('garage', 36) + '<div class="sm muted">Empty chassis. Build units (Design Office: Build copy) or fit stored ones.</div></div>';
     o += '<table class="t slots mt">' + G.Seasons[year].subs.filter(sd => sd.id !== 'soft').map(sd => {
       const k = sd.id, u = b.subs[k], d = R.design[k], c = u && u.ver ? G.Seasons.concept(year, k, u.concept) : null, f = G.Robot.famOf(R, k, u, bi);
@@ -1160,9 +1178,11 @@
       const vp = S.projects.find(p => p.type === 'vision'), nc = (R.visionLvl || 0) + 1;
       if (vp && S.cal && G.Era.of(S).vision.cam && th.dev2 > 0) dv += G.Robot.vision2(S) ? '<div class="xs good mt">' + UI.icon('check', 12) + ' ' + h(R.bots[G.Robot.other(R)].name) + ' carries the camera' + (nc > 1 ? 's' : '') + ' for Vision Level ' + nc + ', so it is tested there too.</div>'
         : '<div class="xs warn mt">Vision Level ' + nc + ' gets no testing on ' + h(R.bots[G.Robot.other(R)].name) + ': it needs ' + nc + ' vision camera' + (nc > 1 ? 's' : '') + ' of its own (Inventory: Drive & add-ons).</div>';
-      // (3.5.3) its CAN bus
-      const c2 = G.Parts.can2(S);
-      if (c2 && c2.over > 0) dv += '<div class="xs warn mt">' + h(R.bots[G.Robot.other(R)].name) + '\'s CAN bus is overloaded (' + c2.dev + ' motors and encoders, it carries ' + c2.cap + '): development on it counts ' + Math.round(D.CAN2_DEV * 100) + '%. ' + (c2.hub ? 'A bigger CAN FD hub fixes it.' : 'A CAN FD hub fixes it (Inventory: Drive & add-ons).') + '</div>';
+    }
+    // (3.5.4) what each robot's parts make of the hours it is tested on: an overloaded CAN bus, cameras without a switch
+    if (S.robot && S.robot.bots && th.dev > 0) {
+      const R = S.robot, ci = R.comp || 0;
+      [[1 - ci, 'prac', th.dev2 || 0], [ci, 'comp', th.dev - (th.dev2 || 0)]].forEach(([bi, side, hrs]) => { if (hrs > 0) dv += UI.devKLine(S, bi, side, 'mt'); });
     }
     if (S.robot && S.robot.year === S.year && S.phase !== 'off' && (G.Robot.secondRuns(S) || S.elecShake > 0)) {
       const es = S.elecShake || 0, E = D.ELEC_SHAKE_EFFECT, on = G.Robot.secondRuns(S);
@@ -1406,7 +1426,7 @@
       '<label class="f">Human player<select class="inp" data-chg="dt" data-k="hp">' + opts(S.driveTeam.hp) + '</select></label>' +
       '<label class="f">Coach<select class="inp" data-chg="dt" data-k="coach">' + opts(S.driveTeam.coach, true) + '</select></label>' +
       '<label class="f" title="Optional. In the pits before every match: Mechanism speeds up repairs, Composure catches mistakes such as wrong code, a loose bumper or a flat battery">Technician<select class="inp" data-chg="dt" data-k="tech">' + opts(S.driveTeam.tech, false, true) + '</select></label></div>' +
-      '<div class="row mt"><span class="xs muted sp">Each seat uses its own skills' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? '; in this game the human player sets the cycle speed' : '') + '. ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1). ' + UI.q('team', 'Drive team roles') + '</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>');
+      '<div class="row mt"><span class="xs muted sp">Each seat uses its own skills' + (G.Seasons[S.year] && G.Seasons[S.year].hpLoad ? '; in this game the human player sets the cycle speed' : '') + '. ' + G.Career.coachCalls(S, false) + ' Coach Calls per match (playoffs +1). ' + UI.q('team', 'Drive team roles') + '</span><button class="btn sm" data-act="autoDT">Auto-pick best</button></div>' + (G.Career.metaParts(S) ? '<div class="hr"></div>' + UI.stratRow(S, true) : ''));
     // activities
     const lim = G.Career.actLimits(S), C = G.Career, ir = C.impactRating(S);
     o += UI.card(UI.it('trophy', 'Impact Award ') + UI.tag(Math.round(ir.score) + '/100', ir.score >= 80 ? 'good' : ir.score >= 65 ? 'acc' : ''),

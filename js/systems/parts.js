@@ -475,7 +475,7 @@
       if (prac.ctrl) prac.nswitch = 1;
       if (R.visionLvl) comp.accel = 1;
       if (comp.ctrl && G.Era.of(S).canBus) comp.canfd = 1; // a CAN FD hub: matches are where the bus overloads
-      if (prac.ctrl && G.Era.of(S).canBus) prac.canfd = 1; // (3.5.3) and the second robot: an overloaded bus slows development on it (D.CAN2_DEV)
+      if (prac.ctrl && G.Era.of(S).canBus) prac.canfd = 1; // (3.5.3) and the second robot: an overloaded bus slows development on it (D.DEV_K)
     }
     return { comp, prac, sub: resolveDrive(S, comp, prac) };
   };
@@ -755,9 +755,20 @@
   }
   // the competition robot's CAN bus: { dev, cap, hub, over } (null before 2023, in old careers or without a robot)
   P.canBus = S => (S.robot && S.cal ? P.profile(S).can || null : null);
-  // (3.5.3) the second robot's bus, and how much development on it counts: D.CAN2_DEV while it is overloaded, else 1
+  // (3.5.3) the second robot's bus
   P.can2 = S => (S.robot && S.robot.bots && S.cal ? P.profile(S, 'prac').can || null : null);
-  P.dev2K = S => { const c = P.can2(S); return c && c.over > 0 ? D.CAN2_DEV : 1; };
+  // (3.5.4) How much development on a robot counts at home (side 'comp' or 'prac'): an overloaded CAN bus freezes it
+  // on the bench now and then (D.DEV_K.can), and cameras without a network switch flood its network (D.DEV_K.nsw, once
+  // the switch is sold). { k, can, nsw }: k multiplies its testing hours (and the second robot's path-planning help).
+  P.devK = function (S, side) {
+    const out = { k: 1, can: false, nsw: false };
+    if (!S.robot || !S.robot.bots || !S.cal || !S.inv) return out;
+    const pp = P.profile(S, side === 'prac' ? 'prac' : 'comp'), sw = D.LANTERN.find(L => L.cat === 'nswitch');
+    if (pp.can && pp.can.over > 0) { out.can = true; out.k *= D.DEV_K.can; }
+    if (pp.cam != null && !pp.nsw && sw && P.lanternOut(S, sw)) { out.nsw = true; out.k *= D.DEV_K.nsw; }
+    return out;
+  };
+  P.dev2K = S => P.devK(S, 'prac').k;
   P.devMult = S => { if (!S.robot) return 1; const pp = P.profile(S); return pp.mixed ? D.MIX_HOURS : pp.kopMix ? D.KOP_MIX_HOURS : 1; };
 
   // ======================= wear =======================

@@ -538,7 +538,9 @@
   // (3.5.3) A second robot on another control system (S.vendorPref2): fam, the share of the drivers' practice on it
   // that carries over to the competition robot; path, the share of the matching-chassis path bonus left (code to port)
   D.CTRL2 = { fam: 0.7, path: 0.5 };
-  D.CAN2_DEV = 0.85; // (3.5.3) development on a second robot whose CAN bus is overloaded (no CAN FD hub, or too small a one): testing and path planning
+  // (3.5.3, both robots from 3.5.4) development at home on a robot whose CAN bus is overloaded (no CAN FD hub, or too
+  // small a one), or that carries cameras without a network switch: its testing hours (and the second robot's path planning)
+  D.DEV_K = { can: 0.85, nsw: 0.9 };
   // (3.5.3) Practice-day installs in the bag years: the work a subsystem's packed parts take (Robot.installWork)
   D.INSTALL_WORK = { mech: 2, part: 1 };
   D.CHASSIS_PATH = 0.2;     // a second robot on the same drivetrain family (tank / holonomic) speeds up auto and path projects by 20%

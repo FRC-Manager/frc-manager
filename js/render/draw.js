@@ -683,7 +683,13 @@
         if (m.year === 2024) ring(ctx, s, x, y, 0.15, COL.note);
         else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
         else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
-        else if (m.year === 2026) { ball(ctx, s, x, y, 0.07, COL.fuel); ball(ctx, s, x - 0.18, y + 0.1, 0.06, COL.fuel); ball(ctx, s, x + 0.12, y - 0.14, 0.06, COL.fuel); }
+        else if (m.year === 2026) {
+          // (3.5.4) a turret fires single file (one ball after another along the flight), fixed and hood shooters two
+          // abreast, the wide dumper four abreast (across the flight)
+          const n = f.lanes || 2, dx = f.x1 - f.x0, dy = f.y1 - f.y0, L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;
+          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, 0.065, COL.fuel); }
+          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * 0.18; ball(ctx, s, x + px * o, y + py * o, 0.065, COL.fuel); }
+        }
         else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
         else circ(ctx, s, x, y, 0.1, '#d9dee3');
         ctx.restore();

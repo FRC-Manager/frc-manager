@@ -1072,14 +1072,15 @@
   };
   // Apply this turn's hours (and development-testing hours); returns completed project names and testing use.
   // dev2 (3.5.3): the part of devH that runs on the second robot, which a Vision Level project can't use without its cameras
-  // The week's testing hours shared out: the second robot's first (no Vision Level without its cameras), then the rest.
-  // give: what each project's testing is worth (the second robot's hours count G.Parts.dev2K: less on an overloaded
-  // CAN bus); raw: the hours each one used.
+  // The week's testing hours shared out: the second robot's first (no Vision Level without its cameras), then the rest,
+  // which run on the competition robot. give: what each project's testing is worth (each robot's hours count
+  // G.Parts.devK: less on an overloaded CAN bus or with cameras and no network switch); raw: the hours each one used.
   Robot.testShare = function (S, devH, dev2, give, limited) {
-    const no2 = dev2 > 0 && !Robot.vision2(S) ? p => p.type === 'vision' : null, k = dev2 > 0 ? G.Parts.dev2K(S) : 1;
-    if (!no2 && k === 1) { const t = Robot.testPlan(S, devH || 0, give, limited); return { give: t.give, raw: t.give, idle: t.idle }; }
-    const b = Robot.testPlan(S, Math.min(dev2, devH || 0), give, limited, no2), r = Robot.testPlan(S, Math.max(0, (devH || 0) - dev2), give, limited, null, b.give);
-    const eff = {}; Object.keys(r.give).forEach(id => { eff[id] = r.give[id] - (1 - k) * (b.give[id] || 0); });
+    const d = devH || 0, no2 = dev2 > 0 && !Robot.vision2(S) ? p => p.type === 'vision' : null;
+    const k2 = dev2 > 0 ? G.Parts.devK(S, 'prac').k : 1, k1 = d > dev2 ? G.Parts.devK(S, 'comp').k : 1;
+    if (!no2 && k1 === 1 && k2 === 1) { const t = Robot.testPlan(S, d, give, limited); return { give: t.give, raw: t.give, idle: t.idle }; }
+    const b = Robot.testPlan(S, Math.min(dev2, d), give, limited, no2), r = Robot.testPlan(S, Math.max(0, d - dev2), give, limited, null, b.give);
+    const eff = {}; Object.keys(r.give).forEach(id => { const on2 = b.give[id] || 0; eff[id] = k2 * on2 + k1 * (r.give[id] - on2); });
     return { give: eff, raw: r.give, idle: b.idle + r.idle };
   };
   Robot.work = function (S, hours, mods, devH, limited, dev2) {

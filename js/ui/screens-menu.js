@@ -261,6 +261,11 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.4', title: 'Testing at home, strategy read, 2026 shots', notes: [
+      'Development at home counts less on a robot whose CAN bus is overloaded (85%) or that carries cameras without a network switch (90%), on the competition robot as well as the second one. With only one robot all testing is on it. The Design Office and the Garage say when either applies.',
+      'Strategy read is shown as a number from 0 to 100 at Headquarters, on the Team page (with what it is made of) and at events, with what it does in this season\'s game.',
+      '2026: a turret fires fuel single file, fixed and hood shooters two abreast, and only the wide dumper four abreast.'
+    ] },
     { v: '3.5.3', title: 'Robot parts that matter, two robots, cleaner drawings', notes: [
       'Robot parts now count on the unit they are fitted to, while it runs on them: a drivetrain on better motors is faster, a scorer on better motors scores faster, an intake takes in faster, worn parts make that unit fail more often and planetary gearboxes make it fail less. Ceilings no longer depend on parts. The Garage shows what each unit\'s parts add. Saves from before are converted when they load.',
       'A new guide topic, How a robot is made, draws the whole chain: subsystem, concept, version, unit and robot, with build parts going into units and robot parts going onto robots. The game says unit for a built one everywhere, and the glossary has the new terms.',
