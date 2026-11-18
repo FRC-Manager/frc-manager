@@ -79,10 +79,10 @@
       ctx.restore();
     });
     m.robots.forEach(r => {
-      { const tg = !r.dead && r.st === 'act' && /^(Placing|Loading|Scoring)/.test(r.label || '') ? 1 : 0; r.vx = r.vx == null || m.done ? tg : r.vx + (tg - r.vx) * 0.14; }
+      const aiming = G.Render.animate(m, r); // the reach, the intake and the climber, as in the game
       const rr = Object.create(r), p = pos(r); rr.x = p.x / s; rr.y = p.y / s;
       const g = aimFor(m, r);
-      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year });
+      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: aiming && m.year < 2023 && (r.cap.visionLvl || 0) >= 1 }); // (no career here: the green light goes by the game's own year)
     });
     G.Render.fx(ctx, s, m);
     if (T.labels) m.robots.forEach(r => {

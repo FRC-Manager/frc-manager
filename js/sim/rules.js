@@ -213,6 +213,7 @@
   const placeTime = (row, type) => [0.9, 1.4, 1.9][row] + (type === 'cone' ? 0.5 : 0);
   function rowLinks(g, row) { let n = 0, c = 0; while (c <= 6) { if (g[row * 9 + c] && g[row * 9 + c + 1] && g[row * 9 + c + 2]) { n++; c += 3; } else c++; } return n; }
   const countLinks = g => rowLinks(g, 0) + rowLinks(g, 1) + rowLinks(g, 2);
+  const SUS23 = { reg: [5, 4], dcmp: [5, 4], cmp: [6, 5] }; // links for the Sustainability Bonus [alone, with Coopertition]: raised for the Championship
   const coopCount = g => { let n = 0; for (let row = 0; row < 3; row++) for (let c = 3; c <= 5; c++) if (g[row * 9 + c]) n++; return n; };
   function linkGain(g, row, col) {
     const before = rowLinks(g, row); g[row * 9 + col] = 9; const after = rowLinks(g, row); g[row * 9 + col] = 0;
@@ -385,7 +386,7 @@
       const coop = coopCount(g) >= 3 && coopCount(og) >= 3, links = countLinks(g);
       const cs = ss.autoCS + (m.done ? ss.endCS : m.robots.filter(r => r.a === a && r.end && r.end.lvl === 1).length * 6);
       return [
-        { key: 'sus', name: 'Sustainability', val: links, thr: coop ? 5 : 6, ok: links >= (coop ? 5 : 6), unit: 'links' }, // 6 links, 5 with Coopertition
+        { key: 'sus', name: 'Sustainability', val: links, thr: SUS23[m.level][coop ? 1 : 0], ok: links >= SUS23[m.level][coop ? 1 : 0], unit: 'links' }, // (3.5.5) 5 links, 4 with Coopertition; 6 and 5 at the Championship
         { key: 'act', name: 'Activation', val: cs, thr: 26, ok: cs >= 26, unit: 'pts' }
       ];
     },
@@ -525,7 +526,7 @@
     const ss = m.ss[r.a], mid = mode === 'mid', iq = iq24(m, r.a);
     const tgt = mid ? E.P(m, r.a, 6.6, U.clamp(q.y + 1.6, 2.2, 5.8)) : m.pileSpot[r.a];
     const fd = r.plan.role === 'feed' ? 0.75 : 1; // a dedicated feeder has its lob tuned and fires as it reaches the line
-    H.act(r, (H.aimTime(m, r) * 0.55 + H.scoreTime(m, r, 0.4)) * fd, () => {
+    H.act(r, (H.aimTime(m, r, tgt) * 0.55 + H.scoreTime(m, r, 0.4)) * fd, () => {
       if (!r.held) return;
       r.held = 0; r.stats.passes = (r.stats.passes || 0) + 1;
       // lobs are forgiving: accuracy comes from shooter range, the drive team and strategy read; a defender in contact spoils them
@@ -617,6 +618,9 @@
   // the MELODY threshold by event (Coopertition lowers it): 18/15 at regionals and districts, 21/18 at District
   // Championships, 25/21 at the Championship
   const MELODY24 = { reg: [18, 15], dcmp: [21, 18], cmp: [25, 21] };
+  // (3.5.5) 2025: coral on each level for the Coral RP, and Barge points for the Barge RP. Only the Championship raises them
+  // (they were 7 and 16 everywhere, while robots chasing the bonus stopped at 5)
+  const CORAL25 = { reg: [5, 14], dcmp: [5, 14], cmp: [7, 16] };
   const stLeg24 = (m, a, k) => { const g = ST24.legs[k] * Math.PI / 180; return E.P(m, a, ST24.x + Math.cos(g) * ST24.r, ST24.y + Math.sin(g) * ST24.r); };
   // a place on chain k (on the sides facing 0°, 120° and 240°), just outside the side; off: along it, for a second robot
   function chainPt(m, a, k, off) {
@@ -822,7 +826,7 @@
       const k = faceFor(m, r, L);
       if (k < 0) continue;
       let val = (auto ? PT25.auto : PT25.tele)[L - 1];
-      if (!auto && ss.lv[L - 1] < 5 && r.plan.rpHunt) val += 1.2;
+      if (!auto && ss.lv[L - 1] < CORAL25[m.level][0] && r.plan.rpHunt) val += 1.2;
       if (r.plan.target === 'L4' && L === 4) val += 4;
       if (r.plan.target === 'mid' && (L === 2 || L === 3)) val += 3;
       if (r.plan.target === 'L1' && L === 1) val += 4;
@@ -882,7 +886,7 @@
     const useNet = r.cap.net && (ss.proc >= 2 || r.plan.target === 'algae');
     const spot = useNet ? m.netSpot[r.a] : m.procSpot[r.a];
     H.moveTo(m, r, spot, () => {
-      H.act(r, (useNet ? H.aimTime(m, r) : 0) + H.scoreTime(m, r, useNet ? 0.8 : 1.0, r.cap.algaeSkill || 50), () => {
+      H.act(r, (useNet ? H.aimTime(m, r, { x: FW / 2, y: spot.y }) : 0) + H.scoreTime(m, r, useNet ? 0.8 : 1.0, r.cap.algaeSkill || 50), () => {
         r.stats.shots++;
         const p = H.hit(m, r, useNet ? 0.92 : 1.15, 0, r.cap.algaeSkill || 50);
         if (useNet) H.shotFx(m, r, { x: FW / 2, y: spot.y }, true);
@@ -1048,13 +1052,13 @@
     },
     bonus(m, a) {
       const ss = m.ss[a];
-      const lvls = ss.lv.filter(n => n >= 7).length, need = m.coop ? 3 : 4; // 7 coral on each level (3 levels with Coopertition)
+      const per = CORAL25[m.level][0], bthr = CORAL25[m.level][1], lvls = ss.lv.filter(n => n >= per).length, need = m.coop ? 3 : 4; // 5 coral on each level, 7 at the Championship (3 levels with Coopertition)
       const autoOk = (m.phase === 'auto' ? H.alliance(m, a).every(r => r.left) : ss.allLeft) && ss.autoCoral >= 1;
       const barge = m.done ? ss.barge : m.robots.filter(r => r.a === a && r.end && r.end.lvl > 0).reduce((s, r) => s + (r.end.lvl === 2 ? 12 : 6), 0);
       return [
         { key: 'auto', name: 'Auto RP', val: ss.autoCoral, thr: 1, ok: autoOk, unit: 'auto coral' },
-        { key: 'coral', name: 'Coral RP', val: lvls, thr: need, ok: lvls >= need, unit: 'levels ≥7' },
-        { key: 'barge', name: 'Barge RP', val: barge, thr: 16, ok: barge >= 16 || !!ss.bargeAward, unit: 'pts' } // bargeAward: G428
+        { key: 'coral', name: 'Coral RP', val: lvls, thr: need, ok: lvls >= need, unit: 'levels ≥' + per },
+        { key: 'barge', name: 'Barge RP', val: barge, thr: bthr, ok: barge >= bthr || !!ss.bargeAward, unit: 'pts' } // 14 points, 16 at the Championship; bargeAward: G428
       ];
     },
     hud(m, a) { const ss = m.ss[a]; return ['L1 ' + ss.lv[0] + ' · L2 ' + ss.lv[1] + ' · L3 ' + ss.lv[2] + ' · L4 ' + ss.lv[3]].concat(m.coop ? ['CO-OP'] : []); }
@@ -1075,7 +1079,7 @@
   // a linear slide intake packs the fuel down so the shooter is fed faster; a dye-rotor turret shoots more fuel a second
   // and more consistently (less of the range penalty and a little more accuracy)
   const COMPACT26 = 1.1, ROTOR26 = { rate: 1.05, hit: 0.015, pen: 0.75 };
-  const cap26 = r => Math.max(4, Math.round((r.cap.storage || 10) * (r.cap.lowProfile ? 0.6 : 1)));
+  const cap26 = r => Math.max(4, Math.round((r.cap.storage || 10) * (r.cap.lowProfile ? 0.7 : 1))); // (3.5.5) a low-profile frame keeps 70% of the hopper (60% before)
   function active26(m, a) {
     if (m.phase === 'auto') return true;
     const tt = m.t - m.T.auto;
@@ -1114,6 +1118,7 @@
     const sweep = () => {
       if (!H.canCollect(m, r) || !H.canScore(m, r)) return;
       const T = 3.5, thru = Math.min(irate26(r) * dens26(m) * 1.2, rate26(r)); // no hopper to manage: straight through the robot
+      H.face(r, E.P(m, r.a, 2.8, 4.03)); // (3.5.5) it faces home while it throws the fuel there
       H.act(r, T, () => {
         const k = Math.min(Math.floor(m.neutral), Math.max(1, Math.round(thru * T)));
         if (k <= 0) return;

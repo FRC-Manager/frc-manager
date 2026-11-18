@@ -257,9 +257,9 @@
       ctx.restore();
     });
     m.robots.forEach(r => {
-      const q = Object.create(r), p = pos(r); q.x = p.x; q.y = p.y;
+      const aiming = Rd.animate(m, r), q = Object.create(r), p = pos(r); q.x = p.x; q.y = p.y;
       const g = aimFor(m, r);
-      Rd.robot(ctx, s, q, { aim: g ? Math.atan2(g.y - q.y, g.x - q.x) : null, year: m.year });
+      Rd.robot(ctx, s, q, { aim: g ? Math.atan2(g.y - q.y, g.x - q.x) : null, year: m.year, aimLight: aiming && m.year < 2023 && (r.cap.visionLvl || 0) >= 1 });
     });
     Rd.fx(ctx, s, m);
     if (o.labels) m.robots.forEach(r => {

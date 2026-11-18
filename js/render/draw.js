@@ -313,35 +313,20 @@
     ctx.translate(x, y);
     if (r.climbing || (r.end && r.end.lvl > 0)) { ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; }
     ctx.rotate(r.hd || 0);
-    // drivetrain under frame
-    const drv = lk.drive || 'tank';
-    ctx.fillStyle = '#111';
-    if (drv === 'swerve') {
-      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => { ctx.save(); ctx.translate(c[0] * h * 0.68, c[1] * h * 0.68); ctx.beginPath(); ctx.arc(0, 0, sz * 0.13, 0, 7); ctx.fillStyle = '#222'; ctx.fill(); ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.stroke(); ctx.beginPath(); ctx.moveTo(-sz * 0.1, 0); ctx.lineTo(sz * 0.1, 0); ctx.stroke(); ctx.restore(); });
-    } else if (drv === 'tread') {
-      // tank treads: one long belt down each side, with its grousers
-      [-1, 1].forEach(sd => {
-        ctx.fillStyle = '#1a1a1a'; ctx.beginPath(); ctx.roundRect(-h * 0.86, sd * h * 0.95 - sz * 0.08, h * 1.72, sz * 0.16, sz * 0.07); ctx.fill();
-        ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-        for (let k = 0; k <= 8; k++) { const tx = -h * 0.78 + k * (h * 1.56 / 8); ctx.beginPath(); ctx.moveTo(tx, sd * h * 0.95 - sz * 0.07); ctx.lineTo(tx, sd * h * 0.95 + sz * 0.07); ctx.stroke(); }
-      });
-    } else {
-      const n = drv === 'wcd8' ? 4 : drv === 'mecanum' ? 2 : 3;
-      for (let i = 0; i < n; i++) {
-        const wx = -h * 0.7 + i * (h * 1.4 / Math.max(1, n - 1));
-        [-1, 1].forEach(sd => {
-          ctx.fillStyle = '#1a1a1a'; ctx.fillRect(wx - sz * 0.1, sd * h * 0.95 - sz * 0.07, sz * 0.2, sz * 0.14);
-          if (drv === 'mecanum') { ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(wx - sz * 0.08, sd * h * 0.95 - sz * 0.05 * sd); ctx.lineTo(wx + sz * 0.08, sd * h * 0.95 + sz * 0.05 * sd); ctx.stroke(); }
-        });
-      }
-    }
     // bumper (with a darker seam) + frame
     ctx.fillStyle = ac; ctx.beginPath(); ctx.roundRect(-h, -h, sz, sz, sz * 0.08); ctx.fill();
     ctx.strokeStyle = shade(ac, -0.22); ctx.lineWidth = Math.max(1, sz * 0.025); ctx.strokeRect(-h + sz * 0.055, -h + sz * 0.055, sz * 0.89, sz * 0.89);
     const ver = lk.ver || 1;
     ctx.fillStyle = ver >= 2 ? shade(lk.c1 || '#7a8591', -0.15) : '#77808a';
-    if (!r.isPlayer && ver >= 2) ctx.fillStyle = '#5d6670';
+    if (!r.isPlayer && ver >= 2 && !lk.c1) ctx.fillStyle = '#5d6670'; // (3.5.5) a rival that paints its robot shows its colour
     ctx.fillRect(-h + sz * 0.11, -h + sz * 0.11, sz * 0.78, sz * 0.78);
+    // (3.5.5) the wheels: inside the frame, at the lowest layer (whatever is built above may hide them)
+    { const drv = lk.drive || 'tank', wy = sz * 0.335, ww = sz * 0.085;
+      if (drv === 'swerve') [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(c => { const mx = c[0] * sz * 0.3, my = c[1] * sz * 0.3; ctx.fillStyle = '#24282d'; ctx.beginPath(); ctx.roundRect(mx - sz * 0.085, my - sz * 0.085, sz * 0.17, sz * 0.17, sz * 0.03); ctx.fill(); ctx.fillStyle = '#0e1012'; ctx.fillRect(mx - sz * 0.06, my - sz * 0.026, sz * 0.12, sz * 0.052); ctx.strokeStyle = 'rgba(200,208,216,0.45)'; ctx.lineWidth = 1; ctx.strokeRect(mx - sz * 0.06, my - sz * 0.026, sz * 0.12, sz * 0.052); });
+      else if (drv === 'tread') [-1, 1].forEach(sd => { ctx.fillStyle = '#0e1012'; ctx.beginPath(); ctx.roundRect(-sz * 0.37, sd * wy - ww / 2, sz * 0.74, ww, ww * 0.4); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = 1; for (let i = 0; i <= 9; i++) { const tx = -sz * 0.34 + i * sz * 0.68 / 9; ctx.beginPath(); ctx.moveTo(tx, sd * wy - ww / 2); ctx.lineTo(tx, sd * wy + ww / 2); ctx.stroke(); } });
+      else { const n = drv === 'wcd8' ? 4 : drv === 'mecanum' ? 2 : 3, wl = sz * (n === 4 ? 0.15 : 0.17);
+        for (let i = 0; i < n; i++) { const wx = -sz * 0.29 + i * (sz * 0.58 / Math.max(1, n - 1)); [-1, 1].forEach(sd => { ctx.fillStyle = '#0e1012'; ctx.fillRect(wx - wl / 2, sd * wy - ww / 2, wl, ww);
+          if (drv === 'mecanum') { ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = 1; for (let j = -1; j <= 1; j++) { ctx.beginPath(); ctx.moveTo(wx + j * wl * 0.3 - ww * 0.4 * sd, sd * wy - ww / 2); ctx.lineTo(wx + j * wl * 0.3 + ww * 0.4 * sd, sd * wy + ww / 2); ctx.stroke(); } } }); } } }
     // frame rails, battery and electronics (only drawn when there is room)
     if (sz > 26) {
       ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = Math.max(1, sz * 0.02);
@@ -354,127 +339,14 @@
     // team number on the rear bumper
     if (sz > 34) { ctx.save(); ctx.rotate(Math.PI / 2); ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.font = '800 ' + Math.round(sz * 0.085) + 'px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(r.team), 0, h - sz * 0.028); ctx.restore(); }
     if (ver >= 3) { ctx.strokeStyle = r.held ? '#4cff8a' : (lk.c2 || '#fff'); ctx.lineWidth = 1.5; ctx.strokeRect(-h + sz * 0.14, -h + sz * 0.14, sz * 0.72, sz * 0.72); }
-    // intake (front = +x)
-    const it = lk.intake;
-    ctx.fillStyle = '#d9dee3';
-    const stripes = (x0, y0, w, hh) => { if (sz < 26) return; ctx.save(); ctx.strokeStyle = 'rgba(40,46,52,0.6)'; ctx.lineWidth = 1; for (let yy = y0 + hh * 0.12; yy < y0 + hh; yy += hh / 6) { ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + w, yy); ctx.stroke(); } ctx.restore(); };
-    if (it === 'over') { ctx.fillRect(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); stripes(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); }
-    else if (it === 'wide') { ctx.fillRect(h - sz * 0.02, -h * 0.98, sz * 0.13, h * 1.96); stripes(h - sz * 0.02, -h * 0.98, sz * 0.13, h * 1.96); }
-    else if (it === 'under') ctx.fillRect(h - sz * 0.13, -h * 0.7, sz * 0.06, h * 1.4);
-    else if (it === 'dual') { ctx.fillRect(h - sz * 0.02, -h * 0.75, sz * 0.12, h * 1.5); ctx.fillRect(-h - sz * 0.1, -h * 0.75, sz * 0.12, h * 1.5); }
-    else if (it === 'claw') { ctx.fillRect(h - sz * 0.05, -h * 0.4, sz * 0.12, sz * 0.06); ctx.fillRect(h - sz * 0.05, h * 0.4 - sz * 0.06, sz * 0.12, sz * 0.06); }
-    else if (it === 'funnel') { ctx.beginPath(); ctx.moveTo(-h * 0.2, -h * 0.6); ctx.lineTo(-h * 0.85, 0); ctx.lineTo(-h * 0.2, h * 0.6); ctx.strokeStyle = '#d9dee3'; ctx.lineWidth = 2; ctx.stroke(); }
-    // hopper
-    if (lk.hopper) {
-      const fill = Math.min(1, (r.held || 0) / Math.max(1, (r.cap && r.cap.storage) || lk.hopper));
-      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(-h * 0.7, -h * 0.6, h * 1.0, h * 1.2);
-      ctx.fillStyle = COL.fuel; ctx.fillRect(-h * 0.7, -h * 0.6 + h * 1.2 * (1 - fill), h * 1.0, h * 1.2 * fill);
-      ctx.strokeStyle = '#333'; ctx.lineWidth = 1; for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-h * 0.7 + i * h / 3, -h * 0.6); ctx.lineTo(-h * 0.7 + i * h / 3, h * 0.6); ctx.stroke(); }
-      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.strokeRect(-h * 0.7, -h * 0.6, h * 1.0, h * 1.2); // (3.5.3) the hopper's walls: empty when it holds nothing
-    }
-    // manipulator
-    const mp = lk.manip;
-    ctx.strokeStyle = '#f0f3f6'; ctx.lineWidth = 2;
-    if (mp === 'elevator' || mp === 'elevwrist') {
-      ctx.fillStyle = '#c3cad1'; ctx.fillRect(-h * 0.1, -h * 0.55, sz * 0.08, h * 1.1); ctx.fillRect(h * 0.18, -h * 0.55, sz * 0.08, h * 1.1);
-      ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.05, -h * 0.25, h * 0.45, h * 0.5);
-      if (mp === 'elevwrist') { ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(h * 0.45, -h * 0.15, h * 0.35, h * 0.3); }
-    } else if (mp === 'arm') { ctx.beginPath(); ctx.moveTo(-h * 0.3, 0); ctx.lineTo(h * 0.95, 0); ctx.lineWidth = 4; ctx.stroke(); ctx.fillStyle = '#e8edf2'; ctx.fillRect(h * 0.8, -h * 0.2, h * 0.3, h * 0.4); }
-    else if (mp === 'dja') { ctx.beginPath(); ctx.moveTo(-h * 0.5, 0); ctx.lineTo(h * 0.25, -h * 0.3); ctx.lineTo(h * 1.0, 0); ctx.lineWidth = 3.5; ctx.stroke(); }
-    else if (mp === 'low') { ctx.fillStyle = '#e8edf2'; ctx.fillRect(h * 0.55, -h * 0.5, h * 0.25, h); }
-    else if (mp === 'turretlift') {
-      // 2019: the elevator on a turret. A ring on the frame; the mast, carriage and wrist turn to face the bay or the
-      // Loading Station while the chassis keeps its heading, and the carriage reaches out when it places (r.vx)
-      const ang = o.aim != null ? o.aim - (r.hd || 0) : 0, ex = r.vx || 0;
-      ctx.beginPath(); ctx.arc(0, 0, sz * 0.27, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.save(); ctx.rotate(ang);
-      ctx.fillStyle = '#c3cad1'; ctx.fillRect(-sz * 0.07, -sz * 0.18, sz * 0.08, sz * 0.36);
-      ctx.fillStyle = '#e8edf2'; ctx.fillRect(0, -sz * 0.09, sz * (0.24 + 0.2 * ex), sz * 0.18);
-      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(sz * (0.2 + 0.2 * ex), -sz * 0.13, sz * 0.1, sz * 0.26);
-      ctx.restore();
-    } else if (mp === 'tele') {
-      // 2023 / 2025: a telescoping arm on a low pivot at the back. It lies flat inside the frame while the robot drives
-      // and shoots out over the front bumper when it places (r.vx: 0 folded … 1 fully out)
-      const ex = r.vx || 0, x0 = -h * 0.62, L0 = h * 1.15, L1 = h * (1.15 + 0.95 * ex);
-      ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.8, -h * 0.42, h * 0.3, h * 0.84);
-      ctx.fillStyle = '#c3cad1'; ctx.fillRect(x0, -h * 0.17, L0, h * 0.34);
-      ctx.fillStyle = '#e8edf2'; ctx.fillRect(x0 + L0 * 0.3, -h * 0.1, L1 - L0 * 0.3, h * 0.2);
-      ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(x0 + L1 - h * 0.06, -h * 0.27, h * 0.26, h * 0.54);
-    }
-    else if (mp === 'ampbar') { ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.8, -h * 0.85, h * 1.2, h * 0.12); }
-    // shooter
-    const sh = lk.shooter;
-    if (sh === 'turret' || sh === 'rotor') {
-      ctx.save();
-      const ang = o.aim != null ? o.aim - (r.hd || 0) : 0;
-      ctx.beginPath(); ctx.arc(-h * 0.1, 0, sz * 0.24, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.translate(-h * 0.1, 0); ctx.rotate(ang); ctx.fillStyle = '#e8edf2'; ctx.fillRect(0, -sz * 0.05, sz * 0.36, sz * 0.1);
-      if (sh === 'rotor') { ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, sz * 0.17, 0, 7); ctx.stroke(); ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1; for (let i = 0; i < 6; i++) { const g = i * Math.PI / 3; ctx.beginPath(); ctx.moveTo(Math.cos(g) * sz * 0.05, Math.sin(g) * sz * 0.05); ctx.lineTo(Math.cos(g) * sz * 0.17, Math.sin(g) * sz * 0.17); ctx.stroke(); } } // the rotor that feeds it: a spoked wheel (3.5.3: it drew six rings that looked like balls)
-      ctx.restore();
-    } else if (sh === 'hood' || sh === 'pivot') {
-      ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.6, -h * 0.4, h * 0.8, h * 0.8);
-      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-h * 0.2, 0, h * 0.35, -1.2, 1.2); ctx.stroke();
-    } else if (sh === 'fixed') { ctx.fillStyle = '#2f353c'; ctx.fillRect(-h * 0.55, -h * 0.35, h * 0.7, h * 0.7); ctx.fillStyle = '#e8edf2'; ctx.fillRect(-h * 0.55, -h * 0.08, h * 0.7, h * 0.16); }
-    else if (sh === 'dump') {
-      // 2022 low-goal bucket: an open tray that tips cargo out of the back
-      ctx.fillStyle = '#3b424a'; ctx.fillRect(-h * 0.72, -h * 0.5, h * 0.8, h);
-      ctx.fillStyle = '#23282e'; ctx.fillRect(-h * 0.62, -h * 0.38, h * 0.6, h * 0.76);
-      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.strokeRect(-h * 0.72, -h * 0.5, h * 0.8, h);
-    } else if (sh === 'wide') {
-      // 2026 wide dumper: a bank of flywheels across the front, four fuel balls wide (4 x 15 cm), under an adjustable hood
-      ctx.fillStyle = '#2f353c'; ctx.fillRect(h * 0.16, -h * 0.72, h * 0.5, h * 1.44);
-      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.02); ctx.beginPath(); ctx.arc(h * 0.05, 0, h * 0.72, -0.85, 0.85); ctx.stroke(); // the hood
-      // (3.5.3) the flywheels seen from above: edge-on wheels with team-colour treads on one axle (they were drawn as
-      // round yellow discs, which read as fuel)
-      ctx.strokeStyle = '#9aa4ae'; ctx.lineWidth = Math.max(1, sz * 0.018); ctx.beginPath(); ctx.moveTo(h * 0.41, -h * 0.7); ctx.lineTo(h * 0.41, h * 0.7); ctx.stroke();
-      for (let i = 0; i < 4; i++) {
-        const yy = (i - 1.5) * sz * 0.17;
-        ctx.fillStyle = '#15181c'; ctx.fillRect(h * 0.27, yy - sz * 0.055, h * 0.28, sz * 0.11);
-        ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(h * 0.27, yy - sz * 0.055, h * 0.05, sz * 0.11); ctx.fillRect(h * 0.5, yy - sz * 0.055, h * 0.05, sz * 0.11);
-      }
-    }
-    // 2020 revolver indexer: a drum of five 7-inch power cells (about 20 inches across) in front of the shooter
-    // (3.5.3) five pockets around a hub; a power cell sits in a pocket only when the robot holds one (they were always drawn)
-    if (lk.indexer === 'revolver') {
-      const rx = h * 0.42, R0 = sz * 0.25, cells = r.held && (!r.heldType || r.heldType === 'cell') ? Math.min(5, r.held) : 0, pc = Rd.PIECES.cell;
-      ctx.beginPath(); ctx.arc(rx, 0, R0, 0, 7); ctx.fillStyle = '#2f353c'; ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i++) { const g = (i + 0.5) * Math.PI * 0.4; ctx.beginPath(); ctx.moveTo(rx + Math.cos(g) * R0 * 0.25, Math.sin(g) * R0 * 0.25); ctx.lineTo(rx + Math.cos(g) * R0, Math.sin(g) * R0); ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(rx, 0, R0 * 0.22, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill();
-      for (let i = 0; i < 5; i++) {
-        const g = i * Math.PI * 0.4, px = rx + Math.cos(g) * sz * 0.155, py = Math.sin(g) * sz * 0.155;
-        ctx.beginPath(); ctx.arc(px, py, sz * 0.07, 0, 7);
-        if (i < cells) { ctx.fillStyle = pc ? pc.col : COL.fuel; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.stroke(); } else { ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.stroke(); }
-      }
-    }
-    // algae mechanisms (3.5.3: hardware only; the algae shows when the robot holds one): a pivoting roller arm for the
-    // net, a low roller box for the processor
-    const algaeAt = lk.algae === 'net' ? [-h * 0.5, h * 0.5] : lk.algae === 'proc' ? [-h * 0.62, h * 0.52] : null;
-    if (lk.algae === 'net') {
-      ctx.fillStyle = '#4a525b'; ctx.fillRect(-h * 0.85, h * 0.36, h * 0.7, h * 0.28);
-      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = Math.max(1.5, sz * 0.03); [h * 0.42, h * 0.62].forEach(yy => { ctx.beginPath(); ctx.moveTo(-h * 0.82, yy); ctx.lineTo(-h * 0.18, yy); ctx.stroke(); });
-    } else if (lk.algae === 'proc') {
-      ctx.fillStyle = '#4a525b'; ctx.fillRect(-h * 0.84, h * 0.36, h * 0.44, h * 0.32);
-      ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = Math.max(1.5, sz * 0.03); ctx.beginPath(); ctx.moveTo(-h * 0.84, h * 0.52); ctx.lineTo(-h * 0.4, h * 0.52); ctx.stroke();
-    }
-    // climber (rear = -x)
-    const cl = lk.climber;
-    if (cl && cl !== 'none') {
-      ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = cl === 'arms' || cl === 'triple' ? 3 : 2;
-      if (cl === 'triple') { ctx.lineWidth = 2; [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(-h * 0.6, sd * h * 0.95); ctx.lineTo(-h * 0.6, sd * (h * 0.95 + sz * 0.26)); ctx.stroke(); }); ctx.lineWidth = 3; } // ramps out to both sides for the two partners
-      const len = cl === 'arms' || cl === 'triple' ? 0.32 : cl === 'hook2' ? 0.22 : 0.16;
-      [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(-h * 0.85, sd * h * 0.6); ctx.lineTo(-h * 0.85 - sz * len, sd * h * 0.6); ctx.stroke(); });
-    }
+    // (3.5.5) the mechanisms: every season draws its own, and they move (draw-robot-top.js)
+    const T = (Rd.topMech ? Rd.topMech(ctx, sz, r, lk, o) : null) || {}, algaeAt = T.algae ? [T.algae[0] * sz, T.algae[1] * sz] : null;
     // held piece (3.5.3: in the mechanism that holds it, not on top of the robot's middle; the hopper and the revolver
     // show their own)
-    if (r.held && !lk.hopper && !(lk.indexer === 'revolver' && (!r.heldType || r.heldType === 'cell'))) {
+    if (r.held && !T.own) {
       const t = r.heldType;
       const col = t === 'cone' ? COL.cone : t === 'cube' ? COL.cube : t === 'algae' ? COL.algae : t === 'coral' ? COL.coral : G.S && r.year === 2024 ? COL.note : null;
-      const ex = r.vx || 0, ang = o.aim != null ? o.aim - (r.hd || 0) : 0;
-      const at = t === 'algae' && algaeAt ? algaeAt : lk.shooter === 'dump' ? [-h * 0.32, 0]
-        : mp === 'tele' ? [-h * 0.62 + h * (1.15 + 0.95 * ex) + h * 0.07, 0] : mp === 'turretlift' ? [Math.cos(ang) * sz * (0.27 + 0.2 * ex), Math.sin(ang) * sz * (0.27 + 0.2 * ex)]
-        : mp === 'elevwrist' ? [h * 0.62, 0] : mp === 'elevator' ? [h * 0.18, 0] : mp === 'arm' ? [h * 0.95, 0] : mp === 'dja' ? [h * 0.95, 0]
-        : sh === 'turret' || sh === 'rotor' || sh === 'hood' || sh === 'pivot' || sh === 'fixed' ? [h * 0.4, 0] : [0, 0];
+      const at = t === 'algae' && algaeAt ? algaeAt : T.at ? [T.at[0] * sz, T.at[1] * sz] : [0, 0];
       ctx.translate(at[0], at[1]);
       // plain balls (2022 cargo) sit side by side across the robot, in its own frame; the other pieces are drawn upright
       const plain = !(t === 'cone' || t === 'cube' || t === 'coral' || t === 'algae' || Rd.PIECES[t] || o.year === 2024);
@@ -508,7 +380,7 @@
     ctx.save();
     ctx.font = '700 ' + Math.max(9, Math.round(s * 0.27)) + 'px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
-    ctx.strokeText(String(r.team), x, y + h + 8); ctx.fillText(String(r.team), x, y + h + 8);
+    if (!o.noLabel) { ctx.strokeText(String(r.team), x, y + h + 8); ctx.fillText(String(r.team), x, y + h + 8); } // (3.5.5) o.noLabel: the robot viewer draws no number under the robot
     if (r.isPlayer) { ctx.beginPath(); ctx.arc(x, y, sz * 0.82, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]); }
     if (r.dead || r.fault) {
       ctx.fillStyle = r.dead ? 'rgba(20,20,20,0.6)' : 'rgba(255,170,0,0.35)'; ctx.fillRect(x - h, y - h, sz, sz);
@@ -517,9 +389,17 @@
     // (3.5.1) the Robot Signal Light, as on a real robot: it blinks while the robot is enabled, shines steadily while
     // it is disabled (before and after the match, comms lost, a brownout, the referee), and is dark with no power.
     // o.rsl: 'blink', 'on' or 'off'; o.rslLit: the blink's phase. On a corner of the frame, above the fault shading.
+    // (3.5.5) before AprilTags a robot with vision lights its green ring to find the reflective tape while it aims
+    // (o.aimLight). It shines from the camera: a turret's looks where the turret aims, a fixed one where the scorer points
+    if (o.aimLight && T.cam) {
+      const hd = r.hd || 0, a = hd + T.cam[2], ca = Math.cos(a), sa = Math.sin(a), ox = x + (T.cam[0] * Math.cos(hd) - T.cam[1] * Math.sin(hd)) * sz, oy = y + (T.cam[0] * Math.sin(hd) + T.cam[1] * Math.cos(hd)) * sz, L = sz * 2.1, g = ctx.createLinearGradient(ox, oy, ox + ca * L, oy + sa * L);
+      g.addColorStop(0, 'rgba(90,255,140,0.42)'); g.addColorStop(1, 'rgba(90,255,140,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ox, oy); ctx.arc(ox, oy, L, a - 0.19, a + 0.19); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.shadowColor = '#5cff8f'; ctx.shadowBlur = sz * 0.3; ctx.beginPath(); ctx.arc(ox, oy, Math.max(2, sz * 0.045), 0, 7); ctx.fillStyle = '#9dffbb'; ctx.fill(); ctx.restore();
+    }
     if (o.rsl) {
-      const lit = o.rsl === 'on' || (o.rsl === 'blink' && o.rslLit), a = r.hd || 0, ox = -h * 0.52, oy = -h * 0.52, rx = x + ox * Math.cos(a) - oy * Math.sin(a), ry = y + ox * Math.sin(a) + oy * Math.cos(a), rr = Math.max(2.4, sz * 0.11);
-      if (lit) { ctx.beginPath(); ctx.arc(rx, ry, rr * 2.3, 0, 7); ctx.fillStyle = 'rgba(255,150,30,0.34)'; ctx.fill(); }
+      const lit = o.rsl === 'on' || (o.rsl === 'blink' && o.rslLit), a = r.hd || 0, ox = -h * 0.52, oy = -h * 0.52, rx = x + ox * Math.cos(a) - oy * Math.sin(a), ry = y + ox * Math.sin(a) + oy * Math.cos(a), halo = Math.max(2.4, sz * 0.11) * 2.3, rr = Math.max(2, sz * 0.078); // (3.5.5) a smaller bulb, the same halo
+      if (lit) { ctx.beginPath(); ctx.arc(rx, ry, halo, 0, 7); ctx.fillStyle = 'rgba(255,150,30,0.34)'; ctx.fill(); }
       ctx.beginPath(); ctx.arc(rx, ry, rr, 0, 7); ctx.fillStyle = lit ? '#ffa726' : o.rsl === 'off' ? '#17191c' : '#6b4a1c'; ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = lit ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.35)'; ctx.stroke();
     }

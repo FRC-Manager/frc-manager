@@ -155,7 +155,8 @@
       default: break;
     }
     // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
-    if (r.faceAt) { if (r.st === 'act' || r.st === 'wait') turnTo(r, Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x)); else if (r.st !== 'idle') r.faceAt = null; }
+    if (r.faceAt) { if (r.faceAt.live && m.R.aimAt) { const p = m.R.aimAt(m, r); if (p) { r.faceAt.x = p.x; r.faceAt.y = p.y; } }
+      if (r.st === 'act' || r.st === 'wait') turnTo(r, Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (!m.headless && G.Render && G.Render.firesBack && G.Render.firesBack(r) ? Math.PI : 0)); else if (r.st !== 'idle') r.faceAt = null; } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
       const pg = r.prog || (r.prog = { t: m.t, x: r.x, y: r.y, n: 0, chk: m.t });
@@ -959,8 +960,11 @@
       return base * (1.5 - 0.8 * s / 100) * (stat == null ? gripK(r, GRIP.t0, GRIP.t1) : 1) * PACE[r.plan.pace].cyc / r.opF * (m.R.tempo ? m.R.tempo.s : 1) * (1 - 0.4 * r.confK) * jostle(m, r);
     },
     endDue: (m, r) => m.phase !== 'auto' && !r.end && !r.endBusy && endgameDue(m, r),
-    aimTime(m, r) {
+    // (3.5.5) In a watched match a robot without a turret turns to face what it shoots at while it aims (H.face): to, or
+    // the game's own target (the one the turrets point at). The heading is only for show: nothing in a match depends on it
+    aimTime(m, r, to) {
       const c = r.cap;
+      if (!m.headless && !c.turret) { const p = to || (m.R.aimAt ? m.R.aimAt(m, r) : m.year === 2022 ? m.hub : m.year === 2024 ? m.spk[r.a] : m.year === 2026 ? m.hub[r.a] : null); if (p) H.face(r, to ? p : { x: p.x, y: p.y, live: true }); } // live: the game's own target may move (a turning station): keep following it
       return (c.turret ? 0.3 : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
     },
     hit(m, r, mult, distPen, stat) {
@@ -979,7 +983,7 @@
       if (!m.headless && label) m.fx.push({ k: 'pop', x: at ? at.x : r.x, y: at ? at.y : r.y, text: label, t: m.t, a: r.a });
     },
     // lanes (3.5.4): how many pieces leave side by side (2026: a turret fires single file, fixed and hood shooters two abreast, the wide dumper four)
-    shotFx(m, r, to, hit) { if (!m.headless) m.fx.push({ k: 'shot', x0: r.x, y0: r.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2 }); },
+    shotFx(m, r, to, hit) { if (m.headless) return; const p = G.Render && G.Render.muzzle ? G.Render.muzzle(r) : r; m.fx.push({ k: 'shot', x0: p.x, y0: p.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2 }); }, // (3.5.5) from the shooter's place on the robot, not its middle
     shootSpot(m, r, goal, zone) {
       const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? 1.1 : 1), rmin = c.rmin || 1.0;
       const d = dist(r, goal);

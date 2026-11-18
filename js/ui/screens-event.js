@@ -829,19 +829,19 @@
     if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
     return 'blink';
   }
-  UI.rslOf = rslOf;
+  UI.rslOf = rslOf; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
   function draw(L) {
     const m = L.m, ctx = L.ctx, s = L.cv.width / G.Engine.FW;
     G.Render.field(ctx, m.year, s, m);
     const al = m.done ? 1 : U.clamp(L.acc / 0.1, 0, 1);
+    const tape = !(G.Era && G.S && G.Era.of(G.S).vision.tags); // (3.5.5) before AprilTags a robot with vision lights its green ring while it aims
     m.robots.forEach(r => {
-      // mechanisms that reach out to place or load (the pivoting telescope, the turreted elevator): ease the reach in and out
-      { const tg = !r.dead && r.st === 'act' && /^(Placing|Loading|Scoring)/.test(r.label || '') ? 1 : 0; r.vx = r.vx == null || m.done ? tg : r.vx + (tg - r.vx) * 0.14; }
+      const aiming = G.Render.animate(m, r); // (3.5.5) the reach, the intake and the climber ease towards what the robot is doing
       const rr = Object.create(r);
       rr.x = r.px + (r.x - r.px) * al; rr.y = r.py + (r.y - r.py) * al;
       if (r.isPlayer) rr.look = Object.assign({}, r.look);
       const g = aimFor(m, r);
-      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });
+      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: tape && aiming && (r.cap.visionLvl || 0) >= 1, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });
     });
     G.Render.fx(ctx, s, m);
   }

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FRC Manager robot viewer</title>
+<!-- FRC Manager — robot viewer (3.5.5). A tool, not part of the game: build any robot of any season from the game's own
+     data and see it exactly as the game draws it, from the side (Garage, scouting, History) and from above (matches),
+     with the match animation under your hand. Open it from the project folder (tools/robot-viewer/index.html): it loads ../../js. Nothing is saved
+     and no career is touched. The address keeps the robot (copy it to share a build). -->
+<style>
+  :root { --bg: #0e1116; --bg2: #161b21; --bg3: #1c232b; --line: #2a323b; --text: #dfe5ea; --muted: #8f9aa6; --acc: #ffcf4a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 20px; } header span { color: var(--muted); }
+  .wrap { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; padding: 14px 18px; align-items: start; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .panel, .stage > div { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .stage { display: grid; gap: 14px; min-width: 0; }
+  h2 { margin: 0 0 8px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--acc); }
+  .panel h2:not(:first-child) { margin-top: 16px; }
+  label { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 8px; margin: 5px 0; color: var(--muted); }
+  select, input[type=number], input[type=text] { width: 100%; background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit; }
+  input[type=color] { width: 100%; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg3); }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  button { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 6px 11px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #46515d; } button.on, button.primary { background: var(--acc); color: #17130a; border-color: var(--acc); font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .row.mt { margin-top: 10px; }
+  canvas { display: block; width: 100%; height: auto; border-radius: 8px; }
+  #side { background: #12161b; max-width: 1040px; margin: 0 auto; }
+  .match { display: grid; grid-template-columns: minmax(0, 460px) minmax(220px, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 760px) { .match { grid-template-columns: 1fr; } }
+  #top { background: #20262d; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+  .sl { display: grid; grid-template-columns: 78px minmax(0, 1fr) 40px; gap: 8px; align-items: center; margin: 4px 0; color: var(--muted); } .sl b { color: var(--text); font-weight: 600; text-align: right; }
+  #album { padding: 0 18px 24px; } #album h3 { margin: 16px 0 8px; font-size: 15px; color: var(--acc); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .cardx { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px; cursor: pointer; text-align: left; color: var(--text); }
+  .cardx:hover { border-color: var(--acc); } .cardx canvas { background: #12161b; } .cardx div { margin-top: 5px; font-weight: 600; }
+  .build { color: var(--muted); font-size: 12.5px; margin-top: 8px; word-break: break-word; }
+</style>
+</head>
+<body>
+<header><h1>Robot viewer</h1><span>FRC Manager <b id="ver"></b> · any robot of any season, drawn as the game draws it</span></header>
+<div class="wrap">
+  <aside class="panel">
+    <h2>Season</h2>
+    <label>Game <select id="year"></select></label>
+    <h2>Subsystems</h2>
+    <div id="subs"></div>
+    <div class="row mt"><button id="bTyp" title="A typical build for this season">Typical</button><button id="bRnd" title="A random build">Random</button><button id="bBest" title="The last design of every subsystem">Top designs</button><button id="bNone" title="An empty chassis">Empty</button></div>
+    <h2>Finish</h2>
+    <label>Version <select id="lver"><option value="1">1: bare aluminium</option><option value="2">2: team colour</option><option value="3">3: with lights</option></select></label>
+    <label>Cameras <select id="vis"><option>0</option><option>1</option><option>2</option></select></label>
+    <label>Team number <input id="team" type="number" min="1" max="99999"></label>
+    <label>Alliance <span class="row"><button id="aB">Blue</button><button id="aR">Red</button></span></label>
+    <label>Number <select id="numAt"><option value="">in the middle of the bumper</option><option value="side">at the side</option></select></label>
+    <label>Team colour <input id="c1" type="color"></label>
+    <label>Accent <input id="c2" type="color"></label>
+    <h2>Show</h2>
+    <label>Side view <select id="only"></select></label>
+    <label>In matches <select id="me"><option value="1">your robot (team colour)</option><option value="0">a rival (grey)</option></select></label>
+  </aside>
+  <section class="stage">
+    <div>
+      <h2>From the side</h2>
+      <canvas id="side" width="2080" height="1040"></canvas>
+      <div class="row mt"><button id="sSide">Save picture</button><button id="copy">Copy link to this robot</button><span class="hint" id="msg"></span></div>
+      <div class="build" id="build"></div>
+    </div>
+    <div>
+      <h2>In a match</h2>
+      <div class="match">
+        <canvas id="top" width="920" height="720"></canvas>
+        <div>
+          <div class="sl">Intake <input id="vi" type="range" min="0" max="100"><b id="viV"></b></div>
+          <div class="sl">Reach <input id="vx" type="range" min="0" max="100"><b id="vxV"></b></div>
+          <div class="sl">Climber <input id="vc" type="range" min="0" max="100"><b id="vcV"></b></div>
+          <div class="sl">Turret <input id="aim" type="range" min="-180" max="180"><b id="aimV"></b></div>
+          <div class="sl">Heading <input id="hd" type="range" min="-180" max="180"><b id="hdV"></b></div>
+          <label style="grid-template-columns:78px minmax(0,1fr)">Holding <select id="hold"></select></label>
+          <label style="grid-template-columns:78px minmax(0,1fr)">Aim light <select id="gl"><option value="0">off</option><option value="1">on (the green ring, before AprilTags; needs a camera)</option></select></label>
+          <div class="row mt"><button id="play" class="primary">Play a cycle</button><button id="sTop">Save picture</button></div>
+          <p class="hint">Play runs what the game does in a match: the intake comes out to collect and folds in with a piece, the lift or arm reaches to score, the climber comes out for the endgame. A turret follows the Turret slider. The signal light blinks while it plays, and a robot with cameras lights its green ring to aim in the seasons before AprilTags.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="album">
+  <div class="row"><button id="bAlbum">Show every design of this season</button><span class="hint">One card for each concept, on this robot. Click a card to load it.</span></div>
+  <div id="cards"></div>
+</div>
+
+<script src="../../js/core.js"></script>
+<script src="../../js/data/seasons.js"></script>
+<script src="../../js/data/seasons-classic.js"></script>
+<script src="../../js/data/seasons-fantasy.js"></script>
+<script src="../../js/data/world.js"></script>
+<script src="../../js/data/world-areas.js"></script>
+<script src="../../js/data/sponsors.js"></script>
+<script src="../../js/data/disputes.js"></script>
+<script src="../../js/data/eras.js"></script>
+<script src="../../js/data/parts.js"></script>
+<script src="../../js/sim/engine.js"></script>
+<script src="../../js/sim/rules.js"></script>
+<script src="../../js/sim/rules-classic.js"></script>
+<script src="../../js/sim/rules-fantasy.js"></script>
+<script src="../../js/sim/ai.js"></script>
+<script src="../../js/render/draw.js"></script>
+<script src="../../js/render/draw-classic.js"></script>
+<script src="../../js/render/draw-fantasy.js"></script>
+<script src="../../js/render/draw-robot.js"></script>
+<script src="../../js/render/draw-robot-seasons.js"></script>
+<script src="../../js/render/draw-robot-top.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

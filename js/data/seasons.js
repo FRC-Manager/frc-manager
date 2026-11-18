@@ -119,7 +119,7 @@
     brief: [
       'Robots pick up Cones and Cubes from the Loading Zone and place them on the GRID: bottom (any piece), mid and top rows (cone or cube nodes).',
       'Three pieces in a row form a LINK worth 5 points. The CHARGE STATION is worth 8/12 in auto (docked/engaged) and 6/10 per robot at the end.',
-      'Bonus RPs: Sustainability at 6 links (5 with Coopertition) and Activation at 26 charge-station points. A complete grid can be Supercharged: 3 points for every extra piece.'
+      'Bonus RPs: Sustainability at 5 links (4 with Coopertition; 6 and 5 at the Championship) and Activation at 26 charge-station points. A complete grid can be Supercharged: 3 points for every extra piece.'
     ],
     timing: { auto: 15, tele: 135, end: 30 }, rpWin: 2, foul: { minor: 5, major: 12 },
     relevance: { swerve: 2, shooter: 0, turret: 0, elevator: 2, arm: 3, effector: 3, intake: 2, index: 0, climb: 0, vision: 2, autoPath: 3, elec: 2 },
@@ -238,7 +238,7 @@
     brief: [
       'Robots place Coral (PVC tubes) on the REEF: L1 trough (2), L2 (3), L3 (4) and L4 (5), worth more in auto. Algae (balls) sit on the reef blocking branches.',
       'Algae can be removed and scored in the PROCESSOR (6) or thrown into the NET (4). In the last 20 seconds robots park (2) or climb a Shallow (6) or Deep (12) cage.',
-      'Win = 3 RP. Bonus RPs: Auto (all robots leave + coral in auto), Coral (7 on every level, 3 levels with Coopertition), Barge (16 barge points).'
+      'Win = 3 RP. Bonus RPs: Auto (all robots leave + coral in auto), Coral (5 on every level, 3 levels with Coopertition), Barge (14 barge points). The Championship asks for 7 coral a level and 16 barge points.'
     ],
     timing: { auto: 15, tele: 135, end: 20 }, rpWin: 3, foul: { minor: 2, major: 6 },
     relevance: { swerve: 2, shooter: 1, turret: 0, elevator: 3, arm: 2, effector: 3, intake: 2, index: 0, climb: 2, vision: 2, autoPath: 3, elec: 2 },
@@ -320,7 +320,7 @@
       { id: 'frame', name: 'Frame Profile', concepts: [
         { id: 'std', name: 'Standard height', desc: 'Normal frame. Crosses zones over the BUMP (slower).', cost: 0, hours: 30, w: 4, cx: 1, areas: ['elec'],
           base: { traverse: 50 }, ceil: { traverse: 86 }, caps: { lowProfile: false }, look: { frame: 'std' } },
-        { id: 'low', name: 'Low-profile', desc: 'Fits under the TRENCH for quick crossings, but hopper capacity is cut by 40%.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
+        { id: 'low', name: 'Low-profile', desc: 'Fits under the TRENCH for quick crossings, but hopper capacity is cut by 30%.', cost: 300, hours: 70, w: 2, cx: 3, areas: ['elec'],
           base: { traverse: 55 }, ceil: { traverse: 95 }, caps: { lowProfile: true }, look: { frame: 'low' } }
       ] },
       { id: 'intake', name: 'Intake', concepts: [
@@ -335,12 +335,12 @@
           base: { intake: 48 }, ceil: { intake: 96 }, caps: { ground: true, station: true, wide: 1.3, compact: true, robustIntake: true }, look: { intake: 'wide' } }
       ] },
       { id: 'hopper', name: 'Hopper', concepts: [
-        { id: 'small', name: 'Small hopper (8)', desc: 'Holds 8 fuel. Light and simple.', cost: 200, hours: 40, w: 5, cx: 1, areas: ['index'],
-          base: { feed: 45 }, ceil: { feed: 82 }, caps: { storage: 8 }, look: { hopper: 8 } },
-        { id: 'med', name: 'Medium hopper (20)', desc: 'Holds 20 fuel.', cost: 500, hours: 90, w: 9, cx: 2, areas: ['index'],
-          base: { feed: 42 }, ceil: { feed: 88 }, caps: { storage: 20 }, look: { hopper: 20 } },
-        { id: 'large', name: 'Large hopper (45)', desc: 'Holds 45 fuel — stockpile through an inactive shift.', cost: 900, hours: 150, w: 14, cx: 4, areas: ['index'],
-          base: { feed: 40 }, ceil: { feed: 95 }, caps: { storage: 45 }, look: { hopper: 45 } }
+        { id: 'small', name: 'Small hopper (20)', desc: 'Holds 20 fuel (14 under a low-profile frame). Light and simple.', cost: 200, hours: 40, w: 5, cx: 1, areas: ['index'],
+          base: { feed: 45 }, ceil: { feed: 82 }, caps: { storage: 20 }, look: { hopper: 20 } }, // (3.5.5) hoppers as large as real ones (8, 20 and 45 before)
+        { id: 'med', name: 'Medium hopper (45)', desc: 'Holds 45 fuel (32 under a low-profile frame).', cost: 500, hours: 90, w: 9, cx: 2, areas: ['index'],
+          base: { feed: 42 }, ceil: { feed: 88 }, caps: { storage: 45 }, look: { hopper: 45 } },
+        { id: 'large', name: 'Large hopper (75)', desc: 'Holds 75 fuel (53 under a low-profile frame) — stockpile through an inactive shift.', cost: 900, hours: 150, w: 14, cx: 4, areas: ['index'],
+          base: { feed: 40 }, ceil: { feed: 95 }, caps: { storage: 75 }, look: { hopper: 75 } }
       ] },
       { id: 'scorer', name: 'Shooter', concepts: [
         { id: 'fixed', name: 'Fixed shooter', desc: 'Shoots from a set distance near the hub.', cost: 700, hours: 110, w: 12, cx: 2, areas: ['shooter'],

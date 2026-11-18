@@ -297,7 +297,8 @@
   Robot.cap = S => Robot.capOf(S, S.robot.comp || 0);
   Robot.lookOf = function (S, bi) {
     const R = S.robot, lk = G.Cap.look(R.year, R.bots[bi].subs, { visionLvl: R.visionLvl });
-    lk.c1 = S.team.c1; lk.c2 = S.team.c2;
+    lk.c1 = S.team.rc1 || S.team.c1; lk.c2 = S.team.rc2 || S.team.c2; // (3.5.5) rc1, rc2: the robot's own colours, chosen in the Garage
+    if (S.team.numAt === 'side') lk.numAt = 'side'; // the team number at the end of the bumper instead of its middle
     return lk;
   };
   Robot.look = S => Robot.lookOf(S, S.robot.comp || 0);

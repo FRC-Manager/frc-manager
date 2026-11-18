@@ -254,12 +254,12 @@
       ] },
       { id: 'fuel', name: 'Fuel System', optional: true, minor: true, concepts: [
         { id: 'none', name: 'No fuel system', desc: 'Gears and the rope only. Most robots did exactly this.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: { fuelHigh: false, fuelLow: false, storage: 0 }, look: {} },
-        { id: 'dump', name: 'Low-goal dumper (40 balls)', desc: 'Catches fuel as a hopper is tipped, sweeps up what lies on the carpet afterwards, and tips it into the low goal. Nine balls make one kPa, so it is slow pressure (a handful of points a match), but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
-          base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 40 }, look: { shooter: 'dump', hopper: 20 } },
-        { id: 'shoot', name: 'High-goal shooter (30 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
-          base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 30 }, look: { shooter: 'fixed', hopper: 20 } },
-        { id: 'mega', name: 'High-volume shooter + big hopper (70 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
-          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 70 }, look: { shooter: 'wide', hopper: 45 } }
+        { id: 'dump', name: 'Low-goal dumper (50 balls)', desc: 'Catches fuel as a hopper is tipped, sweeps up what lies on the carpet afterwards, and tips it into the low goal. Nine balls make one kPa, so it is slow pressure (a handful of points a match), but it cannot miss.', cost: 400, hours: 80, w: 10, cx: 2, areas: ['index'],
+          base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 50 }, look: { shooter: 'dump', hopper: 50 } },
+        { id: 'shoot', name: 'High-goal shooter (45 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
+          base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 45 }, look: { shooter: 'fixed', hopper: 45 } },
+        { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
+          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } }
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
         NONE_END,

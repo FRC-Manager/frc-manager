@@ -76,12 +76,13 @@
     return cap;
   };
   G.Cap.look = function (year, subs, extra) {
-    const lk = { drive: 'tank', ver: 1, year };
+    const lk = { drive: 'tank', ver: 1, year, sub: {} }; // (3.5.5) sub: the concept built in each subsystem, for the drawings
     let maxVer = 0;
     G.Seasons[year].subs.forEach(sd => {
       const s = subs[sd.id];
       if (!s || !s.ver) return;
       const c = G.Seasons.concept(year, sd.id, s.concept);
+      if (c && sd.id !== 'soft') lk.sub[sd.id] = c.id;
       if (c && c.look) Object.assign(lk, c.look);
       if (sd.id !== 'soft') maxVer = Math.max(maxVer, s.ver);
     });
@@ -102,6 +103,13 @@
   // AI team pool
   // ------------------------------------------------------------------
   const AI = G.AI = {};
+  // (3.5.5) A few teams powder-coat their robots, and most of the elite ones (and those that once were): [colour, accent],
+  // or null for bare aluminium. It hangs on the team number alone, so a team keeps its colour from season to season
+  const PAINT = ['#2f6fd0', '#c2412f', '#2e9e5b', '#e08a1e', '#8a4fc0', '#17a0a0', '#c9a80c', '#d1478c', '#1f4fa3', '#8a1f2b', '#3a3f47', '#e9edf1', '#0f8f6a', '#ff6a13'], ACCENT = ['#ffcf4a', '#e9edf1', '#15181c', '#ff7a1a', '#4cc9f0'];
+  AI.paintOf = function (num, elite) {
+    const h = (Math.imul((Number(num) || 0) + 7919, 2654435761) >>> 0);
+    return (h % 1000) / 1000 < (elite ? 0.85 : 0.14) ? [PAINT[(h >>> 10) % PAINT.length], ACCENT[(h >>> 16) % ACCENT.length]] : null;
+  };
   AI.makePool = function (rng, n, playerNum, startYear) {
     const pool = {};
     const used = new Set([playerNum]), top = D.numTop(startYear); // numbers follow the year (D.NUM_FROM)
@@ -213,6 +221,7 @@
     const elite = !!rb.elite;
     const cap = G.Cap.build(year, subs, extra);
     const look = G.Cap.look(year, subs, extra);
+    { const pc = AI.paintOf(team.num, !!(team.elite || team.wasElite)); if (pc) { look.c1 = pc[0]; look.c2 = pc[1]; } } // (3.5.5) painted robots
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,

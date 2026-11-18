@@ -309,6 +309,7 @@
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
       const n = r.held, per = high ? (c.lob ? 0.7 : c.stream ? 0.75 : 1.15) : 0.6;
+      if (c.lob && high) H.face(r, house); // (3.5.5) a lobber faces the house it lobs at
       H.act(r, 0.3 + (c.tipAll && high ? H.scoreTime(m, r, 1.3) : n * H.scoreTime(m, r, per)), () => {
         const p = high ? H.hit(m, r, c.lob ? 0.9 : 1.08, c.lob ? H.rangePen(m, r, house) : 0) : 0.99;
         let made = 0;
