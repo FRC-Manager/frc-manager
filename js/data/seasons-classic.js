@@ -280,7 +280,7 @@
           base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 50 }, look: { shooter: 'dump', hopper: 50 } },
         { id: 'shoot', name: 'High-goal shooter (45 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 45 }, look: { shooter: 'fixed', hopper: 45 } },
-        { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
+        { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Twin flywheels that fire fuel two abreast (all the boiler\'s mouth takes) as fast as it can be fed, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
           base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } },
         // (3.5.6) the best fuel robots of the year (254's): a full-width intake at each end, a spiral feeder and a turret with
         // two flywheels. It sweeps loose fuel up faster (cap.fuelWide), and the turret shoots from well outside the Key,
@@ -291,9 +291,9 @@
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
         NONE_END,
-        { id: 'winch', name: 'Winch drum', desc: 'A drum that catches the rope and winds the robot up. Slow, and the catch takes a few tries.', cost: 350, hours: 70, w: 8, cx: 2, areas: ['climb'],
+        { id: 'winch', name: 'Winch drum', desc: 'A narrow winch tube, high on the robot, that catches the rope and winds the robot up. Slow, and the catch takes a few tries.', cost: 350, hours: 70, w: 8, cx: 2, areas: ['climb'],
           base: { endgame: 42 }, ceil: { endgame: 82 }, caps: { endLevel: 1 }, look: { climber: 'hook' } },
-        { id: 'fast', name: 'Fast rope grabber', desc: 'A hook-and-loop roller that grabs the rope at the first touch and a geared motor that lifts the robot in a few seconds.', cost: 900, hours: 150, w: 10, cx: 3, areas: ['climb'],
+        { id: 'fast', name: 'Fast rope grabber', desc: 'A hook-and-loop tube as wide as the robot: it grabs the rope at the first touch, wherever the rope meets it, and a geared motor lifts the robot in a few seconds.', cost: 900, hours: 150, w: 10, cx: 3, areas: ['climb'],
           base: { endgame: 45 }, ceil: { endgame: 96 }, caps: { endLevel: 1 }, look: { climber: 'hook2' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }

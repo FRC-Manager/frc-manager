@@ -5,7 +5,11 @@
    hook on a strap, a 2019 one is a pair of stilts. The fantasy seasons borrow the recipe of a real season (ALIAS).
    Units: 1 = the length of the robot with its bumpers (about 34 inches); x runs from the back (-) to the front (+), y up
    from the floor. Recipes queue their parts with k.L(z, section, draw); sections are subsystem ids, so one subsystem can
-   be drawn on its own (opts.only). */
+   be drawn on its own (opts.only).
+   (3.5.7) It is a true side view, a parallel projection: no part shows its top or its far side. A shaft that runs across the
+   robot is seen end on (a wheel, a roller, a motor on it: circles); one that lies in the picture is seen from its side (a
+   wheel on an upright axle is a bar: k.wheelEdge). Of two things side by side across the robot (the arms of a claw, a pair
+   of forks, the far upright of an elevator) only the near one is drawn: the other is exactly behind it. */
 (function () {
   'use strict';
   const Rd = G.Render, shade = Rd.shade, alc = Rd.K.alc, PI = Math.PI, TAU = PI * 2, D2R = PI / 180;
@@ -91,8 +95,15 @@
       [1, -1].forEach(g => { const t = a + g * b; k.line([[x1 + r1 * Math.cos(t), y1 + r1 * Math.sin(t)], [x2 + r2 * Math.cos(t), y2 + r2 * Math.sin(t)]], col || BELT, w || 0.011, dash); });
     };
     k.chain = (x1, y1, r1, x2, y2, r2) => k.belt(x1, y1, r1, x2, y2, r2, '#8a949f', 0.012, [0.012, 0.009]);
-    // a motor: its can, the coloured end, the shaft
-    k.motor = (x, y, ang, L, r, cap) => k.at(x, y, ang, q => { q.rect(-L * 0.1, -r * 0.3, L * 0.14, r * 0.6, ALU2); q.rect(0, -r, L, 2 * r, '#262a30', r * 0.3); q.rect(L * 0.7, -r, L * 0.3, 2 * r, cap || DARK2, r * 0.3); });
+    // a motor whose shaft lies in the picture (a swerve module's, standing up): its can from the side, one flat rectangle
+    // with two bands round it. (3.5.7: it had a lighter end, which read as the top of a box)
+    k.motor = (x, y, ang, L, r, cap) => k.at(x, y, ang, q => { q.rect(-L * 0.1, -r * 0.3, L * 0.14, r * 0.6, ALU2); q.rect(0, -r, L, 2 * r, '#262a30', r * 0.16); q.line([[L * 0.22, -r * 0.9], [L * 0.22, r * 0.9]], '#4a525b', 0.006); q.line([[L * 0.8, -r * 0.9], [L * 0.8, r * 0.9]], cap || '#6c7682', 0.007); });
+    // (3.5.7) a motor on a shaft that runs across the robot (nearly all of them: they drive rollers, gears and pulleys that
+    // are seen end on): its end, a circle. Same arguments as k.motor: it sits where the middle of that can would be
+    k.motorE = (x, y, ang, L, r, cap) => { const mx = x + Math.cos(ang) * L * 0.5, my = y + Math.sin(ang) * L * 0.5; k.circ(mx, my, r * 1.08, '#262a30', EDGE); k.circ(mx, my, r * 0.74, null, cap || '#6c7682', 1.3); for (let i = 0; i < 4; i++) { const g = i * PI / 2 + 0.6; k.circ(mx + Math.cos(g) * r * 0.74, my + Math.sin(g) * r * 0.74, r * 0.12, HOLE, 0); } k.circ(mx, my, r * 0.3, ALU2, 0); k.circ(mx, my, r * 0.12, DARK, 0); };
+    // (3.5.7) a wheel seen edge on: its axle lies in the picture (the wheels of a claw that grips from both sides, a
+    // pinion under a turret's ring). r along x, th thick; the stubs of its axle show above and below
+    k.wheelEdge = (x, y, r, th, c) => { k.rect(x - r * 0.16, y - th / 2 - 0.008, r * 0.32, th + 0.016, ALU2, 0, 0); k.rect(x - r, y - th / 2, 2 * r, th, c || CW.g, th * 0.3, 'rgba(6,8,11,0.7)'); [-0.5, 0, 0.5].forEach(d => k.line([[x + r * d, y - th * 0.34], [x + r * d, y + th * 0.34]], 'rgba(6,8,11,0.35)', 0.005)); };
     // an air cylinder (or a gas spring): the body from the first point, the rod to the second
     k.piston = (x1, y1, x2, y2, w, part) => { const f = part || 0.6, mx = x1 + (x2 - x1) * f, my = y1 + (y2 - y1) * f; k.bar([[mx, my], [x2, y2]], w * 0.32, STEEL); k.tube(x1, y1, mx, my, w, '#aab3bc'); };
     k.hook = (x, y, r, a0, sweep, w, col) => k.arc(x, y, r, a0, sweep, w, col);
@@ -128,11 +139,13 @@
         for (let i = 0; i < n; i++) q.wheel(-span / 2 + i * span / (n - 1), wr - (n === 3 && i === 1 ? 0.004 : 0), wr, kind);
       }
     });
-    k.L(6, 'drive', q => {
-      const ctx = q.ctx, col = alc(a || 'blue');
-      // what stands on the frame behind the bumper: the battery, the swerve modules' motors, the signal light
+    k.L(1, 'drive', q => {
+      // (3.5.7) what stands on the chassis is the lowest layer: every mechanism is drawn over it. The battery, and the swerve modules' motors
       q.rect(-0.2, g.ft - 0.03, 0.17, 0.085, '#1f2327', 0.008); q.rect(-0.185, g.ft + 0.052, 0.03, 0.014, '#c9413b', 0, 0); q.rect(-0.08, g.ft + 0.052, 0.03, 0.014, '#8b949d', 0, 0);
       if (d === 'swerve') [-0.37, 0.37].forEach(wx => { q.motor(wx - 0.03, g.bt - 0.03, PI / 2, 0.1, 0.027); q.motor(wx + 0.03, g.bt - 0.03, PI / 2, 0.075, 0.022); });
+    });
+    k.L(6, 'drive', q => {
+      const ctx = q.ctx, col = alc(a || 'blue');
       q.rect(-0.51, g.by0, 1.02, g.bh, col, 0.034, shade(col, -0.25));
       q.line([[-0.49, g.bt - 0.018], [0.49, g.bt - 0.018]], 'rgba(255,255,255,0.16)', 0.006);
       [-0.455, 0.455].forEach(x => q.line([[x, g.by0 + 0.012], [x, g.bt - 0.012]], 'rgba(0,0,0,0.22)', 0.005));
@@ -140,8 +153,8 @@
       if (k.ver >= 3) { ctx.save(); ctx.shadowColor = k.c2; ctx.shadowBlur = 5 * q.px; q.line([[-0.45, g.bt + 0.008], [0.45, g.bt + 0.008]], k.c2, 0.009); ctx.restore(); }
     });
   }
-  // An elevator from the side: the fixed stage, the stages nested in it (shown a little proud of each other) and the
-  // carriage. Returns where things bolt on; .draw(k) paints it. o.tilt: lean forward (radians); o.st: stages;
+  // An elevator from the side: the fixed stage, the stages that ride in front of it and the carriage. (3.5.7) Only the
+  // near upright of each stage: the far one, and the cross-members between them, are exactly behind it. Returns where things bolt on; .draw(k) paints it. o.tilt: lean forward (radians); o.st: stages;
   // o.car: how far up the carriage rides (0..1); o.brace: [[foot x, how far up it meets the mast], ...]
   function mast(g, x, y0, h, o) {
     o = o || {}; const ang = PI / 2 - (o.tilt || 0), ca = Math.cos(ang), sa = Math.sin(ang), w = o.w || 0.066, st = o.st || 2;
@@ -151,7 +164,6 @@
         const col = o.col || k.c1;
         (o.brace || []).forEach(b => { const p = at(h * b[1], 0); k.tube(b[0], g.ft - 0.02, p[0], p[1], w * 0.82, col, { truss: 1 }); });
         k.at(x, y0, ang, q => {
-          q.tube(h * 0.02, w * 0.62, h * 0.97, w * 0.62, w * 0.8, col, { dim: 1 }); [0.3, 0.62, 0.94].forEach(t => q.rect(h * t, w * 0.2, w * 0.5, w * 0.6, DARK, 0.003));   // the far upright and the cross-members to it
           for (let i = st - 1; i >= 1; i--) { const d = -w * 0.66 * i, up = h * 0.04 * i; q.tube(up, d, h + up, d, w * 0.76, i % 2 ? ALU : STEEL, { holes: 1, pitch: w * 1.7 }); q.rect(h + up - w * 0.3, d - w * 0.46, w * 0.42, w * 0.92, DARK); }
           q.tube(0, 0, h, 0, w, col, { holes: 1 });
           q.rect(h - w * 0.45, -w * 0.62, w * 0.6, w * 1.24, DARK, 0.004); q.wheel(h - w * 0.15, w * 0.2, w * 0.36, 'pul'); q.rect(0, -w * 0.72, w * 0.55, w * 1.44, DARK, 0.004);
@@ -176,24 +188,31 @@
   }
   // A flywheel shooter between two plates. The ball comes in under the hood, rides over the wheel and leaves along
   // o.ang. o.r: wheel radius; o.gap: the ball; o.hood: 1 fixed, 2 adjustable; o.top: a roller at the hood's lip;
-  // o.two: a second flywheel behind the first; o.feed: 0 for no feeder wheel
+  // o.two: a second flywheel beside the first (from the side it is exactly behind it: nothing shows); o.feed: 0 for no feeder wheel
   function shooter(k, x, y, o) {
     const r = o.r || 0.06, gap = o.gap || 0.17, R = r + gap, a = o.ang, h0 = a + PI / 2, sw = o.sweep || (o.hood === 2 ? 1.95 : 1.6), P = (g, rr) => [x + rr * Math.cos(g), y + rr * Math.sin(g)];
     const pl = []; for (let i = 0; i <= 6; i++) pl.push(P(h0 - 0.12 + (sw + 0.24) * i / 6, R + 0.022));
     pl.push(P(h0 + sw + 0.9, r * 1.7), P(a - 0.5, r * 1.75), P(a + 0.25, r * 1.5));
     if (o.base != null) [P(h0 + sw - 0.15, R * 0.86), P(h0 + sw + 0.9, r * 1.5)].forEach((p, i) => { if (p[1] > o.base + 0.04) k.tube(p[0] + (i ? 0.02 : -0.02), o.base, p[0], p[1], 0.034, k.c1, { holes: 1 }); });   // the legs it stands on
     k.poly(pl, o.col || '#474f59'); { const h1 = P(a - 0.55, r * 1.05), h2 = P(h0 + sw + 0.75, r * 1.25); k.circ(h1[0], h1[1], r * 0.26, HOLE, 0); k.circ(h2[0], h2[1], r * 0.22, HOLE, 0); }
+    // (3.5.7) the side plate is pocketed, as on a real one: windows between ribs that run from the wheel's bearing out to the
+    // hood, and along the hood the standoffs that tie it to the far plate
+    if (R * k.s > 16) { const n = Math.max(3, Math.round(sw / 0.48)), ri = r * 1.32 + 0.01, ro = R - 0.014, rib = 0.085, g0 = h0 + 0.02, dg = (sw - 0.04) / n;
+      for (let i = 0; i < n; i++) { const a0 = g0 + i * dg + rib / 2, a1 = g0 + (i + 1) * dg - rib / 2, pts = [];
+        for (let j = 0; j <= 4; j++) pts.push(P(a0 + (a1 - a0) * j / 4, ro));
+        for (let j = 2; j >= 0; j--) pts.push(P(a0 + 0.07 + (a1 - a0 - 0.14) * j / 2, ri));
+        k.poly(pts, 'rgba(9,11,14,0.5)', 0); }
+      for (let i = 0; i <= n; i++) { const p = P(g0 + i * dg, R + 0.005); k.circ(p[0], p[1], 0.0065, ALU2, 0); } }
     k.arc(x, y, R, h0, sw, 0.016, o.hc || ALU);
     if (o.hood === 2) { k.arc(x, y, R + 0.014, h0 - 0.5, 0.62, 0.014, k.c2); const gp = P(h0 + 0.5, R + 0.016); k.wheel(gp[0], gp[1], 0.024, 'gear'); }
     if (o.feed !== 0) { const f = P(h0 + sw + 0.32, R * 0.98), f2 = P(h0 + sw + 0.2, r + gap * 0.05); k.wheel(f[0], f[1], Math.min(0.045, r * 0.75), 'comp', o.fc || CW.g); k.belt(x, y, r * 0.4, f2[0], f2[1], 0.012); }
-    if (o.two) { const t = P(h0 + sw * 0.55, R + r * 0.55); k.wheel(t[0], t[1], r * 0.8, 'fly', k.c2); }
     k.wheel(x, y, r, 'fly', k.c2);
     if (o.top) { const t = P(h0 + 0.02, R + 0.004); k.wheel(t[0], t[1], 0.026, 'roll', o.tc || CW.b); }
-    const m = P(a - 1.25, r * 1.55); k.motor(m[0], m[1], a + PI, r * 1.5, r * 0.5); k.belt(x, y, r * 0.42, m[0], m[1], r * 0.3);
+    const m = P(a - 1.25, r * 1.7); k.belt(x, y, r * 0.42, m[0], m[1], r * 0.3); k.motorE(m[0], m[1], 0, 0, r * 0.5);   // its motor is on a shaft across the robot, like the wheel: end on
     return { lip: P(h0, R), in: P(h0 + sw, R - gap / 2) };
   }
   // a turret's ring, seen edge-on
-  function ring(k, x, y, w, base) { if (base != null && y > base + 0.04) [-1, 1].forEach(s => k.tube(x + s * w * 0.3, base, x + s * w * 0.3, y + 0.01, 0.034, k.c1, { holes: 1 })); k.rect(x - w / 2, y, w, 0.034, '#30353c', 0.008); k.line([[x - w / 2 + 0.01, y + 0.017], [x + w / 2 - 0.01, y + 0.017]], '#7c8691', 0.012, [0.008, 0.008]); k.line([[x - w / 2, y + 0.04], [x + w / 2, y + 0.04]], k.c2, 0.008); k.wheel(x + w / 2 - 0.006, y + 0.017, 0.022, 'gear'); }
+  function ring(k, x, y, w, base) { if (base != null && y > base + 0.04) [-1, 1].forEach(s => k.tube(x + s * w * 0.3, base, x + s * w * 0.3, y + 0.01, 0.034, k.c1, { holes: 1 })); k.rect(x - w / 2, y, w, 0.034, '#30353c', 0.008); k.line([[x - w / 2 + 0.01, y + 0.017], [x + w / 2 - 0.01, y + 0.017]], '#7c8691', 0.012, [0.008, 0.008]); k.line([[x - w / 2, y + 0.04], [x + w / 2, y + 0.04]], k.c2, 0.008); k.rect(x + w / 2 + 0.002, y + 0.004, 0.036, 0.026, GOLD, 0.005); }   // (3.5.7) the pinion that turns it stands on an upright shaft: edge on
   // An intake that reaches out over the bumper, deployed. o.px, o.py: its pivot; o.ex, o.ey: the front roller;
   // o.n: rollers; o.wk, o.wc: their wheels; o.four: a four-bar's second link; o.guard: a polycarbonate cover
   function overIntake(k, o) {
@@ -204,18 +223,24 @@
     if (k.s * 0.05 > 7) { k.line([[o.px + (mx - o.px) * 0.25, o.py + (my - o.py) * 0.25], [o.px + (mx - o.px) * 0.8, o.py + (my - o.py) * 0.8]], 'rgba(3,4,6,0.55)', 0.02); k.line([[mx + (o.ex - mx) * 0.22, my + (o.ey - my) * 0.22], [mx + (o.ex - mx) * 0.72, my + (o.ey - my) * 0.72]], 'rgba(3,4,6,0.55)', 0.02); }
     for (let i = n - 1; i >= 0; i--) { const t = 1 - i * (o.sp || 0.42); k.wheel(mx + (o.ex - mx) * t, my + (o.ey - my) * t, r * (i ? 0.85 : 1), o.wk || 'comp', i % 2 ? (o.wc2 || o.wc || CW.k) : (o.wc || CW.g)); }
     if (n > 1 && o.belt !== 0) k.belt(o.ex, o.ey, r * 0.3, mx + (o.ex - mx) * (1 - (n - 1) * (o.sp || 0.42)), my + (o.ey - my) * (1 - (n - 1) * (o.sp || 0.42)), r * 0.3);
-    k.wheel(o.px, o.py, 0.024, o.gear ? 'gear' : 'pul'); if (o.motor) k.motor(o.px - 0.02, o.py + 0.03, PI * 0.8, 0.09, 0.026);
+    k.wheel(o.px, o.py, 0.024, o.gear ? 'gear' : 'pul'); if (o.motor) k.motorE(o.px - 0.02, o.py + 0.03, PI * 0.8, 0.09, 0.026);
   }
-  // A four-bar intake, out over the bumper: towers on the frame, two links that stay parallel, and the head they carry.
-  // o.wk, o.wc, o.wc2: the rollers' wheels; o.guard: a polycarbonate cover
+  // (3.5.7) A four-bar intake, out over the bumper, after a real one's side view: a plate low on the frame (most of it is
+  // behind the bumper), two long links that rise forward from it, and the arm they carry, which bends down in front of the
+  // bumper to its roller. A chain from a motor on the plate swings the front link; a belt runs up the rear link and down the
+  // arm to the rollers. o.wk, o.wc, o.wc2: the rollers' wheels; o.guard: a polycarbonate cover
   function fourBar(k, o) {
-    const ft = k.g.ft, A = [0.34, ft + 0.05], B = [0.25, ft + 0.2], L = 0.27, a = -24 * D2R, dx = L * Math.cos(a), dy = L * Math.sin(a), C = [A[0] + dx, A[1] + dy], E = [B[0] + dx, B[1] + dy];
-    k.plate([[0.2, ft - 0.02], [0.4, ft - 0.02], [0.38, ft + 0.1], [0.28, ft + 0.26], [0.2, ft + 0.26]], DARK2, 0);
-    k.piston(0.22, ft + 0.03, B[0] + dx * 0.55, B[1] + dy * 0.55, 0.024);
-    if (o.guard) k.glass([[E[0] - 0.02, E[1] + 0.06], [C[0] + 0.17, C[1] + 0.14], [C[0] + 0.21, C[1] + 0.03], [C[0] + 0.1, C[1] + 0.02]]);
-    k.plate([[E[0] - 0.035, E[1] + 0.04], [C[0] + 0.15, C[1] + 0.1], [C[0] + 0.19, C[1] + 0.0], [C[0] + 0.1, C[1] - 0.05], [C[0] - 0.03, C[1] - 0.035]], DARK2, 0);
-    [[0.14, 0.02, 0.042], [0.06, 0.055, 0.036], [-0.02, 0.1, 0.03]].forEach((r, i) => k.wheel(C[0] + r[0], C[1] + r[1], r[2], o.wk || 'comp', i % 2 ? (o.wc2 || o.wc) : o.wc));
-    k.tube(A[0], A[1], C[0], C[1], 0.03, ALU); k.tube(B[0], B[1], E[0], E[1], 0.03, ALU); [A, B, C, E].forEach(p => k.circ(p[0], p[1], 0.016, DARK, EDGE));
+    const bt = k.g.bt, ft = k.g.ft, A = [0.15, bt + 0.09], B = [0.27, bt + 0.015], C = [0.46, bt + 0.3], E = [0.545, bt + 0.265], M = [0.63, bt + 0.2], T = [0.745, 0.165];
+    k.plate([[-0.04, ft - 0.03], [0.3, ft - 0.03], [0.33, bt], [0.19, bt + 0.12], [0.1, bt + 0.13], [-0.04, bt + 0.03]], DARK2, { f: 0.3 });
+    k.chain(B[0], B[1], 0.04, B[0] - 0.1, bt + 0.05, 0.018); k.wheel(B[0] - 0.1, bt + 0.05, 0.02, 'spr'); k.motorE(B[0] - 0.165, bt + 0.055, 0, 0, 0.024);
+    k.tube(B[0], B[1], E[0], E[1], 0.05, ALU2);
+    if (o.guard) k.glass([[E[0] - 0.02, E[1] + 0.05], [M[0] + 0.03, M[1] + 0.07], [T[0] + 0.075, T[1] + 0.05], [T[0] + 0.065, T[1] - 0.02], [M[0], M[1] - 0.01]]);
+    k.bar([C, E, M, T], 0.046, DARK2);
+    k.tube(A[0], A[1], C[0], C[1], 0.04, ALU2, { holes: 1, pitch: 0.06 });
+    k.belt(A[0], A[1], 0.018, C[0], C[1], 0.018, BELT, 0.008); k.belt(C[0], C[1], 0.018, M[0], M[1], 0.016, BELT, 0.008); k.belt(M[0], M[1], 0.016, T[0], T[1], 0.016, BELT, 0.008);
+    k.wheel(B[0], B[1], 0.04, 'spr');
+    k.wheel(M[0], M[1], 0.03, o.wk || 'comp', o.wc2 || o.wc); k.wheel(T[0], T[1], 0.044, o.wk || 'comp', o.wc);
+    [A, C, E].forEach(p => k.wheel(p[0], p[1], 0.02, 'pul'));
   }
   // a hopper: polycarbonate walls with their slots, a rim, ribs. o.fl / o.fr: how far the left and right walls lean out
   function hopper(k, x0, x1, y0, y1, o) {
@@ -227,7 +252,7 @@
     k.tube(x0, y0, x0 - fl, y1, 0.022, o.post || ALU2); k.tube(x1, y0, x1 + fr, y1, 0.022, o.post || ALU2);
   }
   // cameras: small black boxes with a lit ring. [x, y, facing (1 front, -1 back), 1 if it rides on a mechanism (a turret's camera): no pole]
-  function cams(k, pts) { const n = Math.min(pts.length, k.lk.vision || 0); for (let i = 0; i < n; i++) { const p = pts[i], f = p[2] || 1; if (!p[3] && p[1] > k.g.ft + 0.06) k.L(1.5, 'soft', q => q.bar([[p[0] - f * 0.014, p[1]], [p[0] - f * 0.014, k.g.ft - 0.01]], 0.014, ALU2)); k.L(7, 'soft', q => { q.rect(p[0] - 0.03, p[1] - 0.022, 0.06, 0.044, '#15181c', 0.008, EDGE); q.circ(p[0] + f * 0.03, p[1], 0.014, '#52e58a', '#0d3a1f'); }); } }
+  function cams(k, pts) { const n = Math.min(pts.length, k.lk.vision || 0); for (let i = 0; i < n; i++) { const p = pts[i], f = p[2] || 1; if (!p[3] && p[1] > k.g.ft + 0.06) k.L(1.5, 'soft', q => q.bar([[p[0] - f * 0.014, p[1]], [p[0] - f * 0.014, k.g.ft - 0.01]], 0.014, ALU2)); k.L(7, 'soft', q => { q.rect(p[0] - 0.03, p[1] - 0.022, 0.06, 0.044, '#15181c', 0.008, EDGE); q.rect(p[0] + f * 0.036 - 0.007, p[1] - 0.014, 0.014, 0.028, '#52e58a', 0.004, '#0d3a1f'); }); } }   // (3.5.7) the lens looks along the robot: from the side it is its rim, not a circle
 
   // ------------------------------------------------------------------ the seasons
   const SIDE = {};

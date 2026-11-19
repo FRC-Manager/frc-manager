@@ -46,6 +46,8 @@
     <h1>Match tester <span class="xs muted" id="ver"></span></h1>
     <label>Game <select class="inp" id="year"></select></label>
     <label title="The parts of the day (motors, swerve modules, cameras) for the game's own year, or today's parts for every game">Parts <select class="inp" id="era"><option value="own">of the game's year</option><option value="modern">of today</option></select></label>
+    <label title="How strong the three red robots are. Random: any strength, as before. All elite: three elite teams' robots. The seed's strategies stay the same at every setting.">Red <select class="inp" id="strR"><option value="random">random</option><option value="low">low</option><option value="avg">average</option><option value="high">high</option><option value="elite">all elite</option></select></label>
+    <label title="How strong the three blue robots are">Blue <select class="inp" id="strB"><option value="random">random</option><option value="low">low</option><option value="avg">average</option><option value="high">high</option><option value="elite">all elite</option></select></label>
     <label>Seed <input class="inp" id="seed" style="width:90px" inputmode="numeric"></label>
     <button class="btn" id="go">Play this seed</button>
     <button class="btn primary" id="new">New random match</button>
@@ -63,16 +65,18 @@
         <button class="btn sm" id="step" title="One tenth of a second (pause first)">Step</button>
         <button class="btn sm" id="restart" title="The same match again from the start, with your changes at the same moments">Replay</button>
         <span class="sp"></span>
+        <span class="xs muted" id="perf" title="How the match view is doing on this computer: pictures drawn a second, and the time one picture takes to draw. At 8× the pictures a second should stay near your screen's rate (at most about 75)."></span>
         <span class="xs muted" id="placeHint"></span>
       </div>
       <div class="card mt" style="padding:10px">
         <div class="ct sm">Robots</div>
         <table class="mt-bots" id="bots"></table>
-        <div class="mt-help mt">Each robot has a random strength and a random strategy (role, pace, target, endgame timing), not the season's usual meta. Lines show where each robot is heading; a ring marks the spot it wants. <b>Break</b> a robot to see how it and its partners react; <b>Disable</b> one, then click the field to drop it somewhere (in front of a scoring spot, say).</div>
+        <div class="mt-help mt">Each robot has a strength of its alliance's kind (random, unless you choose low, average, high or all elite for Red or Blue at the top) and a random strategy (role, pace, target, endgame timing), not the season's usual meta. Lines show where each robot is heading; a ring marks the spot it wants. <b>Break</b> a robot to see how it and its partners react; <b>Disable</b> one, then click the field to drop it somewhere (in front of a scoring spot, say).</div>
       </div>
     </div>
     <div>
-      <div class="card" style="padding:10px"><div class="ct sm">Match log</div><div class="mt-log" id="log"></div></div>
+      <div class="card" style="padding:10px"><div class="ct sm">Ranking points</div><div id="rp"></div></div>
+      <div class="card mt" style="padding:10px"><div class="ct sm">Match log</div><div class="mt-log" id="log"></div></div>
       <div class="card mt" style="padding:10px">
         <div class="ct sm">Report</div>
         <div class="mt-help mb">Seen something off? Pause there, write what you saw at the end, and send this text: it has everything needed to play the same match again.</div>

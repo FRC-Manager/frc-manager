@@ -5,7 +5,10 @@
 (function () {
   const E = G.Engine, U = G.U, $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const T = { year: G.SEASON_YEARS[G.SEASON_YEARS.length - 1], era: 'own', seed: 1, m: null, speed: 1, acc: 0, last: 0, domT: 0, setup: [], acts: [], todo: [], placing: -1, paths: true, labels: true };
+  const T = { year: G.SEASON_YEARS[G.SEASON_YEARS.length - 1], era: 'own', seed: 1, m: null, speed: 1, acc: 0, last: 0, domT: 0, setup: [], acts: [], todo: [], placing: -1, paths: true, labels: true, strR: 'random', strB: 'random' };
+  // (3.5.7) how strong each alliance's three robots are: random (any strength, as it always was), a band of strengths, or three elite teams
+  const STR = { random: [10, 95], low: [10, 35], avg: [40, 62], high: [72, 92], elite: [93, 98] }, STR_N = { random: 'random', low: 'low', avg: 'average', high: 'high', elite: 'all elite' };
+  const strTag = () => (T.strR !== 'random' ? '-r' + T.strR : '') + (T.strB !== 'random' ? '-b' + T.strB : '');
   const PACE_N = { push: 'Push', bal: 'Balanced', cons: 'Conserve' };
   const COLS = [['#e8b400', '#ffcf4a'], ['#2f80ed', '#9cc4ff'], ['#27ae60', '#9be7b4'], ['#c0392b', '#ff9b8a'], ['#8e44ad', '#d2a8ff'], ['#16a085', '#7fe3d0'], ['#d35400', '#ffbf8a'], ['#7f8c8d', '#d5dbdb'], ['#e84393', '#ffb3d9'], ['#2d3436', '#b2bec3']];
 
@@ -20,7 +23,8 @@
     while (teams.length < 6) { const t = rng.pick(pool); if (!teams.includes(t)) teams.push(t); }
     const roles = ['score', 'score', 'score', 'score', 'defend'].concat(year === 2024 || year === 2026 ? ['feed'] : []);
     return teams.map((t, i) => {
-      t.str = rng.int(10, 95); t.rb = null;
+      const lvl = i < 3 ? T.strR : T.strB, band = STR[lvl] || STR.random, base = rng.int(10, 95); // one draw whatever the setting, so a seed keeps its strategies at every strength
+      t.str = lvl === 'random' ? base : Math.round(band[0] + (band[1] - band[0]) * (base - 10) / 85); if (lvl !== 'random') t.elite = lvl === 'elite'; t.rb = null;
       const e = G.AI.entry(t, year, rng.range(0.85, 1.05), 1, rng), col = rng.pick(COLS);
       e.look = Object.assign({}, e.look, { c1: col[0], c2: col[1] });
       e.plan = { role: rng.pick(roles), pace: rng.pick(['push', 'bal', 'bal', 'cons']), target: rng.pick(Sz.coachTargets).id, endTiming: rng.pick(['early', 'std', 'std', 'late']),
@@ -37,7 +41,7 @@
     T.m = E.create({ year: T.year, red: ent('red'), blue: ent('blue'), seed: T.seed, headless: false, calls: 0 });
     T.acts = keepActs ? T.acts : []; T.todo = T.acts.slice(); T.acc = 0; T.placing = -1;
     $('seed').value = T.seed; $('year').value = T.year;
-    try { history.replaceState(null, '', '#' + T.year + '-' + T.seed + (T.era === 'modern' ? '-modern' : '')); } catch (e) { /* file:// may refuse */ }
+    try { history.replaceState(null, '', '#' + T.year + '-' + T.seed + (T.era === 'modern' ? '-modern' : '') + strTag()); } catch (e) { /* file:// may refuse */ }
     renderBots(); dom(); report();
   }
 
@@ -104,6 +108,8 @@
         '<td class="nowrap">' + (r.dead ? '' : '<button class="btn sm" data-act="intake" data-i="' + i + '" title="Break its intake for good">Break intake</button> <button class="btn sm" data-act="scorer" data-i="' + i + '" title="Break its scorer for good">Break scorer</button> <button class="btn sm bad" data-act="disable" data-i="' + i + '" title="Disable it, then click the field to drop it somewhere">Disable</button>') + '</td></tr>';
     }).join('');
   }
+  // (3.5.7) as in the game: a part of the page is written only when its text has changed
+  const put = (el, html) => { if (el && el.liveHtml !== html) { el.liveHtml = html; el.innerHTML = html; return true; } return false; };
   function dom() {
     const m = T.m, tot = s => s.auto + s.tele + s.end + s.foul;
     $('scR').textContent = tot(m.score.red); $('scB').textContent = tot(m.score.blue);
@@ -116,20 +122,25 @@
       if (r.stats.gaveUp) fl.push('<span class="mt-flag warn">gave up ' + r.stats.gaveUp + '×</span>');
       if (r.prog && r.prog.n >= 2) fl.push('<span class="mt-flag warn">stuck</span>');
       if (r.stats.faults.length) fl.push('<span class="mt-flag">' + esc(r.stats.faults.slice(-2).join(', ')) + '</span>');
-      const nw = $('now' + i); if (nw) nw.innerHTML = esc(r.dead ? (r.tipped ? 'TIPPED' : 'DISABLED') : r.label || r.st) + (r.held ? ' <span class="muted">(holding ' + r.held + ')</span>' : '') + (r.plan.role !== (T.setup.find(x => x.team === r.team) || {}).plan.role ? ' <span class="mt-flag ai">now ' + esc(r.plan.role) + '</span>' : '') + '<div>' + fl.join('') + '</div>';
-      const pt = $('pts' + i); if (pt) pt.textContent = r.stats.pts;
+      const nw = $('now' + i), nwHtml = esc(r.dead ? (r.tipped ? 'TIPPED' : 'DISABLED') : r.label || r.st) + (r.held ? ' <span class="muted">(holding ' + r.held + ')</span>' : '') + (r.plan.role !== (T.setup.find(x => x.team === r.team) || {}).plan.role ? ' <span class="mt-flag ai">now ' + esc(r.plan.role) + '</span>' : '') + '<div>' + fl.join('') + '</div>'; put(nw, nwHtml);
+      const pt = $('pts' + i); if (pt && pt.textContent !== String(r.stats.pts)) pt.textContent = r.stats.pts;
     });
     const lg = $('log'), atEnd = lg.scrollTop + lg.clientHeight >= lg.scrollHeight - 8;
-    lg.innerHTML = m.log.slice(-160).map(l => '<div class="' + (l.kind === 'fault' || l.kind === 'foul' ? 'fault' : l.kind === 'ai' ? 'ai' : l.kind === 'tester' ? 'tester' : l.a || '') + '">' + U.fmtTime(Math.max(0, l.t)) + ' ' + esc(l.msg) + '</div>').join('');
-    if (atEnd) lg.scrollTop = lg.scrollHeight;
+    if (put(lg, m.log.slice(-160).map(l => '<div class="' + (l.kind === 'fault' || l.kind === 'foul' ? 'fault' : l.kind === 'ai' ? 'ai' : l.kind === 'tester' ? 'tester' : l.a || '') + '">' + U.fmtTime(Math.max(0, l.t)) + ' ' + esc(l.msg) + '</div>').join('')) && atEnd) lg.scrollTop = lg.scrollHeight;
+    // (3.5.7) the ranking point bars, as the game shows them beside a match
+    { const bar = (v, max, col) => '<div class="bar"><i style="width:' + U.clamp(100 * v / (max || 100), 0, 100) + '%;background:' + col + '"></i></div>';
+      const bon = a => m.R.bonus(m, a).map(b => '<div class="rp-item"><div class="row"><span>' + esc(b.name) + '</span><span class="sp"></span><span class="' + (b.ok ? 'good b' : 'muted') + '">' + b.val + '/' + b.thr + (b.ok ? ' ✔' : '') + '</span></div>' + bar(b.val, b.thr, a === 'red' ? 'var(--red)' : 'var(--blue)') + '</div>').join('');
+      const hud = a => (m.R.hud ? m.R.hud(m, a) : []).map(x => '<span class="tag ' + (a === 'red' ? 'bad' : 'info') + '">' + esc(x) + '</span>').join(' ');
+      put($('rp'), '<div class="xs red b mb">RED ' + hud('red') + '</div>' + bon('red') + '<div class="hr"></div><div class="xs blue b mb">BLUE ' + hud('blue') + '</div>' + bon('blue')); }
+    { const p = T.perf; if (p && p.n) { const now = performance.now(), fps = p.n * 1000 / Math.max(1, now - p.t0); $('perf').textContent = Math.round(fps) + ' pictures a second · ' + (p.ms / p.n).toFixed(1) + ' ms each'; if (now - p.t0 > 2000) T.perf = null; } }
   }
   function report() {
     const m = T.m, Sz = G.Seasons[T.year], tot = s => s.auto + s.tele + s.end + s.foul;
-    const lines = ['FRC Manager match tester · v' + G.VERSION, 'Game ' + T.year + ' ' + Sz.name + ' · seed ' + T.seed + ' · parts ' + (T.era === 'own' ? "of the game's year" : 'of today'),
+    const lines = ['FRC Manager match tester · v' + G.VERSION, 'Game ' + T.year + ' ' + Sz.name + ' · seed ' + T.seed + ' · parts ' + (T.era === 'own' ? "of the game's year" : 'of today') + (strTag() ? ' · strength: red ' + STR_N[T.strR] + ', blue ' + STR_N[T.strB] : ''),
       'At ' + U.fmtTime(m.phase === 'auto' ? m.T.auto - m.t : m.total - m.t) + ' (' + m.t.toFixed(1) + ' s in) · Red ' + tot(m.score.red) + ' : ' + tot(m.score.blue) + ' Blue'];
     m.robots.forEach(r => lines.push(slot(r) + ' ' + r.team + ': ' + r.plan.role + ', ' + r.plan.pace + ', target ' + r.plan.target + ' · ' + (r.dead ? 'disabled' : r.label || r.st) + ' at (' + r.x.toFixed(1) + ', ' + r.y.toFixed(1) + ')'));
     if (T.acts.length) lines.push('Changes: ' + T.acts.map(a => a.t.toFixed(1) + ' s ' + slot(m.robots[a.i]) + ' ' + a.what + (a.x != null ? ' (' + a.x + ', ' + a.y + ')' : '')).join('; '));
-    lines.push('Open at this moment: index.html#' + T.year + '-' + T.seed + (T.era === 'modern' ? '-modern' : '') + '@' + m.t.toFixed(1) + (T.acts.length ? ' (then apply the changes above)' : ''));
+    lines.push('Open at this moment: index.html#' + T.year + '-' + T.seed + (T.era === 'modern' ? '-modern' : '') + strTag() + '@' + m.t.toFixed(1) + (T.acts.length ? ' (then apply the changes above)' : ''));
     lines.push('What looked off: ');
     const el = $('report'), keep = el.value.split('What looked off: ')[1];
     el.value = lines.join('\n') + (keep && T.reportSeed === T.seed + ':' + T.year ? keep : '');
@@ -151,7 +162,8 @@
       while (T.acc >= 0.1 && !m.done && n < 400) { stepOnce(); T.acc -= 0.1; n++; }
       if (m.done) { renderBots(); report(); }
     }
-    if (m) { draw(); if (ts - T.domT > 200) { dom(); T.domT = ts; } }
+    // (3.5.7) as in the game: a picture when 13 ms have passed since the last (about 72 a second on a fast screen), the tables five times a second
+    if (m) { if (ts - (T.drawT || 0) >= 13) { const t0 = performance.now(); draw(); const p = T.perf || (T.perf = { n: 0, ms: 0, t0 }); p.n++; p.ms += performance.now() - t0; T.drawT = ts; } if (ts - T.domT > 200) { dom(); T.domT = ts; } }
     requestAnimationFrame(loop);
   }
   function setSpeed(v) { T.speed = v; document.querySelectorAll('[data-spd]').forEach(b => b.classList.toggle('sel', Number(b.dataset.spd) === v)); if (!v) report(); }
@@ -160,10 +172,11 @@
   function init() {
     $('ver').textContent = 'v' + G.VERSION;
     $('year').innerHTML = G.allGames().map(y => '<option value="' + y + '">' + (G.isFantasy(y) ? 'Fantasy: ' : y + ' ') + esc(G.Seasons[y].name) + '</option>').join('');
-    // #2017-4242 plays that match; -modern for today's parts; @67 jumps straight to 67 s in (paused there)
-    const hm = /^#(\d{4})-(\d+)(-modern)?(?:@([\d.]+))?$/.exec(location.hash);
-    if (hm && G.Seasons[Number(hm[1])]) { T.year = Number(hm[1]); T.seed = Number(hm[2]); T.era = hm[3] ? 'modern' : 'own'; T.jump = hm[4] ? Number(hm[4]) : 0; } else T.seed = Math.floor(Math.random() * 999999) + 1;
-    $('era').value = T.era;
+    // #2017-4242 plays that match; -modern for today's parts; -rhigh -belite for the alliances' strength; @67 jumps straight to 67 s in (paused there)
+    const hm = /^#(\d{4})-(\d+)(-modern)?(?:-r([a-z]+))?(?:-b([a-z]+))?(?:@([\d.]+))?$/.exec(location.hash);
+    if (hm && G.Seasons[Number(hm[1])]) { T.year = Number(hm[1]); T.seed = Number(hm[2]); T.era = hm[3] ? 'modern' : 'own'; T.strR = STR[hm[4]] ? hm[4] : 'random'; T.strB = STR[hm[5]] ? hm[5] : 'random'; T.jump = hm[6] ? Number(hm[6]) : 0; } else T.seed = Math.floor(Math.random() * 999999) + 1;
+    $('era').value = T.era; $('strR').value = T.strR; $('strB').value = T.strB;
+    $('strR').onchange = () => { T.strR = $('strR').value; start(false); }; $('strB').onchange = () => { T.strB = $('strB').value; start(false); };
     $('year').onchange = () => { T.year = Number($('year').value); start(true); };
     $('era').onchange = () => { T.era = $('era').value; start(false); };
     $('go').onclick = () => { const v = parseInt($('seed').value, 10); if (v > 0) { T.seed = v; start(false); } };

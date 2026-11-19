@@ -447,14 +447,21 @@
   // a scorer at its spot while the bank is full and a good human player is holding the button: wait for it
   const holdAmp24 = (m, r) => { const ss = m.ss[r.a]; return m.phase === 'tele' && ss.bank >= 2 && !(ss.ampUntil > m.t) && hpAmp24(m, r.a) >= GOODHP24 && m.total - m.t > 14; };
   function speaker24(m, r) {
-    const ss = m.ss[r.a], spk = m.spk[r.a];
-    const spot = H.shootSpot(m, r, spk, m.zone[r.a]);
+    const ss = m.ss[r.a], spk = m.spk[r.a], z = m.zone[r.a], rg = H.shotRange(r);
+    // (3.5.7) A note does not go through a leg of the Stage: from under or behind the Stage a robot shoots between the legs. A
+    // spot in a leg's shadow is traded for the nearest one in the clear, and a robot shoved into a shadow drives out first
+    const see = (q, pad) => H.lineClear(q, spk, m.blk24, pad);
+    let spot = H.shootSpot(m, r, spk, z);
+    if (!see(spot, 0.2)) spot = H.okSpot(m, r, spot, q => see(q, 0.2) && q.x >= z.x0 && q.x <= z.x1 && q.y >= z.y0 && q.y <= z.y1 && E.dist(q, spk) >= rg[0] && E.dist(q, spk) <= rg[1]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (!see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return speaker24(m, r);
       if (holdAmp24(m, r) && !r.mem.held24) { r.mem.held24 = 1; ss.waited = (ss.waited || 0) + 1; return H.waitUntil(r, () => ss.ampUntil > m.t || ss.bank < 2, () => speaker24(m, r), 'Waiting for Amplify', ampPatience24(m, r.a) + 0.5); }
       r.mem.held24 = 0;
       const t0 = m.t; // a note that leaves the shooter inside the 10 seconds counts (the field gives notes in flight 3 more seconds)
       H.act(r, H.aimTime(m, r) + H.scoreTime(m, r, 0.5), () => {
+        if (!see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return speaker24(m, r); // shoved behind a leg while it aimed: the note stays in the robot
+        r.mem.los = 0;
         const hit = m.rng.chance(H.hit(m, r, 1.0, H.rangePen(m, r, spk)));
         r.stats.shots++; H.shotFx(m, r, spk, hit);
         if (hit) {
@@ -467,7 +474,7 @@
         }
         r.held = 0;
       }, 'Shooting speaker');
-    }, 'To speaker');
+    }, 'To speaker', q => see(q, 0.2));
   }
   function amp24(m, r) {
     const ss = m.ss[r.a], spot = m.ampSpot[r.a];
@@ -635,10 +642,10 @@
       setHp(m);
       // the Stage: routes keep clear of its middle (low trusses), robots cannot drive through its three legs, and the leg
       // nearest the alliance wall stands on the wider Podium. A robot heading for its chain or a park may go under it.
-      m.obs = [];
+      m.obs = []; m.blk24 = []; // (3.5.7) blk24: what a note cannot be shot across: a leg (0.15 m) and half a note (0.18 m)
       ['red', 'blue'].forEach(a => {
         const c = E.P(m, a, ST24.x, ST24.y); m.obs.push({ x: c.x, y: c.y, r: 1.05, h: 0, end: true });
-        [0, 1, 2].forEach(k => { const p = stLeg24(m, a, k); m.obs.push({ x: p.x, y: p.y, r: k ? 0.1 : 0.25, h: 0.15 }); }); // the Podium leg: a little wider for routes, as solid as the others (the wing note sits just in front of it)
+        [0, 1, 2].forEach(k => { const p = stLeg24(m, a, k); m.obs.push({ x: p.x, y: p.y, r: k ? 0.1 : 0.25, h: 0.15 }); m.blk24.push({ x: p.x, y: p.y, r: 0.33 }); }); // the Podium leg: a little wider for routes, as solid as the others (the wing note sits just in front of it)
       });
       m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {}; m.loose = [];
       // the human player at the Amp (Amplify, the HIGH NOTES) is the alliance's best one
@@ -1134,23 +1141,30 @@
     H.moveTo(m, r, pt, sweep, 'Hoarding: neutral zone');
     return true;
   }
+  // (3.5.7) Fuel counts only from a robot in its own alliance zone: at least a bumper on the zone's tape, which runs along
+  // the foot of the bumps (LINE26 from the alliance wall). A robot that stands wholly on a bump, or was shoved past the
+  // tape, holds its fire and drives back first; a free spot beside a taken one is never chosen past the tape.
+  const LINE26 = XB - 0.6, inZone26 = (m, a, q, pad) => E.P(m, a, q.x, q.y).x <= LINE26 + RR - pad;
   function shoot26(m, r) {
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r);
       if (r.cap.dumper) H.face(r, hub); // a dumper's flywheels are fixed across its front: the whole robot squares up to the hub
       if (!active26(m, r.a) && r.plan.target !== 'shoot') {
         return H.waitUntil(r, () => active26(m, r.a) || m.inEnd, () => H.act(r, H.aimTime(m, r), () => volley26(m, r), 'Aiming'), 'Holding — hub inactive', 30);
       }
       H.act(r, H.aimTime(m, r), () => volley26(m, r), 'Aiming');
-    }, 'To shoot');
+    }, 'To shoot', q => inZone26(m, r.a, q, 0.15));
   }
   function volley26(m, r) {
     if (r.held <= 0 || !H.canScore(m, r)) return;
     if (H.endDue(m, r)) return;
     if (!active26(m, r.a) && r.plan.target !== 'shoot') return;
+    if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r);
     const rate = rate26(r), k = Math.min(r.held, Math.max(1, Math.round(rate * 0.5)));
     H.act(r, k / rate, () => {
+      if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r); // shoved past the tape while it fired: that fuel stays in the hopper
       const hub = m.hub[r.a], ss = m.ss[r.a];
       const p = Math.min(0.99, H.hit(m, r, 1.0, H.rangePen(m, r, hub) * (r.cap.rotor ? ROTOR26.pen : 1)) + (r.cap.rotor ? ROTOR26.hit : 0));
       let hits = 0;
@@ -1401,7 +1415,7 @@
 // Placement games (2023, 2025): protected zones make defense weak; run three scorers.
 // ---------------------------------------------------------------------
 (function () {
-  const R = G.Rules, S = G.Seasons;
+  const R = G.Rules, S = G.Seasons, E = G.Engine, FW = E.FW, FH = E.FH;
   // pin: seconds a robot may be pinned (G202 2022–23 and G420 2024: 5 s; G425 2025 and G418 2026: 3 s);
   // reset: how long the defender must stay 6 ft away before pinning again; protMajor: protected-zone contact is a major/tech foul
   R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3, credit: { 'Hangar Zone': 4 } }; // G208: touching a robot in its Hangar Zone in the last 30 s gives it Traversal points
@@ -1412,9 +1426,12 @@
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
   // (3.5.6) what a robot turns to while it works: the Grid stands against its own alliance wall; the Reef's middle; the corner a Coral Station or the Source is built across
   const corner = p => ({ x: p.x < FW / 2 ? 0 : FW, y: p.y < FH / 2 ? 0 : FH });
-  S[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
-  S[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
-  S[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
+  R[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
+  R[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
+  R[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
+  // (3.5.7) These three hooks were written on G.Seasons in 3.5.6, where the engine never looked: they are on the rules now.
+  // A 2025 robot turns its climber to its cage: the side of the robot for a climber on its post, the back for one on a telescope
+  R[2025].endFace = (m, r, lvl) => (lvl ? { x: FW / 2, y: r.y, side: (G.Render && G.Render.topInfo && G.Render.topInfo(r).climb) || 'right' } : null);
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes home from the Source end (G414: only once the feeder\'s bumpers are out of the opponent\'s Wing), and their human players hold Amplify until two scorers are lined up. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers. Each of its six faces has its own branches: the faces nearest the coral stations fill first, and the last coral means a longer drive around to the far side.' };

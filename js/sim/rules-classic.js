@@ -1027,22 +1027,29 @@
     let spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
     // (3.5.6) a turret that reaches from outside the Key (cap.fuelFar, metres) shoots from where the robot stands, or comes just within reach
     const far = hi && r.cap.fuelFar ? r.cap.fuelFar : 0;
-    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r); }
+    // (3.5.7) The airship is far too tall to shoot over: a robot fires only from where it sees the boiler past it. A spot in
+    // the airship's shadow is traded for the nearest one in the clear, and a robot shoved into the shadow drives out first
+    const see = (q, pad) => H.lineClear(q, by, m.blk17, pad);
+    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r);
+      if (!see(spot, 0.2)) spot = H.okSpot(m, r, spot, q => see(q, 0.2) && E.dist(q, by) <= far); }
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r) || !(r.fuel > 0)) return;
+      if (hi && !see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return fuelShoot17(m, r);
+      r.mem.los = 0;
       const f = r.cap.fuel || 40, rate = hi ? (3 + 10 * f / 100) * (r.cap.storage >= 60 ? 1.35 : 1) : 16;
       const aimT = !hi ? 0.4 : r.cap.fuelTurret ? 0.3 * (r.cap.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100) : H.aimTime(m, r); // the turret aims itself: the chassis stays as it is
       const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - aimT))));
       const farK = far ? 1 - FAR17 * U.clamp((E.dist(r, by) - 3) / 3, 0, 1) : 1; // from far out a little less of the stream goes in
+      H.stream(m, r, by, aimT, n / rate, !hi ? 4 : r.cap.fuelTurret ? 1 : 2, hi && r.cap.storage >= 60 ? 0.12 : 0.2, m.blk17); // (3.5.7) the fuel is seen leaving all the while: two abreast from a shooter (the boiler's mouth takes two at a time), single file from a turret, four abreast from a dumper at the low goal; the high-volume systems fire their volleys closer together
       H.act(r, aimT + n / rate, () => {
         // a stream of fuel into a small goal: an average shooter sprays most of it, only a well-developed one is worth carrying
         const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) * farK : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
         r.fuel -= n; r.stats.shots += n; r.stats.hits += hits; r.stats.cycles++;
-        H.shotFx(m, r, by, hits > n / 2);
+        if (see(r, 0)) H.shotFx(m, r, by, hits > n / 2);
         if (hits > 0) m.ss[r.a].q[hi ? 'hi' : 'lo'].push({ r, n: hits }); // into the boiler: counted five a second
         m.ss[r.a].floor += (n - hits) * 0.7; // most of what misses bounces off the nets back onto the carpet
       }, hi ? 'Shooting fuel' : 'Dumping fuel');
-    }, 'To the boiler');
+    }, 'To the boiler', hi ? q => see(q, 0.2) : null);
   }
   // a robot works fuel if it is told to, or if it carries the big shooter and the alliance has gear runners without it
   function fuelRole17(m, r) {
@@ -1063,15 +1070,17 @@
     leftCheck: (m, r) => loc(m, r).x > G17.base + 0.3,
     init(m) {
       setHp(m);
-      m.obs = []; m.hopMid = 100; m.sec17 = 0;
+      m.obs = []; m.hopMid = 100; m.sec17 = 0; m.blk17 = [];
       ['red', 'blue'].forEach(a => {
-        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.1, h: 0.9 });
+        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.1, h: 0.9 }); m.blk17.push({ x: c.x, y: c.y, r: 1.1 }); // (3.5.7) blk17: what fuel cannot be shot across (the hexagon's corners are 1.03 m out)
         m.ss[a] = { gears: 0, rotors: 0, autoRotors: 0, kpa: 0, fuel: 0, hop: [100, 100], floor: 0, denier: null, peg: [0, 0, 0], q: { hi: [], lo: [] }, qc: { hi: 0, lo: 0 } };
       });
       m.robots.forEach(r => { if (r.cap.gear) { r.held = 1; r.heldType = 'gear'; } r.fuel = (r.cap.fuelHigh || r.cap.fuelLow) ? Math.min(10, r.cap.storage || 0) : 0; });
     },
     start(m, r) { return E.P(m, r.a, 0.55, [H17, H17 - 1.9, H17 + 1.9][r.slot]); },
     aimAt: (m, r) => (r.fuel > 0 ? E.P(m, r.a, G17.boiler.x, G17.boiler.y) : null),
+    // (3.5.7) a robot with a fuel intake at the front carries its gear mechanism at the back: it backs up to the peg and to the Loading Station (for show)
+    workSide: (m, r) => (/^(On the peg|Loading a gear)/.test(r.label || '') ? (G.Render && G.Render.topInfo && G.Render.topInfo(r).gearBack ? 'back' : 'front') : null),
     guard(m, a) { return E.P(m, a, FW - 4.6, 2.3); },
     // the Retrieval Zone in front of the Loading Station and the Key in front of the Boiler (always); the ropes in the endgame
     protect(m, r) {

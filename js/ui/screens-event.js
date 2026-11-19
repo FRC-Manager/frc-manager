@@ -812,8 +812,10 @@
       let n = 0;
       while (L.acc >= 0.1 && !L.m.done && n < 200) { G.Engine.step(L.m); L.acc -= 0.1; n++; }
     }
-    draw(L);
-    if (ts - L.domT > 180 || L.m.done) { dom(L); L.domT = ts; }
+    // (3.5.7) the field is drawn at most about 75 times a second (a fast screen asked for twice that), and the panels
+    // beside it are refreshed five times a second, and once more when the match ends (it was every frame from then on)
+    if (ts - (L.drawT || 0) >= 13 || L.m.done) { draw(L); L.drawT = ts; }
+    if (ts - L.domT > 180 || (L.m.done && !L.domEnd)) { dom(L); L.domT = ts; if (L.m.done) L.domEnd = true; }
     if (L.m.done) { const b = document.getElementById('liveDone'); if (b) b.classList.remove('hidden'); }
     L.raf = requestAnimationFrame(loop);
   }
@@ -830,7 +832,7 @@
     if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
     return 'blink';
   }
-  UI.rslOf = rslOf; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
+  UI.rslOf = rslOf; UI.liveLoop = loop; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
   function draw(L) {
     const m = L.m, ctx = L.ctx, s = L.cv.width / G.Engine.FW;
     G.Render.field(ctx, m.year, s, m);
@@ -850,6 +852,10 @@
     const m = L.m, $ = id => document.getElementById(id);
     if (!$('scR')) return;
     const sr = m.score.red, sb = m.score.blue;
+    // (3.5.7) a panel is written only when its text has changed: rewriting all four every time redrew them for nothing
+    // (and restarted any animation on what was inside)
+    // (what was last written is kept on the element itself, so a page drawn again starts clean)
+    const DH = L.domH || (L.domH = new Proxy({}, { set(t, id, html) { const el = document.getElementById(id); if (el && el.liveHtml !== html) { el.liveHtml = html; el.innerHTML = html; } return true; } }));
     const tot = s => s.auto + s.tele + s.end + s.foul;
     $('scR').textContent = tot(sr); $('scB').textContent = tot(sb);
     const tl = m.phase === 'auto' ? m.T.auto - m.t : m.total - m.t;
@@ -860,15 +866,15 @@
     const meR = m.robots.find(r => r.isPlayer);
     if (meR) {
       const H = G.Engine.PACE[meR.plan.pace].name;
-      $('myBox').innerHTML = '<div class="rbox me"><div class="hd"><span>' + meR.team + '</span><span class="xs">' + h(H) + '</span></div><div class="b">' + h(meR.label || '') + '</div><div class="xs muted">Holding: ' + (meR.held || 0) + (meR.heldType ? ' ' + meR.heldType : '') + ' · role ' + h(meR.plan.role) + ' · target ' + h(meR.plan.target) + '</div>' +
+      DH.myBox = '<div class="rbox me"><div class="hd"><span>' + meR.team + '</span><span class="xs">' + h(H) + '</span></div><div class="b">' + h(meR.label || '') + '</div><div class="xs muted">Holding: ' + (meR.held || 0) + (meR.heldType ? ' ' + meR.heldType : '') + ' · role ' + h(meR.plan.role) + ' · target ' + h(meR.plan.target) + '</div>' +
         '<div class="xs muted">Points: ' + meR.stats.pts + ' · shots ' + meR.stats.hits + '/' + meR.stats.shots + '</div>' + (meR.stats.faults.length ? '<div class="xs warn">' + h(meR.stats.faults.join(', ')) + '</div>' : '') + '</div>';
     }
-    $('robBox').innerHTML = m.robots.filter(r => !r.isPlayer).map(r => '<div class="rbox"><div class="hd"><span class="' + r.a + '">' + r.team + '</span><span class="xs muted">' + r.stats.pts + ' pts</span></div><div class="xs">' + h(r.label || '') + '</div></div>').join('');
+    DH.robBox = m.robots.filter(r => !r.isPlayer).map(r => '<div class="rbox"><div class="hd"><span class="' + r.a + '">' + r.team + '</span><span class="xs muted">' + r.stats.pts + ' pts</span></div><div class="xs">' + h(r.label || '') + '</div></div>').join('');
     const R = m.R;
     const bon = a => R.bonus(m, a).map(b => '<div class="rp-item"><div class="row"><span>' + h(b.name) + '</span><span class="sp"></span><span class="' + (b.ok ? 'good b' : 'muted') + '">' + b.val + '/' + b.thr + (b.ok ? ' ✔' : '') + '</span></div>' + UI.bar(b.val, b.thr, a === 'red' ? 'var(--red)' : 'var(--blue)') + '</div>').join('');
     const hud = a => (R.hud ? R.hud(m, a) : []).map(x => UI.tag(x, a === 'red' ? 'bad' : 'info')).join(' ');
-    $('rpBox').innerHTML = '<div class="xs red b mb">RED ' + hud('red') + '</div>' + bon('red') + '<div class="hr"></div><div class="xs blue b mb">BLUE ' + hud('blue') + '</div>' + bon('blue');
-    $('logBox').innerHTML = m.log.slice(-60).reverse().map(l => '<div class="' + l.kind + '"><span class="dim">' + U.fmtTime(l.t) + '</span> ' + h(l.msg) + '</div>').join('');
+    DH.rpBox = '<div class="xs red b mb">RED ' + hud('red') + '</div>' + bon('red') + '<div class="hr"></div><div class="xs blue b mb">BLUE ' + hud('blue') + '</div>' + bon('blue');
+    DH.logBox = m.log.slice(-60).reverse().map(l => '<div class="' + l.kind + '"><span class="dim">' + U.fmtTime(l.t) + '</span> ' + h(l.msg) + '</div>').join('');
     const left = m.calls - m.callsUsed;
     $('callsLeft').textContent = left + ' left';
     document.querySelectorAll('[data-act="call"]').forEach(b => b.disabled = left <= 0 || m.done);

@@ -78,6 +78,13 @@
   Rd.K = { rect, arect, circ, poly, line, text, apoly, aline, atext, ball, ring, P, alc, als, seeded };
   // Game pieces of the classic games: how a held piece and a shot look. { shape: 'ball' | 'box' | 'disc' | 'gear', col, r }
   Rd.PIECES = {}; Rd.SHOTS = {};
+  // (3.5.7) How big a game piece is on the carpet, in metres. A piece in flight is drawn the same size (Rd.fx): these four
+  // here, the classic and fantasy games' in Rd.SHOTS[year].r (or its draw(), when the piece is not a plain ball)
+  // cube: half its side; cone: how far up, half its base, how far down; coral: long and thick (none lies on the carpet: its real size)
+  const PR = Rd.PR = { cargo: 0.12, note: 0.16, algae: 0.13, fuel: 0.065, cube: 0.13, cone: [0.17, 0.15, 0.13], coral: [0.30, 0.11] };
+  // A robot is Rd.RW metres wide over its bumpers. A piece a robot carries is drawn the size it is on the carpet too:
+  // Rd.PIECES give a radius in robot widths, so r = metres / Rd.RW
+  Rd.RW = 0.88;
   FIELD[2022] = function (ctx, s, sym, m) {
     const cx = FW / 2, cy = FH / 2, F = G.Rules.F22, rd = d => d * Math.PI / 180;
     // a point at u along direction n (degrees, y down) and v across it, from the Hub's centre
@@ -123,8 +130,8 @@
     circ(ctx, s, cx, cy, 0.14, '#1d2227', METAL, 1);
     text(ctx, s, 'HUB', cx, cy + 0.36, '#e8edf2', 8);
     // cargo: live positions during a match, the staged layout otherwise
-    if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, 0.12, c.c === 'red' ? COL.cargoR : COL.cargoB); });
-    else ['blue', 'red'].forEach(a => F.cargo.map(d => hp(d, F.ring)).concat([{ x: 1.14, y: 7.07 }]).forEach(p => { const q = P(sym, a, p.x, p.y); ball(ctx, s, q.x, q.y, 0.12, a === 'red' ? COL.cargoR : COL.cargoB); }));
+    if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, PR.cargo, c.c === 'red' ? COL.cargoR : COL.cargoB); });
+    else ['blue', 'red'].forEach(a => F.cargo.map(d => hp(d, F.ring)).concat([{ x: 1.14, y: 7.07 }]).forEach(p => { const q = P(sym, a, p.x, p.y); ball(ctx, s, q.x, q.y, PR.cargo, a === 'red' ? COL.cargoR : COL.cargoB); }));
   };
   FIELD[2022].noMid = true;
   FIELD[2023] = function (ctx, s, sym, m) {
@@ -143,8 +150,8 @@
         const v = g ? g[row * 9 + col] : 0;
         if (type === 'cone') { circ(ctx, s, p.x, p.y, 0.09, '#1a1e23', METAL, 1.5); circ(ctx, s, p.x, p.y, 0.03, METAL); }
         else rect(ctx, s, p.x - 0.15, p.y - 0.15, 0.3, 0.3, type === 'cube' ? 'rgba(155,107,255,0.12)' : 'rgba(255,255,255,0.05)', type === 'cube' ? 'rgba(155,107,255,0.7)' : '#7d8791', 1.2);
-        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - 0.18 }, { x: p.x + 0.16, y: p.y + 0.14 }, { x: p.x - 0.16, y: p.y + 0.14 }], COL.cone, 'rgba(0,0,0,0.4)', 1);
-        else if (v === 2) rect(ctx, s, p.x - 0.14, p.y - 0.14, 0.28, 0.28, COL.cube, 'rgba(0,0,0,0.35)', 1);
+        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - PR.cone[0] }, { x: p.x + PR.cone[1], y: p.y + PR.cone[2] }, { x: p.x - PR.cone[1], y: p.y + PR.cone[2] }], COL.cone, 'rgba(0,0,0,0.4)', 1);
+        else if (v === 2) rect(ctx, s, p.x - PR.cube, p.y - PR.cube, PR.cube * 2, PR.cube * 2, COL.cube, 'rgba(0,0,0,0.35)', 1);
       }
       // charge station: platform, hinge and ramps (glows when an alliance engages)
       const eng = m && m.ss[a] && m.ss[a].engaged;
@@ -161,7 +168,7 @@
       atext(ctx, s, sym, a, 'SUBSTATION', 15.0, 5.85, alc(a), 8);
     });
     // staged game pieces at mid-field
-    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { ctx.save(); ctx.globalAlpha = 0.55; if (i % 2) rect(ctx, s, x - 0.13, y - 0.13, 0.26, 0.26, COL.cube); else poly(ctx, s, [{ x, y: y - 0.17 }, { x: x + 0.15, y: y + 0.13 }, { x: x - 0.15, y: y + 0.13 }], COL.cone); ctx.restore(); }); });
+    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { ctx.save(); ctx.globalAlpha = 0.55; if (i % 2) rect(ctx, s, x - PR.cube, y - PR.cube, PR.cube * 2, PR.cube * 2, COL.cube); else poly(ctx, s, [{ x, y: y - PR.cone[0] }, { x: x + PR.cone[1], y: y + PR.cone[2] }, { x: x - PR.cone[1], y: y + PR.cone[2] }], COL.cone); ctx.restore(); }); });
   };
   FIELD[2024] = function (ctx, s, sym, m) {
     ['blue', 'red'].forEach(a => {
@@ -202,12 +209,12 @@
         circ(ctx, s, q.x, q.y, 0.42, 'rgba(255,210,77,0.22)'); ring(ctx, s, q.x, q.y, 0.15, '#ffffff');
       });
       // notes: staged wing notes and the fed pile near the speaker
-      if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
-      if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35));
+      if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, PR.note, COL.note); });
+      if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, PR.note, COL.note, n.t <= m.t ? 1 : 0.35));
     });
-    if (m && m.loose) m.loose.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35)); // notes lobbed into the Neutral Zone
-    if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
-    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, 0.16, COL.note));
+    if (m && m.loose) m.loose.forEach(n => ring(ctx, s, n.x, n.y, PR.note, COL.note, n.t <= m.t ? 1 : 0.35)); // notes lobbed into the Neutral Zone
+    if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, PR.note, COL.note); });
+    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, PR.note, COL.note));
   };
   FIELD[2025] = function (ctx, s, sym, m) {
     const CY = G.Rules.CAGE25;
@@ -228,10 +235,10 @@
       if (ss) {
         if (ss.fc) ss.fc.forEach((f, k) => {
           const g = k * 60 * Math.PI / 180, n = f.lv[0] + f.lv[1] + f.lv[2] + f.lv[3];
-          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? 0.13 : 0.11, COL.algae); }
+          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? PR.algae : 0.11, COL.algae); }
           if (n) { const p = P(sym, a, 4.49 + Math.cos(g) * 1.16, 4.03 + Math.sin(g) * 1.16); text(ctx, s, String(n), p.x, p.y, n >= 11 ? '#3ecf8e' : '#f3efe6', 8); }
         });
-        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
+        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, PR.algae, COL.algae); }
         text(ctx, s, ss.lv[3] + '·' + ss.lv[2] + '·' + ss.lv[1] + '·' + ss.lv[0], c.x, c.y, '#fff', 9);
       } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 9);
       // coral stations in the two corners of the alliance wall
@@ -286,18 +293,18 @@
       // depot (fuel bin) and outpost (human player chute)
       arect(ctx, s, sym, a, 0.12, 5.8, 0.9, 1.3, 'rgba(255,216,74,0.12)', COL.fuel, 1.5);
       const dr = seeded(a === 'red' ? 61 : 62), dep = m && m.ss[a] ? Math.min(14, Math.ceil(m.ss[a].depot / 2)) : 12;
-      for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+      for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, PR.fuel, COL.fuel); }
       apoly(ctx, s, sym, a, [[0.05, 0.05], [1.45, 0.05], [0.05, 1.65]], als(a), alc(a), 2);
       atext(ctx, s, sym, a, 'OUTPOST', 0.5, 0.45, alc(a), 7);
       if (m && m.ss[a] && m.ss[a].pool > 0) {
         const zr = seeded(a === 'red' ? 71 : 72), nb = Math.min(48, Math.ceil(m.ss[a].pool / 2));
-        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, PR.fuel, COL.fuel); }
         const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8);
       }
     });
     const r = seeded(2026);
     const nN = m && m.neutral != null ? Math.min(120, Math.ceil(m.neutral / 3)) : 80;
-    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), PR.fuel, COL.fuel);
     if (m && m.neutral != null) text(ctx, s, 'neutral zone fuel ' + Math.round(m.neutral), FW / 2, 0.22, COL.fuel, 8);
   };
 
@@ -311,7 +318,7 @@
     const ac = alc(r.a);
     ctx.save();
     ctx.translate(x, y);
-    if (r.climbing || (r.end && r.end.lvl > 0)) { ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; }
+    if (r.climbing || (r.end && r.end.lvl > 0)) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.arc(0, Math.max(3, sz * 0.09), h * 1.2, 0, 7); ctx.fill(); } // (3.5.7) one soft shadow under a robot off the floor: a blurred shadow on every one of its shapes was the slowest thing in the endgame
     ctx.rotate(r.hd || 0);
     // bumper (with a darker seam) + frame
     ctx.fillStyle = ac; ctx.beginPath(); ctx.roundRect(-h, -h, sz, sz, sz * 0.08); ctx.fill();
@@ -351,26 +358,27 @@
       // plain balls (2022 cargo) sit side by side across the robot, in its own frame; the other pieces are drawn upright
       const plain = !(t === 'cone' || t === 'cube' || t === 'coral' || t === 'algae' || Rd.PIECES[t] || o.year === 2024);
       if (plain) {
-        for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc(0, (i - (r.held > 1 ? 0.5 : 0)) * sz * 0.26, sz * 0.12, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+        for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc(0, (i - (r.held > 1 ? 0.5 : 0)) * PR.cargo * 2.05 * s, PR.cargo * s, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
       } else {
       ctx.rotate(-(r.hd || 0));
-      if (t === 'cone') { ctx.beginPath(); ctx.moveTo(0, -sz * 0.2); ctx.lineTo(sz * 0.16, sz * 0.14); ctx.lineTo(-sz * 0.16, sz * 0.14); ctx.closePath(); ctx.fillStyle = COL.cone; ctx.fill(); }
-      else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-sz * 0.14, -sz * 0.14, sz * 0.28, sz * 0.28); }
-      else if (t === 'coral') { ctx.fillStyle = COL.coral; ctx.fillRect(-sz * 0.22, -sz * 0.06, sz * 0.44, sz * 0.12); }
-      else if (t === 'algae') { ctx.beginPath(); ctx.arc(0, 0, sz * 0.17, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
+      // (3.5.7) a carried piece is the size it is on the carpet (PR, in metres; Rd.PIECES in robot widths)
+      if (t === 'cone') { ctx.beginPath(); ctx.moveTo(0, -PR.cone[0] * s); ctx.lineTo(PR.cone[1] * s, PR.cone[2] * s); ctx.lineTo(-PR.cone[1] * s, PR.cone[2] * s); ctx.closePath(); ctx.fillStyle = COL.cone; ctx.fill(); }
+      else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-PR.cube * s, -PR.cube * s, PR.cube * 2 * s, PR.cube * 2 * s); }
+      else if (t === 'coral') { ctx.fillStyle = COL.coral; ctx.fillRect(-PR.coral[0] / 2 * s, -PR.coral[1] / 2 * s, PR.coral[0] * s, PR.coral[1] * s); }
+      else if (t === 'algae') { ctx.beginPath(); ctx.arc(0, 0, PR.algae * s, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
       else if (Rd.PIECES[t]) {
         const pc = Rd.PIECES[t], q = sz * (pc.r || 0.15), n = Math.min(pc.many || 1, r.held);
         for (let i = 0; i < n; i++) {
           const ox = (i - (n - 1) / 2) * q * 1.5;
           ctx.beginPath();
           if (pc.shape === 'box') { ctx.fillStyle = pc.col; ctx.fillRect(ox - q, -q, 2 * q, 2 * q); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(ox - q, -q, 2 * q, 2 * q); }
-          else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * 0.5); ctx.stroke(); }
+          else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * (pc.lw || 0.5)); ctx.stroke(); }
           else if (pc.shape === 'bar') { const oy = (i - (n - 1) / 2) * q * 1.1; ctx.fillStyle = pc.col; ctx.fillRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); } // a long piece carried across the robot
-          else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = '#1a1e23'; ctx.fill(); }
+          else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = pc.hole || '#1a1e23'; ctx.fill(); }
           else { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
         }
       }
-      else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, sz * 0.15, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = 4; ctx.stroke(); }
+      else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, PR.note * s, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = Math.max(2, PR.note * s * 0.55); ctx.stroke(); }
       ctx.rotate(r.hd || 0);
       }
       ctx.translate(-at[0], -at[1]);
@@ -560,17 +568,19 @@
         const k = Math.min(1, age * 2.2);
         const x = f.x0 + (f.x1 - f.x0) * k, y = f.y0 + (f.y1 - f.y0) * k - Math.sin(k * Math.PI) * 0.6;
         ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age) * (f.hit ? 1 : 0.55);
-        if (m.year === 2024) ring(ctx, s, x, y, 0.15, COL.note);
-        else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
-        else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
-        else if (m.year === 2026) {
+        // (3.5.7) a piece in flight is the size it is on the carpet, in every game (PR, Rd.SHOTS)
+        if (m.year === 2024) ring(ctx, s, x, y, PR.note, COL.note);
+        else if (m.year === 2022) ball(ctx, s, x, y, PR.cargo, f.a === 'red' ? COL.cargoR : COL.cargoB);
+        else if (m.year === 2025) ball(ctx, s, x, y, PR.algae, COL.algae);
+        else if (m.year === 2026 || m.year === 2017) { // (3.5.7) 2017's fuel leaves the same way
           // (3.5.4) a turret fires single file (one ball after another along the flight), fixed and hood shooters two
           // abreast, the wide dumper four abreast (across the flight)
           const n = f.lanes || 2, dx = f.x1 - f.x0, dy = f.y1 - f.y0, L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;
-          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, 0.065, COL.fuel); }
-          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * 0.18; ball(ctx, s, x + px * o, y + py * o, 0.065, COL.fuel); }
+          const s17 = m.year === 2017 ? Rd.SHOTS[2017] : null, fc = s17 ? s17.col : COL.fuel, fr = s17 ? s17.r : PR.fuel, gap = fr * 2.8; // 2017's fuel is the smaller ball
+          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, fr, fc); }
+          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * gap; ball(ctx, s, x + px * o, y + py * o, fr, fc); }
         }
-        else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
+        else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.draw) sh.draw(ctx, s, x, y, f); else if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
         else circ(ctx, s, x, y, 0.1, '#d9dee3');
         ctx.restore();
       } else if (f.k === 'pop') {

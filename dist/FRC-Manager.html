@@ -772,7 +772,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.6';
+  G.VERSION = '3.5.7';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -1517,7 +1517,7 @@ window.G = window.G || {};
           base: { fuel: 45 }, ceil: { fuel: 82 }, caps: { fuelHigh: false, fuelLow: true, storage: 50 }, look: { shooter: 'dump', hopper: 50 } },
         { id: 'shoot', name: 'High-goal shooter (45 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 45 }, look: { shooter: 'fixed', hopper: 45 } },
-        { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
+        { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Twin flywheels that fire fuel two abreast (all the boiler\'s mouth takes) as fast as it can be fed, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
           base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } },
         // (3.5.6) the best fuel robots of the year (254's): a full-width intake at each end, a spiral feeder and a turret with
         // two flywheels. It sweeps loose fuel up faster (cap.fuelWide), and the turret shoots from well outside the Key,
@@ -1528,9 +1528,9 @@ window.G = window.G || {};
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
         NONE_END,
-        { id: 'winch', name: 'Winch drum', desc: 'A drum that catches the rope and winds the robot up. Slow, and the catch takes a few tries.', cost: 350, hours: 70, w: 8, cx: 2, areas: ['climb'],
+        { id: 'winch', name: 'Winch drum', desc: 'A narrow winch tube, high on the robot, that catches the rope and winds the robot up. Slow, and the catch takes a few tries.', cost: 350, hours: 70, w: 8, cx: 2, areas: ['climb'],
           base: { endgame: 42 }, ceil: { endgame: 82 }, caps: { endLevel: 1 }, look: { climber: 'hook' } },
-        { id: 'fast', name: 'Fast rope grabber', desc: 'A hook-and-loop roller that grabs the rope at the first touch and a geared motor that lifts the robot in a few seconds.', cost: 900, hours: 150, w: 10, cx: 3, areas: ['climb'],
+        { id: 'fast', name: 'Fast rope grabber', desc: 'A hook-and-loop tube as wide as the robot: it grabs the rope at the first touch, wherever the rope meets it, and a geared motor lifts the robot in a few seconds.', cost: 900, hours: 150, w: 10, cx: 3, areas: ['climb'],
           base: { endgame: 45 }, ceil: { endgame: 96 }, caps: { endLevel: 1 }, look: { climber: 'hook2' } }
       ] },
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
@@ -6289,15 +6289,16 @@ window.G = window.G || {};
     }
     // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
     if (r.faceAt) { if (r.faceAt.live && m.R.aimAt) { const p = m.R.aimAt(m, r); if (p) { r.faceAt.x = p.x; r.faceAt.y = p.y; } }
-      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : 0);
+      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : r.faceAt.side === 'right' ? -Math.PI / 2 : r.faceAt.side === 'left' ? Math.PI / 2 : 0);   // (3.5.7) 'right' / 'left': a mechanism on the robot's side (a 2025 cage climber)
         if (r.cap.flip && !r.faceAt.side && Math.abs(angd(want, r.hd || 0)) > Math.PI / 2) want += Math.PI;   // (3.5.6) a flipping claw scores behind the robot as well: it turns to whichever end is nearer
         turnBy(r, want, TURN); } else if (r.st !== 'idle') r.faceAt = null; }
+    if (r.stream) { const sv = r.stream; if (r.st !== 'act' || m.t > sv.until + 0.05) r.stream = null; else if (m.t >= sv.from && m.t >= sv.next) { if (!sv.blk || H.lineClear(r, sv.to, sv.blk)) H.shotFx(m, r, sv.to, true, sv.lanes); sv.next = m.t + sv.every - 0.001; } } // (3.5.7) H.stream
     // (3.5.6) a robot that starts work on something beside it (placing, loading from a station) turns its scorer or its intake to it
     // (side: which end points at it. Its intake end when it loads, 'back' for a robot fed from behind; else the end its scorer is on)
     if (!m.headless && r.st === 'act' && r.actSeen !== r.actN) {
       r.actSeen = r.actN;
       if (!r.faceAt || r.faceAt.auto) { const p = WORK.test(r.label || '') ? workAt(m, r, r) : m.R.workAt ? m.R.workAt(m, r, r) || null : null; // (any other act: only if the season itself says what to face)
-        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; }
+        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (m.R.workSide && m.R.workSide(m, r)) || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; } // (3.5.7) workSide: a season may say which end does this job (2017: the gear mechanism)
     } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
@@ -6316,7 +6317,7 @@ window.G = window.G || {};
       if (r.path.length && m.phase !== 'auto' && m.t - pg.chk >= 0.5) {
         pg.chk = m.t;
         if (!r.endBusy && r.goal && dist(r, r.goal) < 3.5 && spotUse(m, r, r.goal, true)) {
-          const alt = freeNear(m, r, r.goal);
+          const alt = freeNear(m, r, r.goal, r.goalOk);
           if (alt) { r.goal = alt; r.path = planTo(m, r, alt); r.gprog = null; }
         } else if (r.path.length && blockedLeg(m, r, r.path[0])) r.path = planTo(m, r, r.path[r.path.length - 1]);
       }
@@ -6397,11 +6398,12 @@ window.G = window.G || {};
   }
 
   // ---------- movement ----------
-  function moveTo(m, r, pt, then, label) {
+  function moveTo(m, r, pt, then, label, ok) {
     // the spot is taken (a robot stopped on it, a partner about to get there, or this robot gave up on it a moment ago):
     // use a free one beside it. Climbing spots are not moved.
-    if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt); if (alt) pt = alt; }
-    r.goal = pt; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
+    // (3.5.7) ok(spot): what the spot must be for the job (a clear line to the goal, a bumper in the zone): the free spot beside a taken one is chosen among those
+    if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt, ok); if (alt) pt = alt; }
+    r.goal = pt; r.goalOk = ok || null; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
     r.path = planTo(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
     if (!m.headless) {                                                              // (3.5.6) what it will face when it gets there, if the season knows: a holonomic drive turns to it on the way
@@ -6548,13 +6550,13 @@ window.G = window.G || {};
     return use;
   }
   // a free spot next to p (about a robot's width away), the closest to p and not far out of r's way; null if none
-  function freeNear(m, r, p) {
+  function freeNear(m, r, p, ok) {
     let best = null, bv = 1e9;
     for (const rad of [0.95, 1.35]) for (let k = 0; k < 10; k++) {
       const g = k * Math.PI / 5, c = { x: p.x + Math.cos(g) * rad, y: p.y + Math.sin(g) * rad };
       if (c.x < 0.5 || c.x > FW - 0.5 || c.y < 0.5 || c.y > FH - 0.5) continue;
       const q = clearOf(m, c, !!r.endBusy, !!r.cap.lowProfile, r);
-      if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || spotUse(m, r, q)) continue;
+      if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || spotUse(m, r, q) || (ok && !ok(q))) continue;
       const v = rad + 0.2 * dist(r, q);
       if (v < bv) { bv = v; best = q; }
     }
@@ -6783,7 +6785,10 @@ window.G = window.G || {};
       const nr = r.mem.noReach && r.mem.noReach.until > m.t ? r.mem.noReach.team : null; // one it could not get to lately
       const all = m.robots.filter(x => x.a !== r.a && !x.dead && !taken.has(x) && x.team !== nr), busy = all.filter(x => x.st !== 'defend' && x.plan.role !== 'defend' && !x.mem.broken);
       const val = q => (q.stats.pts + power(q)) * (q.cap.turret ? 0.75 : 1);
-      t = (busy.length ? busy : all).sort((p, q) => val(q) - val(p))[0] || null;
+      // (3.5.7) ... so it is never the target: with nobody on the other side scoring, two defenders used to pick each
+      // other and push for the rest of the match. Now it goes back to scoring for a while (noDefense) and looks again
+      t = busy.sort((p, q) => val(q) - val(p))[0] || null;
+      if (!t && all.length) return noDefense(m, r, 'nobody on the other side is scoring');
     }
     if (!t) return noDefense(m, r, 'every opponent already has a defender');
     r.defT = t; r.st = 'defend'; r.label = 'Defending ' + t.team;
@@ -6802,7 +6807,8 @@ window.G = window.G || {};
     const t = r.defT;
     if (!t || t.dead || t.st === 'done' || t.climbing) { r.st = 'idle'; r.defT = null; return; }
     // its target has stopped scoring (it defends now, or broke): pick another, unless the coach named this one
-    if ((t.st === 'defend' || t.mem.broken) && !(r.plan.defTarget && t.team === r.plan.defTarget) && m.robots.some(x => x.a === t.a && x !== t && !x.dead && x.st !== 'defend' && !x.mem.broken)) { r.st = 'idle'; r.defT = null; return; }
+    // (3.5.7: also when it is the last one left; it used to stay on a defender when every other opponent was defending or broken)
+    if ((t.st === 'defend' || t.mem.broken) && !(r.plan.defTarget && t.team === r.plan.defTarget)) { r.st = 'idle'; r.defT = null; return; }
     // a partner on the same robot, or more defenders than the game allows: the one with the weaker claim moves on (a
     // coach's call first, then a robot sent to defend, then one that broke, then the lower slot)
     { const DF = m.R.defense || {}, prio = x => (x.mem.calledDef ? 8 : 0) + (x.plan.role === 'defend' ? 4 : 0) + (x.mem.broken ? 2 : 0) - x.slot * 0.1;
@@ -7045,6 +7051,7 @@ window.G = window.G || {};
       const begin = () => {
         if (lvl === 0) { r.end = { lvl: 0, park: true }; r.st = 'done'; r.label = 'Parked'; return; }
         r.climbing = true;
+        if (!m.headless && m.R.endFace) { const p = m.R.endFace(m, r, lvl); if (p) r.faceAt = p; }   // (3.5.7) what the robot turns to as it climbs, and with which side (for show)
         act(r, climbTime(m, r, lvl), () => {
           const p = climbChance(m, r, lvl);
           if (m.rng.chance(p)) { r.end = { lvl }; r.label = nm; log(m, r.a, r.team + ' — ' + nm + '!', 'end'); }
@@ -7189,7 +7196,11 @@ window.G = window.G || {};
       if (!m.headless && label) m.fx.push({ k: 'pop', x: at ? at.x : r.x, y: at ? at.y : r.y, text: label, t: m.t, a: r.a });
     },
     // lanes (3.5.4): how many pieces leave side by side (2026: a turret fires single file, fixed and hood shooters two abreast, the wide dumper four)
-    shotFx(m, r, to, hit) { if (m.headless) return; const p = G.Render && G.Render.muzzle ? G.Render.muzzle(r) : r; m.fx.push({ k: 'shot', x0: p.x, y0: p.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2 }); }, // (3.5.5) from the shooter's place on the robot, not its middle
+    shotFx(m, r, to, hit, lanes) { if (m.headless) return; const p = G.Render && G.Render.muzzle ? G.Render.muzzle(r) : r; m.fx.push({ k: 'shot', x0: p.x, y0: p.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: lanes || (r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2) }); },
+    // (3.5.7) a robot that takes seconds to empty its hopper in one go (2017) shows it: a volley every fifth of a second
+    // from `after` seconds into the act that starts now, for `secs` seconds. For show only, like every effect
+    // blk: what the fuel cannot cross (lineClear): a robot shoved behind it while it fires shows no fuel leaving
+    stream(m, r, to, after, secs, lanes, every, blk) { if (!m.headless) r.stream = { to, from: m.t + after, until: m.t + after + secs, lanes, every: every || 0.2, next: 0, blk }; }, // (3.5.5) from the shooter's place on the robot, not its middle
     shootSpot(m, r, goal, zone) {
       const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? 1.1 : 1), rmin = c.rmin || 1.0;
       const d = dist(r, goal);
@@ -7207,6 +7218,30 @@ window.G = window.G || {};
       p.x = U.clamp(p.x, 0.5, FW - 0.5); p.y = U.clamp(p.y, 0.5, FH - 0.5);
       return p;
     },
+    // (3.5.7) A shot needs a clear line. lineClear: nothing in blk ({ x, y, r }: an airship, a leg of the Stage) within its
+    // radius (+ pad) of the straight line from a to b. okSpot: the spot nearest p that ok() accepts (p itself if it does),
+    // looked for in rings round p; in a ring, the one nearest the robot. shotRange: how near and how far the robot shoots from
+    lineClear(a, b, blk, pad) {
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
+      for (const o of blk) { const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1); if (Math.hypot(o.x - a.x - dx * t, o.y - a.y - dy * t) < o.r + (pad || 0)) return false; }
+      return true;
+    },
+    okSpot(m, r, p, ok) {
+      if (ok(p)) return p;
+      for (let rad = 0.3; rad < 3.05; rad += 0.3) {
+        let best = null, bv = 1e9;
+        for (let k = 0; k < 16; k++) {
+          const g = k * Math.PI / 8, c = { x: p.x + Math.cos(g) * rad, y: p.y + Math.sin(g) * rad };
+          if (c.x < 0.5 || c.x > FW - 0.5 || c.y < 0.5 || c.y > FH - 0.5) continue;
+          const q = clearOf(m, c, !!r.endBusy, !!r.cap.lowProfile, r);
+          if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || !ok(q)) continue;
+          const v = dist(r, q); if (v < bv) { bv = v; best = q; }
+        }
+        if (best) return best;
+      }
+      return p;
+    },
+    shotRange: r => [r.cap.rmin || 1.0, (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1)],
     rangePen(m, r, goal) {
       const c = r.cap, d = dist(r, goal), span = Math.max(0.5, (c.rangeM || 1.5) - (c.rmin || 1));
       return 0.12 * U.clamp((d - (c.rmin || 1)) / span, 0, 1) * (1 - 0.25 * (c.visionLvl || 0));
@@ -7698,14 +7733,21 @@ window.G = window.G || {};
   // a scorer at its spot while the bank is full and a good human player is holding the button: wait for it
   const holdAmp24 = (m, r) => { const ss = m.ss[r.a]; return m.phase === 'tele' && ss.bank >= 2 && !(ss.ampUntil > m.t) && hpAmp24(m, r.a) >= GOODHP24 && m.total - m.t > 14; };
   function speaker24(m, r) {
-    const ss = m.ss[r.a], spk = m.spk[r.a];
-    const spot = H.shootSpot(m, r, spk, m.zone[r.a]);
+    const ss = m.ss[r.a], spk = m.spk[r.a], z = m.zone[r.a], rg = H.shotRange(r);
+    // (3.5.7) A note does not go through a leg of the Stage: from under or behind the Stage a robot shoots between the legs. A
+    // spot in a leg's shadow is traded for the nearest one in the clear, and a robot shoved into a shadow drives out first
+    const see = (q, pad) => H.lineClear(q, spk, m.blk24, pad);
+    let spot = H.shootSpot(m, r, spk, z);
+    if (!see(spot, 0.2)) spot = H.okSpot(m, r, spot, q => see(q, 0.2) && q.x >= z.x0 && q.x <= z.x1 && q.y >= z.y0 && q.y <= z.y1 && E.dist(q, spk) >= rg[0] && E.dist(q, spk) <= rg[1]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (!see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return speaker24(m, r);
       if (holdAmp24(m, r) && !r.mem.held24) { r.mem.held24 = 1; ss.waited = (ss.waited || 0) + 1; return H.waitUntil(r, () => ss.ampUntil > m.t || ss.bank < 2, () => speaker24(m, r), 'Waiting for Amplify', ampPatience24(m, r.a) + 0.5); }
       r.mem.held24 = 0;
       const t0 = m.t; // a note that leaves the shooter inside the 10 seconds counts (the field gives notes in flight 3 more seconds)
       H.act(r, H.aimTime(m, r) + H.scoreTime(m, r, 0.5), () => {
+        if (!see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return speaker24(m, r); // shoved behind a leg while it aimed: the note stays in the robot
+        r.mem.los = 0;
         const hit = m.rng.chance(H.hit(m, r, 1.0, H.rangePen(m, r, spk)));
         r.stats.shots++; H.shotFx(m, r, spk, hit);
         if (hit) {
@@ -7718,7 +7760,7 @@ window.G = window.G || {};
         }
         r.held = 0;
       }, 'Shooting speaker');
-    }, 'To speaker');
+    }, 'To speaker', q => see(q, 0.2));
   }
   function amp24(m, r) {
     const ss = m.ss[r.a], spot = m.ampSpot[r.a];
@@ -7886,10 +7928,10 @@ window.G = window.G || {};
       setHp(m);
       // the Stage: routes keep clear of its middle (low trusses), robots cannot drive through its three legs, and the leg
       // nearest the alliance wall stands on the wider Podium. A robot heading for its chain or a park may go under it.
-      m.obs = [];
+      m.obs = []; m.blk24 = []; // (3.5.7) blk24: what a note cannot be shot across: a leg (0.15 m) and half a note (0.18 m)
       ['red', 'blue'].forEach(a => {
         const c = E.P(m, a, ST24.x, ST24.y); m.obs.push({ x: c.x, y: c.y, r: 1.05, h: 0, end: true });
-        [0, 1, 2].forEach(k => { const p = stLeg24(m, a, k); m.obs.push({ x: p.x, y: p.y, r: k ? 0.1 : 0.25, h: 0.15 }); }); // the Podium leg: a little wider for routes, as solid as the others (the wing note sits just in front of it)
+        [0, 1, 2].forEach(k => { const p = stLeg24(m, a, k); m.obs.push({ x: p.x, y: p.y, r: k ? 0.1 : 0.25, h: 0.15 }); m.blk24.push({ x: p.x, y: p.y, r: 0.33 }); }); // the Podium leg: a little wider for routes, as solid as the others (the wing note sits just in front of it)
       });
       m.spk = {}; m.ampSpot = {}; m.zone = {}; m.coop = false; m.pileSpot = {}; m.loose = [];
       // the human player at the Amp (Amplify, the HIGH NOTES) is the alliance's best one
@@ -8385,23 +8427,30 @@ window.G = window.G || {};
     H.moveTo(m, r, pt, sweep, 'Hoarding: neutral zone');
     return true;
   }
+  // (3.5.7) Fuel counts only from a robot in its own alliance zone: at least a bumper on the zone's tape, which runs along
+  // the foot of the bumps (LINE26 from the alliance wall). A robot that stands wholly on a bump, or was shoved past the
+  // tape, holds its fire and drives back first; a free spot beside a taken one is never chosen past the tape.
+  const LINE26 = XB - 0.6, inZone26 = (m, a, q, pad) => E.P(m, a, q.x, q.y).x <= LINE26 + RR - pad;
   function shoot26(m, r) {
     const hub = m.hub[r.a], spot = H.shootSpot(m, r, hub, m.zone[r.a]);
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r)) return;
+      if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r);
       if (r.cap.dumper) H.face(r, hub); // a dumper's flywheels are fixed across its front: the whole robot squares up to the hub
       if (!active26(m, r.a) && r.plan.target !== 'shoot') {
         return H.waitUntil(r, () => active26(m, r.a) || m.inEnd, () => H.act(r, H.aimTime(m, r), () => volley26(m, r), 'Aiming'), 'Holding — hub inactive', 30);
       }
       H.act(r, H.aimTime(m, r), () => volley26(m, r), 'Aiming');
-    }, 'To shoot');
+    }, 'To shoot', q => inZone26(m, r.a, q, 0.15));
   }
   function volley26(m, r) {
     if (r.held <= 0 || !H.canScore(m, r)) return;
     if (H.endDue(m, r)) return;
     if (!active26(m, r.a) && r.plan.target !== 'shoot') return;
+    if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r);
     const rate = rate26(r), k = Math.min(r.held, Math.max(1, Math.round(rate * 0.5)));
     H.act(r, k / rate, () => {
+      if (!inZone26(m, r.a, r, 0.03)) return shoot26(m, r); // shoved past the tape while it fired: that fuel stays in the hopper
       const hub = m.hub[r.a], ss = m.ss[r.a];
       const p = Math.min(0.99, H.hit(m, r, 1.0, H.rangePen(m, r, hub) * (r.cap.rotor ? ROTOR26.pen : 1)) + (r.cap.rotor ? ROTOR26.hit : 0));
       let hits = 0;
@@ -8652,7 +8701,7 @@ window.G = window.G || {};
 // Placement games (2023, 2025): protected zones make defense weak; run three scorers.
 // ---------------------------------------------------------------------
 (function () {
-  const R = G.Rules, S = G.Seasons;
+  const R = G.Rules, S = G.Seasons, E = G.Engine, FW = E.FW, FH = E.FH;
   // pin: seconds a robot may be pinned (G202 2022–23 and G420 2024: 5 s; G425 2025 and G418 2026: 3 s);
   // reset: how long the defender must stay 6 ft away before pinning again; protMajor: protected-zone contact is a major/tech foul
   R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3, credit: { 'Hangar Zone': 4 } }; // G208: touching a robot in its Hangar Zone in the last 30 s gives it Traversal points
@@ -8663,9 +8712,12 @@ window.G = window.G || {};
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
   // (3.5.6) what a robot turns to while it works: the Grid stands against its own alliance wall; the Reef's middle; the corner a Coral Station or the Source is built across
   const corner = p => ({ x: p.x < FW / 2 ? 0 : FW, y: p.y < FH / 2 ? 0 : FH });
-  S[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
-  S[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
-  S[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
+  R[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
+  R[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
+  R[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
+  // (3.5.7) These three hooks were written on G.Seasons in 3.5.6, where the engine never looked: they are on the rules now.
+  // A 2025 robot turns its climber to its cage: the side of the robot for a climber on its post, the back for one on a telescope
+  R[2025].endFace = (m, r, lvl) => (lvl ? { x: FW / 2, y: r.y, side: (G.Render && G.Render.topInfo && G.Render.topInfo(r).climb) || 'right' } : null);
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes home from the Source end (G414: only once the feeder\'s bumpers are out of the opponent\'s Wing), and their human players hold Amplify until two scorers are lined up. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers. Each of its six faces has its own branches: the faces nearest the coral stations fill first, and the last coral means a longer drive around to the far side.' };
@@ -9715,22 +9767,29 @@ window.G = window.G || {};
     let spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
     // (3.5.6) a turret that reaches from outside the Key (cap.fuelFar, metres) shoots from where the robot stands, or comes just within reach
     const far = hi && r.cap.fuelFar ? r.cap.fuelFar : 0;
-    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r); }
+    // (3.5.7) The airship is far too tall to shoot over: a robot fires only from where it sees the boiler past it. A spot in
+    // the airship's shadow is traded for the nearest one in the clear, and a robot shoved into the shadow drives out first
+    const see = (q, pad) => H.lineClear(q, by, m.blk17, pad);
+    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r);
+      if (!see(spot, 0.2)) spot = H.okSpot(m, r, spot, q => see(q, 0.2) && E.dist(q, by) <= far); }
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r) || !(r.fuel > 0)) return;
+      if (hi && !see(r, 0) && (r.mem.los = (r.mem.los || 0) + 1) <= 3) return fuelShoot17(m, r);
+      r.mem.los = 0;
       const f = r.cap.fuel || 40, rate = hi ? (3 + 10 * f / 100) * (r.cap.storage >= 60 ? 1.35 : 1) : 16;
       const aimT = !hi ? 0.4 : r.cap.fuelTurret ? 0.3 * (r.cap.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100) : H.aimTime(m, r); // the turret aims itself: the chassis stays as it is
       const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - aimT))));
       const farK = far ? 1 - FAR17 * U.clamp((E.dist(r, by) - 3) / 3, 0, 1) : 1; // from far out a little less of the stream goes in
+      H.stream(m, r, by, aimT, n / rate, !hi ? 4 : r.cap.fuelTurret ? 1 : 2, hi && r.cap.storage >= 60 ? 0.12 : 0.2, m.blk17); // (3.5.7) the fuel is seen leaving all the while: two abreast from a shooter (the boiler's mouth takes two at a time), single file from a turret, four abreast from a dumper at the low goal; the high-volume systems fire their volleys closer together
       H.act(r, aimT + n / rate, () => {
         // a stream of fuel into a small goal: an average shooter sprays most of it, only a well-developed one is worth carrying
         const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) * farK : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
         r.fuel -= n; r.stats.shots += n; r.stats.hits += hits; r.stats.cycles++;
-        H.shotFx(m, r, by, hits > n / 2);
+        if (see(r, 0)) H.shotFx(m, r, by, hits > n / 2);
         if (hits > 0) m.ss[r.a].q[hi ? 'hi' : 'lo'].push({ r, n: hits }); // into the boiler: counted five a second
         m.ss[r.a].floor += (n - hits) * 0.7; // most of what misses bounces off the nets back onto the carpet
       }, hi ? 'Shooting fuel' : 'Dumping fuel');
-    }, 'To the boiler');
+    }, 'To the boiler', hi ? q => see(q, 0.2) : null);
   }
   // a robot works fuel if it is told to, or if it carries the big shooter and the alliance has gear runners without it
   function fuelRole17(m, r) {
@@ -9751,15 +9810,17 @@ window.G = window.G || {};
     leftCheck: (m, r) => loc(m, r).x > G17.base + 0.3,
     init(m) {
       setHp(m);
-      m.obs = []; m.hopMid = 100; m.sec17 = 0;
+      m.obs = []; m.hopMid = 100; m.sec17 = 0; m.blk17 = [];
       ['red', 'blue'].forEach(a => {
-        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.1, h: 0.9 });
+        const c = E.P(m, a, G17.ship.x, G17.ship.y); m.obs.push({ x: c.x, y: c.y, r: 1.1, h: 0.9 }); m.blk17.push({ x: c.x, y: c.y, r: 1.1 }); // (3.5.7) blk17: what fuel cannot be shot across (the hexagon's corners are 1.03 m out)
         m.ss[a] = { gears: 0, rotors: 0, autoRotors: 0, kpa: 0, fuel: 0, hop: [100, 100], floor: 0, denier: null, peg: [0, 0, 0], q: { hi: [], lo: [] }, qc: { hi: 0, lo: 0 } };
       });
       m.robots.forEach(r => { if (r.cap.gear) { r.held = 1; r.heldType = 'gear'; } r.fuel = (r.cap.fuelHigh || r.cap.fuelLow) ? Math.min(10, r.cap.storage || 0) : 0; });
     },
     start(m, r) { return E.P(m, r.a, 0.55, [H17, H17 - 1.9, H17 + 1.9][r.slot]); },
     aimAt: (m, r) => (r.fuel > 0 ? E.P(m, r.a, G17.boiler.x, G17.boiler.y) : null),
+    // (3.5.7) a robot with a fuel intake at the front carries its gear mechanism at the back: it backs up to the peg and to the Loading Station (for show)
+    workSide: (m, r) => (/^(On the peg|Loading a gear)/.test(r.label || '') ? (G.Render && G.Render.topInfo && G.Render.topInfo(r).gearBack ? 'back' : 'front') : null),
     guard(m, a) { return E.P(m, a, FW - 4.6, 2.3); },
     // the Retrieval Zone in front of the Loading Station and the Key in front of the Boiler (always); the ropes in the endgame
     protect(m, r) {
@@ -23038,6 +23099,13 @@ window.G = window.G || {};
   Rd.K = { rect, arect, circ, poly, line, text, apoly, aline, atext, ball, ring, P, alc, als, seeded };
   // Game pieces of the classic games: how a held piece and a shot look. { shape: 'ball' | 'box' | 'disc' | 'gear', col, r }
   Rd.PIECES = {}; Rd.SHOTS = {};
+  // (3.5.7) How big a game piece is on the carpet, in metres. A piece in flight is drawn the same size (Rd.fx): these four
+  // here, the classic and fantasy games' in Rd.SHOTS[year].r (or its draw(), when the piece is not a plain ball)
+  // cube: half its side; cone: how far up, half its base, how far down; coral: long and thick (none lies on the carpet: its real size)
+  const PR = Rd.PR = { cargo: 0.12, note: 0.16, algae: 0.13, fuel: 0.065, cube: 0.13, cone: [0.17, 0.15, 0.13], coral: [0.30, 0.11] };
+  // A robot is Rd.RW metres wide over its bumpers. A piece a robot carries is drawn the size it is on the carpet too:
+  // Rd.PIECES give a radius in robot widths, so r = metres / Rd.RW
+  Rd.RW = 0.88;
   FIELD[2022] = function (ctx, s, sym, m) {
     const cx = FW / 2, cy = FH / 2, F = G.Rules.F22, rd = d => d * Math.PI / 180;
     // a point at u along direction n (degrees, y down) and v across it, from the Hub's centre
@@ -23083,8 +23151,8 @@ window.G = window.G || {};
     circ(ctx, s, cx, cy, 0.14, '#1d2227', METAL, 1);
     text(ctx, s, 'HUB', cx, cy + 0.36, '#e8edf2', 8);
     // cargo: live positions during a match, the staged layout otherwise
-    if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, 0.12, c.c === 'red' ? COL.cargoR : COL.cargoB); });
-    else ['blue', 'red'].forEach(a => F.cargo.map(d => hp(d, F.ring)).concat([{ x: 1.14, y: 7.07 }]).forEach(p => { const q = P(sym, a, p.x, p.y); ball(ctx, s, q.x, q.y, 0.12, a === 'red' ? COL.cargoR : COL.cargoB); }));
+    if (m && m.cargo) m.cargo.forEach(c => { if (c.t <= m.t) ball(ctx, s, c.x, c.y, PR.cargo, c.c === 'red' ? COL.cargoR : COL.cargoB); });
+    else ['blue', 'red'].forEach(a => F.cargo.map(d => hp(d, F.ring)).concat([{ x: 1.14, y: 7.07 }]).forEach(p => { const q = P(sym, a, p.x, p.y); ball(ctx, s, q.x, q.y, PR.cargo, a === 'red' ? COL.cargoR : COL.cargoB); }));
   };
   FIELD[2022].noMid = true;
   FIELD[2023] = function (ctx, s, sym, m) {
@@ -23103,8 +23171,8 @@ window.G = window.G || {};
         const v = g ? g[row * 9 + col] : 0;
         if (type === 'cone') { circ(ctx, s, p.x, p.y, 0.09, '#1a1e23', METAL, 1.5); circ(ctx, s, p.x, p.y, 0.03, METAL); }
         else rect(ctx, s, p.x - 0.15, p.y - 0.15, 0.3, 0.3, type === 'cube' ? 'rgba(155,107,255,0.12)' : 'rgba(255,255,255,0.05)', type === 'cube' ? 'rgba(155,107,255,0.7)' : '#7d8791', 1.2);
-        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - 0.18 }, { x: p.x + 0.16, y: p.y + 0.14 }, { x: p.x - 0.16, y: p.y + 0.14 }], COL.cone, 'rgba(0,0,0,0.4)', 1);
-        else if (v === 2) rect(ctx, s, p.x - 0.14, p.y - 0.14, 0.28, 0.28, COL.cube, 'rgba(0,0,0,0.35)', 1);
+        if (v === 1) poly(ctx, s, [{ x: p.x, y: p.y - PR.cone[0] }, { x: p.x + PR.cone[1], y: p.y + PR.cone[2] }, { x: p.x - PR.cone[1], y: p.y + PR.cone[2] }], COL.cone, 'rgba(0,0,0,0.4)', 1);
+        else if (v === 2) rect(ctx, s, p.x - PR.cube, p.y - PR.cube, PR.cube * 2, PR.cube * 2, COL.cube, 'rgba(0,0,0,0.35)', 1);
       }
       // charge station: platform, hinge and ramps (glows when an alliance engages)
       const eng = m && m.ss[a] && m.ss[a].engaged;
@@ -23121,7 +23189,7 @@ window.G = window.G || {};
       atext(ctx, s, sym, a, 'SUBSTATION', 15.0, 5.85, alc(a), 8);
     });
     // staged game pieces at mid-field
-    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { ctx.save(); ctx.globalAlpha = 0.55; if (i % 2) rect(ctx, s, x - 0.13, y - 0.13, 0.26, 0.26, COL.cube); else poly(ctx, s, [{ x, y: y - 0.17 }, { x: x + 0.15, y: y + 0.13 }, { x: x - 0.15, y: y + 0.13 }], COL.cone); ctx.restore(); }); });
+    [0.92, 2.14, 3.36, 4.58].forEach((y, i) => { [7.07, FW - 7.07].forEach(x => { ctx.save(); ctx.globalAlpha = 0.55; if (i % 2) rect(ctx, s, x - PR.cube, y - PR.cube, PR.cube * 2, PR.cube * 2, COL.cube); else poly(ctx, s, [{ x, y: y - PR.cone[0] }, { x: x + PR.cone[1], y: y + PR.cone[2] }, { x: x - PR.cone[1], y: y + PR.cone[2] }], COL.cone); ctx.restore(); }); });
   };
   FIELD[2024] = function (ctx, s, sym, m) {
     ['blue', 'red'].forEach(a => {
@@ -23162,12 +23230,12 @@ window.G = window.G || {};
         circ(ctx, s, q.x, q.y, 0.42, 'rgba(255,210,77,0.22)'); ring(ctx, s, q.x, q.y, 0.15, '#ffffff');
       });
       // notes: staged wing notes and the fed pile near the speaker
-      if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
-      if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35));
+      if (ss && ss.wing) ss.wing.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, PR.note, COL.note); });
+      if (ss && ss.pile) ss.pile.forEach(n => ring(ctx, s, n.x, n.y, PR.note, COL.note, n.t <= m.t ? 1 : 0.35));
     });
-    if (m && m.loose) m.loose.forEach(n => ring(ctx, s, n.x, n.y, 0.16, COL.note, n.t <= m.t ? 1 : 0.35)); // notes lobbed into the Neutral Zone
-    if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, 0.16, COL.note); });
-    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, 0.16, COL.note));
+    if (m && m.loose) m.loose.forEach(n => ring(ctx, s, n.x, n.y, PR.note, COL.note, n.t <= m.t ? 1 : 0.35)); // notes lobbed into the Neutral Zone
+    if (m && m.center) m.center.forEach(n => { if (!n.claimed) ring(ctx, s, n.x, n.y, PR.note, COL.note); });
+    else [0.75, 2.4, 4.1, 5.8, 7.45].forEach(y => ring(ctx, s, FW / 2, y, PR.note, COL.note));
   };
   FIELD[2025] = function (ctx, s, sym, m) {
     const CY = G.Rules.CAGE25;
@@ -23188,10 +23256,10 @@ window.G = window.G || {};
       if (ss) {
         if (ss.fc) ss.fc.forEach((f, k) => {
           const g = k * 60 * Math.PI / 180, n = f.lv[0] + f.lv[1] + f.lv[2] + f.lv[3];
-          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? 0.13 : 0.11, COL.algae); }
+          if (f.alg) { const p = P(sym, a, 4.49 + Math.cos(g) * 0.45, 4.03 + Math.sin(g) * 0.45); ball(ctx, s, p.x, p.y, f.alg === 'high' ? PR.algae : 0.11, COL.algae); }
           if (n) { const p = P(sym, a, 4.49 + Math.cos(g) * 1.16, 4.03 + Math.sin(g) * 1.16); text(ctx, s, String(n), p.x, p.y, n >= 11 ? '#3ecf8e' : '#f3efe6', 8); }
         });
-        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, 0.13, COL.algae); }
+        else for (let i = 0; i < ss.algaeLow + ss.algaeHigh; i++) { const g = (i * 60 + 30) * Math.PI / 180; ball(ctx, s, c.x + Math.cos(g) * 0.42, c.y + Math.sin(g) * 0.42, PR.algae, COL.algae); }
         text(ctx, s, ss.lv[3] + '·' + ss.lv[2] + '·' + ss.lv[1] + '·' + ss.lv[0], c.x, c.y, '#fff', 9);
       } else text(ctx, s, 'REEF', c.x, c.y, '#fff', 9);
       // coral stations in the two corners of the alliance wall
@@ -23246,18 +23314,18 @@ window.G = window.G || {};
       // depot (fuel bin) and outpost (human player chute)
       arect(ctx, s, sym, a, 0.12, 5.8, 0.9, 1.3, 'rgba(255,216,74,0.12)', COL.fuel, 1.5);
       const dr = seeded(a === 'red' ? 61 : 62), dep = m && m.ss[a] ? Math.min(14, Math.ceil(m.ss[a].depot / 2)) : 12;
-      for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+      for (let i = 0; i < dep; i++) { const p = P(sym, a, 0.25 + dr() * 0.65, 5.95 + dr() * 1.0); ball(ctx, s, p.x, p.y, PR.fuel, COL.fuel); }
       apoly(ctx, s, sym, a, [[0.05, 0.05], [1.45, 0.05], [0.05, 1.65]], als(a), alc(a), 2);
       atext(ctx, s, sym, a, 'OUTPOST', 0.5, 0.45, alc(a), 7);
       if (m && m.ss[a] && m.ss[a].pool > 0) {
         const zr = seeded(a === 'red' ? 71 : 72), nb = Math.min(48, Math.ceil(m.ss[a].pool / 2));
-        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, 0.065, COL.fuel); }
+        for (let i = 0; i < nb; i++) { const p = P(sym, a, 1.7 + zr() * 2.1, 0.9 + zr() * 6.2); ball(ctx, s, p.x, p.y, PR.fuel, COL.fuel); }
         const p = P(sym, a, 2.7, 4.03); text(ctx, s, 'zone fuel ' + m.ss[a].pool, p.x, p.y + 1.6, COL.fuel, 8);
       }
     });
     const r = seeded(2026);
     const nN = m && m.neutral != null ? Math.min(120, Math.ceil(m.neutral / 3)) : 80;
-    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), 0.065, COL.fuel);
+    for (let i = 0; i < nN; i++) ball(ctx, s, 5.5 + r() * (FW - 11), 0.4 + r() * (FH - 0.8), PR.fuel, COL.fuel);
     if (m && m.neutral != null) text(ctx, s, 'neutral zone fuel ' + Math.round(m.neutral), FW / 2, 0.22, COL.fuel, 8);
   };
 
@@ -23271,7 +23339,7 @@ window.G = window.G || {};
     const ac = alc(r.a);
     ctx.save();
     ctx.translate(x, y);
-    if (r.climbing || (r.end && r.end.lvl > 0)) { ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4; }
+    if (r.climbing || (r.end && r.end.lvl > 0)) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.arc(0, Math.max(3, sz * 0.09), h * 1.2, 0, 7); ctx.fill(); } // (3.5.7) one soft shadow under a robot off the floor: a blurred shadow on every one of its shapes was the slowest thing in the endgame
     ctx.rotate(r.hd || 0);
     // bumper (with a darker seam) + frame
     ctx.fillStyle = ac; ctx.beginPath(); ctx.roundRect(-h, -h, sz, sz, sz * 0.08); ctx.fill();
@@ -23311,26 +23379,27 @@ window.G = window.G || {};
       // plain balls (2022 cargo) sit side by side across the robot, in its own frame; the other pieces are drawn upright
       const plain = !(t === 'cone' || t === 'cube' || t === 'coral' || t === 'algae' || Rd.PIECES[t] || o.year === 2024);
       if (plain) {
-        for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc(0, (i - (r.held > 1 ? 0.5 : 0)) * sz * 0.26, sz * 0.12, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+        for (let i = 0; i < Math.min(2, r.held); i++) { ctx.beginPath(); ctx.arc(0, (i - (r.held > 1 ? 0.5 : 0)) * PR.cargo * 2.05 * s, PR.cargo * s, 0, 7); ctx.fillStyle = r.a === 'red' ? COL.cargoR : COL.cargoB; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
       } else {
       ctx.rotate(-(r.hd || 0));
-      if (t === 'cone') { ctx.beginPath(); ctx.moveTo(0, -sz * 0.2); ctx.lineTo(sz * 0.16, sz * 0.14); ctx.lineTo(-sz * 0.16, sz * 0.14); ctx.closePath(); ctx.fillStyle = COL.cone; ctx.fill(); }
-      else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-sz * 0.14, -sz * 0.14, sz * 0.28, sz * 0.28); }
-      else if (t === 'coral') { ctx.fillStyle = COL.coral; ctx.fillRect(-sz * 0.22, -sz * 0.06, sz * 0.44, sz * 0.12); }
-      else if (t === 'algae') { ctx.beginPath(); ctx.arc(0, 0, sz * 0.17, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
+      // (3.5.7) a carried piece is the size it is on the carpet (PR, in metres; Rd.PIECES in robot widths)
+      if (t === 'cone') { ctx.beginPath(); ctx.moveTo(0, -PR.cone[0] * s); ctx.lineTo(PR.cone[1] * s, PR.cone[2] * s); ctx.lineTo(-PR.cone[1] * s, PR.cone[2] * s); ctx.closePath(); ctx.fillStyle = COL.cone; ctx.fill(); }
+      else if (t === 'cube') { ctx.fillStyle = COL.cube; ctx.fillRect(-PR.cube * s, -PR.cube * s, PR.cube * 2 * s, PR.cube * 2 * s); }
+      else if (t === 'coral') { ctx.fillStyle = COL.coral; ctx.fillRect(-PR.coral[0] / 2 * s, -PR.coral[1] / 2 * s, PR.coral[0] * s, PR.coral[1] * s); }
+      else if (t === 'algae') { ctx.beginPath(); ctx.arc(0, 0, PR.algae * s, 0, 7); ctx.fillStyle = COL.algae; ctx.fill(); }
       else if (Rd.PIECES[t]) {
         const pc = Rd.PIECES[t], q = sz * (pc.r || 0.15), n = Math.min(pc.many || 1, r.held);
         for (let i = 0; i < n; i++) {
           const ox = (i - (n - 1) / 2) * q * 1.5;
           ctx.beginPath();
           if (pc.shape === 'box') { ctx.fillStyle = pc.col; ctx.fillRect(ox - q, -q, 2 * q, 2 * q); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(ox - q, -q, 2 * q, 2 * q); }
-          else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * 0.5); ctx.stroke(); }
+          else if (pc.shape === 'disc') { ctx.arc(ox, 0, q, 0, 7); ctx.strokeStyle = pc.col; ctx.lineWidth = Math.max(2, q * (pc.lw || 0.5)); ctx.stroke(); }
           else if (pc.shape === 'bar') { const oy = (i - (n - 1) / 2) * q * 1.1; ctx.fillStyle = pc.col; ctx.fillRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(-q * 3.2, oy - q * 0.4, q * 6.4, q * 0.8); } // a long piece carried across the robot
-          else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = '#1a1e23'; ctx.fill(); }
+          else if (pc.shape === 'gear') { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.beginPath(); ctx.arc(ox, 0, q * 0.4, 0, 7); ctx.fillStyle = pc.hole || '#1a1e23'; ctx.fill(); }
           else { ctx.arc(ox, 0, q, 0, 7); ctx.fillStyle = pc.col; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke(); }
         }
       }
-      else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, sz * 0.15, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = 4; ctx.stroke(); }
+      else if (o.year === 2024) { ctx.beginPath(); ctx.arc(0, 0, PR.note * s, 0, 7); ctx.strokeStyle = COL.note; ctx.lineWidth = Math.max(2, PR.note * s * 0.55); ctx.stroke(); }
       ctx.rotate(r.hd || 0);
       }
       ctx.translate(-at[0], -at[1]);
@@ -23520,17 +23589,19 @@ window.G = window.G || {};
         const k = Math.min(1, age * 2.2);
         const x = f.x0 + (f.x1 - f.x0) * k, y = f.y0 + (f.y1 - f.y0) * k - Math.sin(k * Math.PI) * 0.6;
         ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age) * (f.hit ? 1 : 0.55);
-        if (m.year === 2024) ring(ctx, s, x, y, 0.15, COL.note);
-        else if (m.year === 2022) ball(ctx, s, x, y, 0.12, f.a === 'red' ? COL.cargoR : COL.cargoB);
-        else if (m.year === 2025) ball(ctx, s, x, y, 0.17, COL.algae);
-        else if (m.year === 2026) {
+        // (3.5.7) a piece in flight is the size it is on the carpet, in every game (PR, Rd.SHOTS)
+        if (m.year === 2024) ring(ctx, s, x, y, PR.note, COL.note);
+        else if (m.year === 2022) ball(ctx, s, x, y, PR.cargo, f.a === 'red' ? COL.cargoR : COL.cargoB);
+        else if (m.year === 2025) ball(ctx, s, x, y, PR.algae, COL.algae);
+        else if (m.year === 2026 || m.year === 2017) { // (3.5.7) 2017's fuel leaves the same way
           // (3.5.4) a turret fires single file (one ball after another along the flight), fixed and hood shooters two
           // abreast, the wide dumper four abreast (across the flight)
           const n = f.lanes || 2, dx = f.x1 - f.x0, dy = f.y1 - f.y0, L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;
-          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, 0.065, COL.fuel); }
-          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * 0.18; ball(ctx, s, x + px * o, y + py * o, 0.065, COL.fuel); }
+          const s17 = m.year === 2017 ? Rd.SHOTS[2017] : null, fc = s17 ? s17.col : COL.fuel, fr = s17 ? s17.r : PR.fuel, gap = fr * 2.8; // 2017's fuel is the smaller ball
+          if (n === 1) for (let j = 0; j < 4; j++) { const kk = Math.max(0, k - j * 0.06), xx = f.x0 + dx * kk, yy = f.y0 + dy * kk - Math.sin(kk * Math.PI) * 0.6; ball(ctx, s, xx, yy, fr, fc); }
+          else for (let j = 0; j < n; j++) { const o = (j - (n - 1) / 2) * gap; ball(ctx, s, x + px * o, y + py * o, fr, fc); }
         }
-        else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
+        else if (Rd.SHOTS[m.year]) { const sh = Rd.SHOTS[m.year]; if (sh.draw) sh.draw(ctx, s, x, y, f); else if (sh.shape === 'box') rect(ctx, s, x - sh.r, y - sh.r, sh.r * 2, sh.r * 2, sh.col, 'rgba(0,0,0,0.35)', 1); else ball(ctx, s, x, y, sh.r, sh.col); if (sh.many) { ball(ctx, s, x - 0.18, y + 0.1, sh.r * 0.9, sh.col); ball(ctx, s, x + 0.12, y - 0.14, sh.r * 0.9, sh.col); } }
         else circ(ctx, s, x, y, 0.1, '#d9dee3');
         ctx.restore();
       } else if (f.k === 'pop') {
@@ -23565,7 +23636,7 @@ window.G = window.G || {};
   // =====================================================================
   // 2020 INFINITE RECHARGE (rotated field)
   // =====================================================================
-  Rd.PIECES.cell = { shape: 'ball', col: CELL, r: 0.11, many: 3 };
+  Rd.PIECES.cell = { shape: 'ball', col: CELL, r: 0.09 / Rd.RW, many: 3 }; // (3.5.7) r: the size on the carpet, in robot widths
   Rd.SHOTS[2020] = { col: CELL, r: 0.09 };
   const WHEEL = ['#ffd23f', '#e5484d', '#30c27a', '#3e8cff'];
   FIELD[2020] = function (ctx, s, sym, m) {
@@ -23614,14 +23685,14 @@ window.G = window.G || {};
   // 2019 DESTINATION: DEEP SPACE (mirrored field)
   // =====================================================================
   const HATCH = '#f2c94c', CARGO = '#ff8a3d';
-  Rd.PIECES.hatch = { shape: 'disc', col: HATCH, r: 0.2 };
-  Rd.PIECES.cargo19 = { shape: 'ball', col: CARGO, r: 0.17 };
+  Rd.PIECES.hatch = { shape: 'disc', col: HATCH, r: 0.16 / Rd.RW, lw: 0.31 }; // (3.5.7) as the panel on a bay
+  Rd.PIECES.cargo19 = { shape: 'ball', col: CARGO, r: 0.14 / Rd.RW };
   // one bay: an outline, a ring when it has a hatch panel (grey for the blank panels), a ball when it holds cargo
   function bay19(ctx, s, x, y, b) {
     circ(ctx, s, x, y, 0.19, '#1d2227', '#59626c', 1);
     if (b && b.hatch) circ(ctx, s, x, y, 0.16, null, b.hatch === 2 ? '#8d97a1' : HATCH, Math.max(2, s * 0.05));
-    if (b && b.cargo) ball(ctx, s, x, y, 0.1, CARGO);
-    else if (b && b.pre) ball(ctx, s, x, y, 0.1, 'rgba(255,138,61,0.5)'); // staged cargo: it stays only if a hatch goes on in the sandstorm
+    if (b && b.cargo) ball(ctx, s, x, y, 0.14, CARGO); // (3.5.7) cargo is one size in a bay, in a depot and on a robot
+    else if (b && b.pre) ball(ctx, s, x, y, 0.14, 'rgba(255,138,61,0.5)'); // staged cargo: it stays only if a hatch goes on in the sandstorm
   }
   FIELD[2019] = function (ctx, s, sym, m) {
     const H2 = FH / 2, g = G.Rules.G19, rx = g.rocketX;
@@ -23642,7 +23713,7 @@ window.G = window.G || {};
       [[0.1, 0.1], [0.1, FH - 1.3]].forEach(p => arect(ctx, s, sym, a, p[0], p[1], 0.75, 1.2, tint(a, 0.2), alc(a), 2));
       atext(ctx, s, sym, a, 'LOAD', 0.48, 1.5, alc(a), 7); atext(ctx, s, sym, a, 'LOAD', 0.48, FH - 1.45, alc(a), 7);
       g.depotY.forEach((y, i) => { const n = m && m.ss && m.ss[a] ? m.ss[a].depot[i] : 6; arect(ctx, s, sym, a, 0.1, y - 0.28, 1.02, 0.56, null, '#8d97a1', 1);
-        for (let k = 0; k < n; k++) { const q = P(sym, a, 0.3 + (k % 3) * 0.3, y + (k < 3 ? -0.13 : 0.13)); ball(ctx, s, q.x, q.y, 0.1, CARGO); } });
+        for (let k = 0; k < n; k++) { const q = P(sym, a, 0.3 + (k % 3) * 0.3, y + (k < 3 ? -0.14 : 0.14)); ball(ctx, s, q.x, q.y, 0.14, CARGO); } });
       // Cargo Ship: the two ships stand nose out, stern to stern, 9 in. off the centre line; two bays in the nose (staged
       // with cargo) and three on each side (staged with blank panels)
       apoly(ctx, s, sym, a, [[g.nose, H2 - 0.38], [g.nose + 0.35, H2 - 0.71], [g.stern, H2 - 0.71], [g.stern, H2 + 0.71], [g.nose + 0.35, H2 + 0.71], [g.nose, H2 + 0.38]], tint(a, 0.28), alc(a), 2);
@@ -23664,8 +23735,8 @@ window.G = window.G || {};
   // 2018 FIRST POWER UP (mirrored field)
   // =====================================================================
   const CUBE = '#f4d03f', NULLT = 'rgba(214,200,80,';
-  Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.17 };
-  function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.11 + (i % 3 - 1) * 0.25, y - 0.11 + Math.floor(i / 3) * 0.25 * dir, 0.22, 0.22, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
+  Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.13 / Rd.RW }; // (3.5.7) a cube is 0.26 m wherever it is drawn: in the pile, in the line, in a portal, on a plate, on a robot
+  function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.13 + (i % 3 - 1) * 0.27, y - 0.13 + Math.floor(i / 3) * 0.27 * dir, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
   // A balance tips toward the plate with more cubes: that plate is drawn sunk (shaded), the raised one lit, and chevrons
   // in the lower plate's colour run along the arm towards it. Level when the counts are equal.
   function tilt18(ctx, s, p0, p1, n0, n1, c0, c1, w, h) {
@@ -23694,11 +23765,11 @@ window.G = window.G || {};
       arect(ctx, s, sym, a, 3.6, H2 - 1.95, 1.34, 3.9, 'rgba(0,0,0,0.3)', '#8d97a1', 2);
       aline(ctx, s, sym, a, 4.27, H2 - 1.2, 4.27, H2 + 1.2, '#cfd6dd', 4);
       [0, 1].forEach(k => { const mine = side[a].sw === k, col = mine ? a : o; arect(ctx, s, sym, a, 3.7, pY[k] - 0.5, 1.14, 1.0, tint(col, 0.35), alc(col), 2);
-        const q = P(sym, a, 4.27, pY[k]); cubes18(ctx, s, q.x, q.y - 0.12, m && m.sw ? m.sw[a][k] : 0, 1); });
+        const q = P(sym, a, 4.27, pY[k]); cubes18(ctx, s, q.x, q.y - 0.2, m && m.sw ? m.sw[a][k] : 0, 1); });
       if (m && m.sw) tilt18(ctx, s, P(sym, a, 4.27, pY[0]), P(sym, a, 4.27, pY[1]), m.sw[a][0], m.sw[a][1], side[a].sw === 0 ? a : o, side[a].sw === 1 ? a : o, 1.14, 1.0);
       // Power Cube Zone (the pile of ten) against the Switch, the line of six on the Platform side, the Exchange, the far Portals
       arect(ctx, s, sym, a, 2.5, H2 - 0.6, 1.08, 1.2, tint(a, 0.2), NULLT + '0.75)', 1.5);
-      { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.12, q.y - 0.12, 0.24, 0.24, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
+      { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
       { const n = ss ? ss.line : 6; for (let i = 6 - n; i < 6; i++) { const q = P(sym, a, 5.15, H2 + (i - 2.5) * 0.66); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } }
       // the Exchange Zone (4 ft by 3 ft) is left of centre as the alliance looks down the field
       { const ey = g.exch.y(a), up = ey < H2;
@@ -23706,7 +23777,7 @@ window.G = window.G || {};
         if (ss) atext(ctx, s, sym, a, 'VAULT ' + ss.vault, 0.75, up ? ey + 0.95 : ey - 0.78, CUBE, 8); }
       // the Portals in the far corners, with the cubes they still hold
       [[FW - 0.95, 0.1], [FW - 0.95, FH - 1.2]].forEach((p, i) => { arect(ctx, s, sym, a, p[0], p[1], 0.85, 1.1, tint(a, 0.2), alc(a), 2);
-        const n = ss ? ss.portal[i] : 7; for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + 0.2 + (k % 3) * 0.22, p[1] + 0.2 + Math.floor(k / 3) * 0.22); rect(ctx, s, q.x - 0.08, q.y - 0.08, 0.16, 0.16, CUBE, 'rgba(0,0,0,0.4)', 1); } });
+        const n = ss ? ss.portal[i] : 7; for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + 0.155 + (k % 3) * 0.27, p[1] + 0.2 + Math.floor(k / 3) * 0.27); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } });
       atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, 1.45, alc(a), 6); atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, FH - 1.35, alc(a), 6);
     });
     // the Scale: tower with a rung on each side, arm and the two plates
@@ -23722,8 +23793,8 @@ window.G = window.G || {};
   // 2017 FIRST STEAMWORKS (mirrored field)
   // =====================================================================
   const GEAR = '#f2c94c', FUEL = '#c8e83c';
-  Rd.PIECES.gear = { shape: 'gear', col: GEAR, r: 0.2 };
-  Rd.SHOTS[2017] = { col: FUEL, r: 0.06, many: true };
+  Rd.PIECES.gear = { shape: 'gear', col: GEAR, r: 0.14 / Rd.RW }; // (3.5.7) no gear lies on the carpet: its real size (11 in. across)
+  Rd.SHOTS[2017] = { col: FUEL, r: 0.05 }; // (3.5.7) one size for the fuel on the carpet, in the hoppers and in flight
   FIELD[2017] = function (ctx, s, sym, m) {
     const H2 = FH / 2, g = G.Rules.G17, sx = g.ship.x, R = g.ship.r, LP = g.lp, KL = g.keyLeg;
     // Neutral Zone between the two Launchpad Lines
@@ -23752,9 +23823,9 @@ window.G = window.G || {};
       atext(ctx, s, sym, a, ss ? Math.floor(ss.kpa + 1e-9) + ' kPa' : 'BOILER', 0.72, FH - 0.24, '#e8edf2', 6);
       // fuel Hoppers on the side rails
       g.hoppers.forEach((p, i) => { const n = ss ? ss.hop[i] : 100, y = p[1] > H2 ? FH - 0.3 : 0.3; arect(ctx, s, sym, a, p[0] - 0.55, y - 0.22, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.25)' : 'rgba(0,0,0,0.3)', alc(a), 1.5);
-        for (let k = 0; k < Math.ceil(n / 25); k++) { const q = P(sym, a, p[0] - 0.36 + k * 0.24, y); ball(ctx, s, q.x, q.y, 0.08, FUEL); } });
+        for (let k = 0; k < Math.ceil(n / 5); k++) { const q = P(sym, a, p[0] - 0.45 + (k >> 1) * 0.1, y + (k % 2 ? 0.06 : -0.06)); ball(ctx, s, q.x, q.y, Rd.SHOTS[2017].r, FUEL); } }); // a ball drawn for every five, two rows deep
       // fuel spilled from the tipped hoppers lies all over the alliance's end of the carpet
-      if (ss && ss.floor > 4) { const n = Math.min(70, Math.round(ss.floor / 4)); for (let k = 1; k <= n; k++) { const fx = 1.3 + ((k * 0.754878) % 1) * (CX - 1.7), fy = 0.5 + ((k * 0.569840) % 1) * (FH - 1.0); if (Math.hypot(fx - sx, fy - H2) < 1.6) continue; const q = P(sym, a, fx, fy); ball(ctx, s, q.x, q.y, 0.05, FUEL); } }
+      if (ss && ss.floor > 4) { const n = Math.min(70, Math.round(ss.floor / 4)); for (let k = 1; k <= n; k++) { const fx = 1.3 + ((k * 0.754878) % 1) * (CX - 1.7), fy = 0.5 + ((k * 0.569840) % 1) * (FH - 1.0); if (Math.hypot(fx - sx, fy - H2) < 1.6) continue; const q = P(sym, a, fx, fy); ball(ctx, s, q.x, q.y, Rd.SHOTS[2017].r, FUEL); } }
       // the Loading Station (gears) stands across the far corner; the Retrieval Zone is the band in front of it
       apoly(ctx, s, sym, a, [[g.retrTape[0][0], 0.08], [g.stationWall[0][0], 0.08], [FW - 0.08, g.stationWall[1][1]], [FW - 0.08, g.retrTape[1][1]]], tint(a, 0.25), alc(a), 1.5);
       apoly(ctx, s, sym, a, [[g.stationWall[0][0], 0.08], [FW - 0.08, 0.08], [FW - 0.08, g.stationWall[1][1]]], '#3d454e', alc(a), 2);
@@ -23762,14 +23833,14 @@ window.G = window.G || {};
     });
     // the fifth hopper stands on the rail at mid-field: whoever gets there first
     { const n = m && m.hopMid != null ? m.hopMid : 100; rect(ctx, s, CX - 0.55, FH - 0.52, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.18)' : 'rgba(0,0,0,0.3)', '#8d97a1', 1.5);
-      for (let k = 0; k < Math.ceil(n / 25); k++) ball(ctx, s, CX - 0.36 + k * 0.24, FH - 0.3, 0.08, FUEL); }
+      for (let k = 0; k < Math.ceil(n / 5); k++) ball(ctx, s, CX - 0.45 + (k >> 1) * 0.1, FH - 0.3 + (k % 2 ? 0.06 : -0.06), Rd.SHOTS[2017].r, FUEL); }
   };
 
   // =====================================================================
   // 2016 FIRST STRONGHOLD (rotated field)
   // =====================================================================
   const BOULDER = '#b9c0c8';
-  Rd.PIECES.boulder = { shape: 'ball', col: BOULDER, r: 0.19 };
+  Rd.PIECES.boulder = { shape: 'ball', col: BOULDER, r: 0.13 / Rd.RW };
   Rd.SHOTS[2016] = { col: BOULDER, r: 0.13 };
   const DEFCOL = { L: '#8d97a1', A: '#c98a3c', B: '#4f9fd1', C: '#9b6bff', D: '#7a8f5a' };
   FIELD[2016] = function (ctx, s, sym, m) {
@@ -23805,7 +23876,7 @@ window.G = window.G || {};
       // The boulders its castle has to give wait at the mouth (three at the start, then whatever the opponents score).
       arect(ctx, s, sym, a, 0.08, 0.08, g.ownEnd - 0.08, PASS - 0.12, tint(a, 0.4), alc(a), 2);
       atext(ctx, s, sym, a, 'SECRET PASSAGE', 2.4, PASS / 2 + 0.1, '#e8edf2', 8);
-      { const n = ss ? ss.stock : 3; for (let k = 0; k < Math.min(6, n); k++) { const q = P(sym, a, g.ownEnd - 0.35 - k * 0.45, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, 0.12, BOULDER); }
+      { const n = ss ? ss.stock : 3; for (let k = 0; k < Math.min(6, n); k++) { const q = P(sym, a, g.ownEnd - 0.35 - k * 0.45, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, Rd.SHOTS[2016].r, BOULDER); }
         if (n > 6) atext(ctx, s, sym, a, '+' + (n - 6), g.ownEnd - 3.3, PASS / 2 + 0.1, BOULDER, 8); }
       // boulders on the midline: three within each alliance's reach
       { const n = ss ? ss.mid : 3; for (let k = 3 - n; k < 3; k++) { const q = P(sym, a, CX, g.midY(k)); ball(ctx, s, q.x, q.y, 0.13, BOULDER); } }
@@ -23833,7 +23904,7 @@ window.G = window.G || {};
   // FULL TILT (rotated field)
   // =====================================================================
   const PIN = '#d5dbe1';
-  Rd.PIECES.pinball = { shape: 'ball', col: PIN, r: 0.1, many: 4 };
+  Rd.PIECES.pinball = { shape: 'ball', col: PIN, r: 0.09 / Rd.RW, many: 4 }; // (3.5.7) r: the size on the floor, in robot widths (every piece below too)
   Rd.SHOTS[2101] = { col: PIN, r: 0.09 };
   FIELD[2101] = function (ctx, s, sym, m) {
     const T = G.Rules.T01;
@@ -23886,8 +23957,8 @@ window.G = window.G || {};
   // MAINLINE (mirrored field: the rail runs along the far guardrail)
   // =====================================================================
   const DRUM = '#d08a3e';
-  Rd.PIECES.drum = { shape: 'gear', col: DRUM, r: 0.14, many: 3 };
-  Rd.SHOTS[2102] = { col: DRUM, r: 0.12 };
+  Rd.PIECES.drum = { shape: 'gear', col: DRUM, r: 0.13 / Rd.RW, many: 3, hole: '#7a4d1f' };
+  Rd.SHOTS[2102] = { col: DRUM, r: 0.13, draw: (ctx, s, x, y) => drum(ctx, s, x, y) }; // (3.5.7) in flight as on the floor: the same drawing
   function drum(ctx, s, x, y) { circ(ctx, s, x, y, 0.13, DRUM, 'rgba(0,0,0,0.45)', 1); circ(ctx, s, x, y, 0.05, '#7a4d1f'); }
   FIELD[2102] = function (ctx, s, sym, m) {
     const T = G.Rules.T02, eng = m && m.eng != null ? m.eng : 0, ex = CX + eng / T.term * T.span;
@@ -23932,8 +24003,8 @@ window.G = window.G || {};
   // STATION KEEPING (rotated field): the station is drawn at the angle the match has turned it to
   // =====================================================================
   const DISC = '#ece6cf';
-  Rd.PIECES.disc = { shape: 'ball', col: DISC, r: 0.13, many: 4 };
-  Rd.SHOTS[2103] = { col: DISC, r: 0.12 };
+  Rd.PIECES.disc = { shape: 'ball', col: DISC, r: 0.13 / Rd.RW, many: 4 };
+  Rd.SHOTS[2103] = { col: DISC, r: 0.13, draw: (ctx, s, x, y) => disc(ctx, s, x, y) };
   function disc(ctx, s, x, y) { circ(ctx, s, x, y, 0.13, DISC, 'rgba(0,0,0,0.45)', 1); circ(ctx, s, x, y, 0.07, null, 'rgba(0,0,0,0.25)', 1); }
   FIELD[2103] = function (ctx, s, sym, m) {
     const T = G.Rules.T03, ang = k => (m ? G.Rules.ang03(m, k, 0) : Math.PI / 4 + k * Math.PI / 2), colOf = k => (k % 2 ? 'blue' : 'red');
@@ -23974,7 +24045,7 @@ window.G = window.G || {};
   // the one nearest the alliance wall, and each strip has its three bays.
   // =====================================================================
   const GIRD = '#e0a23a';
-  Rd.PIECES.girder = { shape: 'bar', col: GIRD, r: 0.16, many: 2 };
+  Rd.PIECES.girder = { shape: 'bar', col: GIRD, r: 1.0 / 6.4 / Rd.RW, many: 2 }; // a bar is 6.4 r long: one metre, as on the floor
   function girder(ctx, s, x, y, g) { const dx = Math.cos(g) * 0.5, dy = Math.sin(g) * 0.5; ctx.lineCap = 'round'; line(ctx, s, x - dx, y - dy, x + dx, y + dy, '#0f1215', Math.max(3, 0.13 * s)); line(ctx, s, x - dx, y - dy, x + dx, y + dy, GIRD, Math.max(2, 0.08 * s)); ctx.lineCap = 'butt'; }
   FIELD[2104] = function (ctx, s, sym, m) {
     const T = G.Rules.T04, fw = (T.tx - 0.22) / 4;
@@ -24024,7 +24095,7 @@ window.G = window.G || {};
   // GALE FORCE (rotated field): the rotors turn as fast as the match says, and glow while they generate
   // =====================================================================
   const GCELL = '#9be15d';
-  Rd.PIECES.gcell = { shape: 'ball', col: GCELL, r: 0.1, many: 5 };
+  Rd.PIECES.gcell = { shape: 'ball', col: GCELL, r: 0.09 / Rd.RW, many: 5 };
   Rd.SHOTS[2105] = { col: GCELL, r: 0.09 };
   FIELD[2105] = function (ctx, s, sym, m) {
     const T = G.Rules.T05, NAME = { home: 'HOME', field: 'FIELD', off: 'OFFSHORE' };
@@ -24065,9 +24136,9 @@ window.G = window.G || {};
   // DEEP FREEZE (rotated field)
   // =====================================================================
   const ICE = '#dfeefa';
-  Rd.PIECES.stoneR = { shape: 'gear', col: '#e5484d', r: 0.15, many: 2 };
-  Rd.PIECES.stoneB = { shape: 'gear', col: '#3e8cff', r: 0.15, many: 2 };
-  Rd.SHOTS[2106] = { col: '#c9d2da', r: 0.11 };
+  Rd.PIECES.stoneR = { shape: 'gear', col: '#e5484d', r: 0.125 / Rd.RW, many: 2, hole: '#f4f7fa' };
+  Rd.PIECES.stoneB = { shape: 'gear', col: '#3e8cff', r: 0.125 / Rd.RW, many: 2, hole: '#f4f7fa' };
+  Rd.SHOTS[2106] = { r: 0.125, draw: (ctx, s, x, y, f) => stone(ctx, s, x, y, f.a) }; // (3.5.7) a stone on its way is the alliance's stone, not a grey ball
   function stone(ctx, s, x, y, a) { circ(ctx, s, x, y, 0.125, alc(a), '#0f1215', 1.5); circ(ctx, s, x, y, 0.05, '#f4f7fa'); }
   FIELD[2106] = function (ctx, s, sym, m) {
     const T = G.Rules.T06;
@@ -24112,7 +24183,7 @@ window.G = window.G || {};
   // EVEN KEEL (rotated field): the ship's heavy side is shaded as it lists, and every stack shows how high it stands
   // =====================================================================
   const CONT = '#3fb8a6';
-  Rd.PIECES.cont = { shape: 'box', col: CONT, r: 0.16, many: 2 };
+  Rd.PIECES.cont = { shape: 'box', col: CONT, r: 0.13 / Rd.RW, many: 2 };
   function cont(ctx, s, x, y, k) { rect(ctx, s, x - 0.13, y - 0.13, 0.26, 0.26, k === 0 ? '#6f7b85' : CONT, 'rgba(0,0,0,0.45)', 1); }
   FIELD[2107] = function (ctx, s, sym, m) {
     const T = G.Rules.T07;
@@ -24154,9 +24225,9 @@ window.G = window.G || {};
   // MOTHERLODE (rotated field)
   // =====================================================================
   const ORE = { red: '#d9774a', blue: '#4a8fd9', gold: '#f5c542' };
-  Rd.PIECES.oreR = { shape: 'ball', col: ORE.red, r: 0.09, many: 6 };
-  Rd.PIECES.oreB = { shape: 'ball', col: ORE.blue, r: 0.09, many: 6 };
-  Rd.SHOTS[2108] = { col: '#c9a56a', r: 0.07 };
+  Rd.PIECES.oreR = { shape: 'ball', col: ORE.red, r: 0.075 / Rd.RW, many: 6 };
+  Rd.PIECES.oreB = { shape: 'ball', col: ORE.blue, r: 0.075 / Rd.RW, many: 6 };
+  Rd.SHOTS[2108] = { col: '#c9a56a', r: 0.075 };
   FIELD[2108] = function (ctx, s, sym, m) {
     const T = G.Rules.T08;
     // the two Veins above the side walls and their detonators
@@ -24193,8 +24264,9 @@ window.G = window.G || {};
   // =====================================================================
   // SIGNAL FIRE (rotated field): every post shows its rings in the order they went on, and glows in its owner's colour
   // =====================================================================
-  Rd.PIECES.ringR = { shape: 'disc', col: '#ff6b6b', r: 0.15, many: 2 };
-  Rd.PIECES.ringB = { shape: 'disc', col: '#5aa2ff', r: 0.15, many: 2 };
+  Rd.PIECES.ringR = { shape: 'disc', col: '#ff6b6b', r: 0.13 / Rd.RW, many: 2, lw: 0.42 };
+  Rd.PIECES.ringB = { shape: 'disc', col: '#5aa2ff', r: 0.13 / Rd.RW, many: 2, lw: 0.42 };
+  Rd.SHOTS[2109] = { r: 0.13, draw: (ctx, s, x, y, f) => ringPc(ctx, s, x, y, f.a) }; // (3.5.7) the Keeper's toss is a ring in the alliance's colour (it was a grey dot)
   function ringPc(ctx, s, x, y, a) { circ(ctx, s, x, y, 0.13, null, a === 'red' ? '#ff6b6b' : '#5aa2ff', Math.max(2, 0.055 * s)); }
   FIELD[2109] = function (ctx, s, sym, m) {
     const T = G.Rules.T09, posts = m && m.posts ? m.posts : T.posts.map(p => Object.assign({ rings: [] }, p));
@@ -24232,7 +24304,7 @@ window.G = window.G || {};
   // BRIDGEWORK (rotated field)
   // =====================================================================
   const CRATE = '#c9925a', PANEL = '#d9c58a';
-  Rd.PIECES.crate = { shape: 'box', col: CRATE, r: 0.15, many: 2 };
+  Rd.PIECES.crate = { shape: 'box', col: CRATE, r: 0.12 / Rd.RW, many: 2 };
   function crate(ctx, s, x, y) { rect(ctx, s, x - 0.12, y - 0.12, 0.24, 0.24, CRATE, 'rgba(0,0,0,0.45)', 1); line(ctx, s, x - 0.12, y, x + 0.12, y, 'rgba(0,0,0,0.3)', 1); }
   FIELD[2110] = function (ctx, s, sym, m) {
     const T = G.Rules.T10, NM = ['NORTH', 'CENTRE', 'SOUTH'];
@@ -24290,7 +24362,11 @@ window.G = window.G || {};
    hook on a strap, a 2019 one is a pair of stilts. The fantasy seasons borrow the recipe of a real season (ALIAS).
    Units: 1 = the length of the robot with its bumpers (about 34 inches); x runs from the back (-) to the front (+), y up
    from the floor. Recipes queue their parts with k.L(z, section, draw); sections are subsystem ids, so one subsystem can
-   be drawn on its own (opts.only). */
+   be drawn on its own (opts.only).
+   (3.5.7) It is a true side view, a parallel projection: no part shows its top or its far side. A shaft that runs across the
+   robot is seen end on (a wheel, a roller, a motor on it: circles); one that lies in the picture is seen from its side (a
+   wheel on an upright axle is a bar: k.wheelEdge). Of two things side by side across the robot (the arms of a claw, a pair
+   of forks, the far upright of an elevator) only the near one is drawn: the other is exactly behind it. */
 (function () {
   'use strict';
   const Rd = G.Render, shade = Rd.shade, alc = Rd.K.alc, PI = Math.PI, TAU = PI * 2, D2R = PI / 180;
@@ -24376,8 +24452,15 @@ window.G = window.G || {};
       [1, -1].forEach(g => { const t = a + g * b; k.line([[x1 + r1 * Math.cos(t), y1 + r1 * Math.sin(t)], [x2 + r2 * Math.cos(t), y2 + r2 * Math.sin(t)]], col || BELT, w || 0.011, dash); });
     };
     k.chain = (x1, y1, r1, x2, y2, r2) => k.belt(x1, y1, r1, x2, y2, r2, '#8a949f', 0.012, [0.012, 0.009]);
-    // a motor: its can, the coloured end, the shaft
-    k.motor = (x, y, ang, L, r, cap) => k.at(x, y, ang, q => { q.rect(-L * 0.1, -r * 0.3, L * 0.14, r * 0.6, ALU2); q.rect(0, -r, L, 2 * r, '#262a30', r * 0.3); q.rect(L * 0.7, -r, L * 0.3, 2 * r, cap || DARK2, r * 0.3); });
+    // a motor whose shaft lies in the picture (a swerve module's, standing up): its can from the side, one flat rectangle
+    // with two bands round it. (3.5.7: it had a lighter end, which read as the top of a box)
+    k.motor = (x, y, ang, L, r, cap) => k.at(x, y, ang, q => { q.rect(-L * 0.1, -r * 0.3, L * 0.14, r * 0.6, ALU2); q.rect(0, -r, L, 2 * r, '#262a30', r * 0.16); q.line([[L * 0.22, -r * 0.9], [L * 0.22, r * 0.9]], '#4a525b', 0.006); q.line([[L * 0.8, -r * 0.9], [L * 0.8, r * 0.9]], cap || '#6c7682', 0.007); });
+    // (3.5.7) a motor on a shaft that runs across the robot (nearly all of them: they drive rollers, gears and pulleys that
+    // are seen end on): its end, a circle. Same arguments as k.motor: it sits where the middle of that can would be
+    k.motorE = (x, y, ang, L, r, cap) => { const mx = x + Math.cos(ang) * L * 0.5, my = y + Math.sin(ang) * L * 0.5; k.circ(mx, my, r * 1.08, '#262a30', EDGE); k.circ(mx, my, r * 0.74, null, cap || '#6c7682', 1.3); for (let i = 0; i < 4; i++) { const g = i * PI / 2 + 0.6; k.circ(mx + Math.cos(g) * r * 0.74, my + Math.sin(g) * r * 0.74, r * 0.12, HOLE, 0); } k.circ(mx, my, r * 0.3, ALU2, 0); k.circ(mx, my, r * 0.12, DARK, 0); };
+    // (3.5.7) a wheel seen edge on: its axle lies in the picture (the wheels of a claw that grips from both sides, a
+    // pinion under a turret's ring). r along x, th thick; the stubs of its axle show above and below
+    k.wheelEdge = (x, y, r, th, c) => { k.rect(x - r * 0.16, y - th / 2 - 0.008, r * 0.32, th + 0.016, ALU2, 0, 0); k.rect(x - r, y - th / 2, 2 * r, th, c || CW.g, th * 0.3, 'rgba(6,8,11,0.7)'); [-0.5, 0, 0.5].forEach(d => k.line([[x + r * d, y - th * 0.34], [x + r * d, y + th * 0.34]], 'rgba(6,8,11,0.35)', 0.005)); };
     // an air cylinder (or a gas spring): the body from the first point, the rod to the second
     k.piston = (x1, y1, x2, y2, w, part) => { const f = part || 0.6, mx = x1 + (x2 - x1) * f, my = y1 + (y2 - y1) * f; k.bar([[mx, my], [x2, y2]], w * 0.32, STEEL); k.tube(x1, y1, mx, my, w, '#aab3bc'); };
     k.hook = (x, y, r, a0, sweep, w, col) => k.arc(x, y, r, a0, sweep, w, col);
@@ -24413,11 +24496,13 @@ window.G = window.G || {};
         for (let i = 0; i < n; i++) q.wheel(-span / 2 + i * span / (n - 1), wr - (n === 3 && i === 1 ? 0.004 : 0), wr, kind);
       }
     });
-    k.L(6, 'drive', q => {
-      const ctx = q.ctx, col = alc(a || 'blue');
-      // what stands on the frame behind the bumper: the battery, the swerve modules' motors, the signal light
+    k.L(1, 'drive', q => {
+      // (3.5.7) what stands on the chassis is the lowest layer: every mechanism is drawn over it. The battery, and the swerve modules' motors
       q.rect(-0.2, g.ft - 0.03, 0.17, 0.085, '#1f2327', 0.008); q.rect(-0.185, g.ft + 0.052, 0.03, 0.014, '#c9413b', 0, 0); q.rect(-0.08, g.ft + 0.052, 0.03, 0.014, '#8b949d', 0, 0);
       if (d === 'swerve') [-0.37, 0.37].forEach(wx => { q.motor(wx - 0.03, g.bt - 0.03, PI / 2, 0.1, 0.027); q.motor(wx + 0.03, g.bt - 0.03, PI / 2, 0.075, 0.022); });
+    });
+    k.L(6, 'drive', q => {
+      const ctx = q.ctx, col = alc(a || 'blue');
       q.rect(-0.51, g.by0, 1.02, g.bh, col, 0.034, shade(col, -0.25));
       q.line([[-0.49, g.bt - 0.018], [0.49, g.bt - 0.018]], 'rgba(255,255,255,0.16)', 0.006);
       [-0.455, 0.455].forEach(x => q.line([[x, g.by0 + 0.012], [x, g.bt - 0.012]], 'rgba(0,0,0,0.22)', 0.005));
@@ -24425,8 +24510,8 @@ window.G = window.G || {};
       if (k.ver >= 3) { ctx.save(); ctx.shadowColor = k.c2; ctx.shadowBlur = 5 * q.px; q.line([[-0.45, g.bt + 0.008], [0.45, g.bt + 0.008]], k.c2, 0.009); ctx.restore(); }
     });
   }
-  // An elevator from the side: the fixed stage, the stages nested in it (shown a little proud of each other) and the
-  // carriage. Returns where things bolt on; .draw(k) paints it. o.tilt: lean forward (radians); o.st: stages;
+  // An elevator from the side: the fixed stage, the stages that ride in front of it and the carriage. (3.5.7) Only the
+  // near upright of each stage: the far one, and the cross-members between them, are exactly behind it. Returns where things bolt on; .draw(k) paints it. o.tilt: lean forward (radians); o.st: stages;
   // o.car: how far up the carriage rides (0..1); o.brace: [[foot x, how far up it meets the mast], ...]
   function mast(g, x, y0, h, o) {
     o = o || {}; const ang = PI / 2 - (o.tilt || 0), ca = Math.cos(ang), sa = Math.sin(ang), w = o.w || 0.066, st = o.st || 2;
@@ -24436,7 +24521,6 @@ window.G = window.G || {};
         const col = o.col || k.c1;
         (o.brace || []).forEach(b => { const p = at(h * b[1], 0); k.tube(b[0], g.ft - 0.02, p[0], p[1], w * 0.82, col, { truss: 1 }); });
         k.at(x, y0, ang, q => {
-          q.tube(h * 0.02, w * 0.62, h * 0.97, w * 0.62, w * 0.8, col, { dim: 1 }); [0.3, 0.62, 0.94].forEach(t => q.rect(h * t, w * 0.2, w * 0.5, w * 0.6, DARK, 0.003));   // the far upright and the cross-members to it
           for (let i = st - 1; i >= 1; i--) { const d = -w * 0.66 * i, up = h * 0.04 * i; q.tube(up, d, h + up, d, w * 0.76, i % 2 ? ALU : STEEL, { holes: 1, pitch: w * 1.7 }); q.rect(h + up - w * 0.3, d - w * 0.46, w * 0.42, w * 0.92, DARK); }
           q.tube(0, 0, h, 0, w, col, { holes: 1 });
           q.rect(h - w * 0.45, -w * 0.62, w * 0.6, w * 1.24, DARK, 0.004); q.wheel(h - w * 0.15, w * 0.2, w * 0.36, 'pul'); q.rect(0, -w * 0.72, w * 0.55, w * 1.44, DARK, 0.004);
@@ -24461,24 +24545,31 @@ window.G = window.G || {};
   }
   // A flywheel shooter between two plates. The ball comes in under the hood, rides over the wheel and leaves along
   // o.ang. o.r: wheel radius; o.gap: the ball; o.hood: 1 fixed, 2 adjustable; o.top: a roller at the hood's lip;
-  // o.two: a second flywheel behind the first; o.feed: 0 for no feeder wheel
+  // o.two: a second flywheel beside the first (from the side it is exactly behind it: nothing shows); o.feed: 0 for no feeder wheel
   function shooter(k, x, y, o) {
     const r = o.r || 0.06, gap = o.gap || 0.17, R = r + gap, a = o.ang, h0 = a + PI / 2, sw = o.sweep || (o.hood === 2 ? 1.95 : 1.6), P = (g, rr) => [x + rr * Math.cos(g), y + rr * Math.sin(g)];
     const pl = []; for (let i = 0; i <= 6; i++) pl.push(P(h0 - 0.12 + (sw + 0.24) * i / 6, R + 0.022));
     pl.push(P(h0 + sw + 0.9, r * 1.7), P(a - 0.5, r * 1.75), P(a + 0.25, r * 1.5));
     if (o.base != null) [P(h0 + sw - 0.15, R * 0.86), P(h0 + sw + 0.9, r * 1.5)].forEach((p, i) => { if (p[1] > o.base + 0.04) k.tube(p[0] + (i ? 0.02 : -0.02), o.base, p[0], p[1], 0.034, k.c1, { holes: 1 }); });   // the legs it stands on
     k.poly(pl, o.col || '#474f59'); { const h1 = P(a - 0.55, r * 1.05), h2 = P(h0 + sw + 0.75, r * 1.25); k.circ(h1[0], h1[1], r * 0.26, HOLE, 0); k.circ(h2[0], h2[1], r * 0.22, HOLE, 0); }
+    // (3.5.7) the side plate is pocketed, as on a real one: windows between ribs that run from the wheel's bearing out to the
+    // hood, and along the hood the standoffs that tie it to the far plate
+    if (R * k.s > 16) { const n = Math.max(3, Math.round(sw / 0.48)), ri = r * 1.32 + 0.01, ro = R - 0.014, rib = 0.085, g0 = h0 + 0.02, dg = (sw - 0.04) / n;
+      for (let i = 0; i < n; i++) { const a0 = g0 + i * dg + rib / 2, a1 = g0 + (i + 1) * dg - rib / 2, pts = [];
+        for (let j = 0; j <= 4; j++) pts.push(P(a0 + (a1 - a0) * j / 4, ro));
+        for (let j = 2; j >= 0; j--) pts.push(P(a0 + 0.07 + (a1 - a0 - 0.14) * j / 2, ri));
+        k.poly(pts, 'rgba(9,11,14,0.5)', 0); }
+      for (let i = 0; i <= n; i++) { const p = P(g0 + i * dg, R + 0.005); k.circ(p[0], p[1], 0.0065, ALU2, 0); } }
     k.arc(x, y, R, h0, sw, 0.016, o.hc || ALU);
     if (o.hood === 2) { k.arc(x, y, R + 0.014, h0 - 0.5, 0.62, 0.014, k.c2); const gp = P(h0 + 0.5, R + 0.016); k.wheel(gp[0], gp[1], 0.024, 'gear'); }
     if (o.feed !== 0) { const f = P(h0 + sw + 0.32, R * 0.98), f2 = P(h0 + sw + 0.2, r + gap * 0.05); k.wheel(f[0], f[1], Math.min(0.045, r * 0.75), 'comp', o.fc || CW.g); k.belt(x, y, r * 0.4, f2[0], f2[1], 0.012); }
-    if (o.two) { const t = P(h0 + sw * 0.55, R + r * 0.55); k.wheel(t[0], t[1], r * 0.8, 'fly', k.c2); }
     k.wheel(x, y, r, 'fly', k.c2);
     if (o.top) { const t = P(h0 + 0.02, R + 0.004); k.wheel(t[0], t[1], 0.026, 'roll', o.tc || CW.b); }
-    const m = P(a - 1.25, r * 1.55); k.motor(m[0], m[1], a + PI, r * 1.5, r * 0.5); k.belt(x, y, r * 0.42, m[0], m[1], r * 0.3);
+    const m = P(a - 1.25, r * 1.7); k.belt(x, y, r * 0.42, m[0], m[1], r * 0.3); k.motorE(m[0], m[1], 0, 0, r * 0.5);   // its motor is on a shaft across the robot, like the wheel: end on
     return { lip: P(h0, R), in: P(h0 + sw, R - gap / 2) };
   }
   // a turret's ring, seen edge-on
-  function ring(k, x, y, w, base) { if (base != null && y > base + 0.04) [-1, 1].forEach(s => k.tube(x + s * w * 0.3, base, x + s * w * 0.3, y + 0.01, 0.034, k.c1, { holes: 1 })); k.rect(x - w / 2, y, w, 0.034, '#30353c', 0.008); k.line([[x - w / 2 + 0.01, y + 0.017], [x + w / 2 - 0.01, y + 0.017]], '#7c8691', 0.012, [0.008, 0.008]); k.line([[x - w / 2, y + 0.04], [x + w / 2, y + 0.04]], k.c2, 0.008); k.wheel(x + w / 2 - 0.006, y + 0.017, 0.022, 'gear'); }
+  function ring(k, x, y, w, base) { if (base != null && y > base + 0.04) [-1, 1].forEach(s => k.tube(x + s * w * 0.3, base, x + s * w * 0.3, y + 0.01, 0.034, k.c1, { holes: 1 })); k.rect(x - w / 2, y, w, 0.034, '#30353c', 0.008); k.line([[x - w / 2 + 0.01, y + 0.017], [x + w / 2 - 0.01, y + 0.017]], '#7c8691', 0.012, [0.008, 0.008]); k.line([[x - w / 2, y + 0.04], [x + w / 2, y + 0.04]], k.c2, 0.008); k.rect(x + w / 2 + 0.002, y + 0.004, 0.036, 0.026, GOLD, 0.005); }   // (3.5.7) the pinion that turns it stands on an upright shaft: edge on
   // An intake that reaches out over the bumper, deployed. o.px, o.py: its pivot; o.ex, o.ey: the front roller;
   // o.n: rollers; o.wk, o.wc: their wheels; o.four: a four-bar's second link; o.guard: a polycarbonate cover
   function overIntake(k, o) {
@@ -24489,18 +24580,24 @@ window.G = window.G || {};
     if (k.s * 0.05 > 7) { k.line([[o.px + (mx - o.px) * 0.25, o.py + (my - o.py) * 0.25], [o.px + (mx - o.px) * 0.8, o.py + (my - o.py) * 0.8]], 'rgba(3,4,6,0.55)', 0.02); k.line([[mx + (o.ex - mx) * 0.22, my + (o.ey - my) * 0.22], [mx + (o.ex - mx) * 0.72, my + (o.ey - my) * 0.72]], 'rgba(3,4,6,0.55)', 0.02); }
     for (let i = n - 1; i >= 0; i--) { const t = 1 - i * (o.sp || 0.42); k.wheel(mx + (o.ex - mx) * t, my + (o.ey - my) * t, r * (i ? 0.85 : 1), o.wk || 'comp', i % 2 ? (o.wc2 || o.wc || CW.k) : (o.wc || CW.g)); }
     if (n > 1 && o.belt !== 0) k.belt(o.ex, o.ey, r * 0.3, mx + (o.ex - mx) * (1 - (n - 1) * (o.sp || 0.42)), my + (o.ey - my) * (1 - (n - 1) * (o.sp || 0.42)), r * 0.3);
-    k.wheel(o.px, o.py, 0.024, o.gear ? 'gear' : 'pul'); if (o.motor) k.motor(o.px - 0.02, o.py + 0.03, PI * 0.8, 0.09, 0.026);
+    k.wheel(o.px, o.py, 0.024, o.gear ? 'gear' : 'pul'); if (o.motor) k.motorE(o.px - 0.02, o.py + 0.03, PI * 0.8, 0.09, 0.026);
   }
-  // A four-bar intake, out over the bumper: towers on the frame, two links that stay parallel, and the head they carry.
-  // o.wk, o.wc, o.wc2: the rollers' wheels; o.guard: a polycarbonate cover
+  // (3.5.7) A four-bar intake, out over the bumper, after a real one's side view: a plate low on the frame (most of it is
+  // behind the bumper), two long links that rise forward from it, and the arm they carry, which bends down in front of the
+  // bumper to its roller. A chain from a motor on the plate swings the front link; a belt runs up the rear link and down the
+  // arm to the rollers. o.wk, o.wc, o.wc2: the rollers' wheels; o.guard: a polycarbonate cover
   function fourBar(k, o) {
-    const ft = k.g.ft, A = [0.34, ft + 0.05], B = [0.25, ft + 0.2], L = 0.27, a = -24 * D2R, dx = L * Math.cos(a), dy = L * Math.sin(a), C = [A[0] + dx, A[1] + dy], E = [B[0] + dx, B[1] + dy];
-    k.plate([[0.2, ft - 0.02], [0.4, ft - 0.02], [0.38, ft + 0.1], [0.28, ft + 0.26], [0.2, ft + 0.26]], DARK2, 0);
-    k.piston(0.22, ft + 0.03, B[0] + dx * 0.55, B[1] + dy * 0.55, 0.024);
-    if (o.guard) k.glass([[E[0] - 0.02, E[1] + 0.06], [C[0] + 0.17, C[1] + 0.14], [C[0] + 0.21, C[1] + 0.03], [C[0] + 0.1, C[1] + 0.02]]);
-    k.plate([[E[0] - 0.035, E[1] + 0.04], [C[0] + 0.15, C[1] + 0.1], [C[0] + 0.19, C[1] + 0.0], [C[0] + 0.1, C[1] - 0.05], [C[0] - 0.03, C[1] - 0.035]], DARK2, 0);
-    [[0.14, 0.02, 0.042], [0.06, 0.055, 0.036], [-0.02, 0.1, 0.03]].forEach((r, i) => k.wheel(C[0] + r[0], C[1] + r[1], r[2], o.wk || 'comp', i % 2 ? (o.wc2 || o.wc) : o.wc));
-    k.tube(A[0], A[1], C[0], C[1], 0.03, ALU); k.tube(B[0], B[1], E[0], E[1], 0.03, ALU); [A, B, C, E].forEach(p => k.circ(p[0], p[1], 0.016, DARK, EDGE));
+    const bt = k.g.bt, ft = k.g.ft, A = [0.15, bt + 0.09], B = [0.27, bt + 0.015], C = [0.46, bt + 0.3], E = [0.545, bt + 0.265], M = [0.63, bt + 0.2], T = [0.745, 0.165];
+    k.plate([[-0.04, ft - 0.03], [0.3, ft - 0.03], [0.33, bt], [0.19, bt + 0.12], [0.1, bt + 0.13], [-0.04, bt + 0.03]], DARK2, { f: 0.3 });
+    k.chain(B[0], B[1], 0.04, B[0] - 0.1, bt + 0.05, 0.018); k.wheel(B[0] - 0.1, bt + 0.05, 0.02, 'spr'); k.motorE(B[0] - 0.165, bt + 0.055, 0, 0, 0.024);
+    k.tube(B[0], B[1], E[0], E[1], 0.05, ALU2);
+    if (o.guard) k.glass([[E[0] - 0.02, E[1] + 0.05], [M[0] + 0.03, M[1] + 0.07], [T[0] + 0.075, T[1] + 0.05], [T[0] + 0.065, T[1] - 0.02], [M[0], M[1] - 0.01]]);
+    k.bar([C, E, M, T], 0.046, DARK2);
+    k.tube(A[0], A[1], C[0], C[1], 0.04, ALU2, { holes: 1, pitch: 0.06 });
+    k.belt(A[0], A[1], 0.018, C[0], C[1], 0.018, BELT, 0.008); k.belt(C[0], C[1], 0.018, M[0], M[1], 0.016, BELT, 0.008); k.belt(M[0], M[1], 0.016, T[0], T[1], 0.016, BELT, 0.008);
+    k.wheel(B[0], B[1], 0.04, 'spr');
+    k.wheel(M[0], M[1], 0.03, o.wk || 'comp', o.wc2 || o.wc); k.wheel(T[0], T[1], 0.044, o.wk || 'comp', o.wc);
+    [A, C, E].forEach(p => k.wheel(p[0], p[1], 0.02, 'pul'));
   }
   // a hopper: polycarbonate walls with their slots, a rim, ribs. o.fl / o.fr: how far the left and right walls lean out
   function hopper(k, x0, x1, y0, y1, o) {
@@ -24512,7 +24609,7 @@ window.G = window.G || {};
     k.tube(x0, y0, x0 - fl, y1, 0.022, o.post || ALU2); k.tube(x1, y0, x1 + fr, y1, 0.022, o.post || ALU2);
   }
   // cameras: small black boxes with a lit ring. [x, y, facing (1 front, -1 back), 1 if it rides on a mechanism (a turret's camera): no pole]
-  function cams(k, pts) { const n = Math.min(pts.length, k.lk.vision || 0); for (let i = 0; i < n; i++) { const p = pts[i], f = p[2] || 1; if (!p[3] && p[1] > k.g.ft + 0.06) k.L(1.5, 'soft', q => q.bar([[p[0] - f * 0.014, p[1]], [p[0] - f * 0.014, k.g.ft - 0.01]], 0.014, ALU2)); k.L(7, 'soft', q => { q.rect(p[0] - 0.03, p[1] - 0.022, 0.06, 0.044, '#15181c', 0.008, EDGE); q.circ(p[0] + f * 0.03, p[1], 0.014, '#52e58a', '#0d3a1f'); }); } }
+  function cams(k, pts) { const n = Math.min(pts.length, k.lk.vision || 0); for (let i = 0; i < n; i++) { const p = pts[i], f = p[2] || 1; if (!p[3] && p[1] > k.g.ft + 0.06) k.L(1.5, 'soft', q => q.bar([[p[0] - f * 0.014, p[1]], [p[0] - f * 0.014, k.g.ft - 0.01]], 0.014, ALU2)); k.L(7, 'soft', q => { q.rect(p[0] - 0.03, p[1] - 0.022, 0.06, 0.044, '#15181c', 0.008, EDGE); q.rect(p[0] + f * 0.036 - 0.007, p[1] - 0.014, 0.014, 0.028, '#52e58a', 0.004, '#0d3a1f'); }); } }   // (3.5.7) the lens looks along the robot: from the side it is its rim, not a circle
 
   // ------------------------------------------------------------------ the seasons
   const SIDE = {};
@@ -24586,13 +24683,13 @@ window.G = window.G || {};
     const g = k.g, ft = g.ft, c1 = k.c1, c2 = k.c2, it = c.intake, sh = c.scorer, end = c.endgame, dual = it === 'dual', S = [dual ? 0 : -0.1, 0.8];
     if (dual) k.L(3, 'intake', q => {                                                 // an intake at each end: the indexer is the same from both, and they meet under a shooter in the middle
       q.glass([[-0.4, ft - 0.02], [0.4, ft - 0.02], [0.16, 0.6], [-0.16, 0.6]]);
-      const half = t => { t.belt(0.31, ft + 0.05, 0.03, 0.115, 0.55, 0.03); t.wheel(0.31, ft + 0.05, 0.03, 'pul'); t.wheel(0.115, 0.55, 0.03, 'pul'); t.wheel(0.225, 0.33, 0.022, 'pul'); t.tube(0.4, ft - 0.02, 0.16, 0.6, 0.03, c1, { holes: 1 }); t.motor(0.2, ft + 0.02, PI, 0.1, 0.027); };
+      const half = t => { t.belt(0.31, ft + 0.05, 0.03, 0.115, 0.55, 0.03); t.wheel(0.31, ft + 0.05, 0.03, 'pul'); t.wheel(0.115, 0.55, 0.03, 'pul'); t.wheel(0.225, 0.33, 0.022, 'pul'); t.tube(0.4, ft - 0.02, 0.16, 0.6, 0.03, c1, { holes: 1 }); t.motorE(0.2, ft + 0.02, PI, 0.1, 0.027); };
       half(q); q.mir(half); q.wheel(0, ft + 0.07, 0.04, 'comp', CW.g);
     });
     else if (it) k.L(3, 'intake', q => {                                              // the indexer
       q.glass([[0.08, ft - 0.02], [0.4, ft - 0.02], [0.06, 0.6], [-0.2, 0.6]]);
       q.belt(0.3, ft + 0.05, 0.03, -0.06, 0.55, 0.03); q.wheel(0.3, ft + 0.05, 0.03, 'pul'); q.wheel(-0.06, 0.55, 0.03, 'pul'); q.wheel(0.12, 0.34, 0.022, 'pul');
-      q.tube(0.4, ft - 0.02, 0.06, 0.6, 0.03, c1, { holes: 1 }); q.motor(0.2, ft + 0.02, PI, 0.1, 0.027);
+      q.tube(0.4, ft - 0.02, 0.06, 0.6, 0.03, c1, { holes: 1 }); q.motorE(0.2, ft + 0.02, PI, 0.1, 0.027);
       if (it === 'term') { q.glass([[-0.22, 0.6], [0.08, 0.6], [0.2, 0.76], [-0.3, 0.76]]); }               // loaded by hand at the Terminal: a catch funnel
     });
     const arm = q => overIntake(q, it === 'pivot' ? { px: 0.34, py: ft + 0.09, ex: 0.71, ey: 0.17, n: 2, r: 0.047, wc: CW.b, wc2: CW.k, w: 0.058, gear: 1, motor: 1 } : { px: 0.34, py: ft + 0.09, ex: 0.69, ey: 0.17, n: 2, r: 0.043, wc: CW.k, wc2: CW.g, four: 1 });
@@ -24612,7 +24709,7 @@ window.G = window.G || {};
       const P = [-0.24, 0.74], a = 38 * D, A = along(P, a, 0.56), B = along(P, a + PI, 0.5);
       q.tube(-0.4, ft - 0.02, P[0], P[1], 0.05, c1, { truss: 1 }); q.tube(-0.1, ft - 0.02, P[0], P[1], 0.04, c1, { holes: 1 });
       q.tube(B[0], B[1], A[0], A[1], 0.05, ALU, { truss: 1 });
-      q.hook(A[0] - 0.03, A[1] + 0.02, 0.036, -0.6, PI * 1.2, 0.02, c2); q.hook(B[0] + 0.035, B[1] - 0.015, 0.036, PI - 0.6, PI * 1.2, 0.02, c2); q.wheel(P[0], P[1], 0.07, 'gear'); q.motor(P[0] + 0.06, P[1] - 0.07, -PI / 2, 0.1, 0.028);
+      q.hook(A[0] - 0.03, A[1] + 0.02, 0.036, -0.6, PI * 1.2, 0.02, c2); q.hook(B[0] + 0.035, B[1] - 0.015, 0.036, PI - 0.6, PI * 1.2, 0.02, c2); q.wheel(P[0], P[1], 0.07, 'gear'); q.motorE(P[0] + 0.06, P[1] - 0.07, -PI / 2, 0.1, 0.028);
     });
     else if (end === 'direct') {                                                      // three parts in a row across the robot, at a right angle to the intakes, so from the side they face the viewer:
       const cx = dual ? 0 : -0.02, WH = '#eef1f4';                                    // a reaction bar in front, the elevator behind it, and a long arm on the far side that leans away
@@ -24627,7 +24724,7 @@ window.G = window.G || {};
         q.rect(cx - 0.2, 0.9, 0.4, 0.035, DARK, 0.006); q.rect(cx - 0.2, 0.56, 0.4, 0.028, DARK, 0.006);
         q.plate([[cx - 0.15, 1.16], [cx + 0.15, 1.16], [cx + 0.12, 1.28], [cx - 0.12, 1.28]], DARK2);
         [-1, 1].forEach(s => { q.rect(cx + s * 0.15 - 0.024, 1.15, 0.048, 0.04, c1, 0.006); q.rect(cx + s * 0.15 - 0.012, 1.18, 0.024, 0.14, WH, 0.01); });
-        q.line([[cx + 0.07, ft + 0.05], [cx + 0.07, 1.16]], '#8a949f', 0.01, [0.012, 0.009]); q.wheel(cx + 0.07, ft + 0.05, 0.026, 'spr'); q.motor(cx + 0.04, ft + 0.05, PI, 0.09, 0.026);
+        q.line([[cx + 0.07, ft + 0.05], [cx + 0.07, 1.16]], '#8a949f', 0.01, [0.012, 0.009]); q.wheel(cx + 0.07, ft + 0.05, 0.026, 'spr'); q.motorE(cx + 0.04, ft + 0.05, PI, 0.09, 0.026);
       });
       k.L(4.7, 'endgame', q => {                                                      // the bar that braces against the rung below: a long tube held out towards the viewer on two struts
         const y = 0.62; [-1, 1].forEach(s => { q.tube(cx + s * 0.165, ft, cx + s * 0.215, y, 0.03, c1); q.rect(cx + s * 0.19 - 0.02, 0.4, 0.04, 0.06, DARK, 0.008); });
@@ -24649,10 +24746,10 @@ window.G = window.G || {};
       const w3 = lift === 'elevw', M = mast(g, -0.02, 0.1, w3 ? 1.14 : 1.06, { st: w3 ? 3 : 2, car: w3 ? 0.36 : 0.3, brace: [[-0.4, 0.44]], rig: w3 ? 'belt' : 'chain' });
       k.L(3, 'scorer', q => M.draw(q));
       head = [M.car[0] + 0.07, M.car[1]]; ha = -0.2; cam = [M.at(0.6, 0)[0] + 0.035, 0.7];
-      if (w3) { const p0 = M.car, p = along(p0, 28 * D, 0.24); k.L(4, 'scorer', q => { q.tube(p0[0], p0[1], p[0], p[1], 0.04, ALU, { holes: 1 }); q.wheel(p0[0], p0[1], 0.036, 'gear'); q.motor(p0[0] - 0.01, p0[1] + 0.045, PI / 2, 0.09, 0.025); }); head = p; ha = -0.55; }
+      if (w3) { const p0 = M.car, p = along(p0, 28 * D, 0.24); k.L(4, 'scorer', q => { q.tube(p0[0], p0[1], p[0], p[1], 0.04, ALU, { holes: 1 }); q.wheel(p0[0], p0[1], 0.036, 'gear'); q.motorE(p0[0] - 0.01, p0[1] + 0.045, PI / 2, 0.09, 0.025); }); head = p; ha = -0.55; }
     } else if (lift === 'arm') {
       const P = [-0.14, 0.76], tip = along(P, -16 * D, 0.5);
-      k.L(3, 'scorer', q => { tower(q, -0.4, 0.1, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.05, -0.2, ft + 0.05, 0.022); q.motor(-0.3, ft + 0.05, 0, 0.1, 0.028); });
+      k.L(3, 'scorer', q => { tower(q, -0.4, 0.1, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.05, -0.2, ft + 0.05, 0.022); q.motorE(-0.3, ft + 0.05, 0, 0.1, 0.028); });
       k.L(4, 'scorer', q => { const back = along(P, -16 * D + PI, 0.1); q.tube(back[0], back[1], tip[0], tip[1], 0.05, c1, { holes: 1 }); q.wheel(P[0], P[1], 0.055, 'spr'); });
       head = tip; ha = -0.4; cam = [-0.02, 0.5];
     } else if (lift === 'tele') {
@@ -24660,9 +24757,9 @@ window.G = window.G || {};
       k.L(3, 'scorer', q => {
         q.plate([[-0.47, ft - 0.02], [-0.05, ft - 0.02], [P[0] + 0.07, P[1] + 0.08], [P[0] - 0.08, P[1] + 0.08]], DARK2);
         q.at(P[0], P[1], a, t => { t.tube(0.5, 0, L, 0, 0.036, STEEL, { holes: 1, pitch: 0.07 }); t.tube(0.3, 0, 0.84, 0, 0.05, ALU, { holes: 1, pitch: 0.08 }); t.tube(-0.1, 0, 0.62, 0, 0.068, c1, { truss: 1 }); t.rect(0.585, -0.042, 0.035, 0.084, DARK, 0.004); t.rect(0.815, -0.032, 0.028, 0.064, DARK, 0.004); t.line([[0, 0.05], [0.6, 0.05]], K.BELT, 0.008); });
-        q.wheel(P[0], P[1], 0.072, 'gear'); q.motor(P[0] + 0.08, P[1] - 0.04, 0, 0.1, 0.028);
+        q.wheel(P[0], P[1], 0.072, 'gear'); q.motorE(P[0] + 0.08, P[1] - 0.04, 0, 0.1, 0.028);
       });
-      head = along(P, a, L); ha = -1.0; cam = [0.2, ft + 0.12]; tl = [P, a];
+      head = along(P, a, L); ha = 0.12; cam = [0.2, ft + 0.12]; tl = [P, a];
     } else if (lift === 'trough') {
       k.L(3, 'scorer', q => { q.tube(-0.3, ft - 0.02, -0.3, 0.62, 0.04, c1, { holes: 1 }); q.tube(0.22, ft - 0.02, 0.22, 0.4, 0.04, c1, { holes: 1 }); q.tube(-0.3, 0.44, 0.22, ft + 0.02, 0.028, ALU); });
       head = [0.3, 0.385]; ha = -0.36;
@@ -24671,15 +24768,20 @@ window.G = window.G || {};
       if (!head) { head = [0.2, 0.5]; ha = -0.2; k.L(3, 'effector', q => q.tube(0.14, ft - 0.02, 0.18, 0.48, 0.04, c1, { holes: 1 })); }
       const H = head, A = ha, tr = lift === 'trough';
       // coral comes down a slide from the Station: a smoked funnel at the back (the trough robot's slide is its whole scorer)
-      if (tr) k.L(4, 'effector', q => q.at(H[0], H[1], A, t => { t.glass([[-0.68, 0], [0.12, 0], [0.12, 0.1], [-0.68, 0.16]]); t.bar([[-0.68, 0], [0.13, 0]], 0.016, ALU2); if (eff === 'chute') { t.plate([[-0.05, 0.02], [0.12, 0.02], [0.108, 0.225], [-0.02, 0.225]], ALU2, 0); t.wheel(0.045, 0.165, 0.046, 'roll', '#1f2328'); t.motor(-0.025, 0.215, PI, 0.085, 0.022); } else { t.wheel(0.04, 0.115, 0.03, 'comp', CW.b); t.wheel(-0.06, 0.125, 0.03, 'comp', CW.b); t.motor(-0.02, 0.17, 0, 0.08, 0.024); } if (eff === 'pivot') t.wheel(0.11, 0.0, 0.03, 'gear'); }));
+      if (tr) k.L(4, 'effector', q => q.at(H[0], H[1], A, t => { t.glass([[-0.68, 0], [0.12, 0], [0.12, 0.1], [-0.68, 0.16]]); t.bar([[-0.68, 0], [0.13, 0]], 0.016, ALU2); if (eff === 'chute') { t.plate([[-0.05, 0.02], [0.12, 0.02], [0.108, 0.225], [-0.02, 0.225]], ALU2, 0); t.wheel(0.045, 0.165, 0.046, 'roll', '#1f2328'); t.motorE(-0.02, 0.2, 0, 0, 0.022); } else { t.wheel(0.04, 0.115, 0.03, 'comp', CW.b); t.wheel(-0.06, 0.125, 0.03, 'comp', CW.b); t.motorE(-0.02, 0.17, 0, 0.08, 0.024); } if (eff === 'pivot') t.wheel(0.11, 0.0, 0.03, 'gear'); }));
       else {
         if (lift !== 'tele') k.L(2, 'effector', q => { q.poly([[-0.5, 0.86], [-0.2, 0.96], [-0.1, 0.5], [-0.3, 0.44]], SMOKE); q.bar([[-0.3, 0.44], [-0.1, 0.5]], 0.014, ALU2); q.tube(-0.36, ft - 0.02, -0.34, 0.47, 0.03, ALU2); });
         k.L(4.4, 'effector', q => q.at(H[0], H[1], A, t => {
           if (eff === 'chute') { t.glass([[-0.12, -0.04], [0.16, -0.04], [0.16, 0.05], [-0.12, 0.08]]); t.bar([[-0.12, -0.04], [0.17, -0.04]], 0.014, ALU2); return; }
-          const pv = eff === 'pivot', x1 = pv ? 0.2 : 0.16;
-          t.plate([[-0.08, -0.055], [x1, -0.055], [x1 + 0.02, 0.03], [x1 - 0.04, 0.07], [-0.08, 0.07]], DARK2, 0);
-          [[-0.03, 0.035], [0.06, 0.035], [x1 - 0.03, -0.015]].forEach(p => t.wheel(p[0], p[1], 0.028, 'comp', CW.b)); if (pv) t.wheel(0.02, -0.03, 0.022, 'comp', CW.g);
-          t.motor(-0.02, 0.085, 0, 0.085, 0.024); if (pv) { t.wheel(-0.08, 0, 0.04, 'gear'); t.line([[-0.06, 0.07], [x1 - 0.04, 0.07]], c2, 0.008); }
+          // (3.5.7) from the side, after 2910's: two trussed arms from a hub, open to the front, with a roller across the tip of
+          // each (the coral rides between them), the belt that turns them, and behind the hub their motor, standing
+          const pv = eff === 'pivot';
+          t.motor(-0.03, 0.04, PI / 2 + 0.2, 0.1, 0.026);
+          t.tube(0.0, 0.004, 0.215, 0.085, 0.042, ALU2, { truss: 1 }); t.tube(0.0, -0.004, 0.17, -0.056, 0.038, ALU2, { truss: 1 });
+          t.plate([[-0.07, -0.05], [0.03, -0.058], [0.06, 0], [0.03, 0.058], [-0.07, 0.05]], DARK2, 0);
+          t.belt(0.0, 0.0, 0.02, 0.17, -0.056, 0.016, '#b9a56c', 0.009); t.wheel(0.0, 0.0, 0.024, 'pul');
+          t.wheel(0.215, 0.085, 0.032, 'comp', CW.b); t.wheel(0.17, -0.056, 0.032, 'comp', CW.b);
+          if (pv) { t.wheel(-0.075, 0, 0.04, 'gear'); t.arc(-0.075, 0, 0.062, PI * 0.5, PI, 0.01, c2); }                    // the wrist it turns on
         }));
       }
     }
@@ -24688,34 +24790,37 @@ window.G = window.G || {};
       q.bar([b, tp], 0.022, ALU); q.wheel(tp[0], tp[1], 0.042, 'comp', CW.g);
       q.bar([[0.3, ft + 0.02], [0.44, 0.4], [0.56, 0.36]], 0.03, DARK2); q.wheel(0.56, 0.36, 0.036, 'roll'); q.wheel(0.44, 0.42, 0.03, 'roll'); q.line([[0.42, 0.455], [0.55, 0.4]], c2, 0.008);
     });
-    else if (alg === 'net') k.L(4.5, 'algae', q => {                                  // two flywheels throw algae into the net
-      const b = head && lift !== 'trough' ? [head[0] - 0.02, head[1] + 0.1] : [0.12, 0.6];
-      if (!(head && lift !== 'trough')) q.tube(0.06, ft - 0.02, 0.1, 0.58, 0.04, c1, { holes: 1 });
-      q.at(b[0], b[1], 0.5, t => { t.plate([[-0.06, -0.05], [0.26, -0.03], [0.3, 0.06], [0.2, 0.13], [-0.04, 0.09]], DARK2, 0); t.wheel(0.07, 0.03, 0.05, 'fly', c2); t.wheel(0.21, 0.05, 0.05, 'fly', c2); t.belt(0.07, 0.03, 0.02, 0.21, 0.05, 0.02); t.motor(0.0, -0.075, 0, 0.09, 0.025); });
+    else if (alg === 'net') k.L(4.5, 'algae', q => {                                  // (3.5.7) two pairs of wheels grip the algae from its sides and throw it into the net. They turn on upright shafts under the head, so from the side they are edge on and one pair hides the other (2910's)
+      const on = head && lift !== 'trough', b = on ? head : [0.12, 0.62], a = on ? ha : 0;
+      if (!on) q.tube(0.06, ft - 0.02, 0.1, 0.6, 0.04, c1, { holes: 1 });
+      q.at(b[0], b[1], a, t => { [-0.035, 0.085].forEach(x => t.line([[x, -0.03], [x, -0.215]], ALU2, 0.014)); t.line([[-0.035, -0.215], [0.085, -0.215]], ALU2, 0.012);
+        t.wheelEdge(0.025, -0.105, 0.08, 0.042, CW.g); t.wheelEdge(0.025, -0.168, 0.08, 0.042, CW.b); t.motor(0.025, -0.228, -PI / 2, 0.07, 0.024); });
     });
     if (tl && (end === 'shallow' || end === 'deep')) k.L(3.4, 'endgame', q => q.at(tl[0][0], tl[0][1], tl[1], t => {   // with a telescope on a pivot the climber is built onto the back of its first stage (2910's): the arm itself pulls the robot up
-      if (end === 'deep') {                                                           // low on the stage, just above the pivot: a claw with rollers that grip the cage, and its winch
-        t.plate([[0.04, 0.03], [0.34, 0.03], [0.33, 0.12], [0.25, 0.2], [0.1, 0.2], [0.03, 0.12]], DARK2, 0);
-        t.wheel(0.18, 0.108, 0.064, 'std', '#59626c'); t.wheel(0.09, 0.2, 0.034, 'comp', CW.b); t.wheel(0.26, 0.2, 0.034, 'comp', CW.b);
-        t.bar([[0.03, 0.12], [-0.01, 0.2], [0.03, 0.25]], 0.016, c2); t.motor(0.3, 0.075, 0, 0.085, 0.024);
+      if (end === 'deep') {                                                           // (3.5.7) from the side, after 2910's: a pocketed plate clamped across the stage; behind the stage a bracket with the wheels that draw the cage in (their shaft lies in the picture: edge on, one hiding the other), the motor lying back, and latches on the front edge
+        t.plate([[0.2, 0.11], [0.345, -0.045], [0.31, -0.175], [0.14, -0.155], [0.13, 0.05]], DARK2, { f: 0.3 });
+        t.plate([[0.21, 0.09], [0.32, 0.1], [0.36, 0.2], [0.29, 0.225]], ALU2, 0);
+        t.at(0.325, 0.215, 0.5, w => { w.rect(-0.022, 0.02, 0.044, 0.03, '#2b3036', 0.006); w.wheelEdge(0, 0, 0.072, 0.05, '#4a525b'); });
+        t.rect(0.262, 0.118, 0.036, 0.014, GOLD, 0.003); t.motor(0.165, 0.075, 2.3, 0.11, 0.03);
+        [0.2, 0.25].forEach(x => t.hook(x, -0.186, 0.016, 0, -PI * 1.1, 0.012, c2));
       } else {                                                                        // the shallow cage hangs high: a hook on a bracket near the top of the stage
         const r = 0.036, ca = Math.cos(tl[1]), sa = Math.sin(tl[1]);
         t.plate([[0.44, 0.03], [0.6, 0.03], [0.565, 0.1], [0.5, 0.1]], DARK2, 0); t.tube(0.533, 0.08, 0.533, 0.2, 0.03, ALU, { holes: 1, pitch: 0.05 });
         t.hook(0.533 - r * ca, 0.2 + r * sa, r, -tl[1], PI * 1.2, 0.02, c2);
       }
     }));
-    else if (end === 'shallow') k.L(2, 'endgame', q => {                              // the shallow cage hangs high off the floor: a tall braced post with a hook
-      q.tube(-0.18, ft - 0.02, -0.4, 0.58, 0.032, c1); q.tube(-0.415, 0.52, -0.44, 0.98, 0.036, ALU, { holes: 1, pitch: 0.07 }); q.tube(-0.38, ft - 0.02, -0.418, 0.62, 0.05, c1, { holes: 1 }); q.rect(-0.45, 0.6, 0.065, 0.03, DARK, 0.004);
-      q.hook(-0.476, 0.98, 0.036, 0, PI * 1.2, 0.02, c2); q.wheel(-0.36, ft + 0.05, 0.032, 'pul'); q.line([[-0.36, ft + 0.08], [-0.447, 0.95]], '#d3b24a', 0.007);
-    });
-    else if (end === 'deep') k.L(2, 'endgame', q => {                                 // an arm swings out, grips the cage between rollers and winches the robot up
-      const P = [-0.3, ft + 0.05], T = along(P, 112 * D, 0.5);
-      q.tube(P[0], P[1], T[0], T[1], 0.05, c1, { truss: 1 });
-      q.plate([[T[0] - 0.13, T[1] - 0.03], [T[0] + 0.03, T[1] - 0.05], [T[0] + 0.05, T[1] + 0.06], [T[0] - 0.1, T[1] + 0.11]], DARK2, 0);
-      q.wheel(T[0] - 0.08, T[1] + 0.055, 0.036, 'comp', CW.b); q.wheel(T[0] - 0.005, T[1] + 0.015, 0.036, 'comp', CW.b); q.hook(T[0] - 0.14, T[1] + 0.0, 0.03, PI / 2, PI * 1.1, 0.016, c2);
-      q.piston(P[0] + 0.14, ft, T[0] + 0.06, T[1] - 0.16, 0.026); q.wheel(P[0], P[1], 0.06, 'gear'); q.motor(P[0] + 0.02, P[1] + 0.07, 0.2, 0.1, 0.028);
+    else if (end === 'shallow' || end === 'deep') k.L(5.6, 'endgame', q => {          // (3.5.7) on the side rail, half way along the robot (anywhere else it would not hang level), and it reaches out sideways: so here it faces the viewer. Folded up for the match, its mouth to the sky (after 1678's)
+      const deep = end === 'deep', py = deep ? 0.4 : 0.84;
+      if (deep) { q.motor(0.045, ft + 0.035, 0, 0.17, 0.03); q.piston(0.085, ft + 0.0, 0.035, py + 0.01, 0.022); q.tube(0, ft - 0.03, 0, py, 0.046, ALU, { holes: 1, pitch: 0.045 }); }   // its motor lies along the frame; a gas spring tips the head out; the post
+      else { q.tube(0, 0.5, 0, py + 0.02, 0.034, STEEL, { holes: 1, pitch: 0.05 }); q.tube(0, ft - 0.03, 0, 0.6, 0.046, ALU, { holes: 1, pitch: 0.045 }); q.rect(-0.03, 0.585, 0.06, 0.03, DARK, 0.004); q.wheel(0.06, ft + 0.04, 0.03, 'pul'); q.line([[0.06, ft + 0.07], [0.014, py]], '#d3b24a', 0.007); }   // the shallow cage hangs high: a tall post in two stages, and the strap that pulls it down
+      const wing = deep ? t => t.plate([[0.012, py - 0.035], [0.075, py - 0.02], [0.105, py + 0.07], [0.235, py + 0.285], [0.19, py + 0.3], [0.07, py + 0.17], [0.012, py + 0.1]], DARK2, { f: 0.3 })
+        : t => t.plate([[0.01, py - 0.02], [0.055, py], [0.15, py + 0.15], [0.115, py + 0.165], [0.01, py + 0.07]], DARK2, 0);
+      wing(q); q.mir(wing);                                                           // two plates in a V guide the cage in
+      if (deep) { [-1, 1].forEach(s => q.wheel(s * 0.03, py + 0.012, 0.03, 'gear')); [-1, 1].forEach(s => q.wheel(s * 0.058, py + 0.105, 0.052, 'std', '#59626c')); }   // two rollers draw the cage down between them, geared together
+      else q.bar([[-0.05, py + 0.05], [0.05, py + 0.05]], 0.022, c2);                 // the hook, seen from in front: a bar across the mouth
     });
     if (it === 'ground') k.L(4, 'intake', q => overIntake(q, { px: 0.35, py: ft + 0.07, ex: 0.7, ey: 0.14, rise: 0.11, n: 2, sp: 0.5, r: 0.05, wk: 'star', wc: '#2f353c', gear: 1, belt: 0 }));
+    if (!tl && (end === 'shallow' || end === 'deep')) cam = [0.26, ft + 0.12];        // (3.5.7) the climber stands where the camera's pole would: the camera goes low at the front
     cams(k, [cam, [-0.4, ft + 0.14, -1]]);
   };
 
@@ -24753,7 +24858,7 @@ window.G = window.G || {};
       const y = ft + 0.09;
       q.tube(0.08, y, 0.74, y, 0.036, ALU, { holes: 1, pitch: 0.06 }); q.rect(0.3, y - 0.03, 0.09, 0.06, DARK, 0.006); q.wheel(0.26, y - 0.035, 0.024, 'gear');
       q.plate([[0.6, y + 0.06], [0.76, y + 0.04], [0.8, 0.1], [0.66, 0.07], [0.6, y - 0.03]], DARK2, 0);
-      q.wheel(0.74, 0.13, 0.047, 'comp', CW.g); q.wheel(0.66, y + 0.0, 0.034, 'comp', CW.k); q.belt(0.74, 0.13, 0.015, 0.66, y, 0.015); q.motor(0.6, y + 0.07, 0, 0.08, 0.024);
+      q.wheel(0.74, 0.13, 0.047, 'comp', CW.g); q.wheel(0.66, y + 0.0, 0.034, 'comp', CW.k); q.belt(0.74, 0.13, 0.015, 0.66, y, 0.015); q.motorE(0.6, y + 0.07, 0, 0.08, 0.024);
     });
     else if (it === 'outpost' && hop && !low) k.L(2.5, 'intake', q => q.glass([[hx0, hy1], [hx1 + 0.02, hy1], [hx1 + 0.1, hy1 + 0.09], [hx0 - 0.08, hy1 + 0.09]]));   // fed by hand at the Outpost: a wide mouth
     if (end && end !== 'none') k.L(4.6, 'endgame', q => {
@@ -24773,11 +24878,11 @@ window.G = window.G || {};
     const wheels = (t, x, r) => { t.wheel(x, -0.05, r, 'fly', c2); t.wheel(x, 0.055, r, 'fly', c2); };
     if (sh === 'pivot') { const P = [0.12, ft + 0.07], a = 152 * D; tipA = along(P, a, 0.5); tipA[1] += 0.09;
       k.L(4, 'scorer', q => { q.tube(0.2, ft - 0.02, P[0], P[1] + 0.01, 0.045, c1); q.wheel(P[0] - 0.03, P[1] - 0.02, 0.085, 'gear');
-        q.at(P[0], P[1], a, t => { t.plate([[-0.05, -0.06], [0.5, -0.1], [0.59, -0.02], [0.59, 0.07], [0.5, 0.12], [-0.02, 0.07]], DARK2, { c: [0.27, 0] }); wheels(t, 0.5, 0.045); t.wheel(0.3, -0.04, 0.026, 'comp', CW.o); t.wheel(0.3, 0.045, 0.026, 'comp', CW.o); t.wheel(0.14, 0.04, 0.022, 'comp', CW.o); t.motor(0.38, 0.13, PI, 0.09, 0.025); t.belt(0.5, 0.055, 0.016, 0.34, 0.13, 0.014); });
-        q.wheel(P[0], P[1], 0.03, 'pul'); q.motor(P[0] + 0.07, P[1] - 0.04, 0, 0.09, 0.026); });
+        q.at(P[0], P[1], a, t => { t.plate([[-0.05, -0.06], [0.5, -0.1], [0.59, -0.02], [0.59, 0.07], [0.5, 0.12], [-0.02, 0.07]], DARK2, { c: [0.27, 0] }); wheels(t, 0.5, 0.045); t.wheel(0.3, -0.04, 0.026, 'comp', CW.o); t.wheel(0.3, 0.045, 0.026, 'comp', CW.o); t.wheel(0.14, 0.04, 0.022, 'comp', CW.o); t.motorE(0.38, 0.13, PI, 0.09, 0.025); t.belt(0.5, 0.055, 0.016, 0.34, 0.13, 0.014); });
+        q.wheel(P[0], P[1], 0.03, 'pul'); q.motorE(P[0] + 0.07, P[1] - 0.04, 0, 0.09, 0.026); });
     } else if (sh === 'sub') { const P = [0.1, ft + 0.03], a = 126 * D; tipA = along(P, a, 0.5);
       k.L(4, 'scorer', q => { q.tube(-0.2, ft - 0.02, -0.14, ft + 0.34, 0.04, c1, { holes: 1 }); q.tube(0.16, ft - 0.02, 0.06, ft + 0.12, 0.04, c1);
-        q.at(P[0], P[1], a, t => { t.plate([[0, -0.085], [0.46, -0.1], [0.5, 0.0], [0.46, 0.11], [0, 0.085]], DARK2, { c: [0.2, 0] }); wheels(t, 0.4, 0.05); t.wheel(0.2, -0.045, 0.03, 'comp', CW.o); t.wheel(0.2, 0.05, 0.03, 'comp', CW.o); t.motor(0.3, 0.14, PI, 0.09, 0.025); }); });
+        q.at(P[0], P[1], a, t => { t.plate([[0, -0.085], [0.46, -0.1], [0.5, 0.0], [0.46, 0.11], [0, 0.085]], DARK2, { c: [0.2, 0] }); wheels(t, 0.4, 0.05); t.wheel(0.2, -0.045, 0.03, 'comp', CW.o); t.wheel(0.2, 0.05, 0.03, 'comp', CW.o); t.motorE(0.3, 0.14, PI, 0.09, 0.025); }); });
     } else if (sh === 'turret') { tipA = [-0.3, ft + 0.36];
       k.L(4, 'scorer', q => { ring(q, -0.06, ft + 0.04, 0.5);
         q.at(0.08, ft + 0.13, 158 * D, t => { t.plate([[-0.02, -0.07], [0.4, -0.085], [0.46, 0], [0.4, 0.1], [-0.02, 0.08]], DARK2, { c: [0.18, 0] }); wheels(t, 0.34, 0.043); t.wheel(0.16, -0.035, 0.026, 'comp', CW.o); t.wheel(0.16, 0.045, 0.026, 'comp', CW.o); t.arc(0.34, 0.0, 0.13, -0.5, -1.0, 0.012, c2); }); });
@@ -24802,37 +24907,38 @@ window.G = window.G || {};
     const g = k.g, ft = g.ft, c1 = k.c1, c2 = k.c2, lift = c.scorer, eff = c.effector, it = c.intake;
     let head = null, ha = 0, cam = [0.22, ft + 0.12];
     if (lift === 'sja') { const P = [-0.14, 0.8], a = -30 * D, tip = along(P, a, 0.58); head = tip; ha = -0.15; cam = [-0.02, 0.5];
-      k.L(3, 'scorer', q => { tower(q, -0.4, 0.14, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.06, -0.24, ft + 0.05, 0.022); q.motor(-0.34, ft + 0.05, 0, 0.1, 0.028); });
+      k.L(3, 'scorer', q => { tower(q, -0.4, 0.14, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.06, -0.24, ft + 0.05, 0.022); q.motorE(-0.34, ft + 0.05, 0, 0.1, 0.028); });
       k.L(4, 'scorer', q => { const b = along(P, a + PI, 0.12); q.piston(0.06, ft + 0.02, P[0] + 0.2, P[1] - 0.115, 0.026); q.tube(b[0], b[1], tip[0], tip[1], 0.055, c1, { truss: 1 }); q.wheel(P[0], P[1], 0.062, 'spr'); });
     } else if (lift === 'elev') { const M = mast(g, -0.38, ft - 0.03, 1.0, { st: 2, tilt: 0.74, car: 0.5, w: 0.064, rig: 'chain' }); head = [M.car[0] + 0.05, M.car[1] - 0.04]; ha = -0.2; cam = [0.3, ft + 0.12];
-      k.L(3, 'scorer', q => { const p = M.at(0.62, 0); q.tube(0.22, ft - 0.02, p[0], p[1], 0.045, c1, { truss: 1 }); M.draw(q); q.motor(-0.3, ft + 0.03, 0, 0.1, 0.028); });
+      k.L(3, 'scorer', q => { const p = M.at(0.62, 0); q.tube(0.22, ft - 0.02, p[0], p[1], 0.045, c1, { truss: 1 }); M.draw(q); q.motorE(-0.3, ft + 0.03, 0, 0.1, 0.028); });
     } else if (lift === 'elevw') { const M = mast(g, -0.3, 0.1, 1.12, { st: 3, car: 0.42, brace: [[-0.02, 0.34]] }), p0 = M.car, tip = [p0[0] + 0.66, p0[1] + 0.06]; head = tip; ha = -0.35;
       k.L(3, 'scorer', q => M.draw(q));
       k.L(4, 'scorer', q => {                                                          // (3.5.6) the escalator: three stages run out over the Grid from the carriage, one inside the next (254's)
         const y = p0[1] + 0.02, CF = '#2b3036', a = Math.atan2(tip[1] - y, tip[0] - p0[0]);
         q.plate([[p0[0] - 0.08, y - 0.13], [p0[0] + 0.12, y - 0.05], [p0[0] + 0.12, y + 0.05], [p0[0] - 0.08, y + 0.08]], DARK2);
-        q.at(p0[0], y, a, t => { t.tube(0.3, 0, 0.665, 0, 0.036, CF, { holes: 1, pitch: 0.07 }); t.tube(0.12, 0, 0.5, 0, 0.052, CF, { holes: 1, pitch: 0.08 }); t.tube(-0.05, 0, 0.33, 0, 0.07, CF, { holes: 1 }); t.rect(0.3, -0.043, 0.03, 0.086, DARK, 0.004); t.rect(0.475, -0.032, 0.028, 0.064, DARK, 0.004); t.line([[-0.02, 0.05], [0.3, 0.05]], K.BELT, 0.008); t.motor(0.0, 0.085, 0, 0.09, 0.025); });
+        q.at(p0[0], y, a, t => { t.tube(0.3, 0, 0.665, 0, 0.036, CF, { holes: 1, pitch: 0.07 }); t.tube(0.12, 0, 0.5, 0, 0.052, CF, { holes: 1, pitch: 0.08 }); t.tube(-0.05, 0, 0.33, 0, 0.07, CF, { holes: 1 }); t.rect(0.3, -0.043, 0.03, 0.086, DARK, 0.004); t.rect(0.475, -0.032, 0.028, 0.064, DARK, 0.004); t.line([[-0.02, 0.05], [0.3, 0.05]], K.BELT, 0.008); t.motorE(0.0, 0.085, 0, 0.09, 0.025); });
         q.wheel(tip[0], tip[1], 0.034, 'gear');
       });
     } else if (lift === 'dja') { const P = [-0.18, 0.86], E = [0.2, 0.44], Wp = [-0.02, 0.72]; head = Wp; ha = 0.35; cam = [0.28, ft + 0.12];
-      k.L(3, 'scorer', q => { tower(q, -0.42, 0.06, ft - 0.02, P[0], P[1], c1, 0.055); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.05, 0.022); q.motor(-0.36, ft + 0.05, 0, 0.1, 0.028); q.motor(-0.12, ft + 0.05, 0, 0.1, 0.028); });
+      k.L(3, 'scorer', q => { tower(q, -0.42, 0.06, ft - 0.02, P[0], P[1], c1, 0.055); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.05, 0.022); q.motorE(-0.36, ft + 0.05, 0, 0.1, 0.028); q.motorE(-0.12, ft + 0.05, 0, 0.1, 0.028); });
       k.L(4, 'scorer', q => { q.tube(P[0], P[1], E[0], E[1], 0.055, c1, { truss: 1 }); q.chain(P[0], P[1], 0.04, E[0], E[1], 0.04); q.tube(E[0], E[1], Wp[0], Wp[1], 0.045, ALU, { holes: 1 }); q.wheel(P[0], P[1], 0.064, 'spr'); q.wheel(E[0], E[1], 0.045, 'spr'); q.piston(-0.02, ft + 0.02, P[0] + 0.16, P[1] - 0.2, 0.024); });
     } else if (lift === 'tele') { const P = [-0.26, ft + 0.14], a = 66 * D, L = 1.02; head = along(P, a, L); ha = -1.05;
       k.L(3, 'scorer', q => {
         q.plate([[-0.46, ft - 0.02], [-0.06, ft - 0.02], [P[0] + 0.07, P[1] + 0.08], [P[0] - 0.08, P[1] + 0.08]], DARK2);
         q.at(P[0], P[1], a, t => { t.tube(0.5, 0, L, 0, 0.036, STEEL, { holes: 1, pitch: 0.07 }); t.tube(0.28, 0, 0.84, 0, 0.05, ALU, { holes: 1, pitch: 0.08 }); t.tube(-0.12, 0, 0.62, 0, 0.07, c1, { holes: 1 }); t.rect(0.585, -0.043, 0.035, 0.086, DARK, 0.004); t.rect(0.815, -0.032, 0.028, 0.064, DARK, 0.004); t.rect(-0.2, -0.05, 0.1, 0.1, '#30353c', 0.01); });   // (a counterweight behind the pivot)
-        q.wheel(P[0], P[1], 0.07, 'gear'); q.motor(P[0] + 0.08, P[1] - 0.05, 0, 0.1, 0.028);
+        q.wheel(P[0], P[1], 0.07, 'gear'); q.motorE(P[0] + 0.08, P[1] - 0.05, 0, 0.1, 0.028);
       });
     } else if (lift === 'hyb') { head = [0.3, ft + 0.2]; ha = 0; k.L(3, 'scorer', q => { q.tube(0.2, ft - 0.02, 0.26, ft + 0.2, 0.045, c1, { holes: 1 }); q.tube(0.02, ft - 0.02, 0.24, ft + 0.16, 0.035, c1); }); }
     if (eff) {
       if (!head) { head = [0.26, ft + 0.3]; k.L(3, 'effector', q => q.tube(0.2, ft - 0.02, 0.24, ft + 0.3, 0.04, c1, { holes: 1 })); }
       const H = head, A = ha;
       k.L(4.4, 'effector', q => q.at(H[0], H[1], A, t => {
-        if (eff === 'claw') { t.piston(-0.02, 0, 0.12, 0, 0.03, 0.55); t.bar([[0, 0.03], [0.1, 0.09], [0.28, 0.07]], 0.022, ALU2); t.bar([[0, -0.03], [0.1, -0.09], [0.28, -0.07]], 0.022, ALU2); t.line([[0.2, 0.062], [0.28, 0.058]], '#1b1e22', 0.012); t.line([[0.2, -0.062], [0.28, -0.058]], '#1b1e22', 0.012); t.rect(-0.05, -0.045, 0.07, 0.09, DARK, 0.008); return; }   // two jaws on an air cylinder
+        // (3.5.7) true side views. A claw's two jaws close on the piece from its sides: the near one is seen, the other is behind it
+        if (eff === 'claw') { t.rect(-0.05, -0.045, 0.07, 0.09, DARK, 0.008); t.plate([[0, -0.04], [0.1, -0.062], [0.27, -0.046], [0.3, -0.012], [0.3, 0.012], [0.27, 0.046], [0.1, 0.062], [0, 0.04]], ALU2, { f: 0.3 }); t.rect(0.262, -0.04, 0.04, 0.08, '#1b1e22', 0.008); t.circ(0.08, 0, 0.022, '#aab3bc'); t.circ(0.08, 0, 0.008, DARK, 0); return; }   // the near jaw, its pad, and the end of the air cylinder that lies between the two
         const wr = eff === 'wrist';
-        t.plate([[-0.05, -0.08], [0.2, -0.1], [0.25, -0.03], [0.25, 0.04], [0.2, 0.1], [-0.05, 0.08]], DARK2, 0);
-        t.wheel(0.19, 0.055, 0.036, 'comp', CW.g); t.wheel(0.19, -0.055, 0.036, 'comp', CW.g); t.wheel(0.07, 0.045, 0.028, 'comp', CW.k); t.wheel(0.07, -0.045, 0.028, 'comp', CW.k);
-        t.motor(0.0, 0.1, 0, 0.085, 0.024); if (wr) { t.wheel(-0.05, 0, 0.042, 'gear'); t.line([[-0.02, -0.08], [0.2, -0.1]], c2, 0.008); }
+        t.plate([[-0.05, -0.085], [0.13, -0.1], [0.185, -0.075], [0.17, -0.02], [0.03, -0.015], [0.03, 0.015], [0.2, 0.02], [0.262, 0.055], [0.245, 0.1], [-0.05, 0.085]], DARK2, 0);   // a roller gripper's side plate: a mouth open to the front
+        t.wheel(0.205, 0.06, 0.036, 'comp', CW.g); t.wheel(0.09, 0.052, 0.026, 'comp', CW.k); t.wheel(0.135, -0.06, 0.034, 'comp', CW.g);   // rollers across the mouth: two on the upper lip, one on the lower
+        t.motorE(-0.03, 0.05, 0, 0.05, 0.022); if (wr) { t.wheel(-0.05, 0, 0.042, 'gear'); t.line([[-0.02, -0.085], [0.13, -0.1]], c2, 0.008); }
       }));
     }
     if (it === 'gcube' || it === 'gall') k.L(4, 'intake', q => overIntake(q, it === 'gall' ? { px: 0.34, py: ft + 0.08, ex: 0.7, ey: 0.17, n: 2, r: 0.05, wc: CW.g, wc2: CW.o, w: 0.055, sp: 0.4, guard: 1 } : { px: 0.34, py: ft + 0.08, ex: 0.67, ey: 0.2, n: 1, r: 0.052, wc: CW.g, four: 1 }));
@@ -24851,7 +24957,7 @@ window.G = window.G || {};
     });
     if (it === 'over') k.L(4, 'intake', q => overIntake(q, { px: 0.34, py: ft + 0.09, ex: 0.68, ey: 0.15, n: 1, r: 0.045, wk: 'star', wc: '#2f353c', four: 1 }));
     else if (it === 'wide') k.L(4, 'intake', q => overIntake(q, { px: 0.34, py: ft + 0.09, ex: 0.71, ey: 0.14, n: 3, sp: 0.27, r: 0.04, wk: 'star', wc: '#2f353c', wc2: '#2f353c', w: 0.055, guard: 1 }));
-    else if (rev) k.L(4, 'intake', q => K.fourBar(q, { wk: 'star', wc: '#2f353c', wc2: '#2f353c', guard: 1 }));   // two parallel links carry the head out and keep it level
+    else if (rev) k.L(4, 'intake', q => K.fourBar(q, { wk: 'star', wc: '#2f353c', wc2: '#2f353c', guard: 1 }));   // (3.5.7) two long links carry the arm up and over the bumper
     if (sh === 'dump') k.L(4, 'scorer', q => {                                        // belts lift the cells and roll them out of the back
       const ty = low ? 0.66 : 0.78; q.poly([[-0.2, ft - 0.02], [-0.06, ft - 0.02], [-0.3, ty + 0.06], [-0.47, ty]], SMOKE); q.belt(-0.14, ft + 0.04, 0.026, -0.4, ty - 0.02, 0.026); q.wheel(-0.14, ft + 0.04, 0.026, 'pul'); q.wheel(-0.4, ty - 0.02, 0.03, 'comp', CW.g); q.tube(-0.42, ft - 0.02, -0.44, ty - 0.06, 0.035, c1, { holes: 1 });
     });
@@ -24864,7 +24970,7 @@ window.G = window.G || {};
         q.belt(0.04, fy + 0.02, 0.026, wx + 0.02, wy - wr - 0.07, 0.026); q.wheel(0.04, fy + 0.02, 0.026, 'pul'); q.wheel(wx + 0.02, wy - wr - 0.07, 0.034, 'comp', CW.g);   // the feeder, up from the indexer
         q.arc(wx, wy, wr + 0.115, 128 * D, 2.5, 0.016, ALU); q.arc(wx, wy, wr + 0.13, 96 * D, 0.62, 0.014, c2); { const gp = [wx + (wr + 0.13) * Math.cos(150 * D), wy + (wr + 0.13) * Math.sin(150 * D)]; q.wheel(gp[0], gp[1], 0.024, 'gear'); }
         q.wheel(wx, wy, wr, 'tyre'); q.circ(wx, wy, wr * 0.86, null, CW.o, 2.2); q.circ(wx, wy, 0.05, DARK2, 'rgba(6,8,11,0.7)');
-        q.motor(wx - 0.02, wy - 0.035, -PI / 2 - 0.5, 0.13, 0.034, ALU2); q.belt(wx, wy, 0.03, wx - 0.1, wy - 0.16, 0.02);
+        q.motorE(wx - 0.02, wy - 0.035, -PI / 2 - 0.5, 0.13, 0.034, ALU2); q.belt(wx, wy, 0.03, wx - 0.1, wy - 0.16, 0.02);
         return;
       }
       if (!low) { q.tube(-0.42, ft - 0.02, -0.36, sy - 0.14, 0.045, c1, { truss: 1 }); q.tube(-0.06, ft - 0.02, -0.16, sy - 0.14, 0.045, c1, { holes: 1 }); q.glass([[-0.34, fy + 0.04], [-0.14, fy], [-0.16, sy - 0.16], [-0.34, sy - 0.16]]); q.belt(-0.24, fy + 0.04, 0.026, -0.25, sy - 0.2, 0.026); }   // a tall robot: a tower of belts up to the shooter
@@ -24896,7 +25002,7 @@ window.G = window.G || {};
       k.L(3, 'scorer', q => { ring(q, -0.04, ft + 0.03, 0.52); M.draw(q); });
       k.L(4, 'scorer', q => { q.tube(p0[0], p0[1], e[0], e[1], 0.045, c1, { holes: 1 }); q.tube(e[0], e[1], p[0], p[1], 0.04, ALU, { holes: 1 }); q.wheel(e[0], e[1], 0.034, 'spr'); q.wheel(p0[0], p0[1], 0.04, 'spr'); });   // the arm on the carriage, folded back on itself
     } else if (lift === 'arm') { const P = [-0.1, 0.74], tip = along(P, -14 * D, 0.5); head = tip; cam = [-0.02, 0.48];
-      k.L(3, 'scorer', q => { tower(q, -0.38, 0.16, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.055, -0.22, ft + 0.05, 0.022); q.motor(-0.32, ft + 0.05, 0, 0.11, 0.03, ALU2); });
+      k.L(3, 'scorer', q => { tower(q, -0.38, 0.16, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.055, -0.22, ft + 0.05, 0.022); q.motorE(-0.32, ft + 0.05, 0, 0.11, 0.03, ALU2); });
       k.L(4, 'scorer', q => { const b = along(P, -14 * D + PI, 0.1); q.tube(b[0], b[1], tip[0], tip[1], 0.05, c1, { holes: 1 }); q.wheel(P[0], P[1], 0.058, 'spr'); });
     } else if (lift === 'low') { head = [0.36, ft + 0.24]; k.L(3, 'scorer', q => { q.tube(0.26, ft - 0.02, 0.32, ft + 0.26, 0.045, c1, { holes: 1 }); q.tube(0.06, ft - 0.02, 0.3, ft + 0.2, 0.035, c1); }); }
     if (eff) {
@@ -24922,7 +25028,7 @@ window.G = window.G || {};
       });
       else if (end === 'l2') k.L(4.6, 'endgame', q => { [-0.4, 0.26].forEach(x => { q.tube(x, ft - 0.04, x, ft + 0.2, 0.04, '#aab3bc'); q.rect(x - 0.016, ft + 0.2, 0.032, 0.02, DARK, 0.004); }); });   // short air cylinders that jack the robot up
       else k.L(4.6, 'endgame', q => {                                                 // stilts: racks that push the robot up to Level 3
-        [[-0.4, 0.74], [0.24, 0.6]].forEach((p, i) => { q.tube(p[0], ft - 0.05, p[0], p[1], 0.045, ALU, { holes: 1, pitch: 0.05 }); q.line([[p[0] + 0.03, ft], [p[0] + 0.03, p[1] - 0.02]], '#6b7580', 0.008, [0.008, 0.008]); q.wheel(p[0] + 0.045, ft + 0.06, 0.03, 'gear'); if (!i) q.motor(p[0] + 0.08, ft + 0.06, 0, 0.1, 0.028, ALU2); });
+        [[-0.4, 0.74], [0.24, 0.6]].forEach((p, i) => { q.tube(p[0], ft - 0.05, p[0], p[1], 0.045, ALU, { holes: 1, pitch: 0.05 }); q.line([[p[0] + 0.03, ft], [p[0] + 0.03, p[1] - 0.02]], '#6b7580', 0.008, [0.008, 0.008]); q.wheel(p[0] + 0.045, ft + 0.06, 0.03, 'gear'); if (!i) q.motorE(p[0] + 0.08, ft + 0.06, 0, 0.1, 0.028, ALU2); });
         if (end === 'l3buddy' || end === 'l3triple') { q.plate([[-0.5, ft + 0.02], [-0.47, ft + 0.02], [-0.6, 0.78], [-0.66, 0.76]], ALU2, 0); q.line([[-0.5, ft + 0.06], [-0.64, 0.74]], 'rgba(8,10,13,0.5)', 0.012, [0.05, 0.03]); q.wheel(-0.485, ft + 0.02, 0.02, 'pul'); }   // a ramp for a partner, folded up
         if (end === 'l3triple') { q.plate([[-0.42, ft + 0.3], [-0.39, ft + 0.3], [-0.47, 0.92], [-0.52, 0.9]], ALU2, 0); q.line([[-0.41, ft + 0.34], [-0.5, 0.88]], 'rgba(8,10,13,0.5)', 0.012, [0.05, 0.03]); }
       });
@@ -24937,13 +25043,13 @@ window.G = window.G || {};
     const g = k.g, ft = g.ft, c1 = k.c1, c2 = k.c2, lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame;
     let head = null, ha = 0, hookAt = null, cam = [0.26, ft + 0.14];
     if (lift === 'elev' || lift === 'elevfast') { const f = lift === 'elevfast', M = mast(g, 0.08, 0.12, f ? 1.1 : 1.14, { st: f ? 3 : 2, car: 0.16, w: 0.07, brace: [[-0.4, 0.46], [0.4, 0.2]], rig: f ? 'belt' : 'chain' }); head = [M.car[0] + 0.06, M.car[1]]; hookAt = [M.top[0] - 0.01, M.top[1] + (f ? 0.14 : 0.09)]; cam = [-0.02, 0.56];
-      k.L(3, 'scorer', q => { M.draw(q); q.motor(-0.12, ft + 0.05, 0, 0.13, 0.032, ALU2); q.motor(-0.12, ft + 0.12, 0, 0.13, 0.032, ALU2); });
+      k.L(3, 'scorer', q => { M.draw(q); q.motorE(-0.12, ft + 0.05, 0, 0.13, 0.032, ALU2); q.motorE(-0.12, ft + 0.12, 0, 0.13, 0.032, ALU2); });
       if (f) { const p0 = M.car, p = along(p0, 38 * D, 0.2); k.L(4, 'scorer', q => { q.tube(p0[0], p0[1], p[0], p[1], 0.045, ALU, { holes: 1 }); q.wheel(p0[0], p0[1], 0.036, 'spr'); }); head = p; ha = -0.2; }
     } else if (lift === 'low') { const P = [-0.16, 0.66], a = -6 * D, tip = along(P, a, 0.5); head = tip; cam = [-0.04, 0.42];
-      k.L(3, 'scorer', q => { tower(q, -0.42, 0.1, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.06, 0.024); q.motor(-0.36, ft + 0.06, 0, 0.13, 0.032, ALU2); });
+      k.L(3, 'scorer', q => { tower(q, -0.42, 0.1, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.06, 0.024); q.motorE(-0.36, ft + 0.06, 0, 0.13, 0.032, ALU2); });
       k.L(4, 'scorer', q => { const b = along(P, a + PI, 0.1); q.tube(b[0], b[1], tip[0], tip[1], 0.055, c1, { truss: 1 }); q.wheel(P[0], P[1], 0.062, 'spr'); });
     } else if (lift === 'dja') { const P = [0.04, ft + 0.13], E = [-0.3, 0.78], Wp = [0.2, 0.68], CF = '#2b3036'; head = Wp; ha = -0.1; cam = [0.32, ft + 0.14];   // (3.5.6) two carbon tubes on driven joints (1323's): the elbow goes up and back, the wrist comes forward over the robot
-      k.L(3, 'scorer', q => { q.plate([[-0.14, ft - 0.02], [0.2, ft - 0.02], [0.13, ft + 0.22], [-0.05, ft + 0.22]], DARK2); q.motor(-0.22, ft + 0.05, 0, 0.12, 0.03, ALU2); q.motor(-0.22, ft + 0.12, 0, 0.12, 0.03, ALU2); });
+      k.L(3, 'scorer', q => { q.plate([[-0.14, ft - 0.02], [0.2, ft - 0.02], [0.13, ft + 0.22], [-0.05, ft + 0.22]], DARK2); q.motorE(-0.22, ft + 0.05, 0, 0.12, 0.03, ALU2); q.motorE(-0.22, ft + 0.12, 0, 0.12, 0.03, ALU2); });
       k.L(4, 'scorer', q => { q.tube(P[0], P[1], E[0], E[1], 0.062, CF); q.line([[P[0] + 0.045, P[1] + 0.035], [E[0] + 0.04, E[1] + 0.04]], '#8a949f', 0.007); q.tube(E[0], E[1], Wp[0], Wp[1], 0.048, CF); q.wheel(P[0], P[1], 0.07, 'spr'); q.wheel(E[0], E[1], 0.052, 'pul'); q.wheel(Wp[0], Wp[1], 0.03, 'pul'); });
     }
     if (eff) {
@@ -24951,16 +25057,19 @@ window.G = window.G || {};
       const H = head, A = ha;
       k.L(4.4, 'effector', q => q.at(H[0], H[1], A, t => {
         t.rect(-0.04, -0.07, 0.08, 0.14, DARK2, 0.01);
-        if (eff === 'pinch') { t.piston(0.0, 0, 0.16, 0, 0.032, 0.55); t.bar([[0.02, 0.06], [0.36, 0.06]], 0.024, ALU2); t.bar([[0.02, -0.06], [0.36, -0.06]], 0.024, ALU2); t.line([[0.22, 0.046], [0.36, 0.046]], '#1b1e22', 0.012); t.line([[0.22, -0.046], [0.36, -0.046]], '#1b1e22', 0.012); return; }   // two flat fingers squeeze the cube
+        // (3.5.7) true side views. The two fingers (or arms) of a claw close on the cube from its sides: the near one is seen, the other is exactly behind it
+        if (eff === 'pinch') { t.plate([[0.02, -0.052], [0.3, -0.056], [0.37, -0.03], [0.37, 0.03], [0.3, 0.056], [0.02, 0.052]], ALU2, { f: 0.3 }); t.rect(0.325, -0.05, 0.045, 0.1, '#1b1e22', 0.008); t.circ(0.1, 0, 0.024, '#aab3bc'); t.circ(0.1, 0, 0.009, DARK, 0); t.circ(0.04, 0, 0.012, DARK, 0); return; }   // the near finger and its pad; the end of the air cylinder that lies between the two
         const ln = eff === 'launch' || eff === 'flip';
         if (eff === 'flip') { t.arc(-0.04, 0, 0.1, PI * 0.5, PI, 0.012, c2); t.wheel(-0.04, 0, 0.06, 'gear'); }                // (3.5.6) on a pivot of its own: it flips over the lift to the back
-        t.bar([[0, 0.02], [0.14, 0.07], [0.36, 0.06]], 0.034, DARK2); t.bar([[0, -0.02], [0.14, -0.07], [0.36, -0.06]], 0.034, DARK2);
-        [[0.34, 0.06], [0.34, -0.06], [0.2, 0.068], [0.2, -0.068]].forEach(p => t.wheel(p[0], p[1], 0.042, 'comp', CW.g)); t.belt(0.34, 0.06, 0.014, 0.2, 0.068, 0.014); t.belt(0.34, -0.06, 0.014, 0.2, -0.068, 0.014);
-        if (ln) { t.piston(-0.02, 0, 0.14, 0, 0.034, 0.5); t.rect(0.14, -0.04, 0.02, 0.08, c2, 0.004); }                    // and a punch that throws it
+        if (ln) { t.piston(-0.02, 0, 0.13, 0, 0.03, 0.5); t.rect(0.13, -0.032, 0.018, 0.064, c2, 0.004); }                  // a punch between the arms throws the cube: seen through the gap
+        [0.2, 0.33].forEach(x => t.wheelEdge(x, 0, 0.042, 0.05, CW.g));                                                     // the near arm's wheels turn on upright axles: edge on
+        t.bar([[0, 0.04], [0.375, 0.04]], 0.02, DARK2); t.bar([[0, -0.04], [0.375, -0.04]], 0.02, DARK2);                   // the arm: a plate above the wheels and one below
+        t.line([[0.2, 0.058], [0.33, 0.058]], K.BELT, 0.008); t.motor(0.12, 0.05, PI / 2, 0.075, 0.022);                    // their belt, and the motor that stands on the arm
       }));
     }
     if (it === 'wheeled' || it === 'wide') k.L(4, 'intake', q => { const w = it === 'wide';   // arms with wheels, down at the floor in front
-      q.bar([[0.38, ft + 0.03], [0.52, 0.16], [w ? 0.8 : 0.72, 0.16]], 0.036, DARK2); (w ? [0.78, 0.66, 0.56] : [0.7, 0.58]).forEach((x, i) => q.wheel(x, 0.16, i ? 0.04 : 0.05, 'comp', CW.g)); q.wheel(0.38, ft + 0.03, 0.022, 'pul'); if (w) q.wheel(0.84, 0.2, 0.03, 'comp', CW.b); });
+      (w ? [0.78, 0.66, 0.56] : [0.7, 0.58]).forEach((x, i) => q.wheelEdge(x, 0.105, i ? 0.04 : 0.05, 0.055, CW.g)); if (w) q.wheelEdge(0.87, 0.105, 0.03, 0.055, CW.b);   // (3.5.7) the wheels turn on upright axles under the arm: edge on (and the far arm is behind the near one)
+      q.bar([[0.38, ft + 0.03], [0.52, 0.16], [w ? 0.9 : 0.75, 0.16]], 0.036, DARK2); q.wheel(0.38, ft + 0.03, 0.022, 'pul'); });
     if (end && end !== 'none') {
       k.L(4.6, 'endgame', q => {
         const b = hookAt || [-0.3, 1.14];
@@ -24968,7 +25077,7 @@ window.G = window.G || {};
         q.bar([[b[0], b[1] - 0.14], b], 0.022, ALU); q.hook(b[0] + 0.036, b[1], 0.036, PI, -PI * 1.15, 0.022, c2);          // the hook that is left on the rung
         q.wheel(-0.3, ft + 0.03, 0.04, 'pul'); q.line([[-0.3, ft + 0.07], [b[0] - 0.01, b[1] - 0.1]], '#d3b24a', 0.008);   // its strap, back down to the winch
       });
-      if (end === 'buddy') k.L(2, 'endgame', q => { [[-0.47, -0.6], [-0.41, -0.52]].forEach(p => q.tube(p[0], ft + 0.0, p[1], 0.9, 0.036, ALU, { holes: 1, pitch: 0.06 })); q.bar([[-0.45, ft + 0.3], [-0.56, 0.32]], 0.018, ALU2); q.wheel(-0.44, ft + 0.0, 0.024, 'pul'); });   // forks for a partner, folded up
+      if (end === 'buddy') k.L(2, 'endgame', q => { [[-0.47, -0.6]].forEach(p => q.tube(p[0], ft + 0.0, p[1], 0.9, 0.036, ALU, { holes: 1, pitch: 0.06 })); /* (3.5.7) one fork: the other is behind it */ q.bar([[-0.45, ft + 0.3], [-0.56, 0.32]], 0.018, ALU2); q.wheel(-0.44, ft + 0.0, 0.024, 'pul'); });   // forks for a partner, folded up
     }
     cams(k, [cam, [-0.36, ft + 0.2, -1]]);
   };
@@ -24977,7 +25086,8 @@ window.G = window.G || {};
   // A box: a gear pocket at the front, a hopper of fuel with a shooter on top, a drum that winds the robot up a rope.
   SIDE[2017] = function (k, c) {
     const g = k.g, ft = g.ft, c1 = k.c1, c2 = k.c2, gear = c.scorer, fuel = c.fuel, end = c.endgame;
-    const hx0 = -0.38, hx1 = 0.2, hy1 = fuel === 'mega' ? 0.72 : 0.64;
+    // (3.5.7) a fuel system has its fuel intake over the front bumper and its hopper towards the front; the gear mechanism is then at the back, under the shooter (fi)
+    const fi = !!fuel && fuel !== 'none' && fuel !== 'dualturret', hx0 = -0.2, hx1 = 0.36, hy1 = 0.64;   // (3.5.7) the big hopper is no taller than the others: its extra room is a wall that folds out over the intake
     if (fuel === 'dualturret') {                                                     // (3.5.6) 254's: an intake at each end, a spiral feeder up the middle, and a turret with two flywheels on a frame over it
       k.L(2, 'fuel', q => hopper(q, -0.4, 0.4, ft - 0.01, 0.46, { post: c1 }));
       k.L(3, 'fuel', q => { [-1, 1].forEach(s => q.tube(s * 0.37, ft - 0.02, s * 0.37, 0.8, 0.04, c1, { holes: 1 })); q.tube(-0.39, 0.7, 0.39, 0.7, 0.036, c1, { holes: 1 });
@@ -24987,31 +25097,46 @@ window.G = window.G || {};
       k.L(4.2, 'fuel', arm); k.L(4.2, 'fuel', q => q.mir(arm));
     } else if (fuel && fuel !== 'none') {
       k.L(2, 'fuel', q => {
-        const mg = fuel === 'mega'; hopper(q, hx0, hx1, ft - 0.01, hy1, { fl: mg ? 0.0 : 0, fr: mg ? 0.0 : 0, post: c1 });
+        const mg = fuel === 'mega'; hopper(q, hx0, hx1, ft - 0.01, hy1, { fr: mg ? 0.03 : 0, post: c1 });
         for (let i = 1; i < 6; i++) q.line([[hx0, ft + (hy1 - ft) * i / 6], [hx1, ft + (hy1 - ft) * i / 6]], 'rgba(206,222,238,0.14)', 0.004);   // netting
-        if (mg) { q.glass([[hx0, hy1], [hx0 - 0.1, hy1 + 0.24], [hx0 - 0.08, hy1 + 0.25], [hx0 + 0.02, hy1]]); q.glass([[hx1, hy1], [hx1 + 0.16, hy1 + 0.22], [hx1 + 0.14, hy1 + 0.24], [hx1 - 0.02, hy1]]); }   // flaps that fold out for more room
+        if (mg) { const x = hx1 + 0.04, a = [x, ft + 0.2], b = [x + 0.27, ft + 0.25], e = [x + 0.27, hy1], d = [x, hy1]; q.glass([a, b, e, d]); q.bar([a, e], 0.014, ALU2); q.bar([b, d], 0.014, ALU2); q.bar([a, b, e, d, a], 0.018, c1); }   // (3.5.7) the wall that folds out over the intake, as on a 2026 robot's large hopper (it had flaps that stood up)
         q.wheel(hx0 + 0.2, ft + 0.08, 0.05, 'star', '#2f353c');                                                              // the agitator
       });
       if (fuel === 'dump') k.L(4, 'fuel', q => { q.bar([[hx0, ft + 0.02], [hx0 - 0.1, ft + 0.16]], 0.02, ALU); q.belt(hx0 + 0.3, ft + 0.03, 0.022, hx0 + 0.02, ft + 0.08, 0.022); q.wheel(hx0 + 0.02, ft + 0.08, 0.026, 'comp', CW.g); q.piston(hx0 + 0.1, ft + 0.3, hx0 - 0.07, ft + 0.14, 0.022); });   // a door at the bottom lets it roll out
-      else k.L(4, 'fuel', q => { const mg = fuel === 'mega', sx = hx0 + 0.13, sy = hy1 - 0.02;
-        q.belt(sx + 0.1, ft + 0.06, 0.022, sx + 0.05, sy - 0.16, 0.022); q.wheel(sx + 0.1, ft + 0.06, 0.022, 'pul');
+      else k.L(4, 'fuel', q => { const mg = fuel === 'mega', sx = -0.29, sy = hy1 + 0.07;
+        q.tube(-0.44, ft - 0.02, -0.4, sy - 0.12, 0.034, c1, { holes: 1 }); q.tube(hx0 + 0.02, ft - 0.02, sx + 0.1, sy - 0.1, 0.034, c1, { holes: 1 });   // the shooter stands on legs over the gear mechanism
+        q.belt(hx0 + 0.05, ft + 0.06, 0.022, sx + 0.07, sy - 0.15, 0.022); q.wheel(hx0 + 0.05, ft + 0.06, 0.022, 'pul');
         shooter(q, sx, sy, { r: 0.052, gap: 0.12, ang: 62 * D, hood: 1, two: mg, fc: CW.b }); });
+      { const mg = fuel === 'mega'; k.L(4.1, 'fuel', q => overIntake(q, { px: 0.37, py: ft + 0.09, ex: 0.7, ey: 0.15, n: mg ? 2 : 1, r: 0.045, wc: CW.g, wc2: CW.k, w: 0.052, guard: mg ? 1 : 0 })); }   // the fuel intake
     }
     if (gear) {
-      k.L(4.2, 'scorer', q => {                                                       // the pocket a gear rides in, open to the peg
-        if (gear === 'floor') { overIntake(q, { px: 0.36, py: ft + 0.07, ex: 0.68, ey: 0.13, rise: 0.09, n: 2, sp: 0.42, r: 0.036, wc: CW.o, wc2: CW.k, gear: 1 }); q.glass([[0.4, ft + 0.02], [0.62, 0.2], [0.72, 0.42], [0.6, 0.44], [0.42, ft + 0.2]]); return; }
+      const gearMech = q => {                                                         // the pocket a gear rides in, open to the peg
+        if (gear === 'floor') {                                                       // (3.5.7) after 254's gear grabber: one roller of soft wheels over a polycarbonate plate that scrapes the floor, on an arm that pivots up to the peg
+          q.plate([[0.33, ft - 0.02], [0.5, ft - 0.02], [0.48, ft + 0.19], [0.38, ft + 0.23]], DARK2, { f: 0.3 });
+          q.bar([[0.42, ft + 0.15], [0.57, 0.215], [0.67, 0.12]], 0.04, DARK2);
+          q.glass([[0.61, 0.08], [0.81, 0.012], [0.81, 0.032], [0.63, 0.105]]); q.bar([[0.61, 0.075], [0.81, 0.016]], 0.01, '#e8edf2');
+          q.wheel(0.675, 0.118, 0.046, 'comp', '#d6453d'); q.wheel(0.42, ft + 0.15, 0.034, 'gear'); q.motorE(0.455, ft + 0.06, 0, 0, 0.02);
+          return; }
         q.tube(0.3, ft - 0.02, 0.3, ft + 0.36, 0.036, c1, { holes: 1 });
         q.glass([[0.3, ft + 0.02], [0.47, ft + 0.02], [0.5, ft + 0.36], [0.3, ft + 0.36]]); q.bar([[0.47, ft + 0.02], [0.5, ft + 0.36]], 0.012, ALU2); q.line([[0.4, ft + 0.06], [0.4, ft + 0.3]], 'rgba(8,10,13,0.6)', 0.016);
         if (gear === 'active') { q.piston(0.16, ft + 0.2, 0.38, ft + 0.2, 0.03, 0.55); q.bar([[0.44, ft + 0.3], [0.52, ft + 0.26]], 0.018, c2); q.bar([[0.44, ft + 0.1], [0.52, ft + 0.14]], 0.018, c2); }   // fingers that push it on to the peg
+      };
+      k.L(4.2, 'scorer', q => (fi ? q.mir(gearMech) : gearMech(q)));                  // at the back when the front has the fuel intake
+    }
+    if (end && end !== 'none') {                                                      // (3.5.7) the rope climber, after 254's: a tube across the robot, high up at the back (behind the shooter when there is one), between two trussed legs. The strap sewn to the rope sticks to it and winds on. From the side: the near leg and the tube's end
+      const fast = end === 'fast', sho = fi && fuel !== 'dump', sy = hy1 + 0.07, T = sho ? [-0.455, sy + 0.2] : fuel === 'dualturret' ? [-0.39, 0.9] : [-0.37, fuel === 'dump' ? 0.8 : 0.74], r = fast ? 0.043 : 0.034;
+      const G0 = sho ? [-0.29, sy] : [T[0] + 0.16, ft + 0.1];                          // what turns it: the shooter's own shaft when there is a shooter (254's ran off the shooter motors), else a gearbox on the frame
+      k.L(3.6, 'endgame', q => {
+        if (fuel === 'dualturret') q.tube(-0.37, 0.72, T[0], T[1], 0.04, c1, { truss: 1 });
+        else { q.tube(sho ? -0.475 : -0.45, ft - 0.02, T[0], T[1], 0.042, c1, { truss: 1 }); if (!sho) q.tube(-0.18, ft - 0.02, T[0] + 0.035, T[1] - 0.14, 0.03, c1, { holes: 1 }); }
+        if (!sho) { q.wheel(G0[0], G0[1], 0.045, 'gear'); q.motorE(G0[0] + 0.07, G0[1] - 0.01, 0, 0, 0.034, ALU2); }
+      });
+      k.L(4.7, 'endgame', q => {
+        q.belt(T[0], T[1], r * 0.55, G0[0], G0[1], sho ? 0.022 : 0.02, K.BELT, 0.009);
+        q.wheel(T[0], T[1], r, 'roll', '#262a30'); q.circ(T[0], T[1], r * 0.62, null, fast ? c2 : '#d3b24a', 1.6);     // the tube's end, and the hook-and-loop wound round it
+        if (fast) { q.circ(T[0], T[1], r + 0.016, null, c2, 1.4); q.bar([[T[0] + r, T[1] + 0.02], [T[0] + r + 0.07, T[1] + 0.085]], 0.012, ALU); }   // the fast one has flanges that keep the rope on, and a guide that leads it in
       });
     }
-    if (end && end !== 'none') k.L(4.6, 'endgame', q => {                             // the rope climber: a drum high on two plates
-      const fast = end === 'fast', P = [0.1, fuel && fuel !== 'none' ? hy1 + 0.12 : 0.76];
-      q.plate([[P[0] - 0.14, ft - 0.02], [P[0] + 0.12, ft - 0.02], [P[0] + 0.06, P[1] + 0.07], [P[0] - 0.06, P[1] + 0.07]], c1 === ALU ? ALU2 : c1, { f: 0.3 });
-      q.wheel(P[0], P[1], fast ? 0.062 : 0.05, fast ? 'star' : 'roll', fast ? c2 : '#3a4149'); if (!fast) [-0.02, 0.02].forEach(d => q.line([[P[0] + d, P[1] - 0.045], [P[0] + d, P[1] + 0.045]], '#d3b24a', 0.008));
-      q.chain(P[0], P[1], 0.03, P[0] - 0.04, ft + 0.2, 0.04); q.wheel(P[0] - 0.04, ft + 0.2, 0.045, 'gear'); q.motor(P[0] - 0.2, ft + 0.2, 0, 0.14, 0.034, ALU2);
-      if (fast) { q.bar([[P[0] - 0.05, P[1] + 0.06], [P[0] - 0.12, P[1] + 0.16]], 0.016, ALU); q.bar([[P[0] + 0.05, P[1] + 0.06], [P[0] + 0.12, P[1] + 0.16]], 0.016, ALU); }   // prongs that guide the rope in
-    });
     cams(k, [[0.24, ft + 0.5], [-0.4, ft + 0.3, -1]]);
   };
 
@@ -25131,18 +25256,26 @@ window.G = window.G || {};
     return { at: sh === 'turret' ? [-0.08, 0] : sh && sh !== 'low' ? [-0.02, 0] : [0.16, 0], tur: sh === 'turret' ? [-0.08, 0] : null, sh: sh === 'low' ? [0.3, 0] : sh ? [-0.1, 0] : null };
   };
   TOP[2017] = function (k, c, A) {
-    const gear = c.scorer, fuel = c.fuel, has = fuel && fuel !== 'none', c1 = k.c1;
+    const gear = c.scorer, fuel = c.fuel, has = fuel && fuel !== 'none', c1 = k.c1, fi = has && fuel !== 'dualturret', mg = fuel === 'mega';
+    const gearMech = q => { if (gear === 'floor') intake(q, A.vi, 0.2, { wc: '#d6453d', reach: 0.1 });
+      if (gear) { q.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); q.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => q.line([[0.4, s * 0.16], [0.48, s * 0.1]], q.c2, 0.03, 'round')); } };   // the gear pocket
+    if (fi) k.at(0, 0, PI, gearMech);                                                  // (3.5.7) a robot with a fuel intake at the front carries its gear mechanism at the back, under the shooter
     if (fuel === 'dualturret') {                                                       // (3.5.6) an intake at each end, the feeder's rings in the middle of the hopper, the turret over them
       const bar = q => intake(q, A.vi, 0.44, { rows: 2, wc: '#23272c', wc2: CW.b, guard: 1 }); bar(k); k.at(0, 0, PI, bar);
       hopper(k, -0.38, 0.38, 0.39, A); k.circ(0, 0, 0.27, null, c1, 1.3); [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.12, s * 0.12, 0.03, c1); k.tube(0.38, s * 0.38, 0.12, s * 0.12, 0.03, c1); });
       turret(k, 0, 0, 0.18); k.at(0, 0, A.aim, q => shooter(q, 0.09, { n: 2, hood: 2 }));
     }
-    else if (has) { hopper(k, -0.38, 0.2, fuel === 'mega' ? 0.39 : 0.33, A); if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else k.at(-0.32, 0, 0, q => shooter(q, fuel === 'mega' ? 0.27 : 0.15, { n: fuel === 'mega' ? 4 : 2, flat: 1 })); }
-    if (gear === 'floor') intake(k, A.vi, 0.2, { wc: CW.o, reach: 0.1 });
-    if (gear) { k.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); k.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => k.line([[0.4, s * 0.16], [0.48, s * 0.1]], k.c2, 0.03, 'round')); }   // the gear pocket
-    if (c.endgame && c.endgame !== 'none') { k.rect(0.02, 0.24, 0.17, 0.14, c1, INK, 0.012); k.roller(0.105, 0.055, 0.04, c.endgame === 'fast' ? k.c2 : '#d3b24a', 2, 0.31); }   // the rope drum
+    else if (has) { intake(k, A.vi, mg ? 0.44 : 0.36, mg ? { rows: 2, wc: CW.g, wc2: '#23272c', guard: 1 } : { wc: CW.g });   // (3.5.7) every fuel system has a fuel intake, over the front bumper
+      hopper(k, -0.2, 0.38, mg ? 0.39 : 0.33, A); if (mg) { k.rect(0.38, -0.39, 0.2, 0.78, GLASS, GLASSL, 0.02); [-0.13, 0.13].forEach(y => k.line([[0.39, y], [0.57, y]], 'rgba(206,222,238,0.35)', 0.012)); }   // (3.5.7) the big hopper's wall folds out over the intake
+      if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else { k.at(-0.32, 0, 0, q => shooter(q, mg ? 0.17 : 0.15, { n: 2, flat: 1 })); if (mg) { k.roller(-0.17, 0.15, 0.026, CW.b, 2); [-1, 1].forEach(s => k.line([[-0.2, s * 0.17], [-0.06, s * 0.3]], ALU2, 0.02)); } } }   // (3.5.7) two flywheels abreast for every 2017 shooter: the boiler's mouth takes two balls at a time. The big one has a feeder roller and a funnel from its wide hopper
+    if (!fi) gearMech(k);
+    if (c.endgame && c.endgame !== 'none') {                                           // (3.5.7) the rope climber, after 254's: a tube across the back of the robot, high up between its two legs (behind the shooter). The plain one is narrow; the fast one runs nearly the whole width, so the rope need not be met so exactly
+      const fast = c.endgame === 'fast', hw = fast ? 0.37 : 0.18, x = fuel === 'dualturret' ? -0.39 : fi && fuel !== 'dump' ? -0.455 : -0.37, n = fast ? 6 : 3;
+      [-1, 1].forEach(s => k.rect(x - 0.045, s * hw - 0.022, 0.11, 0.044, c1, INK, 0.008)); k.tube(x, -hw, x, hw, 0.064, '#262a30');
+      for (let i = 0; i < n; i++) { const y = -hw + (i + 0.5) * 2 * hw / n; k.line([[x - 0.03, y - 0.022], [x + 0.03, y + 0.022]], fast ? k.c2 : '#d3b24a', 0.014); }   // the hook-and-loop wound round it
+      if (fast) [-1, 1].forEach(s => k.rect(x - 0.048, s * (hw - 0.014) - 0.011, 0.096, 0.022, k.c2, INK, 0.006)); }   // flanges keep the rope on
     if (fuel === 'dualturret') return { own: true, tur: [0, 0], dir: 0 };
-    return has ? { own: true, sh: fuel === 'dump' ? [-0.41, 0] : [-0.32, 0], dir: fuel === 'dump' ? PI : 0 } : { at: [0.375, 0] };
+    return has ? { own: true, sh: fuel === 'dump' ? [-0.41, 0] : [-0.32, 0], dir: fuel === 'dump' ? PI : 0, at: [-0.375, 0], gearBack: true } : { at: [0.375, 0] };
   };
   TOP[2018] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame, c1 = k.c1; let tip = 0.12;
@@ -25181,10 +25314,10 @@ window.G = window.G || {};
     if (it === 'over') intake(k, A.vi, 0.33, { wc: ROLL, n: 6 }); else if (it === 'wide' || rev) intake(k, A.vi, 0.46, { rows: 3, r: 0.028, wc: ROLL, n: 8, guard: 1 });
     if (end === 'buddy') { const x = -0.47 - 0.12 * A.vc; k.tube(x, -0.2, x, 0.2, 0.035, c1); }
     if (rev) {                                                                                                               // the revolver: five pockets round a hub
-      const rx = 0.2, R0 = 0.25, n = Math.min(5, A.held);
+      const rx = 0.16, R0 = 0.295, n = Math.min(5, A.held), cr = 0.09 / Rd.RW;   // (3.5.7) cells the size they are on the carpet: the drum is as wide as five of them need
       k.circ(rx, 0, R0, RING, k.c2, 1.5); for (let i = 0; i < 5; i++) { const g = (i + 0.5) * TAU / 5; k.line([[rx + Math.cos(g) * R0 * 0.25, Math.sin(g) * R0 * 0.25], [rx + Math.cos(g) * R0, Math.sin(g) * R0]], '#69737d', 0.014); }
-      k.circ(rx, 0, R0 * 0.22, ALU2, null); for (let i = 0; i < 5; i++) { const g = i * TAU / 5; k.circ(rx + Math.cos(g) * 0.155, Math.sin(g) * 0.155, 0.07, i < n ? col : null, i < n ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.14)'); }
-    } else if (it) { k.rect(-0.2, -0.14, 0.58, 0.28, SMOKE, EDGE, 0.02); [-1, 1].forEach(s => k.line([[-0.18, s * 0.1], [0.36, s * 0.1]], '#5b646e', 0.02)); for (let i = 0; i < Math.min(5, A.held); i++) k.circ(0.3 - i * 0.115, 0, 0.062, col, 'rgba(0,0,0,0.4)'); }   // cells queue on the belts
+      k.circ(rx, 0, R0 * 0.22, ALU2, null); for (let i = 0; i < 5; i++) { const g = i * TAU / 5; k.circ(rx + Math.cos(g) * 0.18, Math.sin(g) * 0.18, cr, i < n ? col : null, i < n ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.14)'); }
+    } else if (it) { const cr = 0.09 / Rd.RW; k.rect(-0.25, -0.215, 0.65, 0.43, SMOKE, EDGE, 0.02); [-1, 1].forEach(s => k.line([[-0.23, s * 0.1], [0.38, s * 0.1]], '#5b646e', 0.02)); for (let i = 0; i < Math.min(5, A.held); i++) k.circ(0.29 - i * 0.105, i % 2 ? 0.1 : -0.1, cr, col, 'rgba(0,0,0,0.4)'); }   // (3.5.7) cells at the size they are on the carpet: five of them stagger along two belts
     if (sh === 'dump') { k.rect(-0.46, -0.16, 0.26, 0.32, SMOKE, EDGE, 0.02); k.roller(-0.43, 0.14, 0.03, CW.g, 3); }
     else if (sh === 'turret') { turret(k, -0.22, 0, 0.22); k.at(-0.22, 0, A.aim, q => shooter(q, 0.13, { hood: 2 })); }
     else if (sh === 'long' && k.lk.frame !== 'low') { k.rect(-0.43, -0.21, 0.54, 0.42, GLASS, GLASSL, 0.02); k.rect(-0.47, -0.2, 0.045, 0.4, k.c2, INK, 0.012); k.rect(-0.41, -0.06, 0.5, 0.12, '#191c20', EDGE, 0.04); k.rect(-0.41, -0.06, 0.5, 0.03, CW.o, null); k.line([[-0.16, -0.19], [-0.16, 0.19]], ALU2, 0.024); }   // (3.5.6) the big wheel, edge on, in its tall frame
@@ -25244,22 +25377,28 @@ window.G = window.G || {};
   TOP[2025] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, alg = c.algae, end = c.endgame, it = c.intake, c1 = k.c1, vx = A.vx, out = {}; let hx = 0.22;
     const onArm = lift === 'tele' && (end === 'deep' || end === 'shallow');           // a telescope on a pivot carries the climber on the back of its first stage, in the middle of the robot
-    if (onArm) { /* drawn with the telescope, below */ }
-    else if (end === 'deep') { const y = -0.4 - 0.28 * A.vc; k.tube(-0.28, -0.3, -0.28, y, 0.045, c1); k.circ(-0.335, y, 0.042, CW.b, INK); k.circ(-0.225, y, 0.042, CW.b, INK); }   // the arm that swings out and grips the cage
-    else if (end === 'shallow') hookMark(k, -0.42, -0.32, 0);
+    // (3.5.7) drawn from the floor up: what is low on the chassis first, then the funnel, the lift, what the lift carries, and last the climber on its post
     if (it === 'ground') intake(k, A.vi, 0.3, { wc: ROLL, rows: 2, n: 5 });
+    if (alg === 'proc') { out.algae = [0.4, 0]; k.roller(0.35, 0.17, 0.026, ROLL, 2); k.roller(0.45, 0.17, 0.03, ROLL, 2); k.line([[0.3, -0.17], [0.3, 0.17]], k.c2, 0.016); }   // the cradle that holds an algae for the processor: low, at the front (it was a box on the back corner, drawn over the funnel)
     if (eff && lift !== 'trough' && lift !== 'tele') k.poly([[-0.46, -0.3], [-0.16, -0.2], [-0.16, 0.2], [-0.46, 0.3]], SMOKE, ALU2);   // the funnel coral drops into
     if (lift === 'elev' || lift === 'elevw') { [-1, 1].forEach(s => k.tube(-0.36, s * 0.3, -0.07, s * 0.2, 0.03, c1)); mast(k, -0.02, 0.2, c1); hx = (lift === 'elevw' ? 0.16 : 0.08) + 0.24 * vx; if (lift === 'elevw') k.tube(-0.02, 0, hx, 0, 0.045, ALU); }
     else if (lift === 'arm') { tower(k, -0.14, c1); hx = 0.3 + 0.14 * vx; k.tube(-0.14, 0, hx, 0, 0.055, c1); }
     else if (lift === 'tele') { k.rect(-0.44, -0.2, 0.2, 0.4, '#2f353c', EDGE, 0.02); hx = 0.28 + 0.5 * vx; k.tube(-0.3, 0, 0.24, 0, 0.09, c1); k.tube(0.0, 0, hx, 0, 0.055, ALU);
-      if (onArm && end === 'deep') { const x = -0.2 - 0.16 * A.vc; k.rect(x - 0.1, -0.115, 0.2, 0.23, DARK2, EDGE, 0.02); k.circ(x + 0.02, 0, 0.05, '#59626c', INK); [-1, 1].forEach(s => k.circ(x - 0.045, s * 0.068, 0.04, CW.b, INK)); k.line([[x - 0.1, -0.06], [x - 0.1, 0.06]], k.c2, 0.024, 'round'); }   // the claw swings back and down with the arm to take the cage
+      if (onArm && end === 'deep') { const x = -0.2 - 0.16 * A.vc; k.rect(x - 0.1, -0.115, 0.2, 0.23, DARK2, EDGE, 0.02); [-1, 1].forEach(s => k.circ(x - 0.05, s * 0.066, 0.056, '#23272d', EDGE)); k.line([[x - 0.1, -0.06], [x - 0.1, 0.06]], k.c2, 0.024, 'round'); }   // the claw swings back and down with the arm to take the cage
       else if (onArm) { const x = -0.08 - 0.2 * A.vc; k.rect(x - 0.04, -0.045, 0.1, 0.09, DARK2, EDGE, 0.015); hookMark(k, x - 0.03, 0, PI * 0.4); } }
     else if (lift === 'trough') { k.rect(-0.36, -0.15, 0.82, 0.3, GLASS, GLASSL, 0.02); hx = 0.3;                           // the ramp, and over its low end the roller that pushes the coral out
       if (eff) { [-1, 1].forEach(s => k.rect(0.3, s * 0.165 - 0.016, 0.14, 0.032, DARK2, EDGE)); if (eff === 'chute') { k.rect(0.358, -0.15, 0.024, 0.3, '#191c20', null); k.rect(0.334, -0.128, 0.072, 0.256, '#2b3036', INK, 0.02); k.line([[0.356, -0.11], [0.356, 0.11]], 'rgba(255,255,255,0.2)', 0.01); } else { k.roller(0.33, 0.14, 0.024, CW.b, 3); k.roller(0.4, 0.14, 0.024, CW.b, 3); } } }
     if (eff && lift !== 'trough') { k.rect(hx, -0.12, 0.14, 0.24, DARK2, EDGE, 0.02); if (eff !== 'chute') { k.roller(hx + 0.04, 0.1, 0.022, CW.b, 2); k.roller(hx + 0.105, 0.1, 0.022, CW.b, 2); } if (eff === 'pivot') k.line([[hx + 0.01, -0.11], [hx + 0.01, 0.11]], k.c2, 0.022); }
-    if (alg === 'net') { out.algae = [-0.25, 0.27]; k.rect(-0.42, 0.18, 0.34, 0.17, DARK2, EDGE, 0.02); [0.215, 0.315].forEach(y => k.line([[-0.4, y], [-0.1, y]], k.c2, 0.032)); }
-    else if (alg === 'proc') { out.algae = [-0.31, 0.27]; k.rect(-0.42, 0.18, 0.23, 0.18, DARK2, EDGE, 0.02); k.line([[-0.42, 0.27], [-0.19, 0.27]], CW.g, 0.036); }
-    out.at = [hx + 0.07, 0]; if (alg === 'net') out.sh = [-0.25, 0.27]; if (lift !== 'tele') out.load = PI; return out;   // the funnel (and the kit robot's ramp) take coral at the back
+    if (alg === 'net') { const ax = hx + 0.1; out.algae = [ax, 0]; out.sh = [ax, 0]; [-1, 1].forEach(s => { k.tube(hx + 0.02, s * 0.11, ax, s * 0.21, 0.026, ALU2); k.circ(ax, s * 0.21, 0.062, '#23272d', k.c2, 1.6); k.circ(ax, s * 0.21, 0.02, ALU2, null); }); }   // (3.5.7) the algae shooter rides on the head: a wheel each side of the ball, on upright shafts (it was a box on the back corner, drawn over the funnel)
+    if (!onArm && (end === 'deep' || end === 'shallow')) {                              // (3.5.7) the climber stands on the right-hand side rail, half way along the robot (anywhere else the robot would not hang level). Folded up it is seen edge on; to climb it tips out over the side
+      const cx2 = k.ctx, f = Math.max(0.13, A.vc);
+      k.rect(-0.04, 0.33, 0.08, 0.075, c1, INK, 0.012);
+      cx2.save(); cx2.translate(0, 0.37 * k.sz); cx2.scale(1, f);
+      k.poly([[-0.03, 0], [-0.2, 0.3], [-0.14, 0.32], [0, 0.13], [0.14, 0.32], [0.2, 0.3], [0.03, 0]], DARK2, EDGE);
+      if (end === 'deep') [-1, 1].forEach(s => k.circ(s * 0.058, 0.1, 0.05, '#23272d', EDGE)); else k.line([[-0.05, 0.11], [0.05, 0.11]], k.c2, 0.03, 'round');
+      cx2.restore();
+    }
+    out.at = [hx + 0.07, 0]; out.climb = onArm ? 'back' : 'right'; if (lift !== 'tele') out.load = PI; return out;   // the funnel (and the kit robot's ramp) take coral at the back
   };
   TOP[2026] = function (k, c, A) {
     const hop = c.hopper, sh = c.scorer, it = c.intake, end = c.endgame, c1 = k.c1, mid = sh === 'rotor';
@@ -25325,7 +25464,8 @@ window.G = window.G || {};
     const k = Kit(ctx, sz, { c1, c2: lk.c2 || '#ffcf4a', lk, A }), out = {};
     Rd.sideRecipes(lk).forEach(R => { const f = TOP[R.year]; if (!f) return; ctx.save(); const res = f(k, R.c, A) || {}; ctx.restore();
       if (res.at && (R.c.scorer != null || out.at == null)) out.at = res.at;                                              // the piece rides where the scorer is
-      if (res.algae) out.algae = res.algae; if (res.own) out.own = true; if (res.tur) out.tur = res.tur; if (res.sh) out.sh = res.sh; if (res.dir != null && (R.c.scorer != null || res.sh)) out.dir = res.dir; });
+      if (res.algae) out.algae = res.algae; if (res.own) out.own = true; if (res.tur) out.tur = res.tur; if (res.sh) out.sh = res.sh; if (res.dir != null && (R.c.scorer != null || res.sh)) out.dir = res.dir;
+      if (res.load != null) out.load = res.load; if (res.gearBack) out.gearBack = true; if (res.climb) out.climb = res.climb; });   // (3.5.7) these three were never passed on: a robot fed from behind (3.5.6), a 2017 gear mechanism at the back and a 2025 climber's side went unseen by the engine
     // the camera (with vision): on the turret, turning with it; otherwise fixed, looking the way the scorer points.
     // out.cam says where it is and which way it looks: the green light of the reflective-tape years shines from it
     if (lk.vision) {
@@ -28284,8 +28424,10 @@ window.G = window.G || {};
       let n = 0;
       while (L.acc >= 0.1 && !L.m.done && n < 200) { G.Engine.step(L.m); L.acc -= 0.1; n++; }
     }
-    draw(L);
-    if (ts - L.domT > 180 || L.m.done) { dom(L); L.domT = ts; }
+    // (3.5.7) the field is drawn at most about 75 times a second (a fast screen asked for twice that), and the panels
+    // beside it are refreshed five times a second, and once more when the match ends (it was every frame from then on)
+    if (ts - (L.drawT || 0) >= 13 || L.m.done) { draw(L); L.drawT = ts; }
+    if (ts - L.domT > 180 || (L.m.done && !L.domEnd)) { dom(L); L.domT = ts; if (L.m.done) L.domEnd = true; }
     if (L.m.done) { const b = document.getElementById('liveDone'); if (b) b.classList.remove('hidden'); }
     L.raf = requestAnimationFrame(loop);
   }
@@ -28302,7 +28444,7 @@ window.G = window.G || {};
     if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
     return 'blink';
   }
-  UI.rslOf = rslOf; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
+  UI.rslOf = rslOf; UI.liveLoop = loop; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
   function draw(L) {
     const m = L.m, ctx = L.ctx, s = L.cv.width / G.Engine.FW;
     G.Render.field(ctx, m.year, s, m);
@@ -28322,6 +28464,10 @@ window.G = window.G || {};
     const m = L.m, $ = id => document.getElementById(id);
     if (!$('scR')) return;
     const sr = m.score.red, sb = m.score.blue;
+    // (3.5.7) a panel is written only when its text has changed: rewriting all four every time redrew them for nothing
+    // (and restarted any animation on what was inside)
+    // (what was last written is kept on the element itself, so a page drawn again starts clean)
+    const DH = L.domH || (L.domH = new Proxy({}, { set(t, id, html) { const el = document.getElementById(id); if (el && el.liveHtml !== html) { el.liveHtml = html; el.innerHTML = html; } return true; } }));
     const tot = s => s.auto + s.tele + s.end + s.foul;
     $('scR').textContent = tot(sr); $('scB').textContent = tot(sb);
     const tl = m.phase === 'auto' ? m.T.auto - m.t : m.total - m.t;
@@ -28332,15 +28478,15 @@ window.G = window.G || {};
     const meR = m.robots.find(r => r.isPlayer);
     if (meR) {
       const H = G.Engine.PACE[meR.plan.pace].name;
-      $('myBox').innerHTML = '<div class="rbox me"><div class="hd"><span>' + meR.team + '</span><span class="xs">' + h(H) + '</span></div><div class="b">' + h(meR.label || '') + '</div><div class="xs muted">Holding: ' + (meR.held || 0) + (meR.heldType ? ' ' + meR.heldType : '') + ' · role ' + h(meR.plan.role) + ' · target ' + h(meR.plan.target) + '</div>' +
+      DH.myBox = '<div class="rbox me"><div class="hd"><span>' + meR.team + '</span><span class="xs">' + h(H) + '</span></div><div class="b">' + h(meR.label || '') + '</div><div class="xs muted">Holding: ' + (meR.held || 0) + (meR.heldType ? ' ' + meR.heldType : '') + ' · role ' + h(meR.plan.role) + ' · target ' + h(meR.plan.target) + '</div>' +
         '<div class="xs muted">Points: ' + meR.stats.pts + ' · shots ' + meR.stats.hits + '/' + meR.stats.shots + '</div>' + (meR.stats.faults.length ? '<div class="xs warn">' + h(meR.stats.faults.join(', ')) + '</div>' : '') + '</div>';
     }
-    $('robBox').innerHTML = m.robots.filter(r => !r.isPlayer).map(r => '<div class="rbox"><div class="hd"><span class="' + r.a + '">' + r.team + '</span><span class="xs muted">' + r.stats.pts + ' pts</span></div><div class="xs">' + h(r.label || '') + '</div></div>').join('');
+    DH.robBox = m.robots.filter(r => !r.isPlayer).map(r => '<div class="rbox"><div class="hd"><span class="' + r.a + '">' + r.team + '</span><span class="xs muted">' + r.stats.pts + ' pts</span></div><div class="xs">' + h(r.label || '') + '</div></div>').join('');
     const R = m.R;
     const bon = a => R.bonus(m, a).map(b => '<div class="rp-item"><div class="row"><span>' + h(b.name) + '</span><span class="sp"></span><span class="' + (b.ok ? 'good b' : 'muted') + '">' + b.val + '/' + b.thr + (b.ok ? ' ✔' : '') + '</span></div>' + UI.bar(b.val, b.thr, a === 'red' ? 'var(--red)' : 'var(--blue)') + '</div>').join('');
     const hud = a => (R.hud ? R.hud(m, a) : []).map(x => UI.tag(x, a === 'red' ? 'bad' : 'info')).join(' ');
-    $('rpBox').innerHTML = '<div class="xs red b mb">RED ' + hud('red') + '</div>' + bon('red') + '<div class="hr"></div><div class="xs blue b mb">BLUE ' + hud('blue') + '</div>' + bon('blue');
-    $('logBox').innerHTML = m.log.slice(-60).reverse().map(l => '<div class="' + l.kind + '"><span class="dim">' + U.fmtTime(l.t) + '</span> ' + h(l.msg) + '</div>').join('');
+    DH.rpBox = '<div class="xs red b mb">RED ' + hud('red') + '</div>' + bon('red') + '<div class="hr"></div><div class="xs blue b mb">BLUE ' + hud('blue') + '</div>' + bon('blue');
+    DH.logBox = m.log.slice(-60).reverse().map(l => '<div class="' + l.kind + '"><span class="dim">' + U.fmtTime(l.t) + '</span> ' + h(l.msg) + '</div>').join('');
     const left = m.calls - m.callsUsed;
     $('callsLeft').textContent = left + ' left';
     document.querySelectorAll('[data-act="call"]').forEach(b => b.disabled = left <= 0 || m.done);
@@ -29072,6 +29218,22 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.7', title: 'A lighter match view', notes: [
+      'Watching a match takes less out of the computer, most of all at 8×: the field is drawn at most about 75 times a second (a fast screen asked for twice that), the panels beside it are rewritten only when something in them changes, and a robot that is off the floor casts one soft shadow instead of a blurred one for each of its parts.',
+      'After the final buzzer the panels were rewritten on every frame. They are left alone now.',
+      'Fixed: with nobody on the other side scoring, two defenders could pick each other and push for the rest of the match. A defender never takes a robot that is itself defending: it goes back to scoring and looks again later.',
+      'A 2017 robot emptying its hopper now shows the fuel leaving all the while, as in 2026: single file from a turret, two abreast from a shooter (the boiler takes two at a time, so the big shooter is drawn two wide now and fires its volleys closer together), four abreast from the low-goal dumper. It showed a few balls at the end, or none.',
+      'Every 2017 fuel system is now drawn with its fuel intake over the front bumper. The gear mechanism of such a robot is at the back, under the shooter, and it backs up to the peg and to the Loading Station.',
+      'Shots keep to what the field allows. 2017: no fuel is shot across the airship; a robot behind it drives to where it sees the boiler. 2024: no note goes through a leg of the Stage; from under or behind the Stage a robot shoots between the legs. 2026: a robot shoots at its hub only with a bumper on its alliance zone\'s tape; on a bump, or shoved past the tape, it holds its fire and drives back.',
+      'A game piece is now one size wherever it is drawn: on the carpet, on the robot that carries it and in the air. 2017 fuel in flight was bigger than the fuel on the floor; notes, algae, boulders, cubes, cargo, hatch panels and power cells were a different size on a robot than on the field. A 2020 robot shows its power cells at full size, staggered along its belts or in a wider drum.',
+      'Side views are true side views now. Several small parts were drawn as if seen a little from above: a motor looked like a box with a lit top, a claw showed both of its arms, an elevator showed its far upright. A motor on a cross shaft is a circle (its end); a claw shows its near arm, with wheels on upright axles seen edge on; camera lenses and turret pinions are seen from the side. What stands on the chassis (the battery, a swerve module\'s motors) is the lowest layer.',
+      '2025 robots are redrawn after real ones. The cage climber stands on a side rail half way along the robot and reaches out sideways, so the side view sees it face on, folded up: two guide plates in a V, with two rollers for the deep cage, or a hook bar on a tall post for the shallow one. In a match it tips out over the side, and the robot turns that side to its cage. The coral head is two trussed arms with a roller across each tip; the algae shooter is two pairs of wheels on upright shafts under it; a climber on a pivoting telescope is a pocketed plate across the stage with its wheels behind it. Seen from above, the algae parts ride on the head and at the front: they were a box on the back corner, drawn over the funnel.',
+      'The 2017 rope climber is redrawn after a real one: a tube across the back of the robot, high up between two trussed legs (behind the shooter when there is one), where it was a tower on one side. The winch drum is a narrow tube; the fast rope grabber runs nearly the whole width, so the rope need not be met so exactly. The floor gear pickup is one roller of soft wheels over a plate that scrapes the floor. The big hopper is no taller than the others: its extra room is a wall that folds out over the intake, as on a 2026 robot.',
+      'A hooded shooter\'s side plate is pocketed: windows between ribs that run from the wheel out to the hood.',
+      'The 2020 four-bar intake has the geometry of a real one: a plate low on the frame, two long links that rise forward over the bumper, and an arm that bends down in front of it to the roller.',
+      'Fixed: a robot that is loaded from behind (a 2025 robot with a funnel) did not turn its back to the station in a watched match, though 3.5.6 said it would.',
+      'The match tester (tools) draws the same way, shows the ranking point bars beside its field, and says how many pictures a second it manages and how long each takes. It can also set how strong the red and the blue robots are, each side by itself: random, low, average, high or all elite.'
+    ] },
     { v: '3.5.6', title: 'Driving like the real thing', notes: [
       'In a watched match a robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. Swerve and mecanum drives turn while they travel and spin off a defender. Tank drives swing through their corners, back up for a short hop, turn on the spot before a run the other way, and back off a defender before they turn. Results are the same as before.',
       'New designs. 2018: a double-jointed arm, and an elite design, the flipping roller claw, which places behind the robot as well as in front. 2019: a suction climber that hangs beside HAB Level 3 and leaves the platform to a partner. 2020: a long-range shooter with one big wheel that shoots from behind the Trench Run (tall frame only). 2017: an elite fuel system, the dual intake + turret shooter, which sweeps fuel up faster and shoots from well outside the Key.',
@@ -30686,7 +30848,7 @@ window.G = window.G || {};
     ] },
     { id: 'matches', icon: 'play', name: 'Matches', desc: 'Coach calls, defense, faults', secs: [
       { icon: 'mentors', t: 'Coach Calls', li: ['3–6 calls a match: pace, role (score / defend / feed), target, endgame timing and level, bonus RPs, avoid contact, reset a fault.'] },
-      { icon: 'play', t: 'How robots drive', li: ['Robots steer round field elements and round robots standing still. To cross the field they take the way the game leaves open: the Trench Run for a low robot (2020), a gap between two of their own Cages under the Barge (2025), a bump or a trench (2026), and another one when a stopped robot blocks it. Partners keep a gap and give way to each other: the one carrying a game piece, or heading for the endgame, keeps its line.', 'A robot that cannot get to a spot for a few seconds (a disabled partner in front of a peg, a crowd at a station) gives it up and tries another place; blocked three times in half a minute, it plays defense for a while. Partners working one plate or station use places side by side, or hold back until one is free.', 'A robot whose intake or scorer breaks for good plays defense, and a partner that was defending goes back to scoring (a defense call you made during the match stands). With nothing left to do (everything full, no game pieces), robots play defense instead of waiting.', 'Defenders go after robots that are scoring, not robots that are defending themselves, one defender to a robot; bumper to bumper they hold their ground and face the robot they guard. In autonomous, robots follow their routines as planned.', 'Each robot is drawn from above as it was built, and it moves: the intake folds out while it is collecting and in when it carries a piece away, lifts and arms reach out to place, and climbers, forks and ramps come out in the endgame. Before AprilTags reach the field, a robot with vision lights a green ring while it aims at the reflective tape. A robot without a turret turns its whole chassis to what it shoots at.', 'A robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. <b>Swerve and mecanum</b> drives turn while they travel, so they arrive standing the right way, and they spin off a defender. <b>Tank</b> drives go only where they point: they swing through their corners, back up for a short hop behind them, turn on the spot before a run the other way, and back off a defender before they turn. None of it changes a result.', 'The pre-match page shows all six robots from the side, in their alliance\'s bumpers.'] },
+      { icon: 'play', t: 'How robots drive', li: ['Robots steer round field elements and round robots standing still. To cross the field they take the way the game leaves open: the Trench Run for a low robot (2020), a gap between two of their own Cages under the Barge (2025), a bump or a trench (2026), and another one when a stopped robot blocks it. Partners keep a gap and give way to each other: the one carrying a game piece, or heading for the endgame, keeps its line.', 'A robot that cannot get to a spot for a few seconds (a disabled partner in front of a peg, a crowd at a station) gives it up and tries another place; blocked three times in half a minute, it plays defense for a while. Partners working one plate or station use places side by side, or hold back until one is free.', 'A robot whose intake or scorer breaks for good plays defense, and a partner that was defending goes back to scoring (a defense call you made during the match stands). With nothing left to do (everything full, no game pieces), robots play defense instead of waiting.', 'Defenders go after robots that are scoring, not robots that are defending themselves, one defender to a robot; bumper to bumper they hold their ground and face the robot they guard. In autonomous, robots follow their routines as planned.', 'Each robot is drawn from above as it was built, and it moves: the intake folds out while it is collecting and in when it carries a piece away, lifts and arms reach out to place, and climbers, forks and ramps come out in the endgame. Before AprilTags reach the field, a robot with vision lights a green ring while it aims at the reflective tape. A robot without a turret turns its whole chassis to what it shoots at.', 'A robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. <b>Swerve and mecanum</b> drives turn while they travel, so they arrive standing the right way, and they spin off a defender. <b>Tank</b> drives go only where they point: they swing through their corners, back up for a short hop behind them, turn on the spot before a run the other way, and back off a defender before they turn. None of it changes a result.', 'A shot needs a clear line and a legal place. 2017 fuel is not shot across the airship, a 2024 note goes between the legs of the Stage and not through one, and a 2026 robot fires at its hub only with a bumper on its alliance zone\'s tape. A robot that stands wrong drives to the nearest good spot first.', 'The pre-match page shows all six robots from the side, in their alliance\'s bumpers.'] },
       { icon: 'shield', t: 'Defense and pins', li: ['Pins last at most 5 s (through 2024) or 3 s (2025–2026), then the defender backs off six feet.', 'Protected zones: Launch Pad and late Hangar (2022), Community and Loading Zone (2023), Source, Amp, Podium and late Stage (2024), Reef and Barge Zones (2025), the Tower late in the match (2026).', 'Touching a robot at its endgame structure costs more than a foul: Traversal points for it (2022), Docked and Engaged for its alliance (2023), two tech fouls and the Ensemble RP (2024), the Barge RP (2025), Level 3 if it is off the ground (2026).', 'Before 2022: a robot crossing a defense and the Secret Passage (2016), the Key, the Retrieval Zone and the ropes late in the match (2017), the Null Territory, the Exchange and the Platform late in the match (2018), the whole HAB Zone with its Loading Stations, and the rockets in the last 20 seconds (2019), the Trench Run, Target Zone, Loading Zone and the Rendezvous Point late in the match (2020).', 'In those games, contact in the Secret Passage, the Retrieval Zone, the Null Territory and the 2020 zones is a tech foul, and touching a robot in its endgame zone hands it the climb.', 'Turrets shoot on the move and are hard to defend.', 'One defender per opponent: two robots on one is rare, and in some games a foul. In 2025 only one robot of an alliance may be on the opposing side, and in 2026 two defenders would block both bumps or both trenches, so an alliance defends with one robot at a time. A second robot told to defend scores until it may.'] },
       { icon: 'incident', t: 'Faults and falls', li: ['Low condition, low reliability, worn parts and hidden faults raise the chance of brownouts, jams and breakdowns.', 'Now and then a <b>battery connector works loose</b>, more often on a robot with poor electrics and while it is being hit: no power for the rest of the match.', 'Every robot carries its <b>Robot Signal Light</b>, the orange light: it blinks while the robot is enabled, shines steadily while it is disabled (before and after the match, comms lost, a brownout, the referee) and is dark when there is no power.', 'An electrical shakedown on a second robot and an Electronics Workbench cut brownouts and comms dropouts; a network switch cuts comms dropouts further. Planetary gearboxes on the mechanism motors make breakdowns rarer.',
         '<b>The driver decides a lot of what follows.</b> A skilled driver has fewer of these accidents and a novice more; <b>Push</b> pace makes them about 60% likelier and <b>Conserve</b> 40% rarer.',

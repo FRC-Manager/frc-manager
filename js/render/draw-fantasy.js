@@ -16,7 +16,7 @@
   // FULL TILT (rotated field)
   // =====================================================================
   const PIN = '#d5dbe1';
-  Rd.PIECES.pinball = { shape: 'ball', col: PIN, r: 0.1, many: 4 };
+  Rd.PIECES.pinball = { shape: 'ball', col: PIN, r: 0.09 / Rd.RW, many: 4 }; // (3.5.7) r: the size on the floor, in robot widths (every piece below too)
   Rd.SHOTS[2101] = { col: PIN, r: 0.09 };
   FIELD[2101] = function (ctx, s, sym, m) {
     const T = G.Rules.T01;
@@ -69,8 +69,8 @@
   // MAINLINE (mirrored field: the rail runs along the far guardrail)
   // =====================================================================
   const DRUM = '#d08a3e';
-  Rd.PIECES.drum = { shape: 'gear', col: DRUM, r: 0.14, many: 3 };
-  Rd.SHOTS[2102] = { col: DRUM, r: 0.12 };
+  Rd.PIECES.drum = { shape: 'gear', col: DRUM, r: 0.13 / Rd.RW, many: 3, hole: '#7a4d1f' };
+  Rd.SHOTS[2102] = { col: DRUM, r: 0.13, draw: (ctx, s, x, y) => drum(ctx, s, x, y) }; // (3.5.7) in flight as on the floor: the same drawing
   function drum(ctx, s, x, y) { circ(ctx, s, x, y, 0.13, DRUM, 'rgba(0,0,0,0.45)', 1); circ(ctx, s, x, y, 0.05, '#7a4d1f'); }
   FIELD[2102] = function (ctx, s, sym, m) {
     const T = G.Rules.T02, eng = m && m.eng != null ? m.eng : 0, ex = CX + eng / T.term * T.span;
@@ -115,8 +115,8 @@
   // STATION KEEPING (rotated field): the station is drawn at the angle the match has turned it to
   // =====================================================================
   const DISC = '#ece6cf';
-  Rd.PIECES.disc = { shape: 'ball', col: DISC, r: 0.13, many: 4 };
-  Rd.SHOTS[2103] = { col: DISC, r: 0.12 };
+  Rd.PIECES.disc = { shape: 'ball', col: DISC, r: 0.13 / Rd.RW, many: 4 };
+  Rd.SHOTS[2103] = { col: DISC, r: 0.13, draw: (ctx, s, x, y) => disc(ctx, s, x, y) };
   function disc(ctx, s, x, y) { circ(ctx, s, x, y, 0.13, DISC, 'rgba(0,0,0,0.45)', 1); circ(ctx, s, x, y, 0.07, null, 'rgba(0,0,0,0.25)', 1); }
   FIELD[2103] = function (ctx, s, sym, m) {
     const T = G.Rules.T03, ang = k => (m ? G.Rules.ang03(m, k, 0) : Math.PI / 4 + k * Math.PI / 2), colOf = k => (k % 2 ? 'blue' : 'red');
@@ -157,7 +157,7 @@
   // the one nearest the alliance wall, and each strip has its three bays.
   // =====================================================================
   const GIRD = '#e0a23a';
-  Rd.PIECES.girder = { shape: 'bar', col: GIRD, r: 0.16, many: 2 };
+  Rd.PIECES.girder = { shape: 'bar', col: GIRD, r: 1.0 / 6.4 / Rd.RW, many: 2 }; // a bar is 6.4 r long: one metre, as on the floor
   function girder(ctx, s, x, y, g) { const dx = Math.cos(g) * 0.5, dy = Math.sin(g) * 0.5; ctx.lineCap = 'round'; line(ctx, s, x - dx, y - dy, x + dx, y + dy, '#0f1215', Math.max(3, 0.13 * s)); line(ctx, s, x - dx, y - dy, x + dx, y + dy, GIRD, Math.max(2, 0.08 * s)); ctx.lineCap = 'butt'; }
   FIELD[2104] = function (ctx, s, sym, m) {
     const T = G.Rules.T04, fw = (T.tx - 0.22) / 4;
@@ -207,7 +207,7 @@
   // GALE FORCE (rotated field): the rotors turn as fast as the match says, and glow while they generate
   // =====================================================================
   const GCELL = '#9be15d';
-  Rd.PIECES.gcell = { shape: 'ball', col: GCELL, r: 0.1, many: 5 };
+  Rd.PIECES.gcell = { shape: 'ball', col: GCELL, r: 0.09 / Rd.RW, many: 5 };
   Rd.SHOTS[2105] = { col: GCELL, r: 0.09 };
   FIELD[2105] = function (ctx, s, sym, m) {
     const T = G.Rules.T05, NAME = { home: 'HOME', field: 'FIELD', off: 'OFFSHORE' };
@@ -248,9 +248,9 @@
   // DEEP FREEZE (rotated field)
   // =====================================================================
   const ICE = '#dfeefa';
-  Rd.PIECES.stoneR = { shape: 'gear', col: '#e5484d', r: 0.15, many: 2 };
-  Rd.PIECES.stoneB = { shape: 'gear', col: '#3e8cff', r: 0.15, many: 2 };
-  Rd.SHOTS[2106] = { col: '#c9d2da', r: 0.11 };
+  Rd.PIECES.stoneR = { shape: 'gear', col: '#e5484d', r: 0.125 / Rd.RW, many: 2, hole: '#f4f7fa' };
+  Rd.PIECES.stoneB = { shape: 'gear', col: '#3e8cff', r: 0.125 / Rd.RW, many: 2, hole: '#f4f7fa' };
+  Rd.SHOTS[2106] = { r: 0.125, draw: (ctx, s, x, y, f) => stone(ctx, s, x, y, f.a) }; // (3.5.7) a stone on its way is the alliance's stone, not a grey ball
   function stone(ctx, s, x, y, a) { circ(ctx, s, x, y, 0.125, alc(a), '#0f1215', 1.5); circ(ctx, s, x, y, 0.05, '#f4f7fa'); }
   FIELD[2106] = function (ctx, s, sym, m) {
     const T = G.Rules.T06;
@@ -295,7 +295,7 @@
   // EVEN KEEL (rotated field): the ship's heavy side is shaded as it lists, and every stack shows how high it stands
   // =====================================================================
   const CONT = '#3fb8a6';
-  Rd.PIECES.cont = { shape: 'box', col: CONT, r: 0.16, many: 2 };
+  Rd.PIECES.cont = { shape: 'box', col: CONT, r: 0.13 / Rd.RW, many: 2 };
   function cont(ctx, s, x, y, k) { rect(ctx, s, x - 0.13, y - 0.13, 0.26, 0.26, k === 0 ? '#6f7b85' : CONT, 'rgba(0,0,0,0.45)', 1); }
   FIELD[2107] = function (ctx, s, sym, m) {
     const T = G.Rules.T07;
@@ -337,9 +337,9 @@
   // MOTHERLODE (rotated field)
   // =====================================================================
   const ORE = { red: '#d9774a', blue: '#4a8fd9', gold: '#f5c542' };
-  Rd.PIECES.oreR = { shape: 'ball', col: ORE.red, r: 0.09, many: 6 };
-  Rd.PIECES.oreB = { shape: 'ball', col: ORE.blue, r: 0.09, many: 6 };
-  Rd.SHOTS[2108] = { col: '#c9a56a', r: 0.07 };
+  Rd.PIECES.oreR = { shape: 'ball', col: ORE.red, r: 0.075 / Rd.RW, many: 6 };
+  Rd.PIECES.oreB = { shape: 'ball', col: ORE.blue, r: 0.075 / Rd.RW, many: 6 };
+  Rd.SHOTS[2108] = { col: '#c9a56a', r: 0.075 };
   FIELD[2108] = function (ctx, s, sym, m) {
     const T = G.Rules.T08;
     // the two Veins above the side walls and their detonators
@@ -376,8 +376,9 @@
   // =====================================================================
   // SIGNAL FIRE (rotated field): every post shows its rings in the order they went on, and glows in its owner's colour
   // =====================================================================
-  Rd.PIECES.ringR = { shape: 'disc', col: '#ff6b6b', r: 0.15, many: 2 };
-  Rd.PIECES.ringB = { shape: 'disc', col: '#5aa2ff', r: 0.15, many: 2 };
+  Rd.PIECES.ringR = { shape: 'disc', col: '#ff6b6b', r: 0.13 / Rd.RW, many: 2, lw: 0.42 };
+  Rd.PIECES.ringB = { shape: 'disc', col: '#5aa2ff', r: 0.13 / Rd.RW, many: 2, lw: 0.42 };
+  Rd.SHOTS[2109] = { r: 0.13, draw: (ctx, s, x, y, f) => ringPc(ctx, s, x, y, f.a) }; // (3.5.7) the Keeper's toss is a ring in the alliance's colour (it was a grey dot)
   function ringPc(ctx, s, x, y, a) { circ(ctx, s, x, y, 0.13, null, a === 'red' ? '#ff6b6b' : '#5aa2ff', Math.max(2, 0.055 * s)); }
   FIELD[2109] = function (ctx, s, sym, m) {
     const T = G.Rules.T09, posts = m && m.posts ? m.posts : T.posts.map(p => Object.assign({ rings: [] }, p));
@@ -415,7 +416,7 @@
   // BRIDGEWORK (rotated field)
   // =====================================================================
   const CRATE = '#c9925a', PANEL = '#d9c58a';
-  Rd.PIECES.crate = { shape: 'box', col: CRATE, r: 0.15, many: 2 };
+  Rd.PIECES.crate = { shape: 'box', col: CRATE, r: 0.12 / Rd.RW, many: 2 };
   function crate(ctx, s, x, y) { rect(ctx, s, x - 0.12, y - 0.12, 0.24, 0.24, CRATE, 'rgba(0,0,0,0.45)', 1); line(ctx, s, x - 0.12, y, x + 0.12, y, 'rgba(0,0,0,0.3)', 1); }
   FIELD[2110] = function (ctx, s, sym, m) {
     const T = G.Rules.T10, NM = ['NORTH', 'CENTRE', 'SOUTH'];

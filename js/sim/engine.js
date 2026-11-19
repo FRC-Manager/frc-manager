@@ -157,15 +157,16 @@
     }
     // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
     if (r.faceAt) { if (r.faceAt.live && m.R.aimAt) { const p = m.R.aimAt(m, r); if (p) { r.faceAt.x = p.x; r.faceAt.y = p.y; } }
-      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : 0);
+      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : r.faceAt.side === 'right' ? -Math.PI / 2 : r.faceAt.side === 'left' ? Math.PI / 2 : 0);   // (3.5.7) 'right' / 'left': a mechanism on the robot's side (a 2025 cage climber)
         if (r.cap.flip && !r.faceAt.side && Math.abs(angd(want, r.hd || 0)) > Math.PI / 2) want += Math.PI;   // (3.5.6) a flipping claw scores behind the robot as well: it turns to whichever end is nearer
         turnBy(r, want, TURN); } else if (r.st !== 'idle') r.faceAt = null; }
+    if (r.stream) { const sv = r.stream; if (r.st !== 'act' || m.t > sv.until + 0.05) r.stream = null; else if (m.t >= sv.from && m.t >= sv.next) { if (!sv.blk || H.lineClear(r, sv.to, sv.blk)) H.shotFx(m, r, sv.to, true, sv.lanes); sv.next = m.t + sv.every - 0.001; } } // (3.5.7) H.stream
     // (3.5.6) a robot that starts work on something beside it (placing, loading from a station) turns its scorer or its intake to it
     // (side: which end points at it. Its intake end when it loads, 'back' for a robot fed from behind; else the end its scorer is on)
     if (!m.headless && r.st === 'act' && r.actSeen !== r.actN) {
       r.actSeen = r.actN;
       if (!r.faceAt || r.faceAt.auto) { const p = WORK.test(r.label || '') ? workAt(m, r, r) : m.R.workAt ? m.R.workAt(m, r, r) || null : null; // (any other act: only if the season itself says what to face)
-        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; }
+        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (m.R.workSide && m.R.workSide(m, r)) || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; } // (3.5.7) workSide: a season may say which end does this job (2017: the gear mechanism)
     } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
@@ -184,7 +185,7 @@
       if (r.path.length && m.phase !== 'auto' && m.t - pg.chk >= 0.5) {
         pg.chk = m.t;
         if (!r.endBusy && r.goal && dist(r, r.goal) < 3.5 && spotUse(m, r, r.goal, true)) {
-          const alt = freeNear(m, r, r.goal);
+          const alt = freeNear(m, r, r.goal, r.goalOk);
           if (alt) { r.goal = alt; r.path = planTo(m, r, alt); r.gprog = null; }
         } else if (r.path.length && blockedLeg(m, r, r.path[0])) r.path = planTo(m, r, r.path[r.path.length - 1]);
       }
@@ -265,11 +266,12 @@
   }
 
   // ---------- movement ----------
-  function moveTo(m, r, pt, then, label) {
+  function moveTo(m, r, pt, then, label, ok) {
     // the spot is taken (a robot stopped on it, a partner about to get there, or this robot gave up on it a moment ago):
     // use a free one beside it. Climbing spots are not moved.
-    if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt); if (alt) pt = alt; }
-    r.goal = pt; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
+    // (3.5.7) ok(spot): what the spot must be for the job (a clear line to the goal, a bumper in the zone): the free spot beside a taken one is chosen among those
+    if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt, ok); if (alt) pt = alt; }
+    r.goal = pt; r.goalOk = ok || null; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
     r.path = planTo(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
     if (!m.headless) {                                                              // (3.5.6) what it will face when it gets there, if the season knows: a holonomic drive turns to it on the way
@@ -416,13 +418,13 @@
     return use;
   }
   // a free spot next to p (about a robot's width away), the closest to p and not far out of r's way; null if none
-  function freeNear(m, r, p) {
+  function freeNear(m, r, p, ok) {
     let best = null, bv = 1e9;
     for (const rad of [0.95, 1.35]) for (let k = 0; k < 10; k++) {
       const g = k * Math.PI / 5, c = { x: p.x + Math.cos(g) * rad, y: p.y + Math.sin(g) * rad };
       if (c.x < 0.5 || c.x > FW - 0.5 || c.y < 0.5 || c.y > FH - 0.5) continue;
       const q = clearOf(m, c, !!r.endBusy, !!r.cap.lowProfile, r);
-      if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || spotUse(m, r, q)) continue;
+      if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || spotUse(m, r, q) || (ok && !ok(q))) continue;
       const v = rad + 0.2 * dist(r, q);
       if (v < bv) { bv = v; best = q; }
     }
@@ -651,7 +653,10 @@
       const nr = r.mem.noReach && r.mem.noReach.until > m.t ? r.mem.noReach.team : null; // one it could not get to lately
       const all = m.robots.filter(x => x.a !== r.a && !x.dead && !taken.has(x) && x.team !== nr), busy = all.filter(x => x.st !== 'defend' && x.plan.role !== 'defend' && !x.mem.broken);
       const val = q => (q.stats.pts + power(q)) * (q.cap.turret ? 0.75 : 1);
-      t = (busy.length ? busy : all).sort((p, q) => val(q) - val(p))[0] || null;
+      // (3.5.7) ... so it is never the target: with nobody on the other side scoring, two defenders used to pick each
+      // other and push for the rest of the match. Now it goes back to scoring for a while (noDefense) and looks again
+      t = busy.sort((p, q) => val(q) - val(p))[0] || null;
+      if (!t && all.length) return noDefense(m, r, 'nobody on the other side is scoring');
     }
     if (!t) return noDefense(m, r, 'every opponent already has a defender');
     r.defT = t; r.st = 'defend'; r.label = 'Defending ' + t.team;
@@ -670,7 +675,8 @@
     const t = r.defT;
     if (!t || t.dead || t.st === 'done' || t.climbing) { r.st = 'idle'; r.defT = null; return; }
     // its target has stopped scoring (it defends now, or broke): pick another, unless the coach named this one
-    if ((t.st === 'defend' || t.mem.broken) && !(r.plan.defTarget && t.team === r.plan.defTarget) && m.robots.some(x => x.a === t.a && x !== t && !x.dead && x.st !== 'defend' && !x.mem.broken)) { r.st = 'idle'; r.defT = null; return; }
+    // (3.5.7: also when it is the last one left; it used to stay on a defender when every other opponent was defending or broken)
+    if ((t.st === 'defend' || t.mem.broken) && !(r.plan.defTarget && t.team === r.plan.defTarget)) { r.st = 'idle'; r.defT = null; return; }
     // a partner on the same robot, or more defenders than the game allows: the one with the weaker claim moves on (a
     // coach's call first, then a robot sent to defend, then one that broke, then the lower slot)
     { const DF = m.R.defense || {}, prio = x => (x.mem.calledDef ? 8 : 0) + (x.plan.role === 'defend' ? 4 : 0) + (x.mem.broken ? 2 : 0) - x.slot * 0.1;
@@ -913,6 +919,7 @@
       const begin = () => {
         if (lvl === 0) { r.end = { lvl: 0, park: true }; r.st = 'done'; r.label = 'Parked'; return; }
         r.climbing = true;
+        if (!m.headless && m.R.endFace) { const p = m.R.endFace(m, r, lvl); if (p) r.faceAt = p; }   // (3.5.7) what the robot turns to as it climbs, and with which side (for show)
         act(r, climbTime(m, r, lvl), () => {
           const p = climbChance(m, r, lvl);
           if (m.rng.chance(p)) { r.end = { lvl }; r.label = nm; log(m, r.a, r.team + ' — ' + nm + '!', 'end'); }
@@ -1057,7 +1064,11 @@
       if (!m.headless && label) m.fx.push({ k: 'pop', x: at ? at.x : r.x, y: at ? at.y : r.y, text: label, t: m.t, a: r.a });
     },
     // lanes (3.5.4): how many pieces leave side by side (2026: a turret fires single file, fixed and hood shooters two abreast, the wide dumper four)
-    shotFx(m, r, to, hit) { if (m.headless) return; const p = G.Render && G.Render.muzzle ? G.Render.muzzle(r) : r; m.fx.push({ k: 'shot', x0: p.x, y0: p.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2 }); }, // (3.5.5) from the shooter's place on the robot, not its middle
+    shotFx(m, r, to, hit, lanes) { if (m.headless) return; const p = G.Render && G.Render.muzzle ? G.Render.muzzle(r) : r; m.fx.push({ k: 'shot', x0: p.x, y0: p.y, x1: to.x, y1: to.y, t: m.t, hit, a: r.a, lanes: lanes || (r.cap ? (r.cap.dumper ? 4 : r.cap.turret ? 1 : 2) : 2) }); },
+    // (3.5.7) a robot that takes seconds to empty its hopper in one go (2017) shows it: a volley every fifth of a second
+    // from `after` seconds into the act that starts now, for `secs` seconds. For show only, like every effect
+    // blk: what the fuel cannot cross (lineClear): a robot shoved behind it while it fires shows no fuel leaving
+    stream(m, r, to, after, secs, lanes, every, blk) { if (!m.headless) r.stream = { to, from: m.t + after, until: m.t + after + secs, lanes, every: every || 0.2, next: 0, blk }; }, // (3.5.5) from the shooter's place on the robot, not its middle
     shootSpot(m, r, goal, zone) {
       const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? 1.1 : 1), rmin = c.rmin || 1.0;
       const d = dist(r, goal);
@@ -1075,6 +1086,30 @@
       p.x = U.clamp(p.x, 0.5, FW - 0.5); p.y = U.clamp(p.y, 0.5, FH - 0.5);
       return p;
     },
+    // (3.5.7) A shot needs a clear line. lineClear: nothing in blk ({ x, y, r }: an airship, a leg of the Stage) within its
+    // radius (+ pad) of the straight line from a to b. okSpot: the spot nearest p that ok() accepts (p itself if it does),
+    // looked for in rings round p; in a ring, the one nearest the robot. shotRange: how near and how far the robot shoots from
+    lineClear(a, b, blk, pad) {
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-6;
+      for (const o of blk) { const t = U.clamp(((o.x - a.x) * dx + (o.y - a.y) * dy) / L2, 0, 1); if (Math.hypot(o.x - a.x - dx * t, o.y - a.y - dy * t) < o.r + (pad || 0)) return false; }
+      return true;
+    },
+    okSpot(m, r, p, ok) {
+      if (ok(p)) return p;
+      for (let rad = 0.3; rad < 3.05; rad += 0.3) {
+        let best = null, bv = 1e9;
+        for (let k = 0; k < 16; k++) {
+          const g = k * Math.PI / 8, c = { x: p.x + Math.cos(g) * rad, y: p.y + Math.sin(g) * rad };
+          if (c.x < 0.5 || c.x > FW - 0.5 || c.y < 0.5 || c.y > FH - 0.5) continue;
+          const q = clearOf(m, c, !!r.endBusy, !!r.cap.lowProfile, r);
+          if (Math.hypot(q.x - c.x, q.y - c.y) > 0.05 || !ok(q)) continue;
+          const v = dist(r, q); if (v < bv) { bv = v; best = q; }
+        }
+        if (best) return best;
+      }
+      return p;
+    },
+    shotRange: r => [r.cap.rmin || 1.0, (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1)],
     rangePen(m, r, goal) {
       const c = r.cap, d = dist(r, goal), span = Math.max(0.5, (c.rangeM || 1.5) - (c.rmin || 1));
       return 0.12 * U.clamp((d - (c.rmin || 1)) / span, 0, 1) * (1 - 0.25 * (c.visionLvl || 0));

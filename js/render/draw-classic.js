@@ -13,7 +13,7 @@
   // =====================================================================
   // 2020 INFINITE RECHARGE (rotated field)
   // =====================================================================
-  Rd.PIECES.cell = { shape: 'ball', col: CELL, r: 0.11, many: 3 };
+  Rd.PIECES.cell = { shape: 'ball', col: CELL, r: 0.09 / Rd.RW, many: 3 }; // (3.5.7) r: the size on the carpet, in robot widths
   Rd.SHOTS[2020] = { col: CELL, r: 0.09 };
   const WHEEL = ['#ffd23f', '#e5484d', '#30c27a', '#3e8cff'];
   FIELD[2020] = function (ctx, s, sym, m) {
@@ -62,14 +62,14 @@
   // 2019 DESTINATION: DEEP SPACE (mirrored field)
   // =====================================================================
   const HATCH = '#f2c94c', CARGO = '#ff8a3d';
-  Rd.PIECES.hatch = { shape: 'disc', col: HATCH, r: 0.2 };
-  Rd.PIECES.cargo19 = { shape: 'ball', col: CARGO, r: 0.17 };
+  Rd.PIECES.hatch = { shape: 'disc', col: HATCH, r: 0.16 / Rd.RW, lw: 0.31 }; // (3.5.7) as the panel on a bay
+  Rd.PIECES.cargo19 = { shape: 'ball', col: CARGO, r: 0.14 / Rd.RW };
   // one bay: an outline, a ring when it has a hatch panel (grey for the blank panels), a ball when it holds cargo
   function bay19(ctx, s, x, y, b) {
     circ(ctx, s, x, y, 0.19, '#1d2227', '#59626c', 1);
     if (b && b.hatch) circ(ctx, s, x, y, 0.16, null, b.hatch === 2 ? '#8d97a1' : HATCH, Math.max(2, s * 0.05));
-    if (b && b.cargo) ball(ctx, s, x, y, 0.1, CARGO);
-    else if (b && b.pre) ball(ctx, s, x, y, 0.1, 'rgba(255,138,61,0.5)'); // staged cargo: it stays only if a hatch goes on in the sandstorm
+    if (b && b.cargo) ball(ctx, s, x, y, 0.14, CARGO); // (3.5.7) cargo is one size in a bay, in a depot and on a robot
+    else if (b && b.pre) ball(ctx, s, x, y, 0.14, 'rgba(255,138,61,0.5)'); // staged cargo: it stays only if a hatch goes on in the sandstorm
   }
   FIELD[2019] = function (ctx, s, sym, m) {
     const H2 = FH / 2, g = G.Rules.G19, rx = g.rocketX;
@@ -90,7 +90,7 @@
       [[0.1, 0.1], [0.1, FH - 1.3]].forEach(p => arect(ctx, s, sym, a, p[0], p[1], 0.75, 1.2, tint(a, 0.2), alc(a), 2));
       atext(ctx, s, sym, a, 'LOAD', 0.48, 1.5, alc(a), 7); atext(ctx, s, sym, a, 'LOAD', 0.48, FH - 1.45, alc(a), 7);
       g.depotY.forEach((y, i) => { const n = m && m.ss && m.ss[a] ? m.ss[a].depot[i] : 6; arect(ctx, s, sym, a, 0.1, y - 0.28, 1.02, 0.56, null, '#8d97a1', 1);
-        for (let k = 0; k < n; k++) { const q = P(sym, a, 0.3 + (k % 3) * 0.3, y + (k < 3 ? -0.13 : 0.13)); ball(ctx, s, q.x, q.y, 0.1, CARGO); } });
+        for (let k = 0; k < n; k++) { const q = P(sym, a, 0.3 + (k % 3) * 0.3, y + (k < 3 ? -0.14 : 0.14)); ball(ctx, s, q.x, q.y, 0.14, CARGO); } });
       // Cargo Ship: the two ships stand nose out, stern to stern, 9 in. off the centre line; two bays in the nose (staged
       // with cargo) and three on each side (staged with blank panels)
       apoly(ctx, s, sym, a, [[g.nose, H2 - 0.38], [g.nose + 0.35, H2 - 0.71], [g.stern, H2 - 0.71], [g.stern, H2 + 0.71], [g.nose + 0.35, H2 + 0.71], [g.nose, H2 + 0.38]], tint(a, 0.28), alc(a), 2);
@@ -112,8 +112,8 @@
   // 2018 FIRST POWER UP (mirrored field)
   // =====================================================================
   const CUBE = '#f4d03f', NULLT = 'rgba(214,200,80,';
-  Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.17 };
-  function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.11 + (i % 3 - 1) * 0.25, y - 0.11 + Math.floor(i / 3) * 0.25 * dir, 0.22, 0.22, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
+  Rd.PIECES.pcube = { shape: 'box', col: CUBE, r: 0.13 / Rd.RW }; // (3.5.7) a cube is 0.26 m wherever it is drawn: in the pile, in the line, in a portal, on a plate, on a robot
+  function cubes18(ctx, s, x, y, n, dir) { for (let i = 0; i < Math.min(n, 9); i++) rect(ctx, s, x - 0.13 + (i % 3 - 1) * 0.27, y - 0.13 + Math.floor(i / 3) * 0.27 * dir, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); if (n > 9) text(ctx, s, '+' + (n - 9), x, y + 0.9 * dir, CUBE, 8); }
   // A balance tips toward the plate with more cubes: that plate is drawn sunk (shaded), the raised one lit, and chevrons
   // in the lower plate's colour run along the arm towards it. Level when the counts are equal.
   function tilt18(ctx, s, p0, p1, n0, n1, c0, c1, w, h) {
@@ -142,11 +142,11 @@
       arect(ctx, s, sym, a, 3.6, H2 - 1.95, 1.34, 3.9, 'rgba(0,0,0,0.3)', '#8d97a1', 2);
       aline(ctx, s, sym, a, 4.27, H2 - 1.2, 4.27, H2 + 1.2, '#cfd6dd', 4);
       [0, 1].forEach(k => { const mine = side[a].sw === k, col = mine ? a : o; arect(ctx, s, sym, a, 3.7, pY[k] - 0.5, 1.14, 1.0, tint(col, 0.35), alc(col), 2);
-        const q = P(sym, a, 4.27, pY[k]); cubes18(ctx, s, q.x, q.y - 0.12, m && m.sw ? m.sw[a][k] : 0, 1); });
+        const q = P(sym, a, 4.27, pY[k]); cubes18(ctx, s, q.x, q.y - 0.2, m && m.sw ? m.sw[a][k] : 0, 1); });
       if (m && m.sw) tilt18(ctx, s, P(sym, a, 4.27, pY[0]), P(sym, a, 4.27, pY[1]), m.sw[a][0], m.sw[a][1], side[a].sw === 0 ? a : o, side[a].sw === 1 ? a : o, 1.14, 1.0);
       // Power Cube Zone (the pile of ten) against the Switch, the line of six on the Platform side, the Exchange, the far Portals
       arect(ctx, s, sym, a, 2.5, H2 - 0.6, 1.08, 1.2, tint(a, 0.2), NULLT + '0.75)', 1.5);
-      { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.12, q.y - 0.12, 0.24, 0.24, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
+      { const n = ss ? ss.pile : 10, rows = [[3.38, 4], [3.1, 3], [2.82, 2], [2.64, 1]]; let k = 0; rows.forEach(rw => { for (let i = 0; i < rw[1]; i++, k++) { if (k >= n) return; const q = P(sym, a, rw[0], H2 + (i - (rw[1] - 1) / 2) * 0.28); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } }); }
       { const n = ss ? ss.line : 6; for (let i = 6 - n; i < 6; i++) { const q = P(sym, a, 5.15, H2 + (i - 2.5) * 0.66); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } }
       // the Exchange Zone (4 ft by 3 ft) is left of centre as the alliance looks down the field
       { const ey = g.exch.y(a), up = ey < H2;
@@ -154,7 +154,7 @@
         if (ss) atext(ctx, s, sym, a, 'VAULT ' + ss.vault, 0.75, up ? ey + 0.95 : ey - 0.78, CUBE, 8); }
       // the Portals in the far corners, with the cubes they still hold
       [[FW - 0.95, 0.1], [FW - 0.95, FH - 1.2]].forEach((p, i) => { arect(ctx, s, sym, a, p[0], p[1], 0.85, 1.1, tint(a, 0.2), alc(a), 2);
-        const n = ss ? ss.portal[i] : 7; for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + 0.2 + (k % 3) * 0.22, p[1] + 0.2 + Math.floor(k / 3) * 0.22); rect(ctx, s, q.x - 0.08, q.y - 0.08, 0.16, 0.16, CUBE, 'rgba(0,0,0,0.4)', 1); } });
+        const n = ss ? ss.portal[i] : 7; for (let k = 0; k < n; k++) { const q = P(sym, a, p[0] + 0.155 + (k % 3) * 0.27, p[1] + 0.2 + Math.floor(k / 3) * 0.27); rect(ctx, s, q.x - 0.13, q.y - 0.13, 0.26, 0.26, CUBE, 'rgba(0,0,0,0.4)', 1); } });
       atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, 1.45, alc(a), 6); atext(ctx, s, sym, a, 'PORTAL', FW - 0.55, FH - 1.35, alc(a), 6);
     });
     // the Scale: tower with a rung on each side, arm and the two plates
@@ -170,8 +170,8 @@
   // 2017 FIRST STEAMWORKS (mirrored field)
   // =====================================================================
   const GEAR = '#f2c94c', FUEL = '#c8e83c';
-  Rd.PIECES.gear = { shape: 'gear', col: GEAR, r: 0.2 };
-  Rd.SHOTS[2017] = { col: FUEL, r: 0.06, many: true };
+  Rd.PIECES.gear = { shape: 'gear', col: GEAR, r: 0.14 / Rd.RW }; // (3.5.7) no gear lies on the carpet: its real size (11 in. across)
+  Rd.SHOTS[2017] = { col: FUEL, r: 0.05 }; // (3.5.7) one size for the fuel on the carpet, in the hoppers and in flight
   FIELD[2017] = function (ctx, s, sym, m) {
     const H2 = FH / 2, g = G.Rules.G17, sx = g.ship.x, R = g.ship.r, LP = g.lp, KL = g.keyLeg;
     // Neutral Zone between the two Launchpad Lines
@@ -200,9 +200,9 @@
       atext(ctx, s, sym, a, ss ? Math.floor(ss.kpa + 1e-9) + ' kPa' : 'BOILER', 0.72, FH - 0.24, '#e8edf2', 6);
       // fuel Hoppers on the side rails
       g.hoppers.forEach((p, i) => { const n = ss ? ss.hop[i] : 100, y = p[1] > H2 ? FH - 0.3 : 0.3; arect(ctx, s, sym, a, p[0] - 0.55, y - 0.22, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.25)' : 'rgba(0,0,0,0.3)', alc(a), 1.5);
-        for (let k = 0; k < Math.ceil(n / 25); k++) { const q = P(sym, a, p[0] - 0.36 + k * 0.24, y); ball(ctx, s, q.x, q.y, 0.08, FUEL); } });
+        for (let k = 0; k < Math.ceil(n / 5); k++) { const q = P(sym, a, p[0] - 0.45 + (k >> 1) * 0.1, y + (k % 2 ? 0.06 : -0.06)); ball(ctx, s, q.x, q.y, Rd.SHOTS[2017].r, FUEL); } }); // a ball drawn for every five, two rows deep
       // fuel spilled from the tipped hoppers lies all over the alliance's end of the carpet
-      if (ss && ss.floor > 4) { const n = Math.min(70, Math.round(ss.floor / 4)); for (let k = 1; k <= n; k++) { const fx = 1.3 + ((k * 0.754878) % 1) * (CX - 1.7), fy = 0.5 + ((k * 0.569840) % 1) * (FH - 1.0); if (Math.hypot(fx - sx, fy - H2) < 1.6) continue; const q = P(sym, a, fx, fy); ball(ctx, s, q.x, q.y, 0.05, FUEL); } }
+      if (ss && ss.floor > 4) { const n = Math.min(70, Math.round(ss.floor / 4)); for (let k = 1; k <= n; k++) { const fx = 1.3 + ((k * 0.754878) % 1) * (CX - 1.7), fy = 0.5 + ((k * 0.569840) % 1) * (FH - 1.0); if (Math.hypot(fx - sx, fy - H2) < 1.6) continue; const q = P(sym, a, fx, fy); ball(ctx, s, q.x, q.y, Rd.SHOTS[2017].r, FUEL); } }
       // the Loading Station (gears) stands across the far corner; the Retrieval Zone is the band in front of it
       apoly(ctx, s, sym, a, [[g.retrTape[0][0], 0.08], [g.stationWall[0][0], 0.08], [FW - 0.08, g.stationWall[1][1]], [FW - 0.08, g.retrTape[1][1]]], tint(a, 0.25), alc(a), 1.5);
       apoly(ctx, s, sym, a, [[g.stationWall[0][0], 0.08], [FW - 0.08, 0.08], [FW - 0.08, g.stationWall[1][1]]], '#3d454e', alc(a), 2);
@@ -210,14 +210,14 @@
     });
     // the fifth hopper stands on the rail at mid-field: whoever gets there first
     { const n = m && m.hopMid != null ? m.hopMid : 100; rect(ctx, s, CX - 0.55, FH - 0.52, 1.1, 0.44, n > 0 ? 'rgba(200,232,60,0.18)' : 'rgba(0,0,0,0.3)', '#8d97a1', 1.5);
-      for (let k = 0; k < Math.ceil(n / 25); k++) ball(ctx, s, CX - 0.36 + k * 0.24, FH - 0.3, 0.08, FUEL); }
+      for (let k = 0; k < Math.ceil(n / 5); k++) ball(ctx, s, CX - 0.45 + (k >> 1) * 0.1, FH - 0.3 + (k % 2 ? 0.06 : -0.06), Rd.SHOTS[2017].r, FUEL); }
   };
 
   // =====================================================================
   // 2016 FIRST STRONGHOLD (rotated field)
   // =====================================================================
   const BOULDER = '#b9c0c8';
-  Rd.PIECES.boulder = { shape: 'ball', col: BOULDER, r: 0.19 };
+  Rd.PIECES.boulder = { shape: 'ball', col: BOULDER, r: 0.13 / Rd.RW };
   Rd.SHOTS[2016] = { col: BOULDER, r: 0.13 };
   const DEFCOL = { L: '#8d97a1', A: '#c98a3c', B: '#4f9fd1', C: '#9b6bff', D: '#7a8f5a' };
   FIELD[2016] = function (ctx, s, sym, m) {
@@ -253,7 +253,7 @@
       // The boulders its castle has to give wait at the mouth (three at the start, then whatever the opponents score).
       arect(ctx, s, sym, a, 0.08, 0.08, g.ownEnd - 0.08, PASS - 0.12, tint(a, 0.4), alc(a), 2);
       atext(ctx, s, sym, a, 'SECRET PASSAGE', 2.4, PASS / 2 + 0.1, '#e8edf2', 8);
-      { const n = ss ? ss.stock : 3; for (let k = 0; k < Math.min(6, n); k++) { const q = P(sym, a, g.ownEnd - 0.35 - k * 0.45, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, 0.12, BOULDER); }
+      { const n = ss ? ss.stock : 3; for (let k = 0; k < Math.min(6, n); k++) { const q = P(sym, a, g.ownEnd - 0.35 - k * 0.45, PASS / 2 - 0.02); ball(ctx, s, q.x, q.y, Rd.SHOTS[2016].r, BOULDER); }
         if (n > 6) atext(ctx, s, sym, a, '+' + (n - 6), g.ownEnd - 3.3, PASS / 2 + 0.1, BOULDER, 8); }
       // boulders on the midline: three within each alliance's reach
       { const n = ss ? ss.mid : 3; for (let k = 3 - n; k < 3; k++) { const q = P(sym, a, CX, g.midY(k)); ball(ctx, s, q.x, q.y, 0.13, BOULDER); } }
