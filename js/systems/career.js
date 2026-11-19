@@ -461,8 +461,8 @@
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
     if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = amt; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
     // (3.5) nothing is said yet: a deal can be undone this turn, so it is announced when the turn ends (C.announceSignings).
-    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the letters (the title sponsor's, the printer maker's).
-    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' || C.isMaker(sp) ? 1 : 0) : 1;
+    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the letters (the title sponsor's, the printer maker's, an international partner's).
+    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' || C.isMaker(sp) || C.isIntl(sp) ? 1 : 0) : 1; // (3.5.6) an international partner writes too when Auto-pick signs it
     return null;
   };
   // ---------- signed this turn, announced the next (3.5) ----------
@@ -1188,11 +1188,13 @@
     else { mult = 0.5; why = '×0.5'; }
     const perStudent = S.phase === 'off' ? 5 : 7;
     const stud = S.studentsCount * perStudent;
-    const ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0) + G.Shop.guestHours(S);
+    let ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0) + G.Shop.guestHours(S);
+    // (3.5.6) in the offseason the mentors also see your own FTC teams through their season: a few hours a week each, never more than half of what the mentors give
+    const ftcH = S.phase === 'off' ? Math.min(Math.floor(ment / 2), C.ownTeams(S) * D.FTC_OWN.mentorH) : 0; ment -= ftcH;
     const moraleM = 0.8 + 0.3 * S.morale / 100, boost = 1 + G.Shop.boostHours(S);
     const total = Math.round((stud + ment) * mult * moraleM * boost);
     if (!breakdown) return total;
-    return { total, stud, ment, perStudent, students: S.studentsCount, mult, why, moraleM, boost };
+    return { total, stud, ment, perStudent, students: S.studentsCount, mult, why, moraleM, boost, ftcH, ftcN: C.ownTeams(S) };
   };
   C.isEventTurn = S => S.lastEventTurn === turnKey(S) || !!(C.eventThisTurn(S) && S.phase !== 'off');
   // Testing hours: limited practice-field time each week (like wind-tunnel time), split between development
@@ -1429,6 +1431,7 @@
     let d = (C.idleTarget(S) - f) * D.FATIGUE_SLOPE * (eventWeek ? 0.5 : 1), drift = (D.FATIGUE_BASE - before) * 0.08;
     if (S.overtime) { d = Math.max(0, d) + D.FATIGUE_OVERTIME; drift = Math.max(0, drift); }
     if (eventWeek) d += S.team.home && G.World.on(S) && S.week <= 5 ? D.FATIGUE_DISTRICT : D.FATIGUE_EVENT;
+    if (eventWeek && G.Shop.superPit(S)) d -= D.FATIGUE_SUPERPIT; // (3.5.6) it sets up in minutes, and it has a mini fridge
     if (eventWeek) { const e = C.eventThisTurn(S); if (S.lastEventIntl === turnKey(S) || (e && e.def && C.travelMode(S, e.def) === 'intl')) d += D.FATIGUE_INTL; } // jet lag
     return Math.round(U.clamp(before + d + drift, 5, 100));
   }

@@ -99,8 +99,11 @@
   // Where to shoot from. No full-court shots: a robot wholly inside its own Sector (the end with its Loading Bay) may not
   // send cells into the opponents' Sector, so the spot is always past its own Sector line. A shooter with the range uses
   // the far end of its own Trench Run, where nobody may touch it; nobody stops on the generator floor to shoot.
+  const FAR20 = { d: 9.5, hit: 0.95, inner: 0.4, pen: 0.6 }; // (3.5.6) a long-range shooter's shots from further than d metres: a little less sure, far fewer Inner Ports; its long hood loses less to distance (pen) than another shooter would
   function spot20(m, r, goal) {
     const R = (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1);
+    // (3.5.6) a long-range shooter with its range developed shoots from just past its own Sector line, behind the Trench Run: a short trip from the Loading Bay
+    if (r.cap.longShot) { const far = E.P(m, r.a, G20.sector + 0.6, U.clamp(G20.port.y + (r.slot - 1) * 0.9, 0.6, FH - 1.6)); if (R * 0.88 >= E.dist(far, goal)) return far; }
     const tr = E.P(m, r.a, G20.trench.x1 - 0.7 - r.slot * 0.8, FH - 0.75);
     if (R * 0.88 >= E.dist(tr, goal)) return tr;
     const z = r.a === 'blue' ? { x0: G20.sector - RR + 0.1, x1: FW - 0.5 } : { x0: 0.5, x1: FW - G20.sector + RR - 0.1 };
@@ -123,12 +126,13 @@
       const n = r.held;
       H.act(r, H.aimTime(m, r) + n * H.scoreTime(m, r, upper ? 0.5 : 0.6) * (c.revolver ? REV20 : 1), () => {
         let pts = 0;
-        const pen = upper ? H.rangePen(m, r, goal) : 0, off = offAxis20(m, r.a, r);
-        const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) : 0;
+        const pen = upper ? H.rangePen(m, r, goal) * (c.longShot ? FAR20.pen : 1) : 0, off = offAxis20(m, r.a, r);
+        const far = upper && c.longShot && E.dist(r, goal) > FAR20.d; // from behind the Trench Run: fewer go in, few find the Inner Port
+        const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) * (far ? FAR20.inner : 1) : 0;
         // a trench-height robot shoots from low down: a defender in its face blocks some of it
         const blk = upper && c.lowProfile && r.defBy ? 0.85 : 1;
         for (let i = 0; i < n; i++) {
-          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 : 1.12, pen) * blk);
+          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 * (far ? FAR20.hit : 1) : 1.12, pen) * blk);
           r.stats.shots++; H.shotFx(m, r, goal, hit);
           if (!hit) { spawnCell20(m, r.a); continue; }
           r.stats.hits++;
@@ -491,7 +495,7 @@
     for (const x of bots) {
       const cl = Math.max(1, x.cap.endLevel || 0);
       let lv = 1;
-      if (cl >= 3 && !l3) { lv = 3; l3 = true; } else if (cl >= 2 && l2 < 2) { lv = 2; l2++; }
+      if (cl >= 3 && (!l3 || x.cap.hover)) { lv = 3; if (!x.cap.hover) l3 = true; } else if (cl >= 2 && l2 < 2) { lv = 2; l2++; } // (3.5.6) a suction climber hangs beside Level 3: the platform stays free
       if (x === r) { out = lv; break; }
     }
     return out;
@@ -502,6 +506,11 @@
     leftCheck: (m, r) => loc(m, r).x > G19.habX + 0.35,
     // a turreted elevator points at the bay or the Loading Station it is working on, whatever way the chassis faces
     aimAt: (m, r) => (r.cap.turretLift && r.mem.aim ? r.mem.aim : null),
+    // (3.5.6) what a robot turns its scorer to: the bay, the rocket face or the Loading Station it works at (a lift on a turret points itself)
+    // A suction climber backs up to Level 3: its arm swings out behind, onto the platform
+    workAt: (m, r, p) => { const l = r.label || '';
+      if (r.cap.hover && /^(To|Climbing) HAB 3/.test(l)) return { x: E.P(m, r.a, 0.66, FH / 2).x, y: p.y, side: 'back' };
+      return /^(To the (rocket|cargo ship|Loading Station|depot)|Placing|Loading)/.test(l) ? (r.cap.turretLift ? null : r.mem.aim || undefined) : undefined; },
     endLevel: (m, r) => habLevel19(m, r),
     init(m) {
       setHp(m);
@@ -573,7 +582,7 @@
       return collect19(m, r, type, (type === 'cargo' ? pc : ph).b);
     },
     endSpot(m, r, lvl) {
-      if (lvl >= 3) return E.P(m, r.a, 0.75, FH / 2);
+      if (lvl >= 3) return r.cap.hover ? E.P(m, r.a, 1.68, FH / 2 + (r.slot - 1) * 0.9) : E.P(m, r.a, 0.75, FH / 2); // a suction climber holds on from the front of the platform
       if (lvl === 2) return E.P(m, r.a, 0.75, r.slot % 2 ? FH / 2 + 1.15 : FH / 2 - 1.15);
       return E.P(m, r.a, 1.8, [FH / 2, FH / 2 - 1.25, FH / 2 + 1.25][r.slot]);
     },
@@ -968,7 +977,7 @@
       const x = m.rng.range(2.4, FW / 2 - 0.6), y = x < 5.3 ? (m.rng.chance(0.5) ? m.rng.range(0.9, H17 - 1.7) : m.rng.range(H17 + 1.7, FH - 0.9)) : m.rng.range(0.9, FH - 0.9);
       H.moveTo(m, r, E.P(m, r.a, x, y), () => {
         if (!H.canCollect(m, r)) return;
-        const secs = 5.5, rate = (0.4 + 1.5 * f / 100) * (r.cap.storage >= 60 ? 1.3 : 1) * U.clamp(ss.floor / 260, 0.1, 1);
+        const secs = 5.5, rate = (0.4 + 1.5 * f / 100) * (r.cap.storage >= 60 ? 1.3 : 1) * (r.cap.fuelWide || 1) * U.clamp(ss.floor / 260, 0.1, 1); // (3.5.6) fuelWide: an intake at each end
         H.act(r, secs, () => { const got = Math.max(0, Math.min(room(), Math.floor(ss.floor), Math.round(rate * secs))); ss.floor -= got; r.fuel = (r.fuel || 0) + got; }, 'Sweeping up fuel');
       }, 'To loose fuel');
       return true;
@@ -1012,16 +1021,22 @@
     }, 'To their hopper');
     return true;
   }
+  const FAR17 = 0.12; // (3.5.6) what a far-reaching turret loses at the end of its reach
   function fuelShoot17(m, r) {
     const hi = !!r.cap.fuelHigh, by = E.P(m, r.a, G17.boiler.x, G17.boiler.y);
-    const spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
+    let spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
+    // (3.5.6) a turret that reaches from outside the Key (cap.fuelFar, metres) shoots from where the robot stands, or comes just within reach
+    const far = hi && r.cap.fuelFar ? r.cap.fuelFar : 0;
+    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r); }
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r) || !(r.fuel > 0)) return;
       const f = r.cap.fuel || 40, rate = hi ? (3 + 10 * f / 100) * (r.cap.storage >= 60 ? 1.35 : 1) : 16;
-      const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - (hi ? H.aimTime(m, r) : 0.4)))));
-      H.act(r, (hi ? H.aimTime(m, r) : 0.4) + n / rate, () => {
+      const aimT = !hi ? 0.4 : r.cap.fuelTurret ? 0.3 * (r.cap.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100) : H.aimTime(m, r); // the turret aims itself: the chassis stays as it is
+      const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - aimT))));
+      const farK = far ? 1 - FAR17 * U.clamp((E.dist(r, by) - 3) / 3, 0, 1) : 1; // from far out a little less of the stream goes in
+      H.act(r, aimT + n / rate, () => {
         // a stream of fuel into a small goal: an average shooter sprays most of it, only a well-developed one is worth carrying
-        const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
+        const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) * farK : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
         r.fuel -= n; r.stats.shots += n; r.stats.hits += hits; r.stats.cycles++;
         H.shotFx(m, r, by, hits > n / 2);
         if (hits > 0) m.ss[r.a].q[hi ? 'hi' : 'lo'].push({ r, n: hits }); // into the boiler: counted five a second

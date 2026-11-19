@@ -66,7 +66,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.5';
+  G.VERSION = '3.5.6';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.

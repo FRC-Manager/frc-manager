@@ -88,6 +88,12 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.t th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 table.t td { padding: 6px 8px; border-bottom: 1px solid #222a32; vertical-align: middle; }
 table.t tr.me td { background: rgba(245,184,0,0.08); }
+/* (3.5.6) banded rows with a colour of their own (--ac) down the left edge: the research list and the Tech Knowledge table */
+table.t.bands td { border-bottom-color: transparent; padding-top: 8px; padding-bottom: 8px; }
+table.t.bands tr.alt td { background: rgba(127, 140, 160, 0.09); }
+table.t.bands tr td:first-child { border-left: 4px solid var(--ac, transparent); padding-left: 10px; }
+table.t.bands tr:hover td { background: color-mix(in srgb, var(--ac, #888) 16%, transparent); }
+table.t.bands .area { color: var(--ac, inherit); font-weight: 600; }
 table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: var(--panel2); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -133,6 +139,7 @@ label.f, div.f { display: flex; flex-direction: column; gap: 4px; font-size: 12p
 .calls { display: flex; flex-wrap: wrap; gap: 6px; }
 .rbox { padding: 8px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line); margin-bottom: 6px; font-size: 12px; }
 .rbox.me { border-color: var(--accent); }
+.rbside { margin-top: 6px; }
 .rbox .hd { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; }
 .rp-item { margin-bottom: 8px; font-size: 12px; }
 .bracket { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; overflow-x: auto; }
@@ -765,7 +772,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.5';
+  G.VERSION = '3.5.6';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -975,7 +982,7 @@ window.G = window.G || {};
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 80, accuracy: 88 }, caps: { reach: 3, coneReach: 2, tall: 0.3 }, look: { manip: 'arm' } },
         { id: 'elev', name: 'Elevator', desc: 'Angled elevator reaching every row. Steady but slower.', cost: 950, hours: 160, w: 20, cx: 3, areas: ['elevator'],
           base: { scoreSpd: 35, accuracy: 48 }, ceil: { scoreSpd: 80, accuracy: 93 }, caps: { reach: 3, coneReach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevw', name: 'Elevator + wrist', desc: 'Elevator with a wrist: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'elevw', name: 'Elevator + escalator', desc: 'An elevator that carries an escalator, three telescoping stages that run out level over the Grid: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 40, accuracy: 48 }, ceil: { scoreSpd: 90, accuracy: 95 }, caps: { reach: 3, coneReach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } },
         { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1600, hours: 235, w: 22, cx: 4, areas: ['arm'],
           base: { scoreSpd: 45, accuracy: 40 }, ceil: { scoreSpd: 95, accuracy: 90 }, caps: { reach: 3, coneReach: 3, tall: 1.0 }, look: { manip: 'dja' } },
@@ -997,7 +1004,7 @@ window.G = window.G || {};
     ],
     archetypes: [
       { name: 'Pivoting telescope, ground intake', min: 90, pick: { drive: 'swerve', intake: 'gall', scorer: 'tele', effector: 'wrist' } },
-      { name: 'Elevator + wrist, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
+      { name: 'Elevator + escalator, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
       { name: 'Elevator scorer', min: 56, pick: { drive: ['swerve', 'wcd'], intake: ['gcube', 'none'], scorer: ['elev', 'elevw'], effector: 'roller' } },
       { name: 'Arm scorer', min: 36, pick: { drive: ['wcd', 'swerve', 'kit'], intake: 'none', scorer: 'sja', effector: ['claw', 'roller'] } },
       { name: 'Hybrid pusher', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'hyb', effector: 'claw' } },
@@ -1035,8 +1042,10 @@ window.G = window.G || {};
           base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, ampViaShooter: 0.55, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
         { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: Speaker from the wing. Tilts up to score the Amp without an amp mechanism at a moderate speed and success rate.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: 0.8, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision. Its hood can also score the Amp at a moderate speed and success rate.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, ampViaShooter: 0.75, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
+        // (3.5.6) an elite design, and a small gain: a note shooter is big and heavy, so its turret turns slowly
+        // (cap.turretSlow: its aim takes that many times a light turret's) and is no more accurate than a good pivot
+        { id: 'turret', name: 'Turret shooter', elite: true, desc: 'Aims without turning the robot, and shoots on the move with vision. A note shooter is big and heavy, so the turret turns slowly and is no more accurate than a good pivot: a little quicker to aim, a little more reach, and a defender bothers it less. Its hood can also score the Amp at a moderate speed and success rate. The hardest shooter of the year.', cost: 2300, hours: 300, w: 26, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 90, accuracy: 94, range: 92 }, caps: { speaker: true, turret: true, turretSlow: 1.8, ampViaShooter: 0.75, rmin: 1.0, rmax: 5.8 }, look: { shooter: 'turret' } }
       ] },
       { id: 'amp', name: 'Amp / Trap', concepts: [
         { id: 'none', name: 'No amp mechanism', desc: 'The shooter scores the Amp by itself: fixed shooters slowly and with a low success rate, pivot and turret shooters at a moderate rate. No Trap.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
@@ -1055,7 +1064,8 @@ window.G = window.G || {};
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret/pivot + Trap', min: 76, pick: { drive: 'swerve', intake: 'utb', scorer: ['pivot', 'turret'], amp: 'amptrap', endgame: 'chaintrap' } },
+      { name: 'Turret + Trap', min: 90, pick: { drive: 'swerve', intake: 'utb', scorer: ['turret', 'pivot'], amp: 'amptrap', endgame: 'chaintrap' } },
+      { name: 'Pivot + Trap', min: 76, pick: { drive: 'swerve', intake: 'utb', scorer: 'pivot', amp: 'amptrap', endgame: 'chaintrap' } },
       { name: 'Pivot shooter + climb', min: 56, pick: { drive: 'swerve', intake: ['utb', 'otb'], scorer: 'pivot', amp: ['none', 'ampbar'], endgame: 'chain' } },
       { name: 'Subwoofer + amp bar', min: 36, pick: { drive: ['wcd', 'swerve'], intake: 'otb', scorer: 'sub', amp: 'ampbar', endgame: ['chain', 'none'] } },
       { name: 'Subwoofer shooter', min: 14, pick: { drive: ['kit', 'wcd'], intake: ['src', 'otb'], scorer: 'sub', amp: 'none', endgame: ['chain', 'none'] } },
@@ -1275,6 +1285,12 @@ window.G = window.G || {};
           base: { scoreSpd: 40, accuracy: 45, range: 0 }, ceil: { scoreSpd: 78, accuracy: 90, range: 30 }, caps: { lower: true, upper: true, rmin: 1.2, rmax: 3.6 }, look: { shooter: 'fixed' } },
         { id: 'hood', name: 'Adjustable hood shooter', desc: 'Shoots from the Initiation Line and beyond. Straight-on shots can drop through to the Inner Port.', cost: 1300, hours: 180, w: 17, cx: 3, areas: ['shooter', 'vision'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 86, accuracy: 92, range: 82 }, caps: { lower: true, upper: true, rmin: 1.4, rmax: 7.2 }, look: { shooter: 'hood' } },
+        // (3.5.6) one big soft wheel under a long hood (2481's): with the range developed it shoots from just past its own
+        // Sector line, behind the Trench Run, a short trip from the Loading Bay. From there fewer cells go in and few find
+        // the Inner Port (rules-classic: FAR20). The wheel needs the tall frame (needs; under a low one it shoots like a hood: unmet)
+        { id: 'long', name: 'Long-range shooter (big wheel)', desc: 'One wheelchair-size flywheel under a long hood throws cells most of the length of the field: once its range is developed it shoots from behind the Trench Run, a short drive from the Loading Bay. From that far fewer cells go in and very few find the Inner Port. Tall frame only: under a Trench-height frame the wheel does not fit, and it shoots no further than an adjustable hood.', cost: 1500, hours: 200, w: 20, cx: 4, areas: ['shooter', 'vision'],
+          base: { scoreSpd: 40, accuracy: 40, range: 45 }, ceil: { scoreSpd: 84, accuracy: 90, range: 100 }, caps: { lower: true, upper: true, rmin: 1.6, rmax: 19, longShot: true }, look: { shooter: 'hood' },
+          needs: { sub: 'frame', concepts: ['std'], what: 'the tall frame', orNone: true }, unmet: { longShot: false, rmax: 7.2 } },
         { id: 'turret', name: 'Turret + hood', desc: 'Aims by itself and shoots from the Trench Run, the full length of the field away from its own Loading Bay.', cost: 1900, hours: 240, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
           base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { lower: true, upper: true, rmin: 1.4, rmax: 9.5, turret: true }, look: { shooter: 'turret' } }
       ] },
@@ -1299,6 +1315,7 @@ window.G = window.G || {};
     archetypes: [
       { name: 'Turret + revolver trench runner', min: 90, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: 'revolver', scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'buddy'] } },
       { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'level', 'hook', 'buddy'] } },
+      { name: 'Long-range shooter + hang', min: 60, rare: 0.3, pick: { drive: ['swerve', 'wcd'], frame: 'std', intake: ['wide', 'over'], scorer: 'long', panel: ['spin', 'none'], endgame: ['hook', 'level'] } }, // rare: three teams in ten that could build it do
       { name: 'Hood shooter + hang', min: 56, pick: { drive: ['swerve', 'wcd'], frame: ['low', 'std'], intake: 'over', scorer: 'hood', panel: ['spin', 'none'], endgame: 'hook' } },
       { name: 'Wall shooter + hang', min: 36, pick: { drive: ['wcd', 'kit'], frame: 'std', intake: 'over', scorer: 'fixed', panel: 'none', endgame: ['hook', 'none'] } },
       { name: 'Bottom-port dumper', min: 16, pick: { drive: 'kit', frame: 'std', intake: ['bay', 'over'], scorer: 'dump', panel: ['none', 'spin'], endgame: ['hook', 'none'] } },
@@ -1365,6 +1382,13 @@ window.G = window.G || {};
           base: { endgame: 45 }, ceil: { endgame: 88 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
         { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 3, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 90 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
+        // (3.5.6) a vacuum pad on an arm (254's), built onto the back of the elevator: the arm swings out onto Level 3 and
+        // the elevator's own motors pull the robot up beside the platform (motors: 0), a little sooner than stilts, and the
+        // platform stays free for a partner (rules-classic: habLevel19 and endSpot, cap.hover). It needs an elevator to
+        // ride on (needs; without one it does nothing: unmet)
+        { id: 'suction', name: 'Suction climber (Level 3)', desc: 'A vacuum pad on an arm, built onto the back of the elevator. The arm swings out onto HAB Level 3 and the elevator\'s own motors pull the robot up beside the platform: no motors of its own, 12 points a little sooner than stilts, and the platform stays free for a partner to climb onto. Only a robot with an elevator can carry it.', cost: 1150, hours: 205, w: 10, cx: 4, areas: ['climb'], motors: 0,
+          needs: { sub: 'scorer', concepts: ['elev', 'elevfast', 'turretlift'], what: 'an elevator to ride on' }, unmet: { endLevel: 0, hover: false },
+          base: { endgame: 34 }, ceil: { endgame: 91 }, caps: { endLevel: 3, hover: true, climbK: 0.88 }, look: { climber: 'hook2' } },
         { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 4, areas: ['climb'],
           base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } },
         // both partners onto HAB Level 3 at once: 36 points from one mechanism, when it works. Both have to be there in
@@ -1376,8 +1400,8 @@ window.G = window.G || {};
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: ['turretlift', 'elevfast'], effector: 'active', endgame: ['l3triple', 'l3buddy', 'l3'] } },
-      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy'] } },
+      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: ['turretlift', 'elevfast'], effector: 'active', endgame: ['l3triple', 'l3buddy', 'l3', 'suction'] } },
+      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy', 'suction'] } },
       { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', effector: ['combo', 'active'], endgame: ['l3', 'l2'] } },
       { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'none'], scorer: 'arm', effector: 'combo', endgame: ['l2', 'none'] } },
       { name: 'Cargo-ship cycler', min: 16, pick: { drive: ['kit', 'wcd'], intake: ['none', 'ground'], scorer: 'low', effector: 'combo', endgame: ['l2', 'none'] } },
@@ -1420,7 +1444,10 @@ window.G = window.G || {};
         { id: 'elev', name: 'Scale elevator', desc: 'A two-stage elevator that puts cubes on the Scale, even when it is tipped against you.', cost: 1200, hours: 180, w: 17, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 85, accuracy: 93 }, caps: { reach: 2, tall: 0.5 }, look: { manip: 'elevator' } },
         { id: 'elevfast', name: 'Fast elevator + wrist', desc: 'A quick continuous elevator with a wrist that tilts the end effector over the plate. The robots that owned the Scale had one.', cost: 1750, hours: 235, w: 20, cx: 5, areas: ['elevator', 'arm'],
-          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } }
+          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } },
+        // (3.5.6) two tubes on driven joints (1323's): the Scale in one swing, lighter and lower than an elevator and nearly as quick
+        { id: 'dja', name: 'Double-jointed arm', desc: 'Two carbon tubes on driven joints: it folds flat inside the frame and swings a cube up to the Scale in one move. Lighter than an elevator and steadier on its wheels, nearly as quick, and the hardest lift to build and to tune.', cost: 1500, hours: 220, w: 15, cx: 5, areas: ['arm'],
+          base: { scoreSpd: 40, accuracy: 42 }, ceil: { scoreSpd: 92, accuracy: 91 }, caps: { reach: 2, tall: 0.4 }, look: { manip: 'arm' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
         { id: 'pinch', name: 'Pinch claw', desc: 'Two arms and a cylinder squeeze the cube. The robot has to line up on it exactly, and a hard hit can shake it loose.', cost: 200, hours: 45, w: 5, cx: 1, areas: ['effector'],
@@ -1428,7 +1455,11 @@ window.G = window.G || {};
         { id: 'roller', name: 'Roller claw', desc: 'Powered compliant wheels pull the cube in and spit it out: no lining up, and it lets go the moment it is over the plate.', cost: 550, hours: 100, w: 8, cx: 3, areas: ['effector'],
           base: { grip: 45 }, ceil: { grip: 88 }, self: { ground: true, station: true, lo: 45, hi: 86 }, look: { eff: 'claw' } },
         { id: 'launch', name: 'Launching roller claw', desc: 'Rollers fast enough to throw the cube: it scores from a step back, before the lift has finished moving.', cost: 900, hours: 150, w: 10, cx: 4, areas: ['effector'],
-          base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } }
+          base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } },
+        // (3.5.6) the launching claw on a pivot of its own (254's): it flips over the lift and scores behind the robot as well
+        // as in front, so the chassis need not turn round to place (engine: cap.flip cuts the lining up, like a small turret)
+        { id: 'flip', name: 'Flipping roller claw', elite: true, desc: 'The launching claw on a pivot of its own: it flips right over the lift and scores behind the robot as well as in front, so the chassis never has to turn round to place a cube. A tank drive gains the most. The hardest end effector of the year.', cost: 1300, hours: 210, w: 12, cx: 5, areas: ['effector'],
+          base: { grip: 48 }, ceil: { grip: 96 }, caps: { launch: true, flip: true }, self: { ground: true, station: true, lo: 46, hi: 91 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [
         NONE_END,
@@ -1440,7 +1471,8 @@ window.G = window.G || {};
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: 'elevfast', effector: ['launch', 'roller'], endgame: ['buddy', 'hook'] } },
+      { name: 'Flipping claw on a fast lift', min: 90, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: ['elevfast', 'elevfast', 'dja'], effector: ['flip', 'launch'], endgame: ['buddy', 'hook'] } },
+      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: ['elevfast', 'elevfast', 'dja'], effector: ['launch', 'roller'], endgame: ['buddy', 'hook'] } },
       { name: 'Scale elevator + climb', min: 56, pick: { drive: ['wcd', 'swerve'], intake: ['wheeled', 'none'], scorer: 'elev', effector: 'roller', endgame: 'hook' } },
       { name: 'Switch and vault bot', min: 34, pick: { drive: ['wcd', 'kit'], intake: ['wheeled', 'none'], scorer: 'low', effector: 'roller', endgame: ['hook', 'none'] } },
       { name: 'Claw switch bot', min: 14, pick: { drive: 'kit', intake: 'none', scorer: 'low', effector: 'pinch', endgame: 'none' } },
@@ -1486,7 +1518,13 @@ window.G = window.G || {};
         { id: 'shoot', name: 'High-goal shooter (45 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 45 }, look: { shooter: 'fixed', hopper: 45 } },
         { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
-          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } }
+          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } },
+        // (3.5.6) the best fuel robots of the year (254's): a full-width intake at each end, a spiral feeder and a turret with
+        // two flywheels. It sweeps loose fuel up faster (cap.fuelWide), and the turret shoots from well outside the Key,
+        // wherever the robot stands within reach of the boiler (cap.fuelFar, metres), aiming by itself (cap.fuelTurret):
+        // it never has to drive to the Key, so a defender has nowhere to wait for it (rules-classic: fuelShoot17, fuelLoad17)
+        { id: 'dualturret', name: 'Dual intake + turret shooter (80 balls)', elite: true, desc: 'A full-width intake at each end, a spiral feeder and a turret with two flywheels. It sweeps loose fuel up faster, and the turret empties its hopper in seconds from well outside the Key, wherever the robot stands within reach of the boiler: it never has to drive into the Key, so a defender has nowhere to wait for it. A little less sure from far out. The hardest fuel system of the year.', cost: 2400, hours: 310, w: 26, cx: 5, areas: ['intake', 'turret', 'shooter', 'index', 'vision'], motors: 4,
+          base: { fuel: 36 }, ceil: { fuel: 96 }, caps: { fuelHigh: true, fuelLow: false, storage: 80, fuelTurret: true, fuelFar: 6, fuelWide: 1.35 }, look: { shooter: 'turret', hopper: 80 } }
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
         NONE_END,
@@ -1499,6 +1537,7 @@ window.G = window.G || {};
     ],
     archetypes: [
       // most teams ran gears and a rope and nothing else: a shooter only paid for itself on the strongest robots
+      { name: 'Dual intake turret + floor gears', min: 90, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['dualturret', 'mega'], endgame: 'fast' } },
       { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
       { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
       { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['wcd', 'mec', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },
@@ -2408,6 +2447,7 @@ window.G = window.G || {};
   D.FATIGUE_SLOPE = 40;     // fatigue change per week per unit of idle share below/above that
   D.FATIGUE_OVERTIME = 10;  // an overtime week
   D.FATIGUE_EVENT = 9;      // a competition week
+  D.FATIGUE_SUPERPIT = 2;   // (3.5.6) ... less with the Super pit: no evening spent building the pit, and a mini fridge
   D.INCIDENT_FREE = 35;     // at or below this fatigue, at most one incident per event
   // Experience by field strength: an event's stars (★ to ★★★★★) say how strong its field is. Each star above three adds
   // 15% to what the team learns there (drive-team skills, know-how from competing, strategy read), each star below takes
@@ -2459,7 +2499,7 @@ window.G = window.G || {};
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
     { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.2, event: 6 },
       levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }, { name: 'Super pit', cost: 9000, from: 2018 }],
-      fx: { repair: [0.25, 0.45, 0.6], superPit: [0, 0, 1], scout: [0, 0, 1] }, desc: 'Faster pit repairs between matches. The Super pit (road cases, from 2018) also fully repairs one subsystem of your choice before any match, with spare parts, and its screens help the strategy team scout.' },
+      fx: { repair: [0.25, 0.45, 0.6], superPit: [0, 0, 1], scout: [0, 0, 1] }, desc: 'Faster pit repairs between matches. The Super pit (road cases, from 2018) also fully repairs one subsystem of your choice before any match, with spare parts, its screens help the strategy team scout, and an event tires the team a little less.' },
     { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.2, event: 5 },
       levels: [{ name: 'Team trailer', cost: 18000 }],
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
@@ -2505,7 +2545,7 @@ window.G = window.G || {};
   // School board gifts at the season review, when Program Support went up: a free full renovation, and after a strong year one upgrade of your choice
   D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000, cash: 3000 }; // cash: when no upgrade fits, in 2026 dollars (shown in the year's dollars)
   // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
-  D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3 };
+  D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3, mentorH: 3 }; // mentorH (3.5.6): mentor hours a week each own team takes in the offseason, while its season runs
   // FIRST Tech Challenge games, by the year their season ends (the FTC season runs from a September kickoff to the
   // Championship in April or May). News only: the kickoff, the season, the World Championship, and your own FTC teams.
   // In a random-order career the FTC games are shuffled on their own (news.js ftcGame), never paired with the FRC game.
@@ -5658,8 +5698,8 @@ window.G = window.G || {};
     { id: 'superpit', cy: 2018, at: 'off:3', tag: 'SPOTTED AT THE CHAMPIONSHIP', color: 'var(--info)', title: 'The pit that rolls in', btn: 'workshop',
       body: ['A few of the best teams arrived at the Championship this year with no pit to build. Their whole pit came in road cases: lift the lids and you have workbenches, tool walls, a parts library in labelled drawers and a television for the strategy team, set up in twenty minutes.',
         'Between matches the crews did not patch the robot. They took one mechanism off, rebuilt it from spares and had it back on before queuing, while the scouts argued over the next alliance on the big screen.'],
-      means: ['The Super pit is the new top level of Pit Setup in the Workshop. It packs into the same space as a full pit setup: no extra room needed.', 'Before any match, the crew fully repairs one subsystem of your choice (spare parts as usual). When you simulate the qualification matches, it repairs whichever subsystem is in the worst shape.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.'],
-      talk: [['Twenty minutes from the truck to a working pit. I timed it.', 'an inspector'], ['We still use a folding table. It is a very good folding table.', 'a mentor on Team {t}'], ['There is a TV in their pit. For the scouts. I need to sit down.', 'a student on Team {t}']] },
+      means: ['The Super pit is the new top level of Pit Setup in the Workshop. It packs into the same space as a full pit setup: no extra room needed.', 'Before any match, the crew fully repairs one subsystem of your choice (spare parts as usual). When you simulate the qualification matches, it repairs whichever subsystem is in the worst shape.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.', 'It takes far less effort to set up than a pit built from crates, and one of the cases holds a mini fridge: an event tires the team a little less.'],
+      talk: [['Twenty minutes from the truck to a working pit. I timed it.', 'an inspector'], ['We still use a folding table. It is a very good folding table.', 'a mentor on Team {t}'], ['There is a TV in their pit. For the scouts. I need to sit down.', 'a student on Team {t}'], ['Cold drinks. In the pit. They have a fridge in a road case.', 'a student on Team {t}']] },
     // the autumn of 2022: after AprilTags are announced, Lanternworks launches Lantern 2 and the Spark accelerator
     { id: 'lantern2', cy: 2023, at: 'off:6', tag: 'VENDOR NEWS · LANTERNWORKS', color: '#8ee05a', title: 'Lanternworks answers the tags', btn: 'parts',
       body: ['When the paper tags were announced, the two programmers who founded Lanternworks five years ago in an apartment said one thing in public: "Give us a month." It took six weeks.',
@@ -6132,7 +6172,7 @@ window.G = window.G || {};
     R.init(m, H);
     m.robots.forEach(r => {
       const p = R.start(m, r);
-      r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
+      r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y; r.ox = r.oy = r.pox = r.poy = 0;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
       r.autoOK = m.rng.chance(E.autoChance(r.cap.auto, r.tuneAuto)) && !r.autoFail;
       if (r.toolIn) { r.perm[r.toolIn] = true; const nm = r.toolIn === 'endgame' ? 'Climber' : r.toolIn === 'intake' ? 'Intake' : 'Scorer'; r.stats.faults.push(nm + ' blocked (tool left inside)'); log(m, r.a, r.team + ': ' + nm.toLowerCase() + ' blocked by a tool left inside the robot', 'fault'); }
@@ -6181,6 +6221,7 @@ window.G = window.G || {};
     for (const r of m.robots) updateRobot(m, r);
     beachHit(m);
     separate(m);
+    if (!m.headless) for (const r of m.robots) showStep(m, r); // (3.5.6) where each robot is drawn this tick
     if (m.R.tick) m.R.tick(m, H);
     m.t = Math.round((m.t + DT) * 1000) / 1000;
     if (m.t >= m.total - 1e-6) finish(m);
@@ -6207,7 +6248,7 @@ window.G = window.G || {};
   }
 
   function updateRobot(m, r) {
-    r.px = r.x; r.py = r.y;
+    r.px = r.x; r.py = r.y; r.phd = r.hd; r.pox = r.ox || 0; r.poy = r.oy || 0;
     if (r.dead) { r.label = r.tipped ? 'TIPPED' : r.noPower ? 'NO POWER' : 'DISABLED'; return; }
     if (r.fault && m.t >= r.fault.until) { r.fault = null; if (r.st === 'idle') r.label = ''; }
     for (const k in r.jam) if (r.jam[k] && m.t >= r.jam[k]) r.jam[k] = 0;
@@ -6248,7 +6289,16 @@ window.G = window.G || {};
     }
     // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
     if (r.faceAt) { if (r.faceAt.live && m.R.aimAt) { const p = m.R.aimAt(m, r); if (p) { r.faceAt.x = p.x; r.faceAt.y = p.y; } }
-      if (r.st === 'act' || r.st === 'wait') turnTo(r, Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (!m.headless && G.Render && G.Render.firesBack && G.Render.firesBack(r) ? Math.PI : 0)); else if (r.st !== 'idle') r.faceAt = null; } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
+      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : 0);
+        if (r.cap.flip && !r.faceAt.side && Math.abs(angd(want, r.hd || 0)) > Math.PI / 2) want += Math.PI;   // (3.5.6) a flipping claw scores behind the robot as well: it turns to whichever end is nearer
+        turnBy(r, want, TURN); } else if (r.st !== 'idle') r.faceAt = null; }
+    // (3.5.6) a robot that starts work on something beside it (placing, loading from a station) turns its scorer or its intake to it
+    // (side: which end points at it. Its intake end when it loads, 'back' for a robot fed from behind; else the end its scorer is on)
+    if (!m.headless && r.st === 'act' && r.actSeen !== r.actN) {
+      r.actSeen = r.actN;
+      if (!r.faceAt || r.faceAt.auto) { const p = WORK.test(r.label || '') ? workAt(m, r, r) : m.R.workAt ? m.R.workAt(m, r, r) || null : null; // (any other act: only if the season itself says what to face)
+        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; }
+    } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
       const pg = r.prog || (r.prog = { t: m.t, x: r.x, y: r.y, n: 0, chk: m.t });
@@ -6351,14 +6401,20 @@ window.G = window.G || {};
     // the spot is taken (a robot stopped on it, a partner about to get there, or this robot gave up on it a moment ago):
     // use a free one beside it. Climbing spots are not moved.
     if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt); if (alt) pt = alt; }
-    r.goal = pt; r.gprog = null; r.faceAt = null;
+    r.goal = pt; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
     r.path = planTo(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
+    if (!m.headless) {                                                              // (3.5.6) what it will face when it gets there, if the season knows: a holonomic drive turns to it on the way
+      const c = r.cap, full = r.held > 0 && r.held >= Math.min(c.storage || 1, 3) && !c.turret;
+      const p = (m.R.workAt && m.R.workAt(m, r, pt)) || (full ? (m.R.aimAt ? m.R.aimAt(m, r) : m.year === 2022 ? m.hub : m.year === 2024 ? m.spk[r.a] : m.year === 2026 ? m.hub[r.a] : null) : null);
+      if (p && Math.hypot(p.x - pt.x, p.y - pt.y) > 0.2) r.arrAt = { x: p.x, y: p.y, back: p.side ? p.side === 'back' : r.held > 0 ? firesBack(m, r) : loadsBack(m, r) };
+    }
     // alignment / acceleration overhead at the end of each leg
     // lining up on arrival: the chassis has to be squared up (agility) and the driver has to find the spot. A lift on a
     // turret (cap.turretLift) points itself, so the chassis part goes, and some of the fixed part with it (it need not stop square
     // either): a tank drive saves about half a second a leg, a holonomic drive, which lines up quickly anyway, a tenth.
-    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) * (r.cap.turretLift ? -0.3 : 1) + 1.1 * (1 - r.drv.drive / 100) * (r.cap.turretLift ? 0.9 : 1)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
+    // (3.5.6) An end effector that flips over the lift (cap.flip) places in front or behind: the chassis never turns round, about half of that.
+    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) * (r.cap.turretLift ? -0.3 : r.cap.flip ? 0.4 : 1) + 1.1 * (1 - r.drv.drive / 100) * (r.cap.turretLift ? 0.9 : r.cap.flip ? 0.96 : 1)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
   }
   // Plans around field elements: the first element on the way gets a waypoint beside it, then both legs are checked
   // again (a couple of levels deep). Solid elements (o.h = physical radius) are inflated by half a robot.
@@ -6577,10 +6633,10 @@ window.G = window.G || {};
       else { r.x += (p.x - r.x) / d * step; r.y += (p.y - r.y) / d * step; step = 0; }
     }
     const dx = r.x - r.px, dy = r.y - r.py;
-    if (dx * dx + dy * dy > 4e-4) turnTo(r, Math.atan2(dy, dx)); // 2 cm or more this tick: it is driving that way
+    if (dx * dx + dy * dy > 4e-4) steer(m, r, Math.atan2(dy, dx)); // 2 cm or more this tick: it is driving that way
     if (!r.path.length) {
       const f = r.onArrive; r.onArrive = null;
-      if (r.settleT > 0.05) { const t = r.settleT; r.settleT = 0; r.st = 'act'; r.timer = t; r.onDone = f; return; }
+      if (r.settleT > 0.05) { const t = r.settleT; r.settleT = 0; r.st = 'act'; r.timer = t; r.onDone = f; if (r.arrAt && !r.endBusy) r.faceAt = { x: r.arrAt.x, y: r.arrAt.y, side: r.arrAt.back ? 'back' : 'front', auto: true }; return; } // lining up: it squares up to what it came for
       r.st = 'idle'; if (f) f();
     }
   }
@@ -6600,6 +6656,64 @@ window.G = window.G || {};
     while (d < -Math.PI) d += 2 * Math.PI;
     r.hd = (r.hd || 0) + U.clamp(d, -TURN, TURN);
   }
+  // (3.5.6) How a robot points while it drives in a watched match (for show only, like every heading: nothing in a
+  // match reads r.hd). A holonomic drive (swerve, mecanum) goes one way and points another: it turns as it travels,
+  // to stand right when it arrives (r.arrAt: what it will face there), and with a defender on it, it spins off the
+  // contact. A tank drive goes only where it points: it swings through its corners, backs up for a short hop behind
+  // it instead of turning round, turns on the spot before a run the other way, and with a defender in the way of the
+  // turn it backs off first (showStep holds its picture back meanwhile).
+  const HOLO = E.HOLO = { swerve: 1, mecanum: 1 }, PI2 = 2 * Math.PI;
+  const angd = (a, b) => { let d = (a - b) % PI2; if (d > Math.PI) d -= PI2; else if (d < -Math.PI) d += PI2; return d; };
+  const turnBy = (r, want, rate) => { r.hd = (r.hd || 0) + U.clamp(angd(want, r.hd || 0), -rate, rate); };
+  const firesBack = (m, r) => !m.headless && !!(G.Render && G.Render.firesBack && G.Render.firesBack(r));
+  const loadsBack = (m, r) => !m.headless && !!(G.Render && G.Render.loadsBack && G.Render.loadsBack(r));   // fed from behind (a coral funnel)
+  function steer(m, r, trav) {
+    if (m.headless) { turnTo(r, trav); return; }
+    const goal = r.path.length ? r.path[r.path.length - 1] : r.goal || r, dg = dist(r, goal), hd = r.hd || 0;
+    const D = r.defBy, press = !!D && !D.dead && dist(r, D) < 2 * RR + 0.32;
+    if (HOLO[r.look.drive]) {
+      if (press) {                                                                   // rolls off the defender, a turn at a time
+        if (!r.spin) r.spin = Math.cos(trav) * (D.y - r.y) - Math.sin(trav) * (D.x - r.x) > 0 ? -1 : 1;
+        if (Math.floor(m.t * 10) % 20 < 14) r.hd = hd + r.spin * (r.cap.noGrip ? 0.3 : 0.45);
+        return;
+      }
+      r.spin = 0;
+      const A = r.arrAt; turnBy(r, A ? Math.atan2(A.y - goal.y, A.x - goal.x) + (A.back ? Math.PI : 0) : trav, 0.26);
+      return;
+    }
+    const err = Math.abs(angd(trav, hd));
+    if (r.rev) { if (Math.abs(angd(trav + Math.PI, hd)) > 1.3 || dg > 2.5) r.rev = 0; }
+    else if (err > 2.0 && dg < 1.9) r.rev = 1;                                        // a short hop behind it: it backs up
+    if (r.rev) { r.uturn = 0; turnBy(r, trav + Math.PI, 0.3); return; }
+    r.uturn = err > 1.15 ? 1 : 0;                                                    // a run the other way: it turns on the spot first
+    if (press && err > 0.8 && !(r.bkT > m.t - 1.2)) r.bkT = m.t + 0.7;               // a defender in the way of the turn: back off, then turn
+    turnBy(r, trav, r.uturn ? 0.5 : press ? 0.2 : 0.32);
+  }
+  // where a robot is drawn, as an offset from where it is (r.ox, r.oy): a tank drive rounds its corners and hangs back while it turns
+  function showStep(m, r) {
+    // the picture stays where it was drawn last tick (px + pox) and is then pulled towards where the robot is now
+    let ox = (r.pox || 0) - (r.x - r.px), oy = (r.poy || 0) - (r.y - r.py);
+    if (HOLO[r.look.drive] || r.dead || r.climbing || r.st === 'done' || Math.hypot(ox, oy) > 1.5) { ox = (r.pox || 0) * 0.4; oy = (r.poy || 0) * 0.4; }
+    else {
+      const hd = r.hd || 0, bk = r.bkT > m.t ? 0.3 * Math.sin(Math.PI * (1 - (r.bkT - m.t) / 0.7)) : 0;
+      const k = r.st === 'move' ? (r.uturn ? 0.16 : 0.5) : 0.6, tx = -bk * Math.cos(hd), ty = -bk * Math.sin(hd);
+      ox += (tx - ox) * k; oy += (ty - oy) * k;
+    }
+    const l = Math.hypot(ox, oy); if (l > 0.55) { ox *= 0.55 / l; oy *= 0.55 / l; }
+    r.ox = Math.abs(ox) < 1e-3 ? 0 : ox; r.oy = Math.abs(oy) < 1e-3 ? 0 : oy;
+  }
+  // what a robot working where it stands should face: the season's own answer (m.R.workAt), else the field element
+  // beside it, else the wall it is at. p: the spot
+  const WORK = /^(Placing|Scoring|Loading|Feeding the|Tipping|Dumping|Delivering|Hanging a|Low goal|On the peg|Bottom port|At source|At coral station|Processing|Removing algae|Spinning up|Stacking|Dropping a|Laying a|Taking a|Firing the)/, TAKE = /^(Loading|Tipping a|Tipping their hopper|At source|At coral station|Taking a)/;
+  function workAt(m, r, p) {
+    if (m.R.workAt) { const q = m.R.workAt(m, r, p); if (q !== undefined) return q; }
+    let best = null, bd = 1.7;
+    for (const o of m.obs) { if (!o.h) continue; const d = Math.hypot(o.x - p.x, o.y - p.y) - o.h; if (d < bd) { bd = d; best = o; } }
+    if (best) return { x: best.x, y: best.y };
+    const w = [[p.x, 0, p.y], [p.x, FH, FH - p.y], [0, p.y, p.x], [FW, p.y, FW - p.x]].sort((a, b) => a[2] - b[2])[0];
+    return w[2] < 2.3 ? { x: w[0], y: w[1] } : null;
+  }
+  E.workAt = workAt;
   // Robots are about 0.86 m across with bumpers: they push each other apart (a robot that cannot move — climbing,
   // disabled or parked — makes the other one give way completely) and cannot drive through solid field elements
   // (hubs, reef, stage legs, barge leg, towers and cages; a robot heading for its climb may touch its own tower/cage).
@@ -6649,7 +6763,7 @@ window.G = window.G || {};
     for (const r of rs) { r.x = U.clamp(r.x, RR, FW - RR); r.y = U.clamp(r.y, RR, FH - RR); }
   }
 
-  function act(r, secs, then, label) { r.st = 'act'; r.timer = Math.max(0.1, secs); r.onDone = then || null; if (label) r.label = label; }
+  function act(r, secs, then, label) { r.st = 'act'; r.timer = Math.max(0.1, secs); r.onDone = then || null; if (label) r.label = label; r.actN = (r.actN || 0) + 1; }
   function waitUntil(r, fn, then, label, maxT) { r.st = 'wait'; r.timer = maxT || 999; r.waitFn = fn; r.onWait = then || null; if (label) r.label = label; }
 
   // ---------- defense ----------
@@ -7057,7 +7171,7 @@ window.G = window.G || {};
     aimTime(m, r, to) {
       const c = r.cap;
       if (!m.headless && !c.turret) { const p = to || (m.R.aimAt ? m.R.aimAt(m, r) : m.year === 2022 ? m.hub : m.year === 2024 ? m.spk[r.a] : m.year === 2026 ? m.hub[r.a] : null); if (p) H.face(r, to ? p : { x: p.x, y: p.y, live: true }); } // live: the game's own target may move (a turning station): keep following it
-      return (c.turret ? 0.3 : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
+      return (c.turret ? 0.3 * (c.turretSlow || 1) : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
     },
     hit(m, r, mult, distPen, stat) {
       const a = stat == null ? r.cap.accuracy : stat;
@@ -8543,10 +8657,15 @@ window.G = window.G || {};
   // reset: how long the defender must stay 6 ft away before pinning again; protMajor: protected-zone contact is a major/tech foul
   R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3, credit: { 'Hangar Zone': 4 } }; // G208: touching a robot in its Hangar Zone in the last 30 s gives it Traversal points
   R[2023].defense = { eff: 0.5, foul: 1.7, pin: 5, reset: 3 };
-  R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true };
+  R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true, turretK: 0.8 }; // (3.5.6) turretK: a heavy note turret shrugs off a fifth of a defender's push, not half
   R[2025].defense = { eff: 0.5, foul: 1.1, majorK: 0.08, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // one robot at most on the opposing side of the field; it blocks lanes midway (defSpot)
   R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // two defenders could block both bumps or both trenches, which the rules forbid
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
+  // (3.5.6) what a robot turns to while it works: the Grid stands against its own alliance wall; the Reef's middle; the corner a Coral Station or the Source is built across
+  const corner = p => ({ x: p.x < FW / 2 ? 0 : FW, y: p.y < FH / 2 ? 0 : FH });
+  S[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
+  S[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
+  S[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes home from the Source end (G414: only once the feeder\'s bumpers are out of the opponent\'s Wing), and their human players hold Amplify until two scorers are lined up. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers. Each of its six faces has its own branches: the faces nearest the coral stations fill first, and the last coral means a longer drive around to the far side.' };
@@ -8668,8 +8787,11 @@ window.G = window.G || {};
   // Where to shoot from. No full-court shots: a robot wholly inside its own Sector (the end with its Loading Bay) may not
   // send cells into the opponents' Sector, so the spot is always past its own Sector line. A shooter with the range uses
   // the far end of its own Trench Run, where nobody may touch it; nobody stops on the generator floor to shoot.
+  const FAR20 = { d: 9.5, hit: 0.95, inner: 0.4, pen: 0.6 }; // (3.5.6) a long-range shooter's shots from further than d metres: a little less sure, far fewer Inner Ports; its long hood loses less to distance (pen) than another shooter would
   function spot20(m, r, goal) {
     const R = (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1);
+    // (3.5.6) a long-range shooter with its range developed shoots from just past its own Sector line, behind the Trench Run: a short trip from the Loading Bay
+    if (r.cap.longShot) { const far = E.P(m, r.a, G20.sector + 0.6, U.clamp(G20.port.y + (r.slot - 1) * 0.9, 0.6, FH - 1.6)); if (R * 0.88 >= E.dist(far, goal)) return far; }
     const tr = E.P(m, r.a, G20.trench.x1 - 0.7 - r.slot * 0.8, FH - 0.75);
     if (R * 0.88 >= E.dist(tr, goal)) return tr;
     const z = r.a === 'blue' ? { x0: G20.sector - RR + 0.1, x1: FW - 0.5 } : { x0: 0.5, x1: FW - G20.sector + RR - 0.1 };
@@ -8692,12 +8814,13 @@ window.G = window.G || {};
       const n = r.held;
       H.act(r, H.aimTime(m, r) + n * H.scoreTime(m, r, upper ? 0.5 : 0.6) * (c.revolver ? REV20 : 1), () => {
         let pts = 0;
-        const pen = upper ? H.rangePen(m, r, goal) : 0, off = offAxis20(m, r.a, r);
-        const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) : 0;
+        const pen = upper ? H.rangePen(m, r, goal) * (c.longShot ? FAR20.pen : 1) : 0, off = offAxis20(m, r.a, r);
+        const far = upper && c.longShot && E.dist(r, goal) > FAR20.d; // from behind the Trench Run: fewer go in, few find the Inner Port
+        const pInner = upper ? U.clamp((0.06 + 0.5 * c.accuracy / 100 + 0.08 * (c.visionLvl || 0)) * (1 - 0.85 * off), 0.02, 0.8) * (far ? FAR20.inner : 1) : 0;
         // a trench-height robot shoots from low down: a defender in its face blocks some of it
         const blk = upper && c.lowProfile && r.defBy ? 0.85 : 1;
         for (let i = 0; i < n; i++) {
-          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 : 1.12, pen) * blk);
+          const hit = m.rng.chance(H.hit(m, r, upper ? 0.78 * (far ? FAR20.hit : 1) : 1.12, pen) * blk);
           r.stats.shots++; H.shotFx(m, r, goal, hit);
           if (!hit) { spawnCell20(m, r.a); continue; }
           r.stats.hits++;
@@ -9060,7 +9183,7 @@ window.G = window.G || {};
     for (const x of bots) {
       const cl = Math.max(1, x.cap.endLevel || 0);
       let lv = 1;
-      if (cl >= 3 && !l3) { lv = 3; l3 = true; } else if (cl >= 2 && l2 < 2) { lv = 2; l2++; }
+      if (cl >= 3 && (!l3 || x.cap.hover)) { lv = 3; if (!x.cap.hover) l3 = true; } else if (cl >= 2 && l2 < 2) { lv = 2; l2++; } // (3.5.6) a suction climber hangs beside Level 3: the platform stays free
       if (x === r) { out = lv; break; }
     }
     return out;
@@ -9071,6 +9194,11 @@ window.G = window.G || {};
     leftCheck: (m, r) => loc(m, r).x > G19.habX + 0.35,
     // a turreted elevator points at the bay or the Loading Station it is working on, whatever way the chassis faces
     aimAt: (m, r) => (r.cap.turretLift && r.mem.aim ? r.mem.aim : null),
+    // (3.5.6) what a robot turns its scorer to: the bay, the rocket face or the Loading Station it works at (a lift on a turret points itself)
+    // A suction climber backs up to Level 3: its arm swings out behind, onto the platform
+    workAt: (m, r, p) => { const l = r.label || '';
+      if (r.cap.hover && /^(To|Climbing) HAB 3/.test(l)) return { x: E.P(m, r.a, 0.66, FH / 2).x, y: p.y, side: 'back' };
+      return /^(To the (rocket|cargo ship|Loading Station|depot)|Placing|Loading)/.test(l) ? (r.cap.turretLift ? null : r.mem.aim || undefined) : undefined; },
     endLevel: (m, r) => habLevel19(m, r),
     init(m) {
       setHp(m);
@@ -9142,7 +9270,7 @@ window.G = window.G || {};
       return collect19(m, r, type, (type === 'cargo' ? pc : ph).b);
     },
     endSpot(m, r, lvl) {
-      if (lvl >= 3) return E.P(m, r.a, 0.75, FH / 2);
+      if (lvl >= 3) return r.cap.hover ? E.P(m, r.a, 1.68, FH / 2 + (r.slot - 1) * 0.9) : E.P(m, r.a, 0.75, FH / 2); // a suction climber holds on from the front of the platform
       if (lvl === 2) return E.P(m, r.a, 0.75, r.slot % 2 ? FH / 2 + 1.15 : FH / 2 - 1.15);
       return E.P(m, r.a, 1.8, [FH / 2, FH / 2 - 1.25, FH / 2 + 1.25][r.slot]);
     },
@@ -9537,7 +9665,7 @@ window.G = window.G || {};
       const x = m.rng.range(2.4, FW / 2 - 0.6), y = x < 5.3 ? (m.rng.chance(0.5) ? m.rng.range(0.9, H17 - 1.7) : m.rng.range(H17 + 1.7, FH - 0.9)) : m.rng.range(0.9, FH - 0.9);
       H.moveTo(m, r, E.P(m, r.a, x, y), () => {
         if (!H.canCollect(m, r)) return;
-        const secs = 5.5, rate = (0.4 + 1.5 * f / 100) * (r.cap.storage >= 60 ? 1.3 : 1) * U.clamp(ss.floor / 260, 0.1, 1);
+        const secs = 5.5, rate = (0.4 + 1.5 * f / 100) * (r.cap.storage >= 60 ? 1.3 : 1) * (r.cap.fuelWide || 1) * U.clamp(ss.floor / 260, 0.1, 1); // (3.5.6) fuelWide: an intake at each end
         H.act(r, secs, () => { const got = Math.max(0, Math.min(room(), Math.floor(ss.floor), Math.round(rate * secs))); ss.floor -= got; r.fuel = (r.fuel || 0) + got; }, 'Sweeping up fuel');
       }, 'To loose fuel');
       return true;
@@ -9581,16 +9709,22 @@ window.G = window.G || {};
     }, 'To their hopper');
     return true;
   }
+  const FAR17 = 0.12; // (3.5.6) what a far-reaching turret loses at the end of its reach
   function fuelShoot17(m, r) {
     const hi = !!r.cap.fuelHigh, by = E.P(m, r.a, G17.boiler.x, G17.boiler.y);
-    const spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
+    let spot = hi ? E.P(m, r.a, G17.key.x + (r.slot - 1) * 0.35, G17.key.y - (r.slot - 1) * 0.35) : E.P(m, r.a, G17.boiler.x + 0.75, G17.boiler.y - 0.75);
+    // (3.5.6) a turret that reaches from outside the Key (cap.fuelFar, metres) shoots from where the robot stands, or comes just within reach
+    const far = hi && r.cap.fuelFar ? r.cap.fuelFar : 0;
+    if (far) { const d = E.dist(r, by); if (d > 1.8) spot = d <= far ? { x: r.x, y: r.y } : H.clearOf(m, { x: by.x + (r.x - by.x) * (far - 0.4) / d, y: by.y + (r.y - by.y) * (far - 0.4) / d }, false, false, r); }
     H.moveTo(m, r, spot, () => {
       if (!H.canScore(m, r) || !(r.fuel > 0)) return;
       const f = r.cap.fuel || 40, rate = hi ? (3 + 10 * f / 100) * (r.cap.storage >= 60 ? 1.35 : 1) : 16;
-      const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - (hi ? H.aimTime(m, r) : 0.4)))));
-      H.act(r, (hi ? H.aimTime(m, r) : 0.4) + n / rate, () => {
+      const aimT = !hi ? 0.4 : r.cap.fuelTurret ? 0.3 * (r.cap.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100) : H.aimTime(m, r); // the turret aims itself: the chassis stays as it is
+      const left = (m.phase === 'auto' ? m.T.auto : m.total) - m.t - 0.3, n = Math.max(1, Math.min(r.fuel, Math.floor(rate * Math.max(0.5, left - aimT))));
+      const farK = far ? 1 - FAR17 * U.clamp((E.dist(r, by) - 3) / 3, 0, 1) : 1; // from far out a little less of the stream goes in
+      H.act(r, aimT + n / rate, () => {
         // a stream of fuel into a small goal: an average shooter sprays most of it, only a well-developed one is worth carrying
-        const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
+        const p = hi ? H.hit(m, r, 0.9, 0.04, f) * (0.35 + 0.65 * f / 100) * farK : 0.92, hits = Math.round(n * U.clamp(p + m.rng.range(-0.08, 0.08), 0.05, 0.99));
         r.fuel -= n; r.stats.shots += n; r.stats.hits += hits; r.stats.cycles++;
         H.shotFx(m, r, by, hits > n / 2);
         if (hits > 0) m.ss[r.a].q[hi ? 'hi' : 'lo'].push({ r, n: hits }); // into the boiler: counted five a second
@@ -12076,6 +12210,11 @@ window.G = window.G || {};
         cap.noIntake = false; cap.selfLoad = true;
       }
     }
+    // (3.5.6) a concept that needs another subsystem to be of a kind (c.needs: a suction climber rides on an elevator, a
+    // long-range wheel needs the tall frame) and does not have it cannot do its job: c.unmet replaces what it would give
+    G.Seasons[year].subs.forEach(sd => { const u = subs[sd.id], c = u && u.ver ? sd.concepts.find(x => x.id === u.concept) : null, n = c && c.needs; if (!n) return;
+      const o = subs[n.sub], ok = o && o.ver ? n.concepts.includes(o.concept) : !!n.orNone;
+      if (!ok) { Object.assign(cap, c.unmet || {}); cap.unmetNeeds = (cap.unmetNeeds || []).concat(c.name + ' needs ' + n.what); } });
     if (cap.rmax) cap.rangeM = cap.rmin + (cap.rmax - cap.rmin) * (cap.range || 0) / 100;
     if (!subs.drive || !subs.drive.ver) { cap.speed = 15; cap.agility = 15; cap.push = 20; cap.noDrive = true; }
     // no scorer at all?
@@ -12133,6 +12272,10 @@ window.G = window.G || {};
   // (3.5.5) A few teams powder-coat their robots, and most of the elite ones (and those that once were): [colour, accent],
   // or null for bare aluminium. It hangs on the team number alone, so a team keeps its colour from season to season
   const PAINT = ['#2f6fd0', '#c2412f', '#2e9e5b', '#e08a1e', '#8a4fc0', '#17a0a0', '#c9a80c', '#d1478c', '#1f4fa3', '#8a1f2b', '#3a3f47', '#e9edf1', '#0f8f6a', '#ff6a13'], ACCENT = ['#ffcf4a', '#e9edf1', '#15181c', '#ff7a1a', '#4cc9f0'];
+  // (3.5.6) an elite design is the last of its subsystem's list, in every list (stable: the others keep their order)
+  Object.keys(G.Seasons).forEach(y => { const Sz = G.Seasons[y]; if (Sz && Array.isArray(Sz.subs)) Sz.subs.forEach(sd => { if (sd.concepts.some(c => c.elite)) sd.concepts = sd.concepts.filter(c => !c.elite).concat(sd.concepts.filter(c => c.elite)); }); });
+  // (3.5.6) where a team puts the number on its bumpers: in the middle, or (about three teams in eight) at the end. From the team number, so a team keeps its habit
+  AI.numSide = num => ((Math.imul((Number(num) || 0) + 104729, 2246822519) >>> 0) % 1000) < 375;
   AI.paintOf = function (num, elite) {
     const h = (Math.imul((Number(num) || 0) + 7919, 2654435761) >>> 0);
     return (h % 1000) / 1000 < (elite ? 0.85 : 0.14) ? [PAINT[(h >>> 10) % PAINT.length], ACCENT[(h >>> 16) % ACCENT.length]] : null;
@@ -12172,7 +12315,7 @@ window.G = window.G || {};
   };
 
   function pickArchetype(rng, S, str, elite) {
-    const elig = S.archetypes.filter(a => !a.defense && !a.feed && str >= a.min).sort((p, q) => q.min - p.min);
+    const elig = S.archetypes.filter(a => !a.defense && !a.feed && str >= a.min && !(a.rare && (elite || !rng.chance(a.rare)))).sort((p, q) => q.min - p.min); // a.rare: the share of the teams that could build it that do
     if (elite) return elig[0]; // an elite team builds the best robot the game allows
     const spec = S.archetypes.filter(a => (a.defense || a.feed) && str >= a.min);
     if (spec.length && rng.chance(0.08)) return rng.pick(spec);
@@ -12248,7 +12391,7 @@ window.G = window.G || {};
     const elite = !!rb.elite;
     const cap = G.Cap.build(year, subs, extra);
     const look = G.Cap.look(year, subs, extra);
-    { const pc = AI.paintOf(team.num, !!(team.elite || team.wasElite)); if (pc) { look.c1 = pc[0]; look.c2 = pc[1]; } } // (3.5.5) painted robots
+    { const pc = AI.paintOf(team.num, !!(team.elite || team.wasElite)); if (pc) { look.c1 = pc[0]; look.c2 = pc[1]; } if (AI.numSide(team.num)) look.numAt = 'side'; } // (3.5.5) painted robots
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,
@@ -13496,7 +13639,16 @@ window.G = window.G || {};
     const alt = subId === 'drive' && miss.some(m => D.DRIVE_ALT[m.cat]) ? '. A West Coast drive or a kit chassis also runs on 2 Lumen standard drive gearboxes (Inventory: Drive & add-ons)' : '';
     return miss.length ? G.Parts.shortText(miss) + alt : null;
   };
-  Robot.reqOk = function (S, c) { return null; };
+  // (3.5.6) A concept may need another subsystem to be of a kind (c.needs: { sub, concepts, what, orNone }): a suction
+  // climber rides on an elevator, a long-range wheel needs the tall frame. null when the robot has it (designed, or being
+  // built), else why not
+  Robot.reqOk = function (S, c) {
+    const n = c && c.needs, R = S.robot; if (!n || !R) return null;
+    const d = Robot.des(R, n.sub), cur = d && d.ver ? d.concept : null;
+    if ((cur && n.concepts.includes(cur)) || (!cur && n.orNone) || (S.projects || []).some(p => p.type === 'build' && p.sub === n.sub && n.concepts.includes(p.concept))) return null;
+    const cc = cur ? G.Seasons.concept(R.year, n.sub, cur) : null, sd = G.Seasons.sub(R.year, n.sub);
+    return 'Needs ' + n.what + (cc ? ': this robot\'s ' + (sd ? sd.name.toLowerCase() : n.sub) + ' is the ' + cc.name + '.' : ': build one first.');
+  };
   Robot.weightOf = (R, bi) => Math.round(Object.keys(R.bots[bi].subs).reduce((s, k) => s + (k !== 'soft' && R.bots[bi].subs[k] && R.bots[bi].subs[k].ver ? R.bots[bi].subs[k].w : 0), 0));
   Robot.weight = S => (S.robot ? Robot.weightOf(S.robot, S.robot.comp || 0) : 0);
   // (3.5.3) What robot parts add to each unit of robot bi while it runs on them: { stat: { sub: { stat: +n } }, rel:
@@ -14104,7 +14256,8 @@ window.G = window.G || {};
       const bi = spec.type === 'build' ? R.comp || 0 : fields.bot, slot = bi >= 0 ? R.bots[bi].subs[spec.sub] : null;
       if ((bi < 0 || (slot && slot.ver)) && Robot.storeRoom(R, spec.sub) < 1) note = 'Storage is full: the oldest stored ' + sd.name.toLowerCase() + ' will be taken apart for spare parts when this finishes.';
     }
-    return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
+    const needErr = spec.type === 'build' && spec.sub && spec.concept ? Robot.reqOk(S, G.Seasons.concept(year, spec.sub, spec.concept)) : null; // (3.5.6)
+    return { needErr, hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
   };
   // ---- published designs (D.REFBOTS: the Anybot from 2018, the Apex Blueprint from 2022) ----
   // out from the start of Build Week D.REF_WEEK (2) of each season, for this season's robot (calendar careers)
@@ -14192,6 +14345,7 @@ window.G = window.G || {};
   Robot.startProject = function (S, spec) {
     const q = Robot.quote(S, spec);
     if (q.err) return q.err;
+    if (q.needErr) return q.needErr;
     if (!Robot.noSlot(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     { const e = G.Career.afford(S, q.cost); if (e) return e; }
     G.Career.spend(S, q.cost, q.name);
@@ -15259,8 +15413,8 @@ window.G = window.G || {};
     const bizBoost = S.mentors.some(m => m.role === 'biz') ? 1.1 : 1;
     if (S.phase !== 'off') { const amt = Math.round(sp.base * bizBoost); C.earn(S, amt, 'Sponsor: ' + sp.name); sp.paidYear = S.year; sp.paidAmt = amt; sp.undo.paid = amt; C.scheduleActivities(S, sp); }
     // (3.5) nothing is said yet: a deal can be undone this turn, so it is announced when the turn ends (C.announceSignings).
-    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the letters (the title sponsor's, the printer maker's).
-    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' || C.isMaker(sp) ? 1 : 0) : 1;
+    // silent: true says nothing at all (a single season's starting sponsors); 'auto' (Auto-pick best) only the letters (the title sponsor's, the printer maker's, an international partner's).
+    sp.undo.say = silent === true ? 0 : silent === 'auto' ? (sp.slot === 'title' || C.isMaker(sp) || C.isIntl(sp) ? 1 : 0) : 1; // (3.5.6) an international partner writes too when Auto-pick signs it
     return null;
   };
   // ---------- signed this turn, announced the next (3.5) ----------
@@ -15986,11 +16140,13 @@ window.G = window.G || {};
     else { mult = 0.5; why = '×0.5'; }
     const perStudent = S.phase === 'off' ? 5 : 7;
     const stud = S.studentsCount * perStudent;
-    const ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0) + G.Shop.guestHours(S);
+    let ment = U.sum(S.mentors.map(m => m.hours)) + (C.hasPerk(S, 'tempMentor') ? 10 : 0) + G.Shop.guestHours(S);
+    // (3.5.6) in the offseason the mentors also see your own FTC teams through their season: a few hours a week each, never more than half of what the mentors give
+    const ftcH = S.phase === 'off' ? Math.min(Math.floor(ment / 2), C.ownTeams(S) * D.FTC_OWN.mentorH) : 0; ment -= ftcH;
     const moraleM = 0.8 + 0.3 * S.morale / 100, boost = 1 + G.Shop.boostHours(S);
     const total = Math.round((stud + ment) * mult * moraleM * boost);
     if (!breakdown) return total;
-    return { total, stud, ment, perStudent, students: S.studentsCount, mult, why, moraleM, boost };
+    return { total, stud, ment, perStudent, students: S.studentsCount, mult, why, moraleM, boost, ftcH, ftcN: C.ownTeams(S) };
   };
   C.isEventTurn = S => S.lastEventTurn === turnKey(S) || !!(C.eventThisTurn(S) && S.phase !== 'off');
   // Testing hours: limited practice-field time each week (like wind-tunnel time), split between development
@@ -16227,6 +16383,7 @@ window.G = window.G || {};
     let d = (C.idleTarget(S) - f) * D.FATIGUE_SLOPE * (eventWeek ? 0.5 : 1), drift = (D.FATIGUE_BASE - before) * 0.08;
     if (S.overtime) { d = Math.max(0, d) + D.FATIGUE_OVERTIME; drift = Math.max(0, drift); }
     if (eventWeek) d += S.team.home && G.World.on(S) && S.week <= 5 ? D.FATIGUE_DISTRICT : D.FATIGUE_EVENT;
+    if (eventWeek && G.Shop.superPit(S)) d -= D.FATIGUE_SUPERPIT; // (3.5.6) it sets up in minutes, and it has a mini fridge
     if (eventWeek) { const e = C.eventThisTurn(S); if (S.lastEventIntl === turnKey(S) || (e && e.def && C.travelMode(S, e.def) === 'intl')) d += D.FATIGUE_INTL; } // jet lag
     return Math.round(U.clamp(before + d + drift, 5, 100));
   }
@@ -18581,7 +18738,7 @@ window.G = window.G || {};
     outreach: v => '+' + Math.round(v * 100) + '% outreach points',
     pitch: v => '+' + Math.round(v) + ' Impact presentation',
     ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's'),
-    superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts)' : ''),
+    superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts) · events tire the team a little less' : ''),
     scout: v => (v >= 0.5 ? 'sharper scouting at events' : ''),
     design: v => '−' + Math.round(v * 100) + '% hours on new mechanisms and upgrades',
     shelf: v => 'shelves hold ' + Math.round(v * 100) + '% of the most parts (50% without)',
@@ -19636,11 +19793,12 @@ window.G = window.G || {};
     }
     let motor = c.cx <= 1 ? 1 : c.cx <= 3 ? 2 : 3;
     if (c.look && c.look.shooter === 'wide') motor = 4;
+    if (c.motors != null) motor = c.motors; // (3.5.6) a concept may say so itself: a suction climber is driven by the elevator it rides on
     let enc = 0;
     (c.areas || []).forEach(a => { if (a === 'turret' || a === 'arm' || a === 'elevator') enc++; });
     if (subId === 'effector') enc++; // an end effector senses the game piece it holds
     if (c.id === 'hood' || (c.look && c.look.shooter === 'pivot')) enc++;
-    const out = { motor };
+    const out = motor ? { motor } : {};
     if (enc) out.enc = enc;
     return out;
   };
@@ -21122,6 +21280,17 @@ window.G = window.G || {};
     { id: 'c355cad', cd: 700, req: S => !!(S.robot && S.robot.bots && S.phase === 'build' && S.week >= 3), title: 'Side view', body: S => student(S) + ' posted a side view of the robot straight from the CAD model. Within the hour someone had counted the holes in the tubes, and a rival asked what the pockets in the plates save in weight. ' + mentor(S) + ' says the answer is in the picture for anyone who looks. The only argument left is whether the number belongs in the middle of the bumper or at its end, and the Garage lets the team try both.' },
     { id: 'c355green', cd: 700, req: S => !!(S.robot && S.robot.visionLvl >= 1 && G.Era && !G.Era.of(S).vision.tags), title: 'The green ring', body: S => student(S) + ' wired the green ring light to the trigger: it comes on when the robot aims, and the tape round the goal shines back into the camera. The drive team has asked for sunglasses, and ' + mentor(S) + ' has asked that nobody point it at the judges.' },
     { id: 'c355paint', cd: 800, req: S => !!(S.robot && S.robot.bots && S.season), title: 'Powder coat', body: S => student(S) + ' has been counting painted robots at events: about one in seven, and nearly every elite team, always in the same colour as last year. ' + mentor(S) + ' says paint weighs something and wins nothing, and has still asked what a batch of tubes would cost in the team\'s colour. The Garage has the answer for free.' },
+    { id: 'c356drive', cd: 700, req: S => !!(S.season && S.phase === 'comp' && S.robot && S.robot.bots), title: 'Sideways', body: S => student(S) + ' spent a lunch break with match video: the swerve robots never stop to turn, they arrive already facing the goal, and with a defender on them they roll off like a door on a hinge. The tank drives back up, swing round and go. ' + mentor(S) + ' says both get there, and that one of them is cheaper.' },
+    { id: 'c356face', cd: 800, req: S => !!(S.season && S.phase === 'comp'), title: 'Square up', body: S => 'A new rule on the drive team\'s whiteboard: "Scorer to the goal, intake to the station." ' + student(S) + ' wrote it after watching the robot drive up to a goal sideways and wait there, pointing at nothing.' },
+    { id: 'c356flip', cd: 900, req: S => !!(S.robot && S.robot.year === 2018 && S.phase !== 'off'), title: 'Over the top', body: S => 'One of the best teams in the world has a claw that flips right over its lift: it puts a cube on the Scale behind it without turning round. ' + student(S) + ' watched it three times and says the arm with two joints on the next field is nearly as quick and half the weight. ' + mentor(S) + ' has asked how many pivots this team has ever got right.' },
+    { id: 'c356suction', cd: 900, req: S => !!(S.robot && S.robot.year === 2019 && S.phase !== 'off'), title: 'Stuck to it', body: S => 'A robot climbed HAB Level 3 on a vacuum disk and hung there beside the platform while its partner drove up onto it. ' + student(S) + ' wants to know what happens when the pump stops. The answer, from the next pit: "It comes down."' },
+    { id: 'c356long', cd: 900, req: S => !!(S.robot && S.robot.year === 2020 && S.phase !== 'off'), title: 'The big wheel', body: S => 'There is a robot with a wheelchair wheel for a flywheel. It shoots from behind the Trench Run, most of the field away, and is back at the Loading Bay before anyone else has crossed the generator. ' + student(S) + ' counted: fewer go in from there, and almost none find the Inner Port. It does not fit under the Trench either.' },
+    { id: 'c356fuel17', cd: 900, req: S => !!(S.robot && S.robot.year === 2017 && S.phase !== 'off'), title: 'From out there', body: S => 'One robot at the last event never drove into the Key. It took fuel in at both ends, turned its turret and emptied the hopper from the middle of the field, while the defender sent to the Key waited for nobody. ' + student(S) + ' counted a few more misses than from close in. ' + mentor(S) + ' counted the hours it must have taken.' },
+    { id: 'c356turret24', cd: 900, req: S => !!(S.robot && S.robot.year === 2024 && S.phase !== 'off'), title: 'A heavy turret', body: S => student(S) + ' timed the turret shooters at the last event: the shooter is so big that the turret takes its time coming round, and it hits no more often than a good pivot. ' + mentor(S) + ' says it is the hardest shooter of the year to build for a few points a match, and that the best teams build it anyway.' },
+    { id: 'c356esc', cd: 900, req: S => !!(S.robot && S.robot.year === 2023 && S.phase !== 'off'), title: 'Escalator', body: S => 'Nobody calls it a wrist any more. The stages that run out level from the elevator, one inside the next, are "the escalator", and ' + student(S) + ' has been told twice that it does not carry passengers.' },
+    { id: 'c356prep', cd: 800, req: S => !!(S.season && S.phase === 'comp'), title: 'Six robots on one sheet', body: S => 'The scouts now hand the drive team a sheet before every match with all six robots drawn from the side. ' + student(S) + ' can tell a team from the far end of the field by where it puts the number on its bumpers: in the middle, or out at the end.' },
+    { id: 'c356fridge', cd: 900, req: S => G.Shop.superPit(S) && (S.phase === 'comp' || S.phase === 'champs'), title: 'Cold drinks', body: S => 'The pit was up before the truck had finished unloading, and nobody carried a workbench. ' + student(S) + ' found the mini fridge in the third road case. ' + mentor(S) + ' says the team has never come home from an event this awake.' },
+    { id: 'c356ftc', cd: 900, req: S => S.phase === 'off' && G.Career.ownTeams(S) > 0, title: 'Tuesday is FTC night', body: S => 'The FTC team has the workshop on Tuesdays and Thursdays this autumn, and a mentor with it. ' + mentor(S) + ' counted ' + (G.Career.ownTeams(S) * G.Data.FTC_OWN.mentorH) + ' hours a week that used to go to the big robot, and says they are the best spent hours of the offseason.' },
     { id: 'c355fold', cd: 700, req: S => !!(S.season && S.phase === 'comp'), title: 'Intake in', body: S => 'The drive coach has a new call for the long runs across the field: "intake in". ' + student(S) + ' says a folded intake is one less thing for a defender to hit, and it comes out again faster than anyone can say it.' },
     { id: 'c353cam2', cd: 500, req: S => !!(S.cal && S.robot && S.robot.bots && S.projects.some(p => p.type === 'vision') && G.Robot.twoBots(S)), title: 'A camera for the practice robot', body: S => student(S) + ' has been writing the new vision code against the practice robot. ' + (G.Robot.vision2(S) ? 'It has its own camera now, and every test run ends with a screenshot of the target lock on the shop whiteboard.' : 'It has no camera, so every test is a guess until the competition robot is free. ' + mentor(S) + ' has put a second camera on the shopping list.') },
     { id: 'c353can2', cd: 500, req: S => !!(S.cal && G.Parts.can2 && G.Parts.can2(S) && G.Parts.can2(S).over > 0), title: 'The practice robot froze again', body: S => 'The practice robot stopped dead on the bench twice this week, with every motor and encoder on one CAN bus. ' + student(S) + ' says it is not the code. ' + mentor(S) + ' says it is the bus, and that a CAN FD hub would cost less than the hours.' },
@@ -21317,6 +21486,7 @@ window.G = window.G || {};
     const year = S.year; if (!t.rb || t.rb.year !== year) G.AI.seasonRobot(t, year, R());
     const subs = {}; Object.keys(t.rb.choice).forEach(k => { subs[k] = { concept: t.rb.choice[k], ver: Math.min(9, 1 + Math.round(t.rb.q * 3) + (t.rb.elite ? 5 : 0)), stats: {} }; });
     const lk = G.Cap.look(year, subs, { visionLvl: t.rb.visionLvl }), pc = G.AI.paintOf(t.num, !!(t.elite || t.wasElite)); if (pc) { lk.c1 = pc[0]; lk.c2 = pc[1]; } // (3.5.5) a team that paints its robot reveals it in its colour
+    if (G.AI.numSide(t.num)) lk.numAt = 'side';
     return lk;
   };
   function postReveal(S, t, kind, mi) {
@@ -24575,7 +24745,7 @@ window.G = window.G || {};
       const sy = low ? ft + 0.215 : ft + 0.3, sx = sh === 'turret' ? -0.3 : -0.25, base = ft - 0.02;
       q.wheel(hx0 - 0.03, ft + 0.06, 0.034, 'comp', CW.b);                              // the kicker that feeds it
       if (sh === 'turret') { ring(q, sx, ft + 0.05, 0.3); shooter(q, sx + 0.01, ft + 0.05 + (low ? 0.165 : 0.2), { r: 0.05, gap: low ? 0.13 : 0.15, ang: 60 * D, hood: 2, feed: 0 }); }   // on a back corner of the chassis
-      else if (sh === 'dumper') shooter(q, sx + 0.02, sy - 0.01, { r: 0.076, gap: 0.15, ang: 48 * D, hood: 2, sweep: 1.7, fc: CW.o, base });   // a drum as wide as the robot
+      else if (sh === 'dumper') q.mir(t => shooter(t, 0.25, sy - 0.01, { r: 0.076, gap: 0.15, ang: 52 * D, hood: 2, sweep: 1.7, fc: CW.o, base }));   // a drum as wide as the robot, at the back and throwing over the back: fuel runs straight through from the intake (1678's)
       else shooter(q, sx, sy, { r: 0.058, gap: 0.155, ang: 60 * D, hood: sh === 'hood' ? 2 : 1, top: sh === 'hood', base });
     });
     if (it === 'ground' || it === 'wide') k.L(4, 'intake', q => overIntake(q, it === 'wide' ? { px: 0.34, py: ft + 0.1, ex: 0.71, ey: 0.14, n: 2, r: 0.05, wc: CW.b, wc2: CW.k, w: 0.056, guard: 1, sp: 0.36 } : { px: 0.34, py: ft + 0.1, ex: 0.68, ey: 0.14, n: 1, r: 0.045, wc: CW.g, four: 1 }));
@@ -24591,7 +24761,8 @@ window.G = window.G || {};
       if (end === 'l3') { const P = [x0 + 0.13, ft + 0.03], T = along(P, 80 * D, h * 0.86); q.tube(P[0], P[1], T[0], T[1], 0.032, ALU, { holes: 1 }); q.hook(T[0] - 0.03, T[1], 0.032, -0.5, PI * 1.15, 0.017, c2); }   // a second pair of hooks: every hook opens the same way
       tele(q, x0, ft - 0.02, end === 'l1' ? h * 0.72 : h * 0.9, { st: end === 'l1' ? 1 : end === 'l2' ? 2 : 3, dir: -1, w: 0.048, spool: end === 'l1' ? 0 : 1 });
     });
-    cams(k, [mid ? [0.09, (low ? 0.37 : 0.5) + 0.15, 1, 1] : sh === 'turret' ? [-0.2, ft + 0.08 + (low ? 0.165 : 0.2), 1, 1] : [hx1 - 0.02, hy0 + 0.12], [mid ? 0.28 : -0.4, ft + 0.1, mid ? 1 : -1]]);
+    if (sh === 'dumper') cams(k, [[-0.43, ft + (low ? 0.36 : 0.5), -1], [hx1 - 0.02, hy0 + 0.12]]);                                          // its cameras look the way it throws: backwards
+    else cams(k, [mid ? [0.09, (low ? 0.37 : 0.5) + 0.15, 1, 1] : sh === 'turret' ? [-0.2, ft + 0.08 + (low ? 0.165 : 0.2), 1, 1] : [hx1 - 0.02, hy0 + 0.12], [mid ? 0.28 : -0.4, ft + 0.1, mid ? 1 : -1]]);
   };
 
   // ================================================================ 2024 CRESCENDO
@@ -24635,9 +24806,14 @@ window.G = window.G || {};
       k.L(4, 'scorer', q => { const b = along(P, a + PI, 0.12); q.piston(0.06, ft + 0.02, P[0] + 0.2, P[1] - 0.115, 0.026); q.tube(b[0], b[1], tip[0], tip[1], 0.055, c1, { truss: 1 }); q.wheel(P[0], P[1], 0.062, 'spr'); });
     } else if (lift === 'elev') { const M = mast(g, -0.38, ft - 0.03, 1.0, { st: 2, tilt: 0.74, car: 0.5, w: 0.064, rig: 'chain' }); head = [M.car[0] + 0.05, M.car[1] - 0.04]; ha = -0.2; cam = [0.3, ft + 0.12];
       k.L(3, 'scorer', q => { const p = M.at(0.62, 0); q.tube(0.22, ft - 0.02, p[0], p[1], 0.045, c1, { truss: 1 }); M.draw(q); q.motor(-0.3, ft + 0.03, 0, 0.1, 0.028); });
-    } else if (lift === 'elevw') { const M = mast(g, -0.3, 0.1, 1.12, { st: 3, car: 0.42, brace: [[-0.02, 0.34]] }), p0 = M.car, tip = [p0[0] + 0.5, p0[1] + 0.02]; head = tip; ha = -0.35;
+    } else if (lift === 'elevw') { const M = mast(g, -0.3, 0.1, 1.12, { st: 3, car: 0.42, brace: [[-0.02, 0.34]] }), p0 = M.car, tip = [p0[0] + 0.66, p0[1] + 0.06]; head = tip; ha = -0.35;
       k.L(3, 'scorer', q => M.draw(q));
-      k.L(4, 'scorer', q => { q.tube(p0[0] - 0.03, p0[1] + 0.02, p0[0] + 0.34, p0[1] + 0.02, 0.06, ALU, { holes: 1 }); q.tube(p0[0] + 0.14, p0[1] + 0.02, tip[0], tip[1], 0.04, STEEL, { holes: 1, pitch: 0.07 }); q.wheel(tip[0], tip[1], 0.034, 'gear'); q.motor(p0[0] + 0.02, p0[1] + 0.075, 0, 0.09, 0.025); });   // the stage that runs out sideways
+      k.L(4, 'scorer', q => {                                                          // (3.5.6) the escalator: three stages run out over the Grid from the carriage, one inside the next (254's)
+        const y = p0[1] + 0.02, CF = '#2b3036', a = Math.atan2(tip[1] - y, tip[0] - p0[0]);
+        q.plate([[p0[0] - 0.08, y - 0.13], [p0[0] + 0.12, y - 0.05], [p0[0] + 0.12, y + 0.05], [p0[0] - 0.08, y + 0.08]], DARK2);
+        q.at(p0[0], y, a, t => { t.tube(0.3, 0, 0.665, 0, 0.036, CF, { holes: 1, pitch: 0.07 }); t.tube(0.12, 0, 0.5, 0, 0.052, CF, { holes: 1, pitch: 0.08 }); t.tube(-0.05, 0, 0.33, 0, 0.07, CF, { holes: 1 }); t.rect(0.3, -0.043, 0.03, 0.086, DARK, 0.004); t.rect(0.475, -0.032, 0.028, 0.064, DARK, 0.004); t.line([[-0.02, 0.05], [0.3, 0.05]], K.BELT, 0.008); t.motor(0.0, 0.085, 0, 0.09, 0.025); });
+        q.wheel(tip[0], tip[1], 0.034, 'gear');
+      });
     } else if (lift === 'dja') { const P = [-0.18, 0.86], E = [0.2, 0.44], Wp = [-0.02, 0.72]; head = Wp; ha = 0.35; cam = [0.28, ft + 0.12];
       k.L(3, 'scorer', q => { tower(q, -0.42, 0.06, ft - 0.02, P[0], P[1], c1, 0.055); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.05, 0.022); q.motor(-0.36, ft + 0.05, 0, 0.1, 0.028); q.motor(-0.12, ft + 0.05, 0, 0.1, 0.028); });
       k.L(4, 'scorer', q => { q.tube(P[0], P[1], E[0], E[1], 0.055, c1, { truss: 1 }); q.chain(P[0], P[1], 0.04, E[0], E[1], 0.04); q.tube(E[0], E[1], Wp[0], Wp[1], 0.045, ALU, { holes: 1 }); q.wheel(P[0], P[1], 0.064, 'spr'); q.wheel(E[0], E[1], 0.045, 'spr'); q.piston(-0.02, ft + 0.02, P[0] + 0.16, P[1] - 0.2, 0.024); });
@@ -24681,6 +24857,16 @@ window.G = window.G || {};
     });
     else if (sh) k.L(4, 'scorer', q => {
       const tur = sh === 'turret', sx = -0.25, sy = low ? ft + (tur ? 0.39 : 0.35) : 0.93;
+      if (sh === 'long' && !low) {                                                    // (3.5.6) one wheelchair-size wheel in a tall frame, under a hood that runs most of the way round it (2481's)
+        const wx = -0.16, wy = 0.74, wr = 0.25;
+        q.tube(-0.45, ft - 0.02, -0.45, 1.24, 0.04, c1, { holes: 1 }); q.tube(0.13, ft - 0.02, 0.13, 1.12, 0.04, c1, { holes: 1 }); q.tube(-0.45, 1.22, 0.13, 1.1, 0.034, c1);
+        q.glass([[-0.43, ft + 0.02], [0.11, ft + 0.02], [0.11, 1.08], [-0.43, 1.2]]);
+        q.belt(0.04, fy + 0.02, 0.026, wx + 0.02, wy - wr - 0.07, 0.026); q.wheel(0.04, fy + 0.02, 0.026, 'pul'); q.wheel(wx + 0.02, wy - wr - 0.07, 0.034, 'comp', CW.g);   // the feeder, up from the indexer
+        q.arc(wx, wy, wr + 0.115, 128 * D, 2.5, 0.016, ALU); q.arc(wx, wy, wr + 0.13, 96 * D, 0.62, 0.014, c2); { const gp = [wx + (wr + 0.13) * Math.cos(150 * D), wy + (wr + 0.13) * Math.sin(150 * D)]; q.wheel(gp[0], gp[1], 0.024, 'gear'); }
+        q.wheel(wx, wy, wr, 'tyre'); q.circ(wx, wy, wr * 0.86, null, CW.o, 2.2); q.circ(wx, wy, 0.05, DARK2, 'rgba(6,8,11,0.7)');
+        q.motor(wx - 0.02, wy - 0.035, -PI / 2 - 0.5, 0.13, 0.034, ALU2); q.belt(wx, wy, 0.03, wx - 0.1, wy - 0.16, 0.02);
+        return;
+      }
       if (!low) { q.tube(-0.42, ft - 0.02, -0.36, sy - 0.14, 0.045, c1, { truss: 1 }); q.tube(-0.06, ft - 0.02, -0.16, sy - 0.14, 0.045, c1, { holes: 1 }); q.glass([[-0.34, fy + 0.04], [-0.14, fy], [-0.16, sy - 0.16], [-0.34, sy - 0.16]]); q.belt(-0.24, fy + 0.04, 0.026, -0.25, sy - 0.2, 0.026); }   // a tall robot: a tower of belts up to the shooter
       if (tur) ring(q, sx - 0.01, sy - (low ? 0.2 : 0.17), 0.36, low ? ft - 0.02 : null);
       shooter(q, sx, sy, { r: tur ? 0.05 : 0.058, gap: tur && low ? 0.14 : 0.16, ang: 58 * D, hood: sh === 'fixed' ? 1 : 2, top: sh === 'hood', base: low && !tur ? ft - 0.02 : null });
@@ -24727,13 +24913,20 @@ window.G = window.G || {};
     if (it === 'ground') k.L(4, 'intake', q => overIntake(q, { px: 0.36, py: ft + 0.08, ex: 0.7, ey: 0.2, n: 1, r: 0.052, wc: CW.g, four: 1 }));
     else if (it === 'floor') k.L(4, 'intake', q => { overIntake(q, { px: 0.36, py: ft + 0.08, ex: 0.69, ey: 0.2, n: 1, r: 0.048, wc: CW.g, gear: 1 }); q.bar([[0.4, ft + 0.02], [0.56, 0.05], [0.78, 0.03]], 0.02, ALU2); q.wheel(0.6, 0.065, 0.022, 'roll'); });   // and a fork that slides under a hatch on the floor
     if (end && end !== 'none') {
-      if (end === 'l2') k.L(4.6, 'endgame', q => { [-0.4, 0.26].forEach(x => { q.tube(x, ft - 0.04, x, ft + 0.2, 0.04, '#aab3bc'); q.rect(x - 0.016, ft + 0.2, 0.032, 0.02, DARK, 0.004); }); });   // short air cylinders that jack the robot up
+      if (end === 'suction') k.L(3.4, 'endgame', q => {                               // (3.5.6) the suction climber (254's), folded up the back of the elevator it rides on: its carriage rail, the arm down along it, the over-centre linkage and its air cylinder at the top, the pad at the foot
+        const onLift = lift === 'elev' || lift === 'elevfast' || lift === 'turretlift', x = lift === 'turretlift' ? -0.15 : onLift ? -0.02 : -0.3, y0 = ft - 0.02, yt = lift === 'turretlift' ? 0.96 : 1.0;
+        q.line([[x - 0.06, y0 + 0.2], [x - 0.17, ft + 0.16], [x - 0.2, ft + 0.06]], '#15181c', 0.011); q.rect(x - 0.27, ft - 0.01, 0.11, 0.065, '#30353c', 0.01); q.circ(x - 0.215, ft + 0.08, 0.02, ALU2);   // the hose, and the vacuum pump on the frame
+        q.tube(x, y0 + 0.02, x, yt, 0.04, DARK2); q.tube(x - 0.046, y0 + 0.2, x - 0.046, yt - 0.03, 0.044, c1);
+        q.piston(x - 0.095, yt - 0.34, x - 0.075, yt - 0.03, 0.024); q.plate([[x - 0.1, yt - 0.09], [x + 0.022, yt - 0.11], [x + 0.022, yt + 0.05], [x - 0.02, yt + 0.1], [x - 0.09, yt + 0.07]], DARK2);
+        q.rect(x - 0.075, y0 + 0.02, 0.05, 0.19, '#23272c', 0.008); q.rect(x - 0.093, y0 + 0.03, 0.018, 0.17, '#0d0f12', 0.005);   // the pad, flat against the arm
+      });
+      else if (end === 'l2') k.L(4.6, 'endgame', q => { [-0.4, 0.26].forEach(x => { q.tube(x, ft - 0.04, x, ft + 0.2, 0.04, '#aab3bc'); q.rect(x - 0.016, ft + 0.2, 0.032, 0.02, DARK, 0.004); }); });   // short air cylinders that jack the robot up
       else k.L(4.6, 'endgame', q => {                                                 // stilts: racks that push the robot up to Level 3
         [[-0.4, 0.74], [0.24, 0.6]].forEach((p, i) => { q.tube(p[0], ft - 0.05, p[0], p[1], 0.045, ALU, { holes: 1, pitch: 0.05 }); q.line([[p[0] + 0.03, ft], [p[0] + 0.03, p[1] - 0.02]], '#6b7580', 0.008, [0.008, 0.008]); q.wheel(p[0] + 0.045, ft + 0.06, 0.03, 'gear'); if (!i) q.motor(p[0] + 0.08, ft + 0.06, 0, 0.1, 0.028, ALU2); });
         if (end === 'l3buddy' || end === 'l3triple') { q.plate([[-0.5, ft + 0.02], [-0.47, ft + 0.02], [-0.6, 0.78], [-0.66, 0.76]], ALU2, 0); q.line([[-0.5, ft + 0.06], [-0.64, 0.74]], 'rgba(8,10,13,0.5)', 0.012, [0.05, 0.03]); q.wheel(-0.485, ft + 0.02, 0.02, 'pul'); }   // a ramp for a partner, folded up
         if (end === 'l3triple') { q.plate([[-0.42, ft + 0.3], [-0.39, ft + 0.3], [-0.47, 0.92], [-0.52, 0.9]], ALU2, 0); q.line([[-0.41, ft + 0.34], [-0.5, 0.88]], 'rgba(8,10,13,0.5)', 0.012, [0.05, 0.03]); }
       });
-      if (end !== 'l2') k.L(6.6, 'endgame', q => [[-0.4], [0.24]].forEach(p => q.wheel(p[0], 0.028, 0.026, 'roll')));       // the stilts' feet show under the bumper
+      if (end !== 'l2' && end !== 'suction') k.L(6.6, 'endgame', q => [[-0.4], [0.24]].forEach(p => q.wheel(p[0], 0.028, 0.026, 'roll')));       // the stilts' feet show under the bumper
     }
     cams(k, [cam, [-0.3, ft + 0.12, -1]]);
   };
@@ -24749,6 +24942,9 @@ window.G = window.G || {};
     } else if (lift === 'low') { const P = [-0.16, 0.66], a = -6 * D, tip = along(P, a, 0.5); head = tip; cam = [-0.04, 0.42];
       k.L(3, 'scorer', q => { tower(q, -0.42, 0.1, ft - 0.02, P[0], P[1], c1); q.chain(P[0], P[1], 0.06, -0.26, ft + 0.06, 0.024); q.motor(-0.36, ft + 0.06, 0, 0.13, 0.032, ALU2); });
       k.L(4, 'scorer', q => { const b = along(P, a + PI, 0.1); q.tube(b[0], b[1], tip[0], tip[1], 0.055, c1, { truss: 1 }); q.wheel(P[0], P[1], 0.062, 'spr'); });
+    } else if (lift === 'dja') { const P = [0.04, ft + 0.13], E = [-0.3, 0.78], Wp = [0.2, 0.68], CF = '#2b3036'; head = Wp; ha = -0.1; cam = [0.32, ft + 0.14];   // (3.5.6) two carbon tubes on driven joints (1323's): the elbow goes up and back, the wrist comes forward over the robot
+      k.L(3, 'scorer', q => { q.plate([[-0.14, ft - 0.02], [0.2, ft - 0.02], [0.13, ft + 0.22], [-0.05, ft + 0.22]], DARK2); q.motor(-0.22, ft + 0.05, 0, 0.12, 0.03, ALU2); q.motor(-0.22, ft + 0.12, 0, 0.12, 0.03, ALU2); });
+      k.L(4, 'scorer', q => { q.tube(P[0], P[1], E[0], E[1], 0.062, CF); q.line([[P[0] + 0.045, P[1] + 0.035], [E[0] + 0.04, E[1] + 0.04]], '#8a949f', 0.007); q.tube(E[0], E[1], Wp[0], Wp[1], 0.048, CF); q.wheel(P[0], P[1], 0.07, 'spr'); q.wheel(E[0], E[1], 0.052, 'pul'); q.wheel(Wp[0], Wp[1], 0.03, 'pul'); });
     }
     if (eff) {
       if (!head) { head = [0.22, ft + 0.22]; k.L(3, 'effector', q => q.tube(0.14, ft - 0.02, 0.18, ft + 0.22, 0.045, c1, { holes: 1 })); }
@@ -24756,7 +24952,8 @@ window.G = window.G || {};
       k.L(4.4, 'effector', q => q.at(H[0], H[1], A, t => {
         t.rect(-0.04, -0.07, 0.08, 0.14, DARK2, 0.01);
         if (eff === 'pinch') { t.piston(0.0, 0, 0.16, 0, 0.032, 0.55); t.bar([[0.02, 0.06], [0.36, 0.06]], 0.024, ALU2); t.bar([[0.02, -0.06], [0.36, -0.06]], 0.024, ALU2); t.line([[0.22, 0.046], [0.36, 0.046]], '#1b1e22', 0.012); t.line([[0.22, -0.046], [0.36, -0.046]], '#1b1e22', 0.012); return; }   // two flat fingers squeeze the cube
-        const ln = eff === 'launch';
+        const ln = eff === 'launch' || eff === 'flip';
+        if (eff === 'flip') { t.arc(-0.04, 0, 0.1, PI * 0.5, PI, 0.012, c2); t.wheel(-0.04, 0, 0.06, 'gear'); }                // (3.5.6) on a pivot of its own: it flips over the lift to the back
         t.bar([[0, 0.02], [0.14, 0.07], [0.36, 0.06]], 0.034, DARK2); t.bar([[0, -0.02], [0.14, -0.07], [0.36, -0.06]], 0.034, DARK2);
         [[0.34, 0.06], [0.34, -0.06], [0.2, 0.068], [0.2, -0.068]].forEach(p => t.wheel(p[0], p[1], 0.042, 'comp', CW.g)); t.belt(0.34, 0.06, 0.014, 0.2, 0.068, 0.014); t.belt(0.34, -0.06, 0.014, 0.2, -0.068, 0.014);
         if (ln) { t.piston(-0.02, 0, 0.14, 0, 0.034, 0.5); t.rect(0.14, -0.04, 0.02, 0.08, c2, 0.004); }                    // and a punch that throws it
@@ -24781,7 +24978,14 @@ window.G = window.G || {};
   SIDE[2017] = function (k, c) {
     const g = k.g, ft = g.ft, c1 = k.c1, c2 = k.c2, gear = c.scorer, fuel = c.fuel, end = c.endgame;
     const hx0 = -0.38, hx1 = 0.2, hy1 = fuel === 'mega' ? 0.72 : 0.64;
-    if (fuel && fuel !== 'none') {
+    if (fuel === 'dualturret') {                                                     // (3.5.6) 254's: an intake at each end, a spiral feeder up the middle, and a turret with two flywheels on a frame over it
+      k.L(2, 'fuel', q => hopper(q, -0.4, 0.4, ft - 0.01, 0.46, { post: c1 }));
+      k.L(3, 'fuel', q => { [-1, 1].forEach(s => q.tube(s * 0.37, ft - 0.02, s * 0.37, 0.8, 0.04, c1, { holes: 1 })); q.tube(-0.39, 0.7, 0.39, 0.7, 0.036, c1, { holes: 1 });
+        q.tube(0, ft + 0.02, 0, 0.7, 0.03, DARK2); [0.27, 0.37, 0.47, 0.57, 0.66].forEach((y, i) => q.rect(-0.11 + i * 0.008, y, 0.22 - i * 0.016, 0.02, i % 2 ? '#30353c' : c1, 0.008)); q.wheel(0, ft + 0.06, 0.04, 'gear'); });   // the spiral feeder: rings up a column
+      k.L(4, 'fuel', q => { ring(q, 0, 0.72, 0.34); shooter(q, 0, 0.845, { r: 0.046, gap: 0.11, ang: 52 * D, hood: 2, two: 1, feed: 0 }); });
+      const arm = q => overIntake(q, { px: 0.37, py: ft + 0.09, ex: 0.7, ey: 0.15, n: 2, r: 0.045, wc: CW.k, wc2: CW.b, w: 0.054, guard: 1 });
+      k.L(4.2, 'fuel', arm); k.L(4.2, 'fuel', q => q.mir(arm));
+    } else if (fuel && fuel !== 'none') {
       k.L(2, 'fuel', q => {
         const mg = fuel === 'mega'; hopper(q, hx0, hx1, ft - 0.01, hy1, { fl: mg ? 0.0 : 0, fr: mg ? 0.0 : 0, post: c1 });
         for (let i = 1; i < 6; i++) q.line([[hx0, ft + (hy1 - ft) * i / 6], [hx1, ft + (hy1 - ft) * i / 6]], 'rgba(206,222,238,0.14)', 0.004);   // netting
@@ -24928,10 +25132,16 @@ window.G = window.G || {};
   };
   TOP[2017] = function (k, c, A) {
     const gear = c.scorer, fuel = c.fuel, has = fuel && fuel !== 'none', c1 = k.c1;
-    if (has) { hopper(k, -0.38, 0.2, fuel === 'mega' ? 0.39 : 0.33, A); if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else k.at(-0.32, 0, 0, q => shooter(q, fuel === 'mega' ? 0.27 : 0.15, { n: fuel === 'mega' ? 4 : 2, flat: 1 })); }
+    if (fuel === 'dualturret') {                                                       // (3.5.6) an intake at each end, the feeder's rings in the middle of the hopper, the turret over them
+      const bar = q => intake(q, A.vi, 0.44, { rows: 2, wc: '#23272c', wc2: CW.b, guard: 1 }); bar(k); k.at(0, 0, PI, bar);
+      hopper(k, -0.38, 0.38, 0.39, A); k.circ(0, 0, 0.27, null, c1, 1.3); [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.12, s * 0.12, 0.03, c1); k.tube(0.38, s * 0.38, 0.12, s * 0.12, 0.03, c1); });
+      turret(k, 0, 0, 0.18); k.at(0, 0, A.aim, q => shooter(q, 0.09, { n: 2, hood: 2 }));
+    }
+    else if (has) { hopper(k, -0.38, 0.2, fuel === 'mega' ? 0.39 : 0.33, A); if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else k.at(-0.32, 0, 0, q => shooter(q, fuel === 'mega' ? 0.27 : 0.15, { n: fuel === 'mega' ? 4 : 2, flat: 1 })); }
     if (gear === 'floor') intake(k, A.vi, 0.2, { wc: CW.o, reach: 0.1 });
     if (gear) { k.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); k.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => k.line([[0.4, s * 0.16], [0.48, s * 0.1]], k.c2, 0.03, 'round')); }   // the gear pocket
     if (c.endgame && c.endgame !== 'none') { k.rect(0.02, 0.24, 0.17, 0.14, c1, INK, 0.012); k.roller(0.105, 0.055, 0.04, c.endgame === 'fast' ? k.c2 : '#d3b24a', 2, 0.31); }   // the rope drum
+    if (fuel === 'dualturret') return { own: true, tur: [0, 0], dir: 0 };
     return has ? { own: true, sh: fuel === 'dump' ? [-0.41, 0] : [-0.32, 0], dir: fuel === 'dump' ? PI : 0 } : { at: [0.375, 0] };
   };
   TOP[2018] = function (k, c, A) {
@@ -24939,12 +25149,15 @@ window.G = window.G || {};
     if (end === 'buddy') [-1, 1].forEach(s => k.tube(-0.4, s * 0.3, -0.47 - 0.5 * A.vc, s * 0.3, 0.04, ALU));               // forks drop behind for a partner
     if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.3, 0.05, s * 0.2, 0.03, c1)); mast(k, 0.1, 0.2, c1); tip = 0.16 + 0.1 * A.vx; }
     else if (lift === 'low') { tower(k, -0.16, c1); tip = 0.2 + 0.14 * A.vx; k.tube(-0.16, 0, tip, 0, 0.06, c1); }
+    else if (lift === 'dja') { tower(k, 0.02, c1); tip = 0.16 + 0.22 * A.vx; k.tube(0.02, 0.035, -0.28, 0.035, 0.06, '#2b3036'); k.tube(-0.28, -0.03, tip, -0.03, 0.045, '#2b3036'); k.circ(-0.28, 0, 0.05, ALU2, INK); }   // (3.5.6) the lower tube runs back to the elbow, the upper one forward over it
+    const pv = lift === 'low' ? -0.16 : lift === 'dja' ? 0.02 : 0.1, fl = eff === 'flip' ? Math.cos(PI * ((A.r && A.r.vf) || 0)) : 1;   // (3.5.6) a flipping claw goes over the lift (pv): from above it draws in to the lift and comes out behind
     if (it === 'wheeled' || it === 'wide') [-1, 1].forEach(s => { const x = 0.53 + A.vi * (it === 'wide' ? 0.15 : 0.09); k.tube(0.36, s * 0.34, x, s * 0.31, 0.035, DARK2); k.circ(x, s * 0.31, 0.045, CW.g, INK); if (it === 'wide') k.circ(x - 0.1, s * 0.33, 0.036, CW.g, INK); });
-    if (eff) { const open = A.held ? 0.15 : 0.21, x1 = tip + 0.3, pinch = eff === 'pinch'; k.rect(tip - 0.03, -0.1, 0.07, 0.2, DARK2, EDGE, 0.012);
+    if (eff) { const open = A.held ? 0.15 : 0.21, x1 = tip + 0.3, pinch = eff === 'pinch', cx2 = k.ctx; cx2.save(); if (fl !== 1) { cx2.translate(pv * k.sz, 0); cx2.scale(Math.abs(fl) < 0.08 ? 0.08 : fl, 1); cx2.translate(-pv * k.sz, 0); }
+      k.rect(tip - 0.03, -0.1, 0.07, 0.2, DARK2, EDGE, 0.012);
       [-1, 1].forEach(s => { k.tube(tip, s * 0.08, x1, s * open, pinch ? 0.03 : 0.04, pinch ? ALU2 : DARK2); if (!pinch) { k.circ(x1, s * open, 0.042, CW.g, INK); k.circ(x1 - 0.12, s * (open - 0.03), 0.036, CW.g, INK); } });
-      if (eff === 'launch') k.rect(tip + 0.04, -0.04, 0.05, 0.08, k.c2, null); }
-    if (end && end !== 'none') hookMark(k, lift === 'low' ? -0.3 : 0.05, 0, PI * 0.4);
-    return { at: [tip + 0.2, 0] };
+      if (eff === 'launch' || eff === 'flip') k.rect(tip + 0.04, -0.04, 0.05, 0.08, k.c2, null); if (eff === 'flip') k.circ(tip, 0, 0.05, '#b9a56c', INK); cx2.restore(); }
+    if (end && end !== 'none') hookMark(k, lift === 'low' || lift === 'dja' ? -0.3 : 0.05, lift === 'dja' ? 0.3 : 0, PI * 0.4);
+    return { at: [pv + (tip + 0.2 - pv) * fl, 0] };
   };
   TOP[2019] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame, c1 = k.c1; let tip = 0.3, ang = 0;
@@ -24956,7 +25169,10 @@ window.G = window.G || {};
     else if (lift === 'arm') { tower(k, -0.1, c1); tip = 0.24 + 0.15 * A.vx; k.tube(-0.1, 0, tip, 0, 0.055, c1); }
     if (eff) k.at(0, 0, ang, q => { [-1, 1].forEach(s => q.line([[tip, s * 0.06], [tip + 0.06, s * 0.06]], ALU2, 0.028)); q.rect(tip + 0.055, -0.17, 0.035, 0.34, eff === 'plate' ? '#d8dde2' : DARK2, INK);
       if (eff !== 'plate') q.roller(tip + 0.15, 0.13, 0.03, CW.g, 3); if (eff === 'active') q.poly([[tip + 0.09, -0.045], [tip + 0.18, 0], [tip + 0.09, 0.045]], q.c2, INK); });
-    if (end === 'l2') [[-0.36, -0.3], [-0.36, 0.3], [0.3, -0.3], [0.3, 0.3]].forEach(p => k.circ(p[0], p[1], 0.042, '#aab3bc', INK));
+    if (end === 'suction') { const bx = lift === 'turretlift' ? -0.12 : lift === 'elev' || lift === 'elevfast' ? 0.03 : -0.3, x1 = bx - 0.07 - 0.6 * A.vc;   // (3.5.6) on the back of the elevator, in the middle: the arm swings out behind and sets its pad on Level 3
+      k.tube(bx, 0, x1, 0, 0.05, c1); if (A.vc > 0.3) k.rect(bx + (x1 - bx) * 0.62 - 0.03, -0.04, 0.06, 0.08, '#15181c', EDGE, 0.01);   // (its kickstand, down on the platform's edge)
+      k.rect(x1 - 0.12, -0.13, 0.14, 0.26, '#23272c', ALU2, 0.02); k.rect(x1 - 0.105, -0.11, 0.11, 0.22, '#0d0f12', null, 0.015); }
+    else if (end === 'l2') [[-0.36, -0.3], [-0.36, 0.3], [0.3, -0.3], [0.3, 0.3]].forEach(p => k.circ(p[0], p[1], 0.042, '#aab3bc', INK));
     else if (end && end !== 'none') [[-0.38, -0.31], [-0.38, 0.31], [0.26, -0.33], [0.26, 0.33]].forEach(p => k.rect(p[0] - 0.04, p[1] - 0.04, 0.08, 0.08, ALU, INK, 0.01));   // the stilts
     return { at: [Math.cos(ang) * (tip + 0.15), Math.sin(ang) * (tip + 0.15)], tur: lift === 'turretlift' ? [0, 0] : null };
   };
@@ -24971,7 +25187,8 @@ window.G = window.G || {};
     } else if (it) { k.rect(-0.2, -0.14, 0.58, 0.28, SMOKE, EDGE, 0.02); [-1, 1].forEach(s => k.line([[-0.18, s * 0.1], [0.36, s * 0.1]], '#5b646e', 0.02)); for (let i = 0; i < Math.min(5, A.held); i++) k.circ(0.3 - i * 0.115, 0, 0.062, col, 'rgba(0,0,0,0.4)'); }   // cells queue on the belts
     if (sh === 'dump') { k.rect(-0.46, -0.16, 0.26, 0.32, SMOKE, EDGE, 0.02); k.roller(-0.43, 0.14, 0.03, CW.g, 3); }
     else if (sh === 'turret') { turret(k, -0.22, 0, 0.22); k.at(-0.22, 0, A.aim, q => shooter(q, 0.13, { hood: 2 })); }
-    else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.15, { hood: sh === 'hood' ? 2 : 1 }));
+    else if (sh === 'long' && k.lk.frame !== 'low') { k.rect(-0.43, -0.21, 0.54, 0.42, GLASS, GLASSL, 0.02); k.rect(-0.47, -0.2, 0.045, 0.4, k.c2, INK, 0.012); k.rect(-0.41, -0.06, 0.5, 0.12, '#191c20', EDGE, 0.04); k.rect(-0.41, -0.06, 0.5, 0.03, CW.o, null); k.line([[-0.16, -0.19], [-0.16, 0.19]], ALU2, 0.024); }   // (3.5.6) the big wheel, edge on, in its tall frame
+    else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.15, { hood: sh === 'hood' || sh === 'long' ? 2 : 1 }));
     if (c.panel === 'spin' || c.panel === 'color') { k.circ(0.27, -0.31, 0.062, CW.g, INK); k.circ(0.27, -0.31, 0.02, RING, null); }
     if (end && end !== 'none') { if (end === 'level') k.tube(-0.08, 0.31, 0.14, 0.31, 0.03, DARK2); k.rect(-0.015, 0.265, 0.09, 0.09, c1, INK, 0.012); hookMark(k, 0.03, 0.31, PI * 0.4); }
     return { own: true, tur: sh === 'turret' ? [-0.22, 0] : null, sh: sh === 'dump' ? [-0.43, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dump' ? PI : 0 };
@@ -25002,7 +25219,7 @@ window.G = window.G || {};
     if (it === 'gcube' || it === 'gall') intake(k, A.vi, 0.34, it === 'gall' ? { wc: CW.g, wc2: CW.o, rows: 2, guard: 1 } : { wc: CW.g });
     if (lift === 'sja') { tower(k, -0.14, c1); tip = 0.28 + 0.4 * vx; k.tube(-0.14, 0, tip, 0, 0.06, c1); }
     else if (lift === 'elev') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.17, 0.34, s * 0.17, 0.05, c1)); tip = 0.08 + 0.42 * vx; k.rect(tip - 0.13, -0.2, 0.13, 0.4, DARK2, EDGE, 0.012); }   // the leaning elevator: its rails run the length of the robot
-    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); tip = 0.22 + 0.45 * vx; k.tube(-0.28, 0, 0.12, 0, 0.07, ALU); k.tube(0.02, 0, tip, 0, 0.045, STEEL); }
+    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); tip = 0.24 + 0.5 * vx; k.tube(-0.28, 0, 0.1, 0, 0.078, '#2b3036'); k.tube(-0.12, 0, 0.13 + 0.25 * vx, 0, 0.058, '#3a4149'); k.tube(0.0, 0, tip, 0, 0.04, '#59626c'); }   // (3.5.6) the escalator's three stages
     else if (lift === 'dja') { tower(k, -0.18, c1); tip = 0.02 + 0.68 * vx; const e = 0.22 + 0.12 * vx; k.tube(-0.18, 0.045, e, 0.045, 0.055, c1); k.tube(e, -0.035, tip, -0.035, 0.045, ALU); k.circ(e, 0.005, 0.04, EDGE, INK); }
     else if (lift === 'tele') { k.rect(-0.43, -0.2, 0.19, 0.4, '#2f353c', EDGE, 0.02); tip = 0.3 + 0.5 * vx; k.tube(-0.3, 0, 0.26, 0, 0.09, c1); k.tube(0.0, 0, tip, 0, 0.055, ALU); }
     if (eff) { const y = lift === 'dja' ? -0.035 : 0, open = A.held ? 0.09 : 0.15;
@@ -25042,7 +25259,7 @@ window.G = window.G || {};
     if (eff && lift !== 'trough') { k.rect(hx, -0.12, 0.14, 0.24, DARK2, EDGE, 0.02); if (eff !== 'chute') { k.roller(hx + 0.04, 0.1, 0.022, CW.b, 2); k.roller(hx + 0.105, 0.1, 0.022, CW.b, 2); } if (eff === 'pivot') k.line([[hx + 0.01, -0.11], [hx + 0.01, 0.11]], k.c2, 0.022); }
     if (alg === 'net') { out.algae = [-0.25, 0.27]; k.rect(-0.42, 0.18, 0.34, 0.17, DARK2, EDGE, 0.02); [0.215, 0.315].forEach(y => k.line([[-0.4, y], [-0.1, y]], k.c2, 0.032)); }
     else if (alg === 'proc') { out.algae = [-0.31, 0.27]; k.rect(-0.42, 0.18, 0.23, 0.18, DARK2, EDGE, 0.02); k.line([[-0.42, 0.27], [-0.19, 0.27]], CW.g, 0.036); }
-    out.at = [hx + 0.07, 0]; if (alg === 'net') out.sh = [-0.25, 0.27]; return out;
+    out.at = [hx + 0.07, 0]; if (alg === 'net') out.sh = [-0.25, 0.27]; if (lift !== 'tele') out.load = PI; return out;   // the funnel (and the kit robot's ramp) take coral at the back
   };
   TOP[2026] = function (k, c, A) {
     const hop = c.hopper, sh = c.scorer, it = c.intake, end = c.endgame, c1 = k.c1, mid = sh === 'rotor';
@@ -25055,9 +25272,9 @@ window.G = window.G || {};
       [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.11, s * 0.11, 0.03, c1); k.tube(0.38, s * 0.38, 0.11, s * 0.11, 0.03, c1); });   // the frame that holds the turret
       turret(k, 0, 0, 0.17); k.at(0, 0, A.aim, q => shooter(q, 0.085, { n: 1, hood: 2 }));
     } else if (sh === 'turret') { turret(k, -0.24, 0.23, 0.16); k.at(-0.24, 0.23, A.aim, q => shooter(q, 0.08, { n: 1, hood: 2 })); }   // on a back corner: the hopper keeps the rest
-    else if (sh === 'dumper') k.at(-0.3, 0, 0, q => shooter(q, 0.39, { n: 4, hood: 2, flat: 1 }));
+    else if (sh === 'dumper') k.at(-0.33, 0, PI, q => shooter(q, 0.39, { n: 4, hood: 2, flat: 1 }));                    // (3.5.6) it throws over its back, away from the intake
     else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.17, { hood: sh === 'hood' ? 2 : 1, flat: 1 }));
-    return { own: !!hop, tur: mid ? [0, 0] : sh === 'turret' ? [-0.24, 0.23] : null, sh: sh === 'dumper' ? [-0.3, 0] : sh ? [-0.28, 0] : null };
+    return { own: !!hop, tur: mid ? [0, 0] : sh === 'turret' ? [-0.24, 0.23] : null, sh: sh === 'dumper' ? [-0.33, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dumper' ? PI : 0 };
   };
 
   // A robot showing its moves on its own (the Garage, the robot viewer): twelve seconds in which it collects, carries,
@@ -25073,7 +25290,8 @@ window.G = window.G || {};
     if (!I) { I = Rd.topMech(NOCTX, 1, { look: lk, isPlayer: false, held: 0, cap: r.cap || {}, hd: 0 }, lk, {}); INFO.set(lk, I); }
     return I;
   };
-  Rd.firesBack = r => Rd.topInfo(r).dir === PI;                                         // its scorer points backwards (the 2024 shooters, the dumpers)
+  Rd.firesBack = r => Rd.topInfo(r).dir === PI;
+  Rd.loadsBack = r => Rd.topInfo(r).load === PI;   // (3.5.6) a robot fed at a station from behind (a recipe returns load: PI)                                         // its scorer points backwards (the 2024 shooters, the dumpers)
   // where a shot leaves the robot, on the field: the turret or the shooter, not the robot's middle
   Rd.muzzle = function (r) {
     const I = Rd.topInfo(r), p = I.tur || I.sh, hd = r.hd || 0, c = Math.cos(hd), s = Math.sin(hd);
@@ -25083,11 +25301,19 @@ window.G = window.G || {};
   // One frame of a robot's match animation, for whatever draws a match (the game, the match tester, the trailer): the
   // reach (vx), the intake (vi) and the climber (vc) ease towards what the robot is doing. Returns whether it is aiming
   // or placing (a robot with vision shows its green light then, in the years of reflective tape)
+  // (3.5.6) where and which way a robot is drawn between two ticks (al: 0 at the last tick, 1 at this one). The engine
+  // keeps both ticks' heading and drawn offset (a tank drive rounds its corners and hangs back while it turns)
+  Rd.pose = function (r, al) {
+    const ph = r.phd == null ? r.hd || 0 : r.phd, px = r.px == null ? r.x : r.px, py = r.py == null ? r.y : r.py, pox = r.pox || 0, poy = r.poy || 0;
+    let d = ((r.hd || 0) - ph) % TAU; if (d > PI) d -= TAU; else if (d < -PI) d += TAU;
+    return { x: px + (r.x - px) * al + pox + ((r.ox || 0) - pox) * al, y: py + (r.y - py) * al + poy + ((r.oy || 0) - poy) * al, hd: ph + d * al };
+  };
   Rd.animate = function (m, r) {
     const act = !r.dead && r.st === 'act', lab = r.label || '', ease = (k, to, rate) => { r[k] = r[k] == null || m.done ? to : r[k] + (to - r[k]) * rate; };
     ease('vx', act && /^(Placing|Loading|Scoring)/.test(lab) ? 1 : 0, 0.14);                                              // lifts, arms and telescopes reach out to place or load
     ease('vi', !r.dead && !r.climbing && !r.end && (r.held || 0) < ((r.cap && r.cap.storage) || 1) && !(act && /^(Placing|Scoring|Aiming|Shooting|Climbing)/.test(lab)) ? 1 : 0, 0.12);   // the intake is out while there is room and nothing to score
-    ease('vc', r.climbing || (r.end && r.end.lvl > 0) ? 1 : 0, 0.05);                                                      // climbers, forks and ramps come out to climb
+    ease('vc', r.climbing || (r.end && r.end.lvl > 0) ? 1 : 0, 0.05);
+    if (r.cap && r.cap.flip) { const fa = r.faceAt; ease('vf', act && fa && !fa.side && /^(Placing|Scoring|Feeding the|Tipping their Switch)/.test(lab) && Math.cos(Math.atan2(fa.y - r.y, fa.x - r.x) - (r.hd || 0)) < 0 ? 1 : 0, 0.22); } // (3.5.6) a flipping claw places behind the robot when that is nearer                                                      // climbers, forks and ramps come out to climb
     return act && /^(Aiming|Shooting|Placing|Scoring)/.test(lab);
   };
 
@@ -25332,7 +25558,7 @@ window.G = window.G || {};
       if (S.dispute) btns += '<button class="btn" data-act="dispute">Settle team dispute</button>';
       if (S.bagPick) btns += '<button class="btn primary" data-act="bagOpen">Choose the robot for the bag</button>';
       if (G.Career.needReg(S)) btns += '<button class="btn" data-act="closeAndGo" data-arg="calendar">Open Calendar</button>';
-      UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
+      UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + (ev && ev.def && !ev.active ? UI.selfPayLabel(S, ev.def) : '') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
       return;
     }
     if (G.Career.regWarn(S) && UI.st.regWarnAt !== G.Career.turnKey(S)) return UI.needRegModal(true);
@@ -25674,7 +25900,14 @@ window.G = window.G || {};
     if (boosts.length) o += '<div class="hint mb"><b>Active boosts:</b> ' + boosts.join(' · ') + '</div>';
     return o;
   };
-  UI.A.selfPay = v => { const S = G.S, ev = G.Career.eventThisTurn(S); if (ev && ev.def) G.Career.setSelfPay(S, ev.def, !!v); UI.render(); };
+  // (3.5.1) students pay their own way: a far smaller travel bill, at a price. The tick box, for Headquarters and (3.5.6) for the window that sends the team to the event
+  UI.selfPayLabel = function (S, d) {
+    const C = G.Career, D = G.Data;
+    if (!d || d.kind === 'einstein' || !D.SELF_PAY || !(C.travelCost(S, d) > 0)) return '';
+    const on = C.selfPayOn(S, d), k = C.selfPayCost(S, d), full = on ? Math.round(C.travelCost(S, d) / D.SELF_PAY.cost) : C.travelCost(S, d), low = on ? C.travelCost(S, d) : Math.round(full * D.SELF_PAY.cost);
+    return '<label class="row wrap sm mt" title="The team pays ' + U.money(low) + ' instead of ' + U.money(full) + '. Not every student can pay: fewer make the trip, so scouting is less sure and the repairs between matches are slower at this event."><input type="checkbox" data-chg="selfPay" ' + (on ? 'checked' : '') + '> <span style="white-space:nowrap">Students pay their own way</span> <span class="xs muted">· travel ' + U.money(low) + ' instead of ' + U.money(full) + ' · morale −' + k.morale + (k.rep ? ', reputation −' + k.rep : '') + ' · weaker scouting and pit repairs this event</span></label>';
+  };
+  UI.A.selfPay = v => { const S = G.S, ev = G.Career.eventThisTurn(S), inWin = !!document.querySelector('.modal [data-chg="selfPay"]'); if (ev && ev.def) G.Career.setSelfPay(S, ev.def, !!v); UI.render(); if (inWin) UI.A.continue(); }; // (ticked in the window: the window is drawn again with the new bill)
   UI.A.skipChamps = () => { G.S.champsDeclined = true; UI.closeModal(); UI.toast('Championship skipped.'); UI.render(); };
   UI.A.skipEvent = () => {
     const ev = G.Career.eventThisTurn(G.S); if (!ev || !ev.def) return;
@@ -26159,9 +26392,9 @@ window.G = window.G || {};
       return o;
     }
     o += '<h2 class="mt">Research (offseason R&D)</h2><div class="sub">Builds Tech Knowledge directly. Open until Kickoff: research still running then gets partial credit. ' + UI.q('design', 'Research (offseason R&D)') + '</div>';
-    o += '<table class="t"><tr><th>Project</th><th>Area</th><th>Level</th><th class="num">Hours</th><th class="num">Cost</th><th class="num">XP</th><th></th></tr>' + D.RESEARCH.map(r => {
+    o += '<table class="t bands"><tr><th>Project</th><th>Area</th><th>Level</th><th class="num">Hours</th><th class="num">Cost</th><th class="num">XP</th><th></th></tr>' + D.RESEARCH.map((r, i) => {
       const q = G.Robot.quote(S, { type: 'research', rid: r.id });
-      return '<tr><td>' + h(r.name) + '</td><td>' + h(D.AREA[r.area].name) + '</td><td>' + UI.lvlTag(G.Robot.know(S, r.area)) + '</td><td class="num">' + q.hours + '</td><td class="num">' + U.money(q.cost) + '</td><td class="num">+' + r.xp + '</td><td><button class="btn sm" data-act="startResearch" data-arg="' + r.id + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></td></tr>';
+      return '<tr class="' + (i % 2 ? 'alt' : '') + '" style="--ac:' + UI.areaColor(r.area) + '"><td><b>' + h(r.name) + '</b></td><td class="area">' + h(D.AREA[r.area].name) + '</td><td>' + UI.lvlTag(G.Robot.know(S, r.area)) + '</td><td class="num">' + q.hours + '</td><td class="num">' + U.money(q.cost) + '</td><td class="num">+' + r.xp + '</td><td><button class="btn sm" data-act="startResearch" data-arg="' + r.id + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></td></tr>';
     }).join('') + '</table>';
     return o;
   } };
@@ -26373,7 +26606,7 @@ window.G = window.G || {};
       (act ? '<div><div class="hnum">' + act + ' h</div><div class="l">Sponsor duties</div></div>' : '') + '<div><div class="hnum ' + (idle > 1 ? 'warn' : 'dim') + '">' + Math.round(idle) + ' h</div><div class="l">Idle</div></div></div>' + bar;
     if (compact) return o + (idle > 10 ? '<div class="xs warn mt">' + Math.round(idle) + ' h will go unused this ' + unit + '.</div>' : '');
     o += '<div class="hlegend mt">' + segs.map(s => '<span><i style="background:' + s.c + '"></i>' + h(s.p.name) + ': +' + Math.round(s.h) + ' h</span>').join('') + (act ? '<span><i style="background:#6c7884"></i>Sponsor duties: ' + act + ' h</span>' : '') + (idle > 0.5 ? '<span><i style="background:#2a323b"></i>Idle: ' + Math.round(idle) + ' h</span>' : '') + '</div>';
-    o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
+    o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h' + (bd.ftcH ? ' (after ' + bd.ftcH + ' h a week with your own FTC team' + (bd.ftcN > 1 ? 's' : '') + ')' : '') + ' · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
       '. One project can absorb up to ' + Math.round(G.Robot.capFor(S, { prio: 'normal' })) + ' h per ' + unit + ' (high priority +25%, low −25%). Hours are spent when you press Continue.</div>';
     { const k = C.autoExtraTarget(S); if (k != null && S.projects.some(p => !G.Robot.isFab(p))) o += '<div class="row wrap gap4 mt"><button class="btn sm" data-act="autoExtra" title="Puts this ' + unit + '\'s idle hours into extra hours on the projects already running. It starts no project.">Auto-fill extra hours</button><label class="row xs muted" title="Do the same every turn when you press Continue"><input type="checkbox" data-chg="autoExtraOn" ' + (S.settings && S.settings.autoExtra ? 'checked' : '') + '> every turn</label><span class="xs muted">' + (k ? 'Fills the week to 90%, leaving the idle time that holds fatigue steady.' : 'Fills the whole month: there is no fatigue in the offseason.') + ' ' + UI.q('design', 'Extra hours') + '</span></div>'; }
     if (idle > 10) {
@@ -26431,10 +26664,10 @@ window.G = window.G || {};
       const kitTag = (Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '') +
         (q.kop ? UI.tag(D.PART_CAT[q.kop].name + (q.kopUse ? ': −' + Math.round(D.KOP_KIT_HOURS * 100) + '% hours' : q.kitCov ? ' not needed' : ' 0/1'), q.kopUse ? 'good' : '') : '') +
         (q.frameWant ? UI.tag('GridTube ' + q.frame + '/' + q.frameWant + (q.frame ? ': −' + Math.round(D.FRAME_HOURS * q.frame / q.frameWant * 100) + '% hours' : ''), q.frame >= q.frameWant ? 'good' : q.frame ? 'info' : '') : '');
-      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (c.elite ? '<span title="The hardest mechanism of the season: more hours, more money and more to go wrong, for a small gain over the next best. The best teams in the world built it.">' + UI.tag('elite design', 'acc') + '</span>' + UI.q('design', 'Elite designs') : '') + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button>' + refBtns(S, subId, c) + '</div>' +
+      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (c.elite ? '<span title="The hardest mechanism of the season: more hours, more money and more to go wrong, for a small gain over the next best. The best teams in the world built it.">' + UI.tag('elite design', 'acc') + '</span>' + UI.q('design', 'Elite designs') : '') + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err || q.needErr ? 'disabled' : '') + '>Build</button>' + refBtns(S, subId, c) + '</div>' +
         '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (subId === 'drive' && G.Parts.driveNote(S, c.id) ? '<div class="xs muted">' + UI.icon('gear', 12) + ' ' + h(G.Parts.driveNote(S, c.id)) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') +
         (q.kop ? '<div class="xs muted">' + UI.icon('box', 12) + ' Kit of Parts: a ' + h(D.PART_CAT[q.kop].name) + ' (' + G.Parts.kitsFree(S, q.kop) + ' free) saves ' + Math.round(D.KOP_KIT_HOURS * 100) + '% of the hours and ' + Math.round(D.KOP_KIT_COST * 100) + '% of the materials. Only the simplest concept of a subsystem can use one, and not together with a COTS kit.</div>' : '') +
-        (q.frameWant ? '<div class="xs muted">' + UI.icon('parts', 12) + ' GridTube frame stock: can use ' + q.frameWant + ' bundle' + (q.frameWant > 1 ? 's' : '') + ' (' + Math.min(q.frameWant, G.Parts.kitsFree(S, 'kFrame')) + ' free). With all of them: −' + Math.round(D.FRAME_HOURS * 100) + '% hours and −' + Math.round(D.FRAME_COST * 100) + '% materials, on top of the kits.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
+        (q.frameWant ? '<div class="xs muted">' + UI.icon('parts', 12) + ' GridTube frame stock: can use ' + q.frameWant + ' bundle' + (q.frameWant > 1 ? 's' : '') + ' (' + Math.min(q.frameWant, G.Parts.kitsFree(S, 'kFrame')) + ' free). With all of them: −' + Math.round(D.FRAME_HOURS * 100) + '% hours and −' + Math.round(D.FRAME_COST * 100) + '% materials, on top of the kits.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.needErr ? '<div class="sm bad mt">' + h(q.needErr) + '</div>' : '') + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
     }).join('') + '</div>';
     UI.modal(o, { wide: true });
   };
@@ -26563,15 +26796,18 @@ window.G = window.G || {};
   // knowledge levels 0 to 5 in their own colours (Tech Knowledge, the research list)
   UI.LVL_COLORS = ['var(--muted)', 'var(--bad)', 'var(--warn)', 'var(--data)', '#a8d65c', 'var(--good)']; // the bars' colours, from red at Level 1 to green at the top
   UI.lvlTag = l => '<b style="color:' + UI.LVL_COLORS[Math.max(0, Math.min(5, l))] + '">Lv ' + l + '</b>';
+  // (3.5.6) every knowledge area has a colour of its own, the same on the Tech Knowledge page and in the research list: rows are banded and carry it down their left edge, so the one you want is quick to find
+  UI.AREA_COLORS = ['#5aa9ff', '#ffb84d', '#ff7b72', '#57d39b', '#c792ea', '#f78c6c', '#4dd0e1', '#d4e157', '#f06292', '#9fa8da', '#bcaaa4', '#80cbc4', '#ffd54f', '#ba68c8'];
+  UI.areaColor = id => { const i = D.AREAS.findIndex(a => a.id === id); return UI.AREA_COLORS[(i < 0 ? 0 : i) % UI.AREA_COLORS.length]; };
   UI.S.know = { html() {
     const S = G.S, rel = S.year && S.phase !== 'off' ? G.Seasons[S.year].relevance : null;
     let o = UI.head('Tech Knowledge', 'know', 'What your program knows how to build. It carries over between seasons, and it dates: unused areas fade, and rule changes and new designs make part of it outdated.', 'design');
     o += '<div class="hint mb">Each level: +3 to stat ceilings, −6% build hours, +4 starting reliability and +5% upgrade quality for concepts that use the area. Unused areas lose 20% XP a season' + (S.equip.kb ? (G.Career.kbCurrent(S) ? ' (halved by your Knowledge Base)' : ' (your Knowledge Base would halve this, but it needs its yearly update)') : '') + ', and each offseason\'s rule changes and new designs date some of it. ' + UI.q('design', 'Tech Knowledge') + '</div>';
-    o += '<table class="t"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + h(G.Seasons[S.year].name) + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
-    D.AREAS.forEach(a => {
+    o += '<table class="t bands"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + h(G.Seasons[S.year].name) + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
+    D.AREAS.forEach((a, ai) => {
       const xp = S.know[a.id] || 0, l = D.knowLevel(xp), nxt = D.KNOW_THRESH[Math.min(5, l + 1)], prev = D.KNOW_THRESH[l];
       const ment = S.mentors.find(m => m.spec === a.id);
-      o += '<tr><td><b>' + h(a.name) + '</b><div class="xs muted">' + h(a.desc) + '</div></td><td class="lg b" style="color:' + UI.LVL_COLORS[l] + '">' + l + '</td><td>' + (l >= 5 ? UI.bar(1, 1, 'var(--good)') : UI.bar(xp - prev, nxt - prev)) + '<span class="xs muted">' + xp + ' XP' + (l < 5 ? ' / ' + nxt : '') + '</span></td>' +
+      o += '<tr class="' + (ai % 2 ? 'alt' : '') + '" style="--ac:' + UI.areaColor(a.id) + '"><td><b class="area">' + h(a.name) + '</b><div class="xs muted">' + h(a.desc) + '</div></td><td class="lg b" style="color:' + UI.LVL_COLORS[l] + '">' + l + '</td><td>' + (l >= 5 ? UI.bar(1, 1, 'var(--good)') : UI.bar(xp - prev, nxt - prev)) + '<span class="xs muted">' + xp + ' XP' + (l < 5 ? ' / ' + nxt : '') + '</span></td>' +
         (rel ? '<td class="acc">' + ('★'.repeat(rel[a.id] || 0) || '<span class="dim">—</span>') + '</td>' : '') + '<td class="sm">' + (ment ? h(ment.name) : '<span class="dim">—</span>') + '</td><td>' + (S.usedAreas[a.id] ? UI.tag('yes', 'good') : '<span class="dim">no</span>') + '</td></tr>';
     });
     return o + '</table>';
@@ -27924,7 +28160,8 @@ window.G = window.G || {};
         const roles = [['', 'Their choice'], ['score', 'Score'], ['defend', 'Play defense']].concat(ev.year === 2026 ? [['feed', 'Feed fuel']] : []);
         sug = '<label class="f mt">Suggest role<select class="inp" data-chg="suggest" data-t="' + t + '">' + roles.map(r => '<option value="' + r[0] + '" ' + ((ev.suggest[t] || '') === r[0] ? 'selected' : '') + '>' + r[1] + '</option>').join('') + '</select></label>';
       }
-      return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' + sug + '</div>';
+      return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' +
+        '<div class="rbside">' + UI.sideCanvas(sc.look || {}, side, t, 300, 172) + '</div>' + sug + '</div>'; // (3.5.6) every robot of the match from the side, in its alliance's bumpers
     };
     o += '<div class="grid g3"><div>' + '<h3>Red alliance' + alTag('red') + '</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
     // plan
@@ -28074,7 +28311,7 @@ window.G = window.G || {};
     m.robots.forEach(r => {
       const aiming = G.Render.animate(m, r); // (3.5.5) the reach, the intake and the climber ease towards what the robot is doing
       const rr = Object.create(r);
-      rr.x = r.px + (r.x - r.px) * al; rr.y = r.py + (r.y - r.py) * al;
+      { const P = G.Render.pose(r, al); rr.x = P.x; rr.y = P.y; rr.hd = P.hd; } // (3.5.6) the heading turns smoothly between ticks too
       if (r.isPlayer) rr.look = Object.assign({}, r.look);
       const g = aimFor(m, r);
       G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: tape && aiming && (r.cap.visionLvl || 0) >= 1, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });
@@ -28835,6 +29072,16 @@ window.G = window.G || {};
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.6', title: 'Driving like the real thing', notes: [
+      'In a watched match a robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. Swerve and mecanum drives turn while they travel and spin off a defender. Tank drives swing through their corners, back up for a short hop, turn on the spot before a run the other way, and back off a defender before they turn. Results are the same as before.',
+      'New designs. 2018: a double-jointed arm, and an elite design, the flipping roller claw, which places behind the robot as well as in front. 2019: a suction climber that hangs beside HAB Level 3 and leaves the platform to a partner. 2020: a long-range shooter with one big wheel that shoots from behind the Trench Run (tall frame only). 2017: an elite fuel system, the dual intake + turret shooter, which sweeps fuel up faster and shoots from well outside the Key.',
+      'The 2024 turret shooter is now an elite design, and a smaller gain over the pivot than it was: a note shooter is heavy, so its turret turns slowly and is no more accurate. Elite designs are now the last of every list.',
+      'The 2023 "Elevator + wrist" is now the Elevator + escalator, drawn with its three telescoping stages. The 2026 wide dumper throws over its back, away from its intake, and its cameras look that way.',
+      'The pre-match page shows all six robots from the side. Rival teams put the number on their bumpers in the middle or at the side, each team its own way.',
+      'The Super pit tires the team a little less at an event. Your own FTC teams take a few mentor hours a week in the offseason. Students paying their own way can be ticked in the window that sends the team to an event.',
+      'The research list and the Tech Knowledge table have banded rows, and every knowledge area has a colour of its own in both, so the one you want is quicker to find.',
+      'Fixed: an international partner signed by Auto-pick best now sends its letter.'
+    ] },
     { v: '3.5.5', title: 'Robots that look the part', notes: [
       'Every robot picture is redrawn. A robot is now put together from what a real one is made of: box tube with its hole pattern, pocketed plate, polycarbonate, belts, compliant wheels, gas springs and hooks, in the proportions of a real robot. The pictures are drawn twice as sharp.',
       'Every season has its own designs: each concept has its own drawing for that game. A 2018 climber is a hook on a strap with forks for a partner, a 2019 one is a pair of stilts with ramps, a 2022 one is a telescoping arm. A low-bar or trench robot stands at its real height, and the low seasons are drawn larger.',
@@ -30283,13 +30530,17 @@ window.G = window.G || {};
       { icon: 'design', t: 'Published designs', li: ['At the start of Build Week 2 of every season a complete robot for that year\'s game is published (its makers spend Build Week 1 building it): the <b>Anybot</b> (the Gearwrights\' simple robot on the kit chassis, from the 2018 season) and the <b>Apex Blueprint</b> (a competitive design on swerve, from 2022; any vendor\'s parts fit). A window shows both robots, and the Design Office keeps them all season.', 'Before they are out, the Design Office says so, with what copying the whole robot would save against a week of your team\'s hours. The choice is yours: start your own design at Kickoff, or wait. A team that waits can build a test chassis (Garage), write code, run program projects, or simply rest: idle hours lower fatigue, so Week 2 can be an overtime week. A test chassis and program projects take no project slot; code projects do, so a long one started in Week 1 may still hold a slot the copy needs in Week 2 (a subsystem without a free slot waits, and you copy it when one frees up). The smaller the team, the more waiting pays, because the copy saves more hours than the week costs.', 'Copy a whole robot, or single subsystems from the concept chooser (<b>Copy the …</b>). Only the first build of each copied subsystem is cheaper: Anybot −50% hours and −20% materials, Blueprint −35% and −10%. It has no first-build penalty, starts as version 2, is more reliable (+6 / +4), and the drivers start at 60% / 55% familiarity: each design comes with build videos, practice drills and a model for the driving simulators, so they practise while it is built. The simulator model and the drills are of the whole robot, and its parts were proven together: copy only part of it and the drivers start lower and the reliability bonus is smaller (about half for one subsystem of three). It teaches half the know-how.', 'Mechanism kits and GridTube work on a copy as on your own build, and the savings multiply: a copied intake with its kit takes about a quarter of the hours of designing it yourself without one. They do not change the copy\'s stats or reliability. A copy takes the same parts as your own design: the Blueprint\'s drivetrain runs on 4 swerve modules, and every subsystem needs its motors and encoders. The window counts the shelf for the whole robot: a subsystem it can\'t cover shows <b>short of …</b> with a <b>Buy</b> button, and the build button says how many subsystems will start (<b>Build 3 of 4 subsystems</b>). What doesn\'t start waits until you buy the parts; copy it then from the window or the concept chooser.', 'Upgrades after that are your own work, at the usual cost. The other teams copy them too: the weakest teams build the Anybot, so nearly every robot at an event can play the game, and some of the middle build the Blueprint. The season recap and the History page count the copies at your events.'] },
       { icon: 'arm', t: 'End effector, lift and intake', li: ['In 2018, 2019, 2023 and 2025 the robot has an <b>End Effector</b>: the claw or gripper at the end of the lift, built on the <b>End Effectors</b> knowledge area. Its <b>Grip</b> decides how surely it takes, holds and lets go of a game piece: a poor one costs placements and a little time on every score, a developed one gives both back.', 'In those games the ground intake is <b>optional</b>. Without one the end effector collects the pieces itself, from the human player (and in 2018 off the floor): slower than a good intake, but it saves the weight, the hours and the money.', 'A robot needs both a lift and an end effector to score. From August 2021 a gripper kit speeds the build, and a pneumatics or servo kit helps too.'] },
       { icon: 'atom', t: 'Knowledge each concept needs', li: ['Each concept has <b>core areas</b> (★). A turret shooter is a flywheel shooter on a turret, so it needs both Turret and Flywheel Shooter knowledge.', 'Any core area at Level 0 on a complex concept means a first-time penalty. Build hours and ceilings use the average of the core areas.'] },
-      { icon: 'trophy', t: 'Elite designs', li: ['Seven games have mechanisms marked <b>elite design</b>, at most one a subsystem: the hardest of its season, built by the best teams in the world. It costs the most hours and money, has the most to go wrong, and beats the next best by only a few percent. The team is never advised to build one: it is your call.',
+      { icon: 'trophy', t: 'Elite designs', li: ['Every game from 2016 to 2026 has mechanisms marked <b>elite design</b>, at most one a subsystem: the hardest of its season, built by the best teams in the world. It costs the most hours and money, has the most to go wrong, and beats the next best by only a few percent. The team is never advised to build one: it is your call.',
         '<b>2016 Turret + hood shooter</b>: aims while the robot is still driving, and a blocker cannot push its aim off. Worth little in the open and a lot against a defender.',
+        '<b>2017 Dual intake + turret shooter</b>: sweeps loose fuel up faster and shoots from well outside the Key, wherever the robot stands within reach of the boiler, so it never drives to the Key and a defender has nowhere to wait for it. From far out a little less of the stream goes in.',
+        '<b>2024 Turret shooter</b>: aims without turning the robot, but a note shooter is heavy, so the turret turns slowly and is no more accurate than a good pivot. A little quicker to aim, a little more reach, and a defender bothers it less.',
+        '<b>2018 Flipping roller claw</b>: the launching claw on a pivot of its own. It flips over the lift and places behind the robot as well as in front, so the chassis never turns round to score. A tank drive saves up to a third of a second of lining up on every leg; a swerve or mecanum drive less.',
         '<b>2019 Turreted elevator + wrist</b>: loads on one side and places on another without turning the chassis. A tank drive saves about half a second of lining up on every leg; a swerve or mecanum drive, which lines up quickly anyway, saves little.',
         '<b>2023 and 2025 Pivoting telescope</b>: a telescoping arm on a low pivot. It scores like the best lift of its year, <b>never tips</b>, balances a little better on the Charge Station (2023) and climbs the cage a little quicker and surer (2025).',
         '<b>2019 Triple Level 3 climber</b>: carries both partners onto HAB Level 3, 36 points from one climber. Both partners must be at the HAB in time, or it climbs alone (with one partner it would not balance). A failed lift can drop them, and bring the climber down as well: big when it works, risky when it does not.',
         '<b>2020 Full-width four-bar intake + revolver indexer</b>: fires the five cells it holds much faster, and the four-bar folds out of the way when it is hit, so the intake rarely jams or breaks.',
         '<b>2022 Dual-side intake</b> takes cargo from either end without turning round. <b>2022 Direct traversal climber</b>: quicker, surer and less likely to fall than a traversal climber, but it can only hang on Traversal.',
+        '<b>2018 Double-jointed arm</b>: reaches the Scale like an elevator, lighter and steadier on its wheels. <b>2019 Suction climber</b>: a vacuum disk holds the robot beside HAB Level 3, a little sooner than stilts, and the platform stays free for a partner. <b>2020 Long-range shooter</b>: one big wheel in a tall frame. With its range developed it shoots from behind the Trench Run, a short drive from the Loading Bay; from there fewer cells go in and few find the Inner Port. Under a Trench-height frame the wheel does not fit.',
         '<b>2026 Linear slide intake</b>: packs the fuel down so the shooter is fed faster, and slides back when hit. <b>2026 Dye-rotor turret</b>: more fuel a second than a standard turret, and more consistent shots.',
         'Only the strongest teams in the world field them, so you meet them at the Championship more than anywhere else.'] },
       { icon: 'garage', t: 'Copies and fabrication', d: flow([['design', 'Design + prototype'], ['bolt', 'Build copy'], ['garage', 'Robot 2 or a spare']]), li: ['<b>Build copy</b> makes another unit of a finished design: about a quarter of the first build\'s hours and 60% of its materials, plus its own build parts. Its robot parts come from the shelf when it is fitted.', 'Copies go to the robot that lacks the latest version (the second robot first), otherwise to storage as a spare.', 'Copies are <b>fabrication</b>: they use team hours but no project slot. The Garage\'s <b>test chassis</b> and <b>full copy</b> are shortcuts that start copies, nothing else.', 'A copy that cannot go on its robot for want of parts waits in storage, and the Inbox says which parts and how many (what each robot uses, what is on the shelf). Optional parts (planetary gearboxes, a network switch, an ML accelerator) never stop a copy.'] },
@@ -30344,7 +30595,7 @@ window.G = window.G || {};
       { icon: 'ebench', t: 'Electronics, welding, meeting room and FTC space', li: ['<b>Electronics Workbench</b>: fewer brownouts and comms dropouts in matches; motors and electronics wear more slowly.', '<b>Welding Station</b>: hardening and lightweighting take fewer hours and do more; new builds are more reliable.', '<b>Team Meeting Room</b>: outreach counts for more and adds to your Impact presentation score.', '<b>FTC Team Space</b>: run one to three FTC teams of your own (Team page, Feeder programs). Each takes a program slot, costs $300 a year and counts 1.8× for recruit quality.'] },
       { icon: 'cnc', t: 'Facilities', li: ['The Prototyping Lab (3D printers, and a laser cutter from level 2; from the autumn of 2022 a fourth level, the print farm: fast desktop printers that print carbon-fiber parts, and spares bought at an event cost little more than at home because the pit prints many of them; from then on every Prototyping Lab level saves a little more hours, and the Manual Machine Shop adds a little less reliability), CNC Machining (a router, then a CNC mill and lathe), the Manual Machine Shop (mill, lathe, drill press, band saw) and the Programming Station cut hours and can add project slots; they also give <b>Finish now</b> cards (Design & hours guide). CAD Workstations cut the hours on new mechanisms and upgrades. The Battery Station and Pit Setup help between matches, and the Practice Field adds testing hours.',
         'The <b>Parts Shelf</b> decides how many of each bulky part you can keep: half the most without one, two robots\' worth at its top level (control hubs, cameras and actuator kits always fit). The <b>Break Room</b> takes a little fatigue off every week in season. The <b>Honors Wall</b> puts banners and trophies on display in History (the banner wall shows this season\'s and last season\'s; level 2, with the trophy shelf, shows everything), lifts team morale a little and adds a little reputation at every season review.', 'They wear down, mostly in the build and competition weeks (a whole offseason month costs about half of what one build week does), and a worn facility works at 40–100% of its effect. Below 35% condition it also loses its project slot until renovated. <b>Renovate all</b> (top of the Workshop) brings every worn facility back to 100% for one bill. Upkeep is charged per level at Kickoff.', 'The Parts Shelf holds as many parts at any condition, but its upkeep rises as it wears, slowly at first and faster the more worn it is: up to five times at 0% (cracked bins and lost labels cost money). When a renovation would cost less than the extra upkeep over the Kickoffs left in your career, a pop-up says so, with a Renovate button.', 'Some unlock new outreach and fundraising activities.', '<b>Downgrade</b> (or Remove, at level 1) gives a level back to make room (not the Parts Shelf: the parts on it have nowhere else to go). Half that level\'s price comes back at full condition, less as it wears, and nothing for a level that was donated or paid by a grant. Buying it again costs the full price.'] },
-      { icon: 'pitcart', t: 'Super pit', li: ['The top level of Pit Setup, from the 2018 season (on sale from the autumn of 2017): the whole pit in road cases. It takes no more room than a full pit setup.', 'Before every match, watched or simulated, the crew fully repairs <b>the subsystem in the worst shape</b>, with spare parts as usual. On the pre-match page you can have it repair another one instead: the first repair is taken back and the full repair goes where you say.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.'] },
+      { icon: 'pitcart', t: 'Super pit', li: ['The top level of Pit Setup, from the 2018 season (on sale from the autumn of 2017): the whole pit in road cases. It takes no more room than a full pit setup.', 'Before every match, watched or simulated, the crew fully repairs <b>the subsystem in the worst shape</b>, with spare parts as usual. On the pre-match page you can have it repair another one instead: the first repair is taken back and the full repair goes where you say.', 'Its screens help the strategy team: scouting estimates at events are sharper and the team reads the game a little faster.', 'It takes far less effort to set up, and it has a mini fridge: an event week adds ' + D.FATIGUE_SUPERPIT + ' less fatigue.'] },
       { icon: 'trailer', t: 'Team trailer', li: ['Far events become a long drive instead of a flight: 15% cheaper and no air-freight damage. It cannot cross an ocean, and no road leaves an island: an event in another part of the world stays a flight overseas, and a team on an island flies to everything off it.', 'Robot demos for sponsors wear the robot less; robot outreach counts 20% more; unlocks the Trailer roadshow.'] },
       { icon: 'incident', t: 'Shop incidents', li: ['Now and then something breaks or goes wrong in the shop: pick how to handle it.', 'The result shows in the same window as soon as you choose: an option with a chance attached is settled on the spot. What an incident costs development lasts one turn, about a week of work.', 'From the autumn of 2024 every team leans on AI coding assistants, with an AI coding lab or without one, and now and then the assistant goes down: wait and hope, write code by hand, pay for a backup service, or send the programmers to help the build crew.'] }
     ] },
@@ -30367,7 +30618,7 @@ window.G = window.G || {};
       { icon: 'scout', t: 'Strategy read', li: ['How well the team spots and runs a game\'s advanced strategy, from 0 to 100. Headquarters, the Team page and the event screens show it.',
         'It is built from a Strategy mentor (up to 30), the drive coach\'s Strategy skill (up to 20), the events the team plays and scouts this season (up to 30, more at events where the strategy is common, with scouting focus or a Super pit), and driver practice (up to 15), plus a base of 5.',
         'It changes two games: <b>2024 CRESCENDO</b>, how often and how well your alliance lobs notes across the field to hoard them for Amplify, and <b>2026 REBUILT</b>, how often and how cleanly your alliance stockpiles fuel while its hub is inactive. In the other games it has no effect.'] },
-      { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Feeder programs (FLL, camps, clubs, other schools\' FTC, and your own FTC teams) are capped together: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. The FTC Team Space also limits how many FTC teams of your own you run; FIRST Tech Challenge writes when you found the first. An outside program is named after a school of your part of the world. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality.'] }
+      { icon: 'sprout', t: 'Feeder programs', li: ['Up to 6 programs, $1,000 a year each (paid in September). They grow over three school years: 60%, 85%, then 100% strength.', 'Feeder programs (FLL, camps, clubs, other schools\' FTC, and your own FTC teams) are capped together: 3, plus 1 for a 2★ Business &amp; Outreach Mentor (2 at 4★) and 1 for reputation 50 (2 at 80), at most 6. The FTC Team Space also limits how many FTC teams of your own you run; FIRST Tech Challenge writes when you found the first. An outside program is named after a school of your part of the world. A program over the cap keeps running.', 'Your own FTC teams play their own season (Inbox reports, a season review in May). A run to the state championship or beyond adds 10% to 35% to that program\'s pull on next September\'s recruits.', 'FTC\'s technology moves with the calendar, as FRC\'s does: Android phones (2015–16), the expansion hub (2017–18), object detection (2018–19), the control hub (2020–21), the driver hub (2021–22), AprilTags on signal sleeves (2022–23), AprilTags on the field (2023–24), odometry computers and smart cameras (2024–25). The FTC kickoff says what is new, and the vendors\' FTC launches follow it. So do its rules: double-elimination playoffs from 2024–25, FRC-style ranking points and advancement points from 2025–26.', 'Every October the team argues whether the FTC game hints at the next FRC game, and Kickoff settles it. From the 2018–19 season FTC and FRC share a season theme, so in real order the guess comes true; in a random-order career the FTC game is drawn on its own and gives nothing away.', 'Each September they bring extra students (more hours) and better recruits. A program\'s focus (Balanced, Drive team, Technical, Strategy, Outreach) trains the skills of the recruits who come from it.', 'Outreach programs bring the most students and count most toward Impact. Changing a focus costs a year of growth, except while the program is new.', 'With an <b>FTC Team Space</b> (Workshop) you can run up to three FTC teams of your own in those slots: ' + U.money(D.FTC_OWN.cost) + ' a year each, and they count ' + D.FTC_OWN.power + '× for recruit quality. In the offseason, while its season runs, each of your own teams takes ' + D.FTC_OWN.mentorH + ' mentor hours a week (never more than half of what your mentors give).'] }
     ] },
     { id: 'money', icon: 'finance', name: 'Money', desc: 'Sponsors, debt, the STEM fund', secs: [
       { icon: 'sponsor', t: 'Sponsors', li: ['The <b>Sponsor funding</b> card on the Finance page shows this season (base paid, bonuses reached and still possible) and next season (expected base and possible max bonus). When a deal ends, the sponsor may <b>offer to renew</b>: the chance is its satisfaction at the season review (a partner\'s a little lower). The offer joins the list on this page, marked Renewal, and signing it is your choice. Leaving it unsigned costs nothing.', 'Contracts: a <b>title sponsor</b> and a <b>grant</b> sign for two to four seasons and renew for two or three. <b>Partners</b> prefer shorter deals, one to three seasons, renew one season at a time, and move on more often.', 'Offers arrive in October: three for the title, six from partners and one or two grants, each from a different company. A title sponsor pays about three times a partner. No company is on the list twice, and none that already sponsors you.', 'Every company has a <b>city</b>, shown beside its name. Most offers come from companies close to your team; a company or a foundation also sponsors teams all over its own country, and now and then a company from a neighbouring country writes. A local business only sponsors teams near one of its shops, and a foundation never crosses a border.', 'About one partner offer in ten comes from an <b>international company</b> instead, marked International: a giant that sponsors teams all over the world, as a partner like any other (the city beside its name is its head office). Where a team has few companies of its own around it, international companies make more of the partner offers. It never offers a title. Its name on your robot is worth a little: <b>+' + D.SPONSOR_INTL.rep + ' reputation</b> at every season review for each international partner you hold.', 'A sponsor that leaves, because it did not offer to renew or because you ended its contract, is not on the next list of offers: it can come back a year later.', 'From the autumn of 2022 the printer maker <b>' + D.SPONSOR_MAKER.name + '</b>, an international company too, may be among the partner offers, wherever your team is, and more often than the others: on about every other list. It is a partner like any other, but what it donates is its own trade: a Prototyping Lab or an Electronics Workbench level.', 'Offers grow a little with reputation and last season\'s results.', 'You hold one title sponsor, one grant and 4 partners (5 with a Business mentor). Signings made this turn can be undone until you press Continue; "Auto-pick best" fills the open slots.', 'Every sponsor has a line under its name that says what it does. The Inbox hears of a signing on the next turn, once it can no longer be undone. A <b>title sponsor</b> writes you a letter when it signs and when it renews: who they are, why they chose your team and what they expect. ' + D.SPONSOR_MAKER.name + ', a partner, writes one too.', 'From October to Kickoff, while the new offers are open, you can <b>end a sponsorship</b> to free its slot for a better offer. It costs reputation: 6 for a title sponsor, 3 for a partner, 2 for a grant, plus 1 for each further season the contract had to run.', '<b>Top programs</b> (powerhouse or very high reputation) attract sponsors who expect wins: miss a regional win or Championship spot and they cool off fast.', 'A very satisfied sponsor now and then <b>donates</b> a facility level that fits its business, if the workshop has room. The higher its satisfaction above ' + D.DONATION.sat + ', the likelier (below it, never): about one donation in three or four seasons with every slot filled and every sponsor delighted, far fewer otherwise, and none in the two years after one.'] },
@@ -30399,7 +30650,7 @@ window.G = window.G || {};
         'The Levant District takes in the whole Middle East: a team that starts there in 2016 joins it in 2017, with no choice to make, and from 2017 the area is on the home list only as the district. Anatolia has no district. Where a district forms in part of an area (Trillium, Mesa, Sierra), a regional team that stands inside it is asked whether to join, and the area\'s other teams stay with the regionals. The New Career page says which applies to your team.',
         'Your default team number and school name follow your home: an established team gets a number its area\'s teams really carry (East Asia\'s oldest are in the 4000s and 5000s), and sponsors are named after the industries of the place.',
         'People are named as people of their part of the world usually are when the name is written in English, and a first name always goes with a family name of the same language. Your students, your mentors, your own default name and the people who write to you carry the names of where your team is from; the people of other teams carry their own. The staff of an international company keep names from everywhere.'] },
-      { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices, by the miles from your city to the event\'s: <b>Local</b> (the same city, or up to ' + D.TRIP.local + ' miles), <b>Drive</b> (up to ' + D.TRIP.drive + ' miles by road), <b>Fly</b> (farther, or wherever no road goes) and <b>Fly overseas</b> (another part of the world: North America; South America; Europe, Anatolia and the Middle East; East Asia; Asia Pacific). The Championship and Summit Champs are priced the same way, so a team from the host city pays the local price. A district\'s own events are never a flight.', 'Before you leave for an event you can let the <b>students pay their own way</b> (Headquarters): the team pays about a third of the travel bill. It costs morale and reputation, more the farther the trip, and fewer students come, so scouting is less sure and the repairs between matches are slower at that event.',
+      { icon: 'trailer', t: 'Flying overseas', li: ['Travel has four prices, by the miles from your city to the event\'s: <b>Local</b> (the same city, or up to ' + D.TRIP.local + ' miles), <b>Drive</b> (up to ' + D.TRIP.drive + ' miles by road), <b>Fly</b> (farther, or wherever no road goes) and <b>Fly overseas</b> (another part of the world: North America; South America; Europe, Anatolia and the Middle East; East Asia; Asia Pacific). The Championship and Summit Champs are priced the same way, so a team from the host city pays the local price. A district\'s own events are never a flight.', 'Before you leave for an event you can let the <b>students pay their own way</b> (Headquarters, or the window that sends the team to the event): the team pays about a third of the travel bill. It costs morale and reputation, more the farther the trip, and fewer students come, so scouting is less sure and the repairs between matches are slower at that event.',
         'A flight overseas costs ' + U.money(D.TRAVEL.intl.cost) + ' for a team of 25 (an ordinary flight ' + U.money(D.TRAVEL.fly.cost) + '), and more for a bigger team. The robot crosses the ocean in a crate and arrives ' + D.INTL_KNOCKS[0] + ' to ' + D.INTL_KNOCKS[1] + '% worse for wear (an ordinary flight: 4 to 9%), and the team comes home a little more tired.',
         'The <b>team trailer</b> turns ordinary flights into long drives. It cannot cross an ocean: a flight overseas stays a flight.',
         'The Championship is in the middle of North America: an ordinary flight from anywhere on that continent, Central America included, and a flight overseas for everyone else. Summit Champs in California is the same.',
@@ -30435,7 +30686,7 @@ window.G = window.G || {};
     ] },
     { id: 'matches', icon: 'play', name: 'Matches', desc: 'Coach calls, defense, faults', secs: [
       { icon: 'mentors', t: 'Coach Calls', li: ['3–6 calls a match: pace, role (score / defend / feed), target, endgame timing and level, bonus RPs, avoid contact, reset a fault.'] },
-      { icon: 'play', t: 'How robots drive', li: ['Robots steer round field elements and round robots standing still. To cross the field they take the way the game leaves open: the Trench Run for a low robot (2020), a gap between two of their own Cages under the Barge (2025), a bump or a trench (2026), and another one when a stopped robot blocks it. Partners keep a gap and give way to each other: the one carrying a game piece, or heading for the endgame, keeps its line.', 'A robot that cannot get to a spot for a few seconds (a disabled partner in front of a peg, a crowd at a station) gives it up and tries another place; blocked three times in half a minute, it plays defense for a while. Partners working one plate or station use places side by side, or hold back until one is free.', 'A robot whose intake or scorer breaks for good plays defense, and a partner that was defending goes back to scoring (a defense call you made during the match stands). With nothing left to do (everything full, no game pieces), robots play defense instead of waiting.', 'Defenders go after robots that are scoring, not robots that are defending themselves, one defender to a robot; bumper to bumper they hold their ground and face the robot they guard. In autonomous, robots follow their routines as planned.', 'Each robot is drawn from above as it was built, and it moves: the intake folds out while it is collecting and in when it carries a piece away, lifts and arms reach out to place, and climbers, forks and ramps come out in the endgame. Before AprilTags reach the field, a robot with vision lights a green ring while it aims at the reflective tape. A robot without a turret turns its whole chassis to what it shoots at.'] },
+      { icon: 'play', t: 'How robots drive', li: ['Robots steer round field elements and round robots standing still. To cross the field they take the way the game leaves open: the Trench Run for a low robot (2020), a gap between two of their own Cages under the Barge (2025), a bump or a trench (2026), and another one when a stopped robot blocks it. Partners keep a gap and give way to each other: the one carrying a game piece, or heading for the endgame, keeps its line.', 'A robot that cannot get to a spot for a few seconds (a disabled partner in front of a peg, a crowd at a station) gives it up and tries another place; blocked three times in half a minute, it plays defense for a while. Partners working one plate or station use places side by side, or hold back until one is free.', 'A robot whose intake or scorer breaks for good plays defense, and a partner that was defending goes back to scoring (a defense call you made during the match stands). With nothing left to do (everything full, no game pieces), robots play defense instead of waiting.', 'Defenders go after robots that are scoring, not robots that are defending themselves, one defender to a robot; bumper to bumper they hold their ground and face the robot they guard. In autonomous, robots follow their routines as planned.', 'Each robot is drawn from above as it was built, and it moves: the intake folds out while it is collecting and in when it carries a piece away, lifts and arms reach out to place, and climbers, forks and ramps come out in the endgame. Before AprilTags reach the field, a robot with vision lights a green ring while it aims at the reflective tape. A robot without a turret turns its whole chassis to what it shoots at.', 'A robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. <b>Swerve and mecanum</b> drives turn while they travel, so they arrive standing the right way, and they spin off a defender. <b>Tank</b> drives go only where they point: they swing through their corners, back up for a short hop behind them, turn on the spot before a run the other way, and back off a defender before they turn. None of it changes a result.', 'The pre-match page shows all six robots from the side, in their alliance\'s bumpers.'] },
       { icon: 'shield', t: 'Defense and pins', li: ['Pins last at most 5 s (through 2024) or 3 s (2025–2026), then the defender backs off six feet.', 'Protected zones: Launch Pad and late Hangar (2022), Community and Loading Zone (2023), Source, Amp, Podium and late Stage (2024), Reef and Barge Zones (2025), the Tower late in the match (2026).', 'Touching a robot at its endgame structure costs more than a foul: Traversal points for it (2022), Docked and Engaged for its alliance (2023), two tech fouls and the Ensemble RP (2024), the Barge RP (2025), Level 3 if it is off the ground (2026).', 'Before 2022: a robot crossing a defense and the Secret Passage (2016), the Key, the Retrieval Zone and the ropes late in the match (2017), the Null Territory, the Exchange and the Platform late in the match (2018), the whole HAB Zone with its Loading Stations, and the rockets in the last 20 seconds (2019), the Trench Run, Target Zone, Loading Zone and the Rendezvous Point late in the match (2020).', 'In those games, contact in the Secret Passage, the Retrieval Zone, the Null Territory and the 2020 zones is a tech foul, and touching a robot in its endgame zone hands it the climb.', 'Turrets shoot on the move and are hard to defend.', 'One defender per opponent: two robots on one is rare, and in some games a foul. In 2025 only one robot of an alliance may be on the opposing side, and in 2026 two defenders would block both bumps or both trenches, so an alliance defends with one robot at a time. A second robot told to defend scores until it may.'] },
       { icon: 'incident', t: 'Faults and falls', li: ['Low condition, low reliability, worn parts and hidden faults raise the chance of brownouts, jams and breakdowns.', 'Now and then a <b>battery connector works loose</b>, more often on a robot with poor electrics and while it is being hit: no power for the rest of the match.', 'Every robot carries its <b>Robot Signal Light</b>, the orange light: it blinks while the robot is enabled, shines steadily while it is disabled (before and after the match, comms lost, a brownout, the referee) and is dark when there is no power.', 'An electrical shakedown on a second robot and an Electronics Workbench cut brownouts and comms dropouts; a network switch cuts comms dropouts further. Planetary gearboxes on the mechanism motors make breakdowns rarer.',
         '<b>The driver decides a lot of what follows.</b> A skilled driver has fewer of these accidents and a novice more; <b>Push</b> pace makes them about 60% likelier and <b>Conserve</b> 40% rarer.',

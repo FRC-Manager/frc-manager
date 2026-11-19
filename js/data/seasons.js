@@ -142,7 +142,7 @@
           base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 80, accuracy: 88 }, caps: { reach: 3, coneReach: 2, tall: 0.3 }, look: { manip: 'arm' } },
         { id: 'elev', name: 'Elevator', desc: 'Angled elevator reaching every row. Steady but slower.', cost: 950, hours: 160, w: 20, cx: 3, areas: ['elevator'],
           base: { scoreSpd: 35, accuracy: 48 }, ceil: { scoreSpd: 80, accuracy: 93 }, caps: { reach: 3, coneReach: 3, tall: 0.5 }, look: { manip: 'elevator' } },
-        { id: 'elevw', name: 'Elevator + wrist', desc: 'Elevator with a wrist: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
+        { id: 'elevw', name: 'Elevator + escalator', desc: 'An elevator that carries an escalator, three telescoping stages that run out level over the Grid: all rows, fast cone placement.', cost: 1400, hours: 215, w: 24, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 40, accuracy: 48 }, ceil: { scoreSpd: 90, accuracy: 95 }, caps: { reach: 3, coneReach: 3, tall: 0.6 }, look: { manip: 'elevwrist' } },
         { id: 'dja', name: 'Double-jointed arm', desc: 'The fastest all-row scorer — and the most likely to tip.', cost: 1600, hours: 235, w: 22, cx: 4, areas: ['arm'],
           base: { scoreSpd: 45, accuracy: 40 }, ceil: { scoreSpd: 95, accuracy: 90 }, caps: { reach: 3, coneReach: 3, tall: 1.0 }, look: { manip: 'dja' } },
@@ -164,7 +164,7 @@
     ],
     archetypes: [
       { name: 'Pivoting telescope, ground intake', min: 90, pick: { drive: 'swerve', intake: 'gall', scorer: 'tele', effector: 'wrist' } },
-      { name: 'Elevator + wrist, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
+      { name: 'Elevator + escalator, ground intake', min: 76, pick: { drive: 'swerve', intake: 'gall', scorer: ['elevw', 'dja'], effector: ['wrist', 'roller'] } },
       { name: 'Elevator scorer', min: 56, pick: { drive: ['swerve', 'wcd'], intake: ['gcube', 'none'], scorer: ['elev', 'elevw'], effector: 'roller' } },
       { name: 'Arm scorer', min: 36, pick: { drive: ['wcd', 'swerve', 'kit'], intake: 'none', scorer: 'sja', effector: ['claw', 'roller'] } },
       { name: 'Hybrid pusher', min: 0, pick: { drive: 'kit', intake: 'none', scorer: 'hyb', effector: 'claw' } },
@@ -202,8 +202,10 @@
           base: { scoreSpd: 45, accuracy: 55, range: 0 }, ceil: { scoreSpd: 80, accuracy: 95, range: 25 }, caps: { speaker: true, ampViaShooter: 0.55, rmin: 1.0, rmax: 1.6 }, look: { shooter: 'fixed' } },
         { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: Speaker from the wing. Tilts up to score the Amp without an amp mechanism at a moderate speed and success rate.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: 0.8, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
-        { id: 'turret', name: 'Turret shooter', desc: 'Aims without turning the robot; shoot-on-the-move with vision. Its hood can also score the Amp at a moderate speed and success rate.', cost: 2000, hours: 260, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { speaker: true, turret: true, ampViaShooter: 0.75, rmin: 1.0, rmax: 6.5 }, look: { shooter: 'turret' } }
+        // (3.5.6) an elite design, and a small gain: a note shooter is big and heavy, so its turret turns slowly
+        // (cap.turretSlow: its aim takes that many times a light turret's) and is no more accurate than a good pivot
+        { id: 'turret', name: 'Turret shooter', elite: true, desc: 'Aims without turning the robot, and shoots on the move with vision. A note shooter is big and heavy, so the turret turns slowly and is no more accurate than a good pivot: a little quicker to aim, a little more reach, and a defender bothers it less. Its hood can also score the Amp at a moderate speed and success rate. The hardest shooter of the year.', cost: 2300, hours: 300, w: 26, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 90, accuracy: 94, range: 92 }, caps: { speaker: true, turret: true, turretSlow: 1.8, ampViaShooter: 0.75, rmin: 1.0, rmax: 5.8 }, look: { shooter: 'turret' } }
       ] },
       { id: 'amp', name: 'Amp / Trap', concepts: [
         { id: 'none', name: 'No amp mechanism', desc: 'The shooter scores the Amp by itself: fixed shooters slowly and with a low success rate, pivot and turret shooters at a moderate rate. No Trap.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },
@@ -222,7 +224,8 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turret/pivot + Trap', min: 76, pick: { drive: 'swerve', intake: 'utb', scorer: ['pivot', 'turret'], amp: 'amptrap', endgame: 'chaintrap' } },
+      { name: 'Turret + Trap', min: 90, pick: { drive: 'swerve', intake: 'utb', scorer: ['turret', 'pivot'], amp: 'amptrap', endgame: 'chaintrap' } },
+      { name: 'Pivot + Trap', min: 76, pick: { drive: 'swerve', intake: 'utb', scorer: 'pivot', amp: 'amptrap', endgame: 'chaintrap' } },
       { name: 'Pivot shooter + climb', min: 56, pick: { drive: 'swerve', intake: ['utb', 'otb'], scorer: 'pivot', amp: ['none', 'ampbar'], endgame: 'chain' } },
       { name: 'Subwoofer + amp bar', min: 36, pick: { drive: ['wcd', 'swerve'], intake: 'otb', scorer: 'sub', amp: 'ampbar', endgame: ['chain', 'none'] } },
       { name: 'Subwoofer shooter', min: 14, pick: { drive: ['kit', 'wcd'], intake: ['src', 'otb'], scorer: 'sub', amp: 'none', endgame: ['chain', 'none'] } },

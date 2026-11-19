@@ -40,7 +40,7 @@
     R.init(m, H);
     m.robots.forEach(r => {
       const p = R.start(m, r);
-      r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y;
+      r.x = r.px = r.sx = p.x; r.y = r.py = r.sy = p.y; r.ox = r.oy = r.pox = r.poy = 0;
       r.hd = (r.a === 'blue') ? 0 : Math.PI;
       r.autoOK = m.rng.chance(E.autoChance(r.cap.auto, r.tuneAuto)) && !r.autoFail;
       if (r.toolIn) { r.perm[r.toolIn] = true; const nm = r.toolIn === 'endgame' ? 'Climber' : r.toolIn === 'intake' ? 'Intake' : 'Scorer'; r.stats.faults.push(nm + ' blocked (tool left inside)'); log(m, r.a, r.team + ': ' + nm.toLowerCase() + ' blocked by a tool left inside the robot', 'fault'); }
@@ -89,6 +89,7 @@
     for (const r of m.robots) updateRobot(m, r);
     beachHit(m);
     separate(m);
+    if (!m.headless) for (const r of m.robots) showStep(m, r); // (3.5.6) where each robot is drawn this tick
     if (m.R.tick) m.R.tick(m, H);
     m.t = Math.round((m.t + DT) * 1000) / 1000;
     if (m.t >= m.total - 1e-6) finish(m);
@@ -115,7 +116,7 @@
   }
 
   function updateRobot(m, r) {
-    r.px = r.x; r.py = r.y;
+    r.px = r.x; r.py = r.y; r.phd = r.hd; r.pox = r.ox || 0; r.poy = r.oy || 0;
     if (r.dead) { r.label = r.tipped ? 'TIPPED' : r.noPower ? 'NO POWER' : 'DISABLED'; return; }
     if (r.fault && m.t >= r.fault.until) { r.fault = null; if (r.st === 'idle') r.label = ''; }
     for (const k in r.jam) if (r.jam[k] && m.t >= r.jam[k]) r.jam[k] = 0;
@@ -156,7 +157,16 @@
     }
     // a robot that has to point its whole chassis at a target while it works there (a 2026 dumper at its hub) turns to it
     if (r.faceAt) { if (r.faceAt.live && m.R.aimAt) { const p = m.R.aimAt(m, r); if (p) { r.faceAt.x = p.x; r.faceAt.y = p.y; } }
-      if (r.st === 'act' || r.st === 'wait') turnTo(r, Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (!m.headless && G.Render && G.Render.firesBack && G.Render.firesBack(r) ? Math.PI : 0)); else if (r.st !== 'idle') r.faceAt = null; } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
+      if (r.st === 'act' || r.st === 'wait') { let want = Math.atan2(r.faceAt.y - r.y, r.faceAt.x - r.x) + (r.faceAt.side === 'back' || (!r.faceAt.side && firesBack(m, r)) ? Math.PI : 0);
+        if (r.cap.flip && !r.faceAt.side && Math.abs(angd(want, r.hd || 0)) > Math.PI / 2) want += Math.PI;   // (3.5.6) a flipping claw scores behind the robot as well: it turns to whichever end is nearer
+        turnBy(r, want, TURN); } else if (r.st !== 'idle') r.faceAt = null; }
+    // (3.5.6) a robot that starts work on something beside it (placing, loading from a station) turns its scorer or its intake to it
+    // (side: which end points at it. Its intake end when it loads, 'back' for a robot fed from behind; else the end its scorer is on)
+    if (!m.headless && r.st === 'act' && r.actSeen !== r.actN) {
+      r.actSeen = r.actN;
+      if (!r.faceAt || r.faceAt.auto) { const p = WORK.test(r.label || '') ? workAt(m, r, r) : m.R.workAt ? m.R.workAt(m, r, r) || null : null; // (any other act: only if the season itself says what to face)
+        r.faceAt = p ? { x: p.x, y: p.y, side: p.side || (TAKE.test(r.label) ? (loadsBack(m, r) ? 'back' : 'front') : null) } : null; }
+    } // (3.5.5) a scorer that points backwards (the 2024 shooters, the dumpers): the robot turns its back
     // stuck in traffic or against a field element: sidestep around it; if it keeps failing near the goal, stop there
     if (r.st === 'move' && r.path.length) {
       const pg = r.prog || (r.prog = { t: m.t, x: r.x, y: r.y, n: 0, chk: m.t });
@@ -259,14 +269,20 @@
     // the spot is taken (a robot stopped on it, a partner about to get there, or this robot gave up on it a moment ago):
     // use a free one beside it. Climbing spots are not moved.
     if (!r.endBusy && m.phase !== 'auto' && spotUse(m, r, pt)) { const alt = freeNear(m, r, pt); if (alt) pt = alt; }
-    r.goal = pt; r.gprog = null; r.faceAt = null;
+    r.goal = pt; r.gprog = null; r.faceAt = null; r.rev = 0; r.spin = 0; r.arrAt = null;
     r.path = planTo(m, r, pt);
     r.st = 'move'; r.onArrive = then || null; if (label) r.label = label;
+    if (!m.headless) {                                                              // (3.5.6) what it will face when it gets there, if the season knows: a holonomic drive turns to it on the way
+      const c = r.cap, full = r.held > 0 && r.held >= Math.min(c.storage || 1, 3) && !c.turret;
+      const p = (m.R.workAt && m.R.workAt(m, r, pt)) || (full ? (m.R.aimAt ? m.R.aimAt(m, r) : m.year === 2022 ? m.hub : m.year === 2024 ? m.spk[r.a] : m.year === 2026 ? m.hub[r.a] : null) : null);
+      if (p && Math.hypot(p.x - pt.x, p.y - pt.y) > 0.2) r.arrAt = { x: p.x, y: p.y, back: p.side ? p.side === 'back' : r.held > 0 ? firesBack(m, r) : loadsBack(m, r) };
+    }
     // alignment / acceleration overhead at the end of each leg
     // lining up on arrival: the chassis has to be squared up (agility) and the driver has to find the spot. A lift on a
     // turret (cap.turretLift) points itself, so the chassis part goes, and some of the fixed part with it (it need not stop square
     // either): a tank drive saves about half a second a leg, a holonomic drive, which lines up quickly anyway, a tenth.
-    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) * (r.cap.turretLift ? -0.3 : 1) + 1.1 * (1 - r.drv.drive / 100) * (r.cap.turretLift ? 0.9 : 1)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
+    // (3.5.6) An end effector that flips over the lift (cap.flip) places in front or behind: the chassis never turns round, about half of that.
+    r.settleT = E.dist(r, pt) < 0.3 ? 0 : (0.3 + 0.8 * (1 - (r.cap.agility || 30) / 100) * (r.cap.turretLift ? -0.3 : r.cap.flip ? 0.4 : 1) + 1.1 * (1 - r.drv.drive / 100) * (r.cap.turretLift ? 0.9 : r.cap.flip ? 0.96 : 1)) * (m.R.settle || 1) * (1 - 0.6 * r.confK);
   }
   // Plans around field elements: the first element on the way gets a waypoint beside it, then both legs are checked
   // again (a couple of levels deep). Solid elements (o.h = physical radius) are inflated by half a robot.
@@ -485,10 +501,10 @@
       else { r.x += (p.x - r.x) / d * step; r.y += (p.y - r.y) / d * step; step = 0; }
     }
     const dx = r.x - r.px, dy = r.y - r.py;
-    if (dx * dx + dy * dy > 4e-4) turnTo(r, Math.atan2(dy, dx)); // 2 cm or more this tick: it is driving that way
+    if (dx * dx + dy * dy > 4e-4) steer(m, r, Math.atan2(dy, dx)); // 2 cm or more this tick: it is driving that way
     if (!r.path.length) {
       const f = r.onArrive; r.onArrive = null;
-      if (r.settleT > 0.05) { const t = r.settleT; r.settleT = 0; r.st = 'act'; r.timer = t; r.onDone = f; return; }
+      if (r.settleT > 0.05) { const t = r.settleT; r.settleT = 0; r.st = 'act'; r.timer = t; r.onDone = f; if (r.arrAt && !r.endBusy) r.faceAt = { x: r.arrAt.x, y: r.arrAt.y, side: r.arrAt.back ? 'back' : 'front', auto: true }; return; } // lining up: it squares up to what it came for
       r.st = 'idle'; if (f) f();
     }
   }
@@ -508,6 +524,64 @@
     while (d < -Math.PI) d += 2 * Math.PI;
     r.hd = (r.hd || 0) + U.clamp(d, -TURN, TURN);
   }
+  // (3.5.6) How a robot points while it drives in a watched match (for show only, like every heading: nothing in a
+  // match reads r.hd). A holonomic drive (swerve, mecanum) goes one way and points another: it turns as it travels,
+  // to stand right when it arrives (r.arrAt: what it will face there), and with a defender on it, it spins off the
+  // contact. A tank drive goes only where it points: it swings through its corners, backs up for a short hop behind
+  // it instead of turning round, turns on the spot before a run the other way, and with a defender in the way of the
+  // turn it backs off first (showStep holds its picture back meanwhile).
+  const HOLO = E.HOLO = { swerve: 1, mecanum: 1 }, PI2 = 2 * Math.PI;
+  const angd = (a, b) => { let d = (a - b) % PI2; if (d > Math.PI) d -= PI2; else if (d < -Math.PI) d += PI2; return d; };
+  const turnBy = (r, want, rate) => { r.hd = (r.hd || 0) + U.clamp(angd(want, r.hd || 0), -rate, rate); };
+  const firesBack = (m, r) => !m.headless && !!(G.Render && G.Render.firesBack && G.Render.firesBack(r));
+  const loadsBack = (m, r) => !m.headless && !!(G.Render && G.Render.loadsBack && G.Render.loadsBack(r));   // fed from behind (a coral funnel)
+  function steer(m, r, trav) {
+    if (m.headless) { turnTo(r, trav); return; }
+    const goal = r.path.length ? r.path[r.path.length - 1] : r.goal || r, dg = dist(r, goal), hd = r.hd || 0;
+    const D = r.defBy, press = !!D && !D.dead && dist(r, D) < 2 * RR + 0.32;
+    if (HOLO[r.look.drive]) {
+      if (press) {                                                                   // rolls off the defender, a turn at a time
+        if (!r.spin) r.spin = Math.cos(trav) * (D.y - r.y) - Math.sin(trav) * (D.x - r.x) > 0 ? -1 : 1;
+        if (Math.floor(m.t * 10) % 20 < 14) r.hd = hd + r.spin * (r.cap.noGrip ? 0.3 : 0.45);
+        return;
+      }
+      r.spin = 0;
+      const A = r.arrAt; turnBy(r, A ? Math.atan2(A.y - goal.y, A.x - goal.x) + (A.back ? Math.PI : 0) : trav, 0.26);
+      return;
+    }
+    const err = Math.abs(angd(trav, hd));
+    if (r.rev) { if (Math.abs(angd(trav + Math.PI, hd)) > 1.3 || dg > 2.5) r.rev = 0; }
+    else if (err > 2.0 && dg < 1.9) r.rev = 1;                                        // a short hop behind it: it backs up
+    if (r.rev) { r.uturn = 0; turnBy(r, trav + Math.PI, 0.3); return; }
+    r.uturn = err > 1.15 ? 1 : 0;                                                    // a run the other way: it turns on the spot first
+    if (press && err > 0.8 && !(r.bkT > m.t - 1.2)) r.bkT = m.t + 0.7;               // a defender in the way of the turn: back off, then turn
+    turnBy(r, trav, r.uturn ? 0.5 : press ? 0.2 : 0.32);
+  }
+  // where a robot is drawn, as an offset from where it is (r.ox, r.oy): a tank drive rounds its corners and hangs back while it turns
+  function showStep(m, r) {
+    // the picture stays where it was drawn last tick (px + pox) and is then pulled towards where the robot is now
+    let ox = (r.pox || 0) - (r.x - r.px), oy = (r.poy || 0) - (r.y - r.py);
+    if (HOLO[r.look.drive] || r.dead || r.climbing || r.st === 'done' || Math.hypot(ox, oy) > 1.5) { ox = (r.pox || 0) * 0.4; oy = (r.poy || 0) * 0.4; }
+    else {
+      const hd = r.hd || 0, bk = r.bkT > m.t ? 0.3 * Math.sin(Math.PI * (1 - (r.bkT - m.t) / 0.7)) : 0;
+      const k = r.st === 'move' ? (r.uturn ? 0.16 : 0.5) : 0.6, tx = -bk * Math.cos(hd), ty = -bk * Math.sin(hd);
+      ox += (tx - ox) * k; oy += (ty - oy) * k;
+    }
+    const l = Math.hypot(ox, oy); if (l > 0.55) { ox *= 0.55 / l; oy *= 0.55 / l; }
+    r.ox = Math.abs(ox) < 1e-3 ? 0 : ox; r.oy = Math.abs(oy) < 1e-3 ? 0 : oy;
+  }
+  // what a robot working where it stands should face: the season's own answer (m.R.workAt), else the field element
+  // beside it, else the wall it is at. p: the spot
+  const WORK = /^(Placing|Scoring|Loading|Feeding the|Tipping|Dumping|Delivering|Hanging a|Low goal|On the peg|Bottom port|At source|At coral station|Processing|Removing algae|Spinning up|Stacking|Dropping a|Laying a|Taking a|Firing the)/, TAKE = /^(Loading|Tipping a|Tipping their hopper|At source|At coral station|Taking a)/;
+  function workAt(m, r, p) {
+    if (m.R.workAt) { const q = m.R.workAt(m, r, p); if (q !== undefined) return q; }
+    let best = null, bd = 1.7;
+    for (const o of m.obs) { if (!o.h) continue; const d = Math.hypot(o.x - p.x, o.y - p.y) - o.h; if (d < bd) { bd = d; best = o; } }
+    if (best) return { x: best.x, y: best.y };
+    const w = [[p.x, 0, p.y], [p.x, FH, FH - p.y], [0, p.y, p.x], [FW, p.y, FW - p.x]].sort((a, b) => a[2] - b[2])[0];
+    return w[2] < 2.3 ? { x: w[0], y: w[1] } : null;
+  }
+  E.workAt = workAt;
   // Robots are about 0.86 m across with bumpers: they push each other apart (a robot that cannot move — climbing,
   // disabled or parked — makes the other one give way completely) and cannot drive through solid field elements
   // (hubs, reef, stage legs, barge leg, towers and cages; a robot heading for its climb may touch its own tower/cage).
@@ -557,7 +631,7 @@
     for (const r of rs) { r.x = U.clamp(r.x, RR, FW - RR); r.y = U.clamp(r.y, RR, FH - RR); }
   }
 
-  function act(r, secs, then, label) { r.st = 'act'; r.timer = Math.max(0.1, secs); r.onDone = then || null; if (label) r.label = label; }
+  function act(r, secs, then, label) { r.st = 'act'; r.timer = Math.max(0.1, secs); r.onDone = then || null; if (label) r.label = label; r.actN = (r.actN || 0) + 1; }
   function waitUntil(r, fn, then, label, maxT) { r.st = 'wait'; r.timer = maxT || 999; r.waitFn = fn; r.onWait = then || null; if (label) r.label = label; }
 
   // ---------- defense ----------
@@ -965,7 +1039,7 @@
     aimTime(m, r, to) {
       const c = r.cap;
       if (!m.headless && !c.turret) { const p = to || (m.R.aimAt ? m.R.aimAt(m, r) : m.year === 2022 ? m.hub : m.year === 2024 ? m.spk[r.a] : m.year === 2026 ? m.hub[r.a] : null); if (p) H.face(r, to ? p : { x: p.x, y: p.y, live: true }); } // live: the game's own target may move (a turning station): keep following it
-      return (c.turret ? 0.3 : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
+      return (c.turret ? 0.3 * (c.turretSlow || 1) : c.dumper ? 1.15 : 0.95) * (c.visionLvl >= 1 ? 0.6 : 1) * (1.2 - 0.4 * r.drv.mech / 100); // a dumper squares the whole robot up to the hub
     },
     hit(m, r, mult, distPen, stat) {
       const a = stat == null ? r.cap.accuracy : stat;

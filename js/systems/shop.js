@@ -68,7 +68,7 @@
     outreach: v => '+' + Math.round(v * 100) + '% outreach points',
     pitch: v => '+' + Math.round(v) + ' Impact presentation',
     ftc: v => Math.round(v) + ' own FTC team' + (Math.round(v) === 1 ? '' : 's'),
-    superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts)' : ''),
+    superPit: v => (v >= 0.5 ? 'one subsystem fully repaired before any match (spare parts) · events tire the team a little less' : ''),
     scout: v => (v >= 0.5 ? 'sharper scouting at events' : ''),
     design: v => '−' + Math.round(v * 100) + '% hours on new mechanisms and upgrades',
     shelf: v => 'shelves hold ' + Math.round(v * 100) + '% of the most parts (50% without)',

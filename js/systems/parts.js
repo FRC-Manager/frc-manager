@@ -380,11 +380,12 @@
     }
     let motor = c.cx <= 1 ? 1 : c.cx <= 3 ? 2 : 3;
     if (c.look && c.look.shooter === 'wide') motor = 4;
+    if (c.motors != null) motor = c.motors; // (3.5.6) a concept may say so itself: a suction climber is driven by the elevator it rides on
     let enc = 0;
     (c.areas || []).forEach(a => { if (a === 'turret' || a === 'arm' || a === 'elevator') enc++; });
     if (subId === 'effector') enc++; // an end effector senses the game piece it holds
     if (c.id === 'hood' || (c.look && c.look.shooter === 'pivot')) enc++;
-    const out = { motor };
+    const out = motor ? { motor } : {};
     if (enc) out.enc = enc;
     return out;
   };

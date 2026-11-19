@@ -688,7 +688,8 @@
         const roles = [['', 'Their choice'], ['score', 'Score'], ['defend', 'Play defense']].concat(ev.year === 2026 ? [['feed', 'Feed fuel']] : []);
         sug = '<label class="f mt">Suggest role<select class="inp" data-chg="suggest" data-t="' + t + '">' + roles.map(r => '<option value="' + r[0] + '" ' + ((ev.suggest[t] || '') === r[0] ? 'selected' : '') + '>' + r[1] + '</option>').join('') + '</select></label>';
       }
-      return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' + sug + '</div>';
+      return '<div class="rbox ' + (isMe ? 'me' : '') + '"><div class="hd"><span class="' + side + '">' + t + '</span><span class="xs muted">OPR ' + (opr[t] || 0) + '</span></div><div class="xs muted">' + h(tname(t)) + '</div><div class="row mt">' + UI.topCanvas(sc.look ? Object.assign({ c1: isMe ? S.team.c1 : null, c2: isMe ? S.team.c2 : null }, sc.look) : {}, side, t, 0, ev.year, 72) + '<div class="xs">' + h(sc.arch || '') + '<br>Climb: ' + h(Sz.endNames[c.endLevel || 0] || '—') + '<br>Auto: ' + h(Sz.autoTiers[c.autoTier || 0]) + '</div></div>' +
+        '<div class="rbside">' + UI.sideCanvas(sc.look || {}, side, t, 300, 172) + '</div>' + sug + '</div>'; // (3.5.6) every robot of the match from the side, in its alliance's bumpers
     };
     o += '<div class="grid g3"><div>' + '<h3>Red alliance' + alTag('red') + '</h3>' + obj.red.map(t => teamCard(t, 'red')).join('') + '</div>';
     // plan
@@ -838,7 +839,7 @@
     m.robots.forEach(r => {
       const aiming = G.Render.animate(m, r); // (3.5.5) the reach, the intake and the climber ease towards what the robot is doing
       const rr = Object.create(r);
-      rr.x = r.px + (r.x - r.px) * al; rr.y = r.py + (r.y - r.py) * al;
+      { const P = G.Render.pose(r, al); rr.x = P.x; rr.y = P.y; rr.hd = P.hd; } // (3.5.6) the heading turns smoothly between ticks too
       if (r.isPlayer) rr.look = Object.assign({}, r.look);
       const g = aimFor(m, r);
       G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: tape && aiming && (r.cap.visionLvl || 0) >= 1, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });

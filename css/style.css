@@ -81,6 +81,12 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.t th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 table.t td { padding: 6px 8px; border-bottom: 1px solid #222a32; vertical-align: middle; }
 table.t tr.me td { background: rgba(245,184,0,0.08); }
+/* (3.5.6) banded rows with a colour of their own (--ac) down the left edge: the research list and the Tech Knowledge table */
+table.t.bands td { border-bottom-color: transparent; padding-top: 8px; padding-bottom: 8px; }
+table.t.bands tr.alt td { background: rgba(127, 140, 160, 0.09); }
+table.t.bands tr td:first-child { border-left: 4px solid var(--ac, transparent); padding-left: 10px; }
+table.t.bands tr:hover td { background: color-mix(in srgb, var(--ac, #888) 16%, transparent); }
+table.t.bands .area { color: var(--ac, inherit); font-weight: 600; }
 table.t tr.click { cursor: pointer; } table.t tr.click:hover td { background: var(--panel2); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -126,6 +132,7 @@ label.f, div.f { display: flex; flex-direction: column; gap: 4px; font-size: 12p
 .calls { display: flex; flex-wrap: wrap; gap: 6px; }
 .rbox { padding: 8px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line); margin-bottom: 6px; font-size: 12px; }
 .rbox.me { border-color: var(--accent); }
+.rbside { margin-top: 6px; }
 .rbox .hd { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; }
 .rp-item { margin-bottom: 8px; font-size: 12px; }
 .bracket { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; overflow-x: auto; }

@@ -1406,10 +1406,15 @@
   // reset: how long the defender must stay 6 ft away before pinning again; protMajor: protected-zone contact is a major/tech foul
   R[2022].defense = { eff: 2.4, foul: 0.8, range: 1.8, zone: 0.45, pin: 5, reset: 3, credit: { 'Hangar Zone': 4 } }; // G208: touching a robot in its Hangar Zone in the last 30 s gives it Traversal points
   R[2023].defense = { eff: 0.5, foul: 1.7, pin: 5, reset: 3 };
-  R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true };
+  R[2024].defense = { eff: 3.6, foul: 0.7, range: 2.0, zone: 0.7, pin: 5, reset: 5, protMajor: true, turretK: 0.8 }; // (3.5.6) turretK: a heavy note turret shrugs off a fifth of a defender's push, not half
   R[2025].defense = { eff: 0.5, foul: 1.1, majorK: 0.08, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // one robot at most on the opposing side of the field; it blocks lanes midway (defSpot)
   R[2026].defense = { eff: 1.8, foul: 0.9, range: 1.7, zone: 0.35, pin: 3, reset: 3, protMajor: true, maxDef: 1 }; // two defenders could block both bumps or both trenches, which the rules forbid
   S[2022].meta = { defense: true, note: 'Defense wins in RAPID REACT: top alliances send their third robot to harass the other alliance\'s best shooter around the Hub.' };
+  // (3.5.6) what a robot turns to while it works: the Grid stands against its own alliance wall; the Reef's middle; the corner a Coral Station or the Source is built across
+  const corner = p => ({ x: p.x < FW / 2 ? 0 : FW, y: p.y < FH / 2 ? 0 : FH });
+  S[2023].workAt = (m, r, p) => (/^(To grid|Placing)/.test(r.label || '') ? { x: E.P(m, r.a, 0, 0).x, y: p.y } : undefined);
+  S[2024].workAt = (m, r, p) => (/^(To source|At source)/.test(r.label || '') ? corner(p) : undefined);
+  S[2025].workAt = (m, r, p) => (/^(To reef|Placing|Removing algae)/.test(r.label || '') ? m.reef[r.a] : /coral station/.test(r.label || '') ? corner(p) : undefined);
   S[2023].meta = { defense: false, note: 'Scoring wins in CHARGED UP: protected Communities and Loading Zones make defense weak, so most alliances run three scorers.' };
   S[2024].meta = { defense: true, note: 'Defense wins in CRESCENDO: one defender in the opponent\'s wing or near their Source is standard for top alliances. Late in the season, top alliances also feed notes home from the Source end (G414: only once the feeder\'s bumpers are out of the opponent\'s Wing), and their human players hold Amplify until two scorers are lined up. Any shooter can put notes in the Amp without an amp mechanism: slowly and unreliably with a fixed shooter, moderately with a pivot or turret.' };
   S[2025].meta = { defense: false, note: 'Scoring wins in REEFSCAPE: the Reef is hard to defend, so nearly every alliance runs three scorers. Each of its six faces has its own branches: the faces nearest the coral stations fill first, and the last coral means a longer drive around to the far side.' };

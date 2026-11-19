@@ -129,6 +129,7 @@
   D.FATIGUE_SLOPE = 40;     // fatigue change per week per unit of idle share below/above that
   D.FATIGUE_OVERTIME = 10;  // an overtime week
   D.FATIGUE_EVENT = 9;      // a competition week
+  D.FATIGUE_SUPERPIT = 2;   // (3.5.6) ... less with the Super pit: no evening spent building the pit, and a mini fridge
   D.INCIDENT_FREE = 35;     // at or below this fatigue, at most one incident per event
   // Experience by field strength: an event's stars (★ to ★★★★★) say how strong its field is. Each star above three adds
   // 15% to what the team learns there (drive-team skills, know-how from competing, strategy read), each star below takes
@@ -180,7 +181,7 @@
       fx: { charge: [0.15, 0.3] }, desc: 'Batteries recharge faster between matches.' },
     { id: 'pitcart', name: 'Pit Setup', upkeep: 100, wear: { season: 0, off: 0.2, event: 6 },
       levels: [{ name: 'Pit cart & tool kit', cost: 1000 }, { name: 'Full pit setup', cost: 3500 }, { name: 'Super pit', cost: 9000, from: 2018 }],
-      fx: { repair: [0.25, 0.45, 0.6], superPit: [0, 0, 1], scout: [0, 0, 1] }, desc: 'Faster pit repairs between matches. The Super pit (road cases, from 2018) also fully repairs one subsystem of your choice before any match, with spare parts, and its screens help the strategy team scout.' },
+      fx: { repair: [0.25, 0.45, 0.6], superPit: [0, 0, 1], scout: [0, 0, 1] }, desc: 'Faster pit repairs between matches. The Super pit (road cases, from 2018) also fully repairs one subsystem of your choice before any match, with spare parts, its screens help the strategy team scout, and an event tires the team a little less.' },
     { id: 'trailer', name: 'Team Trailer', upkeep: 1500, wear: { season: 0, off: 0.2, event: 5 },
       levels: [{ name: 'Team trailer', cost: 18000 }],
       fx: { travel: [0.3] }, desc: 'Cheaper travel to Local and Drive events.' },
@@ -226,7 +227,7 @@
   // School board gifts at the season review, when Program Support went up: a free full renovation, and after a strong year one upgrade of your choice
   D.BOARD = { reno: 6, grant: 12, grantSup: 60, cap: 12000, cash: 3000 }; // cash: when no upgrade fits, in 2026 dollars (shown in the year's dollars)
   // Your own FTC teams (FTC Team Space): cheap to run, much stronger recruits
-  D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3 };
+  D.FTC_OWN = { cost: 300, power: 1.8, impact: 1.3, mentorH: 3 }; // mentorH (3.5.6): mentor hours a week each own team takes in the offseason, while its season runs
   // FIRST Tech Challenge games, by the year their season ends (the FTC season runs from a September kickoff to the
   // Championship in April or May). News only: the kickoff, the season, the World Championship, and your own FTC teams.
   // In a random-order career the FTC games are shuffled on their own (news.js ftcGame), never paired with the FRC game.

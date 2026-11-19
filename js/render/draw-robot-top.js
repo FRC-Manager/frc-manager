@@ -72,10 +72,16 @@
   };
   TOP[2017] = function (k, c, A) {
     const gear = c.scorer, fuel = c.fuel, has = fuel && fuel !== 'none', c1 = k.c1;
-    if (has) { hopper(k, -0.38, 0.2, fuel === 'mega' ? 0.39 : 0.33, A); if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else k.at(-0.32, 0, 0, q => shooter(q, fuel === 'mega' ? 0.27 : 0.15, { n: fuel === 'mega' ? 4 : 2, flat: 1 })); }
+    if (fuel === 'dualturret') {                                                       // (3.5.6) an intake at each end, the feeder's rings in the middle of the hopper, the turret over them
+      const bar = q => intake(q, A.vi, 0.44, { rows: 2, wc: '#23272c', wc2: CW.b, guard: 1 }); bar(k); k.at(0, 0, PI, bar);
+      hopper(k, -0.38, 0.38, 0.39, A); k.circ(0, 0, 0.27, null, c1, 1.3); [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.12, s * 0.12, 0.03, c1); k.tube(0.38, s * 0.38, 0.12, s * 0.12, 0.03, c1); });
+      turret(k, 0, 0, 0.18); k.at(0, 0, A.aim, q => shooter(q, 0.09, { n: 2, hood: 2 }));
+    }
+    else if (has) { hopper(k, -0.38, 0.2, fuel === 'mega' ? 0.39 : 0.33, A); if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else k.at(-0.32, 0, 0, q => shooter(q, fuel === 'mega' ? 0.27 : 0.15, { n: fuel === 'mega' ? 4 : 2, flat: 1 })); }
     if (gear === 'floor') intake(k, A.vi, 0.2, { wc: CW.o, reach: 0.1 });
     if (gear) { k.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); k.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => k.line([[0.4, s * 0.16], [0.48, s * 0.1]], k.c2, 0.03, 'round')); }   // the gear pocket
     if (c.endgame && c.endgame !== 'none') { k.rect(0.02, 0.24, 0.17, 0.14, c1, INK, 0.012); k.roller(0.105, 0.055, 0.04, c.endgame === 'fast' ? k.c2 : '#d3b24a', 2, 0.31); }   // the rope drum
+    if (fuel === 'dualturret') return { own: true, tur: [0, 0], dir: 0 };
     return has ? { own: true, sh: fuel === 'dump' ? [-0.41, 0] : [-0.32, 0], dir: fuel === 'dump' ? PI : 0 } : { at: [0.375, 0] };
   };
   TOP[2018] = function (k, c, A) {
@@ -83,12 +89,15 @@
     if (end === 'buddy') [-1, 1].forEach(s => k.tube(-0.4, s * 0.3, -0.47 - 0.5 * A.vc, s * 0.3, 0.04, ALU));               // forks drop behind for a partner
     if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.3, 0.05, s * 0.2, 0.03, c1)); mast(k, 0.1, 0.2, c1); tip = 0.16 + 0.1 * A.vx; }
     else if (lift === 'low') { tower(k, -0.16, c1); tip = 0.2 + 0.14 * A.vx; k.tube(-0.16, 0, tip, 0, 0.06, c1); }
+    else if (lift === 'dja') { tower(k, 0.02, c1); tip = 0.16 + 0.22 * A.vx; k.tube(0.02, 0.035, -0.28, 0.035, 0.06, '#2b3036'); k.tube(-0.28, -0.03, tip, -0.03, 0.045, '#2b3036'); k.circ(-0.28, 0, 0.05, ALU2, INK); }   // (3.5.6) the lower tube runs back to the elbow, the upper one forward over it
+    const pv = lift === 'low' ? -0.16 : lift === 'dja' ? 0.02 : 0.1, fl = eff === 'flip' ? Math.cos(PI * ((A.r && A.r.vf) || 0)) : 1;   // (3.5.6) a flipping claw goes over the lift (pv): from above it draws in to the lift and comes out behind
     if (it === 'wheeled' || it === 'wide') [-1, 1].forEach(s => { const x = 0.53 + A.vi * (it === 'wide' ? 0.15 : 0.09); k.tube(0.36, s * 0.34, x, s * 0.31, 0.035, DARK2); k.circ(x, s * 0.31, 0.045, CW.g, INK); if (it === 'wide') k.circ(x - 0.1, s * 0.33, 0.036, CW.g, INK); });
-    if (eff) { const open = A.held ? 0.15 : 0.21, x1 = tip + 0.3, pinch = eff === 'pinch'; k.rect(tip - 0.03, -0.1, 0.07, 0.2, DARK2, EDGE, 0.012);
+    if (eff) { const open = A.held ? 0.15 : 0.21, x1 = tip + 0.3, pinch = eff === 'pinch', cx2 = k.ctx; cx2.save(); if (fl !== 1) { cx2.translate(pv * k.sz, 0); cx2.scale(Math.abs(fl) < 0.08 ? 0.08 : fl, 1); cx2.translate(-pv * k.sz, 0); }
+      k.rect(tip - 0.03, -0.1, 0.07, 0.2, DARK2, EDGE, 0.012);
       [-1, 1].forEach(s => { k.tube(tip, s * 0.08, x1, s * open, pinch ? 0.03 : 0.04, pinch ? ALU2 : DARK2); if (!pinch) { k.circ(x1, s * open, 0.042, CW.g, INK); k.circ(x1 - 0.12, s * (open - 0.03), 0.036, CW.g, INK); } });
-      if (eff === 'launch') k.rect(tip + 0.04, -0.04, 0.05, 0.08, k.c2, null); }
-    if (end && end !== 'none') hookMark(k, lift === 'low' ? -0.3 : 0.05, 0, PI * 0.4);
-    return { at: [tip + 0.2, 0] };
+      if (eff === 'launch' || eff === 'flip') k.rect(tip + 0.04, -0.04, 0.05, 0.08, k.c2, null); if (eff === 'flip') k.circ(tip, 0, 0.05, '#b9a56c', INK); cx2.restore(); }
+    if (end && end !== 'none') hookMark(k, lift === 'low' || lift === 'dja' ? -0.3 : 0.05, lift === 'dja' ? 0.3 : 0, PI * 0.4);
+    return { at: [pv + (tip + 0.2 - pv) * fl, 0] };
   };
   TOP[2019] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame, c1 = k.c1; let tip = 0.3, ang = 0;
@@ -100,7 +109,10 @@
     else if (lift === 'arm') { tower(k, -0.1, c1); tip = 0.24 + 0.15 * A.vx; k.tube(-0.1, 0, tip, 0, 0.055, c1); }
     if (eff) k.at(0, 0, ang, q => { [-1, 1].forEach(s => q.line([[tip, s * 0.06], [tip + 0.06, s * 0.06]], ALU2, 0.028)); q.rect(tip + 0.055, -0.17, 0.035, 0.34, eff === 'plate' ? '#d8dde2' : DARK2, INK);
       if (eff !== 'plate') q.roller(tip + 0.15, 0.13, 0.03, CW.g, 3); if (eff === 'active') q.poly([[tip + 0.09, -0.045], [tip + 0.18, 0], [tip + 0.09, 0.045]], q.c2, INK); });
-    if (end === 'l2') [[-0.36, -0.3], [-0.36, 0.3], [0.3, -0.3], [0.3, 0.3]].forEach(p => k.circ(p[0], p[1], 0.042, '#aab3bc', INK));
+    if (end === 'suction') { const bx = lift === 'turretlift' ? -0.12 : lift === 'elev' || lift === 'elevfast' ? 0.03 : -0.3, x1 = bx - 0.07 - 0.6 * A.vc;   // (3.5.6) on the back of the elevator, in the middle: the arm swings out behind and sets its pad on Level 3
+      k.tube(bx, 0, x1, 0, 0.05, c1); if (A.vc > 0.3) k.rect(bx + (x1 - bx) * 0.62 - 0.03, -0.04, 0.06, 0.08, '#15181c', EDGE, 0.01);   // (its kickstand, down on the platform's edge)
+      k.rect(x1 - 0.12, -0.13, 0.14, 0.26, '#23272c', ALU2, 0.02); k.rect(x1 - 0.105, -0.11, 0.11, 0.22, '#0d0f12', null, 0.015); }
+    else if (end === 'l2') [[-0.36, -0.3], [-0.36, 0.3], [0.3, -0.3], [0.3, 0.3]].forEach(p => k.circ(p[0], p[1], 0.042, '#aab3bc', INK));
     else if (end && end !== 'none') [[-0.38, -0.31], [-0.38, 0.31], [0.26, -0.33], [0.26, 0.33]].forEach(p => k.rect(p[0] - 0.04, p[1] - 0.04, 0.08, 0.08, ALU, INK, 0.01));   // the stilts
     return { at: [Math.cos(ang) * (tip + 0.15), Math.sin(ang) * (tip + 0.15)], tur: lift === 'turretlift' ? [0, 0] : null };
   };
@@ -115,7 +127,8 @@
     } else if (it) { k.rect(-0.2, -0.14, 0.58, 0.28, SMOKE, EDGE, 0.02); [-1, 1].forEach(s => k.line([[-0.18, s * 0.1], [0.36, s * 0.1]], '#5b646e', 0.02)); for (let i = 0; i < Math.min(5, A.held); i++) k.circ(0.3 - i * 0.115, 0, 0.062, col, 'rgba(0,0,0,0.4)'); }   // cells queue on the belts
     if (sh === 'dump') { k.rect(-0.46, -0.16, 0.26, 0.32, SMOKE, EDGE, 0.02); k.roller(-0.43, 0.14, 0.03, CW.g, 3); }
     else if (sh === 'turret') { turret(k, -0.22, 0, 0.22); k.at(-0.22, 0, A.aim, q => shooter(q, 0.13, { hood: 2 })); }
-    else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.15, { hood: sh === 'hood' ? 2 : 1 }));
+    else if (sh === 'long' && k.lk.frame !== 'low') { k.rect(-0.43, -0.21, 0.54, 0.42, GLASS, GLASSL, 0.02); k.rect(-0.47, -0.2, 0.045, 0.4, k.c2, INK, 0.012); k.rect(-0.41, -0.06, 0.5, 0.12, '#191c20', EDGE, 0.04); k.rect(-0.41, -0.06, 0.5, 0.03, CW.o, null); k.line([[-0.16, -0.19], [-0.16, 0.19]], ALU2, 0.024); }   // (3.5.6) the big wheel, edge on, in its tall frame
+    else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.15, { hood: sh === 'hood' || sh === 'long' ? 2 : 1 }));
     if (c.panel === 'spin' || c.panel === 'color') { k.circ(0.27, -0.31, 0.062, CW.g, INK); k.circ(0.27, -0.31, 0.02, RING, null); }
     if (end && end !== 'none') { if (end === 'level') k.tube(-0.08, 0.31, 0.14, 0.31, 0.03, DARK2); k.rect(-0.015, 0.265, 0.09, 0.09, c1, INK, 0.012); hookMark(k, 0.03, 0.31, PI * 0.4); }
     return { own: true, tur: sh === 'turret' ? [-0.22, 0] : null, sh: sh === 'dump' ? [-0.43, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dump' ? PI : 0 };
@@ -146,7 +159,7 @@
     if (it === 'gcube' || it === 'gall') intake(k, A.vi, 0.34, it === 'gall' ? { wc: CW.g, wc2: CW.o, rows: 2, guard: 1 } : { wc: CW.g });
     if (lift === 'sja') { tower(k, -0.14, c1); tip = 0.28 + 0.4 * vx; k.tube(-0.14, 0, tip, 0, 0.06, c1); }
     else if (lift === 'elev') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.17, 0.34, s * 0.17, 0.05, c1)); tip = 0.08 + 0.42 * vx; k.rect(tip - 0.13, -0.2, 0.13, 0.4, DARK2, EDGE, 0.012); }   // the leaning elevator: its rails run the length of the robot
-    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); tip = 0.22 + 0.45 * vx; k.tube(-0.28, 0, 0.12, 0, 0.07, ALU); k.tube(0.02, 0, tip, 0, 0.045, STEEL); }
+    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); tip = 0.24 + 0.5 * vx; k.tube(-0.28, 0, 0.1, 0, 0.078, '#2b3036'); k.tube(-0.12, 0, 0.13 + 0.25 * vx, 0, 0.058, '#3a4149'); k.tube(0.0, 0, tip, 0, 0.04, '#59626c'); }   // (3.5.6) the escalator's three stages
     else if (lift === 'dja') { tower(k, -0.18, c1); tip = 0.02 + 0.68 * vx; const e = 0.22 + 0.12 * vx; k.tube(-0.18, 0.045, e, 0.045, 0.055, c1); k.tube(e, -0.035, tip, -0.035, 0.045, ALU); k.circ(e, 0.005, 0.04, EDGE, INK); }
     else if (lift === 'tele') { k.rect(-0.43, -0.2, 0.19, 0.4, '#2f353c', EDGE, 0.02); tip = 0.3 + 0.5 * vx; k.tube(-0.3, 0, 0.26, 0, 0.09, c1); k.tube(0.0, 0, tip, 0, 0.055, ALU); }
     if (eff) { const y = lift === 'dja' ? -0.035 : 0, open = A.held ? 0.09 : 0.15;
@@ -186,7 +199,7 @@
     if (eff && lift !== 'trough') { k.rect(hx, -0.12, 0.14, 0.24, DARK2, EDGE, 0.02); if (eff !== 'chute') { k.roller(hx + 0.04, 0.1, 0.022, CW.b, 2); k.roller(hx + 0.105, 0.1, 0.022, CW.b, 2); } if (eff === 'pivot') k.line([[hx + 0.01, -0.11], [hx + 0.01, 0.11]], k.c2, 0.022); }
     if (alg === 'net') { out.algae = [-0.25, 0.27]; k.rect(-0.42, 0.18, 0.34, 0.17, DARK2, EDGE, 0.02); [0.215, 0.315].forEach(y => k.line([[-0.4, y], [-0.1, y]], k.c2, 0.032)); }
     else if (alg === 'proc') { out.algae = [-0.31, 0.27]; k.rect(-0.42, 0.18, 0.23, 0.18, DARK2, EDGE, 0.02); k.line([[-0.42, 0.27], [-0.19, 0.27]], CW.g, 0.036); }
-    out.at = [hx + 0.07, 0]; if (alg === 'net') out.sh = [-0.25, 0.27]; return out;
+    out.at = [hx + 0.07, 0]; if (alg === 'net') out.sh = [-0.25, 0.27]; if (lift !== 'tele') out.load = PI; return out;   // the funnel (and the kit robot's ramp) take coral at the back
   };
   TOP[2026] = function (k, c, A) {
     const hop = c.hopper, sh = c.scorer, it = c.intake, end = c.endgame, c1 = k.c1, mid = sh === 'rotor';
@@ -199,9 +212,9 @@
       [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.11, s * 0.11, 0.03, c1); k.tube(0.38, s * 0.38, 0.11, s * 0.11, 0.03, c1); });   // the frame that holds the turret
       turret(k, 0, 0, 0.17); k.at(0, 0, A.aim, q => shooter(q, 0.085, { n: 1, hood: 2 }));
     } else if (sh === 'turret') { turret(k, -0.24, 0.23, 0.16); k.at(-0.24, 0.23, A.aim, q => shooter(q, 0.08, { n: 1, hood: 2 })); }   // on a back corner: the hopper keeps the rest
-    else if (sh === 'dumper') k.at(-0.3, 0, 0, q => shooter(q, 0.39, { n: 4, hood: 2, flat: 1 }));
+    else if (sh === 'dumper') k.at(-0.33, 0, PI, q => shooter(q, 0.39, { n: 4, hood: 2, flat: 1 }));                    // (3.5.6) it throws over its back, away from the intake
     else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.17, { hood: sh === 'hood' ? 2 : 1, flat: 1 }));
-    return { own: !!hop, tur: mid ? [0, 0] : sh === 'turret' ? [-0.24, 0.23] : null, sh: sh === 'dumper' ? [-0.3, 0] : sh ? [-0.28, 0] : null };
+    return { own: !!hop, tur: mid ? [0, 0] : sh === 'turret' ? [-0.24, 0.23] : null, sh: sh === 'dumper' ? [-0.33, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dumper' ? PI : 0 };
   };
 
   // A robot showing its moves on its own (the Garage, the robot viewer): twelve seconds in which it collects, carries,
@@ -217,7 +230,8 @@
     if (!I) { I = Rd.topMech(NOCTX, 1, { look: lk, isPlayer: false, held: 0, cap: r.cap || {}, hd: 0 }, lk, {}); INFO.set(lk, I); }
     return I;
   };
-  Rd.firesBack = r => Rd.topInfo(r).dir === PI;                                         // its scorer points backwards (the 2024 shooters, the dumpers)
+  Rd.firesBack = r => Rd.topInfo(r).dir === PI;
+  Rd.loadsBack = r => Rd.topInfo(r).load === PI;   // (3.5.6) a robot fed at a station from behind (a recipe returns load: PI)                                         // its scorer points backwards (the 2024 shooters, the dumpers)
   // where a shot leaves the robot, on the field: the turret or the shooter, not the robot's middle
   Rd.muzzle = function (r) {
     const I = Rd.topInfo(r), p = I.tur || I.sh, hd = r.hd || 0, c = Math.cos(hd), s = Math.sin(hd);
@@ -227,11 +241,19 @@
   // One frame of a robot's match animation, for whatever draws a match (the game, the match tester, the trailer): the
   // reach (vx), the intake (vi) and the climber (vc) ease towards what the robot is doing. Returns whether it is aiming
   // or placing (a robot with vision shows its green light then, in the years of reflective tape)
+  // (3.5.6) where and which way a robot is drawn between two ticks (al: 0 at the last tick, 1 at this one). The engine
+  // keeps both ticks' heading and drawn offset (a tank drive rounds its corners and hangs back while it turns)
+  Rd.pose = function (r, al) {
+    const ph = r.phd == null ? r.hd || 0 : r.phd, px = r.px == null ? r.x : r.px, py = r.py == null ? r.y : r.py, pox = r.pox || 0, poy = r.poy || 0;
+    let d = ((r.hd || 0) - ph) % TAU; if (d > PI) d -= TAU; else if (d < -PI) d += TAU;
+    return { x: px + (r.x - px) * al + pox + ((r.ox || 0) - pox) * al, y: py + (r.y - py) * al + poy + ((r.oy || 0) - poy) * al, hd: ph + d * al };
+  };
   Rd.animate = function (m, r) {
     const act = !r.dead && r.st === 'act', lab = r.label || '', ease = (k, to, rate) => { r[k] = r[k] == null || m.done ? to : r[k] + (to - r[k]) * rate; };
     ease('vx', act && /^(Placing|Loading|Scoring)/.test(lab) ? 1 : 0, 0.14);                                              // lifts, arms and telescopes reach out to place or load
     ease('vi', !r.dead && !r.climbing && !r.end && (r.held || 0) < ((r.cap && r.cap.storage) || 1) && !(act && /^(Placing|Scoring|Aiming|Shooting|Climbing)/.test(lab)) ? 1 : 0, 0.12);   // the intake is out while there is room and nothing to score
-    ease('vc', r.climbing || (r.end && r.end.lvl > 0) ? 1 : 0, 0.05);                                                      // climbers, forks and ramps come out to climb
+    ease('vc', r.climbing || (r.end && r.end.lvl > 0) ? 1 : 0, 0.05);
+    if (r.cap && r.cap.flip) { const fa = r.faceAt; ease('vf', act && fa && !fa.side && /^(Placing|Scoring|Feeding the|Tipping their Switch)/.test(lab) && Math.cos(Math.atan2(fa.y - r.y, fa.x - r.x) - (r.hd || 0)) < 0 ? 1 : 0, 0.22); } // (3.5.6) a flipping claw places behind the robot when that is nearer                                                      // climbers, forks and ramps come out to climb
     return act && /^(Aiming|Shooting|Placing|Scoring)/.test(lab);
   };
 

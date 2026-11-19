@@ -258,7 +258,16 @@
     const alt = subId === 'drive' && miss.some(m => D.DRIVE_ALT[m.cat]) ? '. A West Coast drive or a kit chassis also runs on 2 Lumen standard drive gearboxes (Inventory: Drive & add-ons)' : '';
     return miss.length ? G.Parts.shortText(miss) + alt : null;
   };
-  Robot.reqOk = function (S, c) { return null; };
+  // (3.5.6) A concept may need another subsystem to be of a kind (c.needs: { sub, concepts, what, orNone }): a suction
+  // climber rides on an elevator, a long-range wheel needs the tall frame. null when the robot has it (designed, or being
+  // built), else why not
+  Robot.reqOk = function (S, c) {
+    const n = c && c.needs, R = S.robot; if (!n || !R) return null;
+    const d = Robot.des(R, n.sub), cur = d && d.ver ? d.concept : null;
+    if ((cur && n.concepts.includes(cur)) || (!cur && n.orNone) || (S.projects || []).some(p => p.type === 'build' && p.sub === n.sub && n.concepts.includes(p.concept))) return null;
+    const cc = cur ? G.Seasons.concept(R.year, n.sub, cur) : null, sd = G.Seasons.sub(R.year, n.sub);
+    return 'Needs ' + n.what + (cc ? ': this robot\'s ' + (sd ? sd.name.toLowerCase() : n.sub) + ' is the ' + cc.name + '.' : ': build one first.');
+  };
   Robot.weightOf = (R, bi) => Math.round(Object.keys(R.bots[bi].subs).reduce((s, k) => s + (k !== 'soft' && R.bots[bi].subs[k] && R.bots[bi].subs[k].ver ? R.bots[bi].subs[k].w : 0), 0));
   Robot.weight = S => (S.robot ? Robot.weightOf(S.robot, S.robot.comp || 0) : 0);
   // (3.5.3) What robot parts add to each unit of robot bi while it runs on them: { stat: { sub: { stat: +n } }, rel:
@@ -866,7 +875,8 @@
       const bi = spec.type === 'build' ? R.comp || 0 : fields.bot, slot = bi >= 0 ? R.bots[bi].subs[spec.sub] : null;
       if ((bi < 0 || (slot && slot.ver)) && Robot.storeRoom(R, spec.sub) < 1) note = 'Storage is full: the oldest stored ' + sd.name.toLowerCase() + ' will be taken apart for spare parts when this finishes.';
     }
-    return { hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
+    const needErr = spec.type === 'build' && spec.sub && spec.concept ? Robot.reqOk(S, G.Seasons.concept(year, spec.sub, spec.concept)) : null; // (3.5.6)
+    return { needErr, hours: Math.max(10, Math.round(hours)), cost: Math.round(cost), name, err, fields, note, kitCov: fields.kitCov || 0, kits: fields.kits || null, frameWant: fields.frameWant || 0, frame: fields.frame || 0, kop: fields.kop || null, kopUse: fields.kopUse || 0 };
   };
   // ---- published designs (D.REFBOTS: the Anybot from 2018, the Apex Blueprint from 2022) ----
   // out from the start of Build Week D.REF_WEEK (2) of each season, for this season's robot (calendar careers)
@@ -954,6 +964,7 @@
   Robot.startProject = function (S, spec) {
     const q = Robot.quote(S, spec);
     if (q.err) return q.err;
+    if (q.needErr) return q.needErr;
     if (!Robot.noSlot(spec) && Robot.slotUsed(S) >= Robot.slots(S)) return 'All project slots are busy (' + Robot.slots(S) + '). Hire Design/Fabrication mentors or upgrade facilities for more (max ' + Robot.MAX_SLOTS + ' permanent).';
     { const e = G.Career.afford(S, q.cost); if (e) return e; }
     G.Career.spend(S, q.cost, q.name);

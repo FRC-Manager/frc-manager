@@ -48,6 +48,12 @@
           base: { scoreSpd: 40, accuracy: 45, range: 0 }, ceil: { scoreSpd: 78, accuracy: 90, range: 30 }, caps: { lower: true, upper: true, rmin: 1.2, rmax: 3.6 }, look: { shooter: 'fixed' } },
         { id: 'hood', name: 'Adjustable hood shooter', desc: 'Shoots from the Initiation Line and beyond. Straight-on shots can drop through to the Inner Port.', cost: 1300, hours: 180, w: 17, cx: 3, areas: ['shooter', 'vision'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 86, accuracy: 92, range: 82 }, caps: { lower: true, upper: true, rmin: 1.4, rmax: 7.2 }, look: { shooter: 'hood' } },
+        // (3.5.6) one big soft wheel under a long hood (2481's): with the range developed it shoots from just past its own
+        // Sector line, behind the Trench Run, a short trip from the Loading Bay. From there fewer cells go in and few find
+        // the Inner Port (rules-classic: FAR20). The wheel needs the tall frame (needs; under a low one it shoots like a hood: unmet)
+        { id: 'long', name: 'Long-range shooter (big wheel)', desc: 'One wheelchair-size flywheel under a long hood throws cells most of the length of the field: once its range is developed it shoots from behind the Trench Run, a short drive from the Loading Bay. From that far fewer cells go in and very few find the Inner Port. Tall frame only: under a Trench-height frame the wheel does not fit, and it shoots no further than an adjustable hood.', cost: 1500, hours: 200, w: 20, cx: 4, areas: ['shooter', 'vision'],
+          base: { scoreSpd: 40, accuracy: 40, range: 45 }, ceil: { scoreSpd: 84, accuracy: 90, range: 100 }, caps: { lower: true, upper: true, rmin: 1.6, rmax: 19, longShot: true }, look: { shooter: 'hood' },
+          needs: { sub: 'frame', concepts: ['std'], what: 'the tall frame', orNone: true }, unmet: { longShot: false, rmax: 7.2 } },
         { id: 'turret', name: 'Turret + hood', desc: 'Aims by itself and shoots from the Trench Run, the full length of the field away from its own Loading Bay.', cost: 1900, hours: 240, w: 22, cx: 5, areas: ['turret', 'shooter', 'vision'],
           base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 92, accuracy: 95, range: 95 }, caps: { lower: true, upper: true, rmin: 1.4, rmax: 9.5, turret: true }, look: { shooter: 'turret' } }
       ] },
@@ -72,6 +78,7 @@
     archetypes: [
       { name: 'Turret + revolver trench runner', min: 90, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: 'revolver', scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'buddy'] } },
       { name: 'Turret + trench runner', min: 76, pick: { drive: ['swerve', 'wcd'], frame: 'low', intake: ['wide', 'over'], scorer: 'turret', panel: ['color', 'spin'], endgame: ['level', 'hook', 'level', 'hook', 'buddy'] } },
+      { name: 'Long-range shooter + hang', min: 60, rare: 0.3, pick: { drive: ['swerve', 'wcd'], frame: 'std', intake: ['wide', 'over'], scorer: 'long', panel: ['spin', 'none'], endgame: ['hook', 'level'] } }, // rare: three teams in ten that could build it do
       { name: 'Hood shooter + hang', min: 56, pick: { drive: ['swerve', 'wcd'], frame: ['low', 'std'], intake: 'over', scorer: 'hood', panel: ['spin', 'none'], endgame: 'hook' } },
       { name: 'Wall shooter + hang', min: 36, pick: { drive: ['wcd', 'kit'], frame: 'std', intake: 'over', scorer: 'fixed', panel: 'none', endgame: ['hook', 'none'] } },
       { name: 'Bottom-port dumper', min: 16, pick: { drive: 'kit', frame: 'std', intake: ['bay', 'over'], scorer: 'dump', panel: ['none', 'spin'], endgame: ['hook', 'none'] } },
@@ -138,6 +145,13 @@
           base: { endgame: 45 }, ceil: { endgame: 88 }, caps: { endLevel: 2 }, look: { climber: 'hook' } },
         { id: 'l3', name: 'Level 3 stilts', desc: 'Lifts the whole robot nineteen inches and drives it onto HAB Level 3: 12 points, most of the HAB Docking bonus.', cost: 1100, hours: 190, w: 16, cx: 3, areas: ['climb'],
           base: { endgame: 35 }, ceil: { endgame: 90 }, caps: { endLevel: 3 }, look: { climber: 'hook2' } },
+        // (3.5.6) a vacuum pad on an arm (254's), built onto the back of the elevator: the arm swings out onto Level 3 and
+        // the elevator's own motors pull the robot up beside the platform (motors: 0), a little sooner than stilts, and the
+        // platform stays free for a partner (rules-classic: habLevel19 and endSpot, cap.hover). It needs an elevator to
+        // ride on (needs; without one it does nothing: unmet)
+        { id: 'suction', name: 'Suction climber (Level 3)', desc: 'A vacuum pad on an arm, built onto the back of the elevator. The arm swings out onto HAB Level 3 and the elevator\'s own motors pull the robot up beside the platform: no motors of its own, 12 points a little sooner than stilts, and the platform stays free for a partner to climb onto. Only a robot with an elevator can carry it.', cost: 1150, hours: 205, w: 10, cx: 4, areas: ['climb'], motors: 0,
+          needs: { sub: 'scorer', concepts: ['elev', 'elevfast', 'turretlift'], what: 'an elevator to ride on' }, unmet: { endLevel: 0, hover: false },
+          base: { endgame: 34 }, ceil: { endgame: 91 }, caps: { endLevel: 3, hover: true, climbK: 0.88 }, look: { climber: 'hook2' } },
         { id: 'l3buddy', name: 'Level 3 buddy climber (partner ramps)', desc: 'Climbs to Level 3 and carries a partner up with it: 24 points from one mechanism.', cost: 1700, hours: 260, w: 21, cx: 4, areas: ['climb'],
           base: { endgame: 30 }, ceil: { endgame: 92 }, caps: { endLevel: 3, buddy: true }, look: { climber: 'arms' } },
         // both partners onto HAB Level 3 at once: 36 points from one mechanism, when it works. Both have to be there in
@@ -149,8 +163,8 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: ['turretlift', 'elevfast'], effector: 'active', endgame: ['l3triple', 'l3buddy', 'l3'] } },
-      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy'] } },
+      { name: 'Turreted elevator + Level 3', min: 90, pick: { drive: 'wcd', intake: ['floor', 'ground'], scorer: ['turretlift', 'elevfast'], effector: 'active', endgame: ['l3triple', 'l3buddy', 'l3', 'suction'] } },
+      { name: 'Fast elevator + Level 3', min: 76, pick: { drive: ['swerve', 'wcd'], intake: ['floor', 'ground'], scorer: 'elevfast', effector: 'active', endgame: ['l3', 'l3buddy', 'suction'] } },
       { name: 'Elevator + Level 3', min: 58, pick: { drive: ['wcd', 'swerve'], intake: 'ground', scorer: 'elev', effector: ['combo', 'active'], endgame: ['l3', 'l2'] } },
       { name: 'Two-level arm + Level 2', min: 38, pick: { drive: ['wcd', 'kit'], intake: ['ground', 'none'], scorer: 'arm', effector: 'combo', endgame: ['l2', 'none'] } },
       { name: 'Cargo-ship cycler', min: 16, pick: { drive: ['kit', 'wcd'], intake: ['none', 'ground'], scorer: 'low', effector: 'combo', endgame: ['l2', 'none'] } },
@@ -193,7 +207,10 @@
         { id: 'elev', name: 'Scale elevator', desc: 'A two-stage elevator that puts cubes on the Scale, even when it is tipped against you.', cost: 1200, hours: 180, w: 17, cx: 4, areas: ['elevator', 'arm'],
           base: { scoreSpd: 38, accuracy: 45 }, ceil: { scoreSpd: 85, accuracy: 93 }, caps: { reach: 2, tall: 0.5 }, look: { manip: 'elevator' } },
         { id: 'elevfast', name: 'Fast elevator + wrist', desc: 'A quick continuous elevator with a wrist that tilts the end effector over the plate. The robots that owned the Scale had one.', cost: 1750, hours: 235, w: 20, cx: 5, areas: ['elevator', 'arm'],
-          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } }
+          base: { scoreSpd: 40, accuracy: 45 }, ceil: { scoreSpd: 95, accuracy: 96 }, caps: { reach: 2, tall: 0.6 }, look: { manip: 'elevwrist' } },
+        // (3.5.6) two tubes on driven joints (1323's): the Scale in one swing, lighter and lower than an elevator and nearly as quick
+        { id: 'dja', name: 'Double-jointed arm', desc: 'Two carbon tubes on driven joints: it folds flat inside the frame and swings a cube up to the Scale in one move. Lighter than an elevator and steadier on its wheels, nearly as quick, and the hardest lift to build and to tune.', cost: 1500, hours: 220, w: 15, cx: 5, areas: ['arm'],
+          base: { scoreSpd: 40, accuracy: 42 }, ceil: { scoreSpd: 92, accuracy: 91 }, caps: { reach: 2, tall: 0.4 }, look: { manip: 'arm' } }
       ] },
       { id: 'effector', name: 'End Effector', pneu: true, concepts: [
         { id: 'pinch', name: 'Pinch claw', desc: 'Two arms and a cylinder squeeze the cube. The robot has to line up on it exactly, and a hard hit can shake it loose.', cost: 200, hours: 45, w: 5, cx: 1, areas: ['effector'],
@@ -201,7 +218,11 @@
         { id: 'roller', name: 'Roller claw', desc: 'Powered compliant wheels pull the cube in and spit it out: no lining up, and it lets go the moment it is over the plate.', cost: 550, hours: 100, w: 8, cx: 3, areas: ['effector'],
           base: { grip: 45 }, ceil: { grip: 88 }, self: { ground: true, station: true, lo: 45, hi: 86 }, look: { eff: 'claw' } },
         { id: 'launch', name: 'Launching roller claw', desc: 'Rollers fast enough to throw the cube: it scores from a step back, before the lift has finished moving.', cost: 900, hours: 150, w: 10, cx: 4, areas: ['effector'],
-          base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } }
+          base: { grip: 48 }, ceil: { grip: 95 }, caps: { launch: true }, self: { ground: true, station: true, lo: 46, hi: 90 }, look: { eff: 'claw' } },
+        // (3.5.6) the launching claw on a pivot of its own (254's): it flips over the lift and scores behind the robot as well
+        // as in front, so the chassis need not turn round to place (engine: cap.flip cuts the lining up, like a small turret)
+        { id: 'flip', name: 'Flipping roller claw', elite: true, desc: 'The launching claw on a pivot of its own: it flips right over the lift and scores behind the robot as well as in front, so the chassis never has to turn round to place a cube. A tank drive gains the most. The hardest end effector of the year.', cost: 1300, hours: 210, w: 12, cx: 5, areas: ['effector'],
+          base: { grip: 48 }, ceil: { grip: 96 }, caps: { launch: true, flip: true }, self: { ground: true, station: true, lo: 46, hi: 91 }, look: { eff: 'claw' } }
       ] },
       { id: 'endgame', name: 'Climber', concepts: [
         NONE_END,
@@ -213,7 +234,8 @@
       { id: 'soft', name: 'Software', concepts: [SOFT()] }
     ],
     archetypes: [
-      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: 'elevfast', effector: ['launch', 'roller'], endgame: ['buddy', 'hook'] } },
+      { name: 'Flipping claw on a fast lift', min: 90, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: ['elevfast', 'elevfast', 'dja'], effector: ['flip', 'launch'], endgame: ['buddy', 'hook'] } },
+      { name: 'Fast elevator + partner climb', min: 76, pick: { drive: ['swerve', 'wcd'], intake: 'wide', scorer: ['elevfast', 'elevfast', 'dja'], effector: ['launch', 'roller'], endgame: ['buddy', 'hook'] } },
       { name: 'Scale elevator + climb', min: 56, pick: { drive: ['wcd', 'swerve'], intake: ['wheeled', 'none'], scorer: 'elev', effector: 'roller', endgame: 'hook' } },
       { name: 'Switch and vault bot', min: 34, pick: { drive: ['wcd', 'kit'], intake: ['wheeled', 'none'], scorer: 'low', effector: 'roller', endgame: ['hook', 'none'] } },
       { name: 'Claw switch bot', min: 14, pick: { drive: 'kit', intake: 'none', scorer: 'low', effector: 'pinch', endgame: 'none' } },
@@ -259,7 +281,13 @@
         { id: 'shoot', name: 'High-goal shooter (45 balls)', desc: 'A flywheel shooter for the high goal from the Key. Enough for the preloaded fuel in auto and a few kPa more, once it is well developed: a new or average shooter misses most of what it fires and is not worth its weight. Strong teams only.', cost: 1100, hours: 170, w: 16, cx: 3, areas: ['shooter', 'index'],
           base: { fuel: 38 }, ceil: { fuel: 86 }, caps: { fuelHigh: true, fuelLow: false, storage: 45 }, look: { shooter: 'fixed', hopper: 45 } },
         { id: 'mega', name: 'High-volume shooter + big hopper (90 balls)', desc: 'Several flywheels, an agitator and a hopper as big as the rules allow: a whole field hopper of fuel in a few seconds. The only way to 40 kPa, and only for a team that can also keep its gears and its climb.', cost: 1900, hours: 260, w: 24, cx: 5, areas: ['shooter', 'index', 'vision'],
-          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } }
+          base: { fuel: 36 }, ceil: { fuel: 95 }, caps: { fuelHigh: true, fuelLow: false, storage: 90 }, look: { shooter: 'wide', hopper: 90 } },
+        // (3.5.6) the best fuel robots of the year (254's): a full-width intake at each end, a spiral feeder and a turret with
+        // two flywheels. It sweeps loose fuel up faster (cap.fuelWide), and the turret shoots from well outside the Key,
+        // wherever the robot stands within reach of the boiler (cap.fuelFar, metres), aiming by itself (cap.fuelTurret):
+        // it never has to drive to the Key, so a defender has nowhere to wait for it (rules-classic: fuelShoot17, fuelLoad17)
+        { id: 'dualturret', name: 'Dual intake + turret shooter (80 balls)', elite: true, desc: 'A full-width intake at each end, a spiral feeder and a turret with two flywheels. It sweeps loose fuel up faster, and the turret empties its hopper in seconds from well outside the Key, wherever the robot stands within reach of the boiler: it never has to drive into the Key, so a defender has nowhere to wait for it. A little less sure from far out. The hardest fuel system of the year.', cost: 2400, hours: 310, w: 26, cx: 5, areas: ['intake', 'turret', 'shooter', 'index', 'vision'], motors: 4,
+          base: { fuel: 36 }, ceil: { fuel: 96 }, caps: { fuelHigh: true, fuelLow: false, storage: 80, fuelTurret: true, fuelFar: 6, fuelWide: 1.35 }, look: { shooter: 'turret', hopper: 80 } }
       ] },
       { id: 'endgame', name: 'Rope Climber', concepts: [
         NONE_END,
@@ -272,6 +300,7 @@
     ],
     archetypes: [
       // most teams ran gears and a rope and nothing else: a shooter only paid for itself on the strongest robots
+      { name: 'Dual intake turret + floor gears', min: 90, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['dualturret', 'mega'], endgame: 'fast' } },
       { name: 'Floor gears + shooter + fast climb', min: 84, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['mega', 'shoot'], endgame: 'fast' } },
       { name: 'Floor gears + fast climb', min: 78, pick: { drive: ['swerve', 'wcd', 'mec'], scorer: 'floor', fuel: ['none', 'none', 'shoot'], endgame: 'fast' } },
       { name: 'Gear cycler + fast climb', min: 58, pick: { drive: ['wcd', 'mec', 'swerve'], scorer: ['floor', 'active'], fuel: ['none', 'none', 'none', 'none', 'shoot'], endgame: 'fast' } },

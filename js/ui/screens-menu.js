@@ -261,6 +261,16 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.5.6', title: 'Driving like the real thing', notes: [
+      'In a watched match a robot turns the end its scorer is on to the goal before it places, and its intake to the station it loads from. Swerve and mecanum drives turn while they travel and spin off a defender. Tank drives swing through their corners, back up for a short hop, turn on the spot before a run the other way, and back off a defender before they turn. Results are the same as before.',
+      'New designs. 2018: a double-jointed arm, and an elite design, the flipping roller claw, which places behind the robot as well as in front. 2019: a suction climber that hangs beside HAB Level 3 and leaves the platform to a partner. 2020: a long-range shooter with one big wheel that shoots from behind the Trench Run (tall frame only). 2017: an elite fuel system, the dual intake + turret shooter, which sweeps fuel up faster and shoots from well outside the Key.',
+      'The 2024 turret shooter is now an elite design, and a smaller gain over the pivot than it was: a note shooter is heavy, so its turret turns slowly and is no more accurate. Elite designs are now the last of every list.',
+      'The 2023 "Elevator + wrist" is now the Elevator + escalator, drawn with its three telescoping stages. The 2026 wide dumper throws over its back, away from its intake, and its cameras look that way.',
+      'The pre-match page shows all six robots from the side. Rival teams put the number on their bumpers in the middle or at the side, each team its own way.',
+      'The Super pit tires the team a little less at an event. Your own FTC teams take a few mentor hours a week in the offseason. Students paying their own way can be ticked in the window that sends the team to an event.',
+      'The research list and the Tech Knowledge table have banded rows, and every knowledge area has a colour of its own in both, so the one you want is quicker to find.',
+      'Fixed: an international partner signed by Auto-pick best now sends its letter.'
+    ] },
     { v: '3.5.5', title: 'Robots that look the part', notes: [
       'Every robot picture is redrawn. A robot is now put together from what a real one is made of: box tube with its hole pattern, pocketed plate, polycarbonate, belts, compliant wheels, gas springs and hooks, in the proportions of a real robot. The pictures are drawn twice as sharp.',
       'Every season has its own designs: each concept has its own drawing for that game. A 2018 climber is a hook on a strap with forks for a partner, a 2019 one is a pair of stilts with ramps, a 2022 one is a telescoping arm. A low-bar or trench robot stands at its real height, and the low seasons are drawn larger.',

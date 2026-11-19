@@ -49,6 +49,11 @@
         cap.noIntake = false; cap.selfLoad = true;
       }
     }
+    // (3.5.6) a concept that needs another subsystem to be of a kind (c.needs: a suction climber rides on an elevator, a
+    // long-range wheel needs the tall frame) and does not have it cannot do its job: c.unmet replaces what it would give
+    G.Seasons[year].subs.forEach(sd => { const u = subs[sd.id], c = u && u.ver ? sd.concepts.find(x => x.id === u.concept) : null, n = c && c.needs; if (!n) return;
+      const o = subs[n.sub], ok = o && o.ver ? n.concepts.includes(o.concept) : !!n.orNone;
+      if (!ok) { Object.assign(cap, c.unmet || {}); cap.unmetNeeds = (cap.unmetNeeds || []).concat(c.name + ' needs ' + n.what); } });
     if (cap.rmax) cap.rangeM = cap.rmin + (cap.rmax - cap.rmin) * (cap.range || 0) / 100;
     if (!subs.drive || !subs.drive.ver) { cap.speed = 15; cap.agility = 15; cap.push = 20; cap.noDrive = true; }
     // no scorer at all?
@@ -106,6 +111,10 @@
   // (3.5.5) A few teams powder-coat their robots, and most of the elite ones (and those that once were): [colour, accent],
   // or null for bare aluminium. It hangs on the team number alone, so a team keeps its colour from season to season
   const PAINT = ['#2f6fd0', '#c2412f', '#2e9e5b', '#e08a1e', '#8a4fc0', '#17a0a0', '#c9a80c', '#d1478c', '#1f4fa3', '#8a1f2b', '#3a3f47', '#e9edf1', '#0f8f6a', '#ff6a13'], ACCENT = ['#ffcf4a', '#e9edf1', '#15181c', '#ff7a1a', '#4cc9f0'];
+  // (3.5.6) an elite design is the last of its subsystem's list, in every list (stable: the others keep their order)
+  Object.keys(G.Seasons).forEach(y => { const Sz = G.Seasons[y]; if (Sz && Array.isArray(Sz.subs)) Sz.subs.forEach(sd => { if (sd.concepts.some(c => c.elite)) sd.concepts = sd.concepts.filter(c => !c.elite).concat(sd.concepts.filter(c => c.elite)); }); });
+  // (3.5.6) where a team puts the number on its bumpers: in the middle, or (about three teams in eight) at the end. From the team number, so a team keeps its habit
+  AI.numSide = num => ((Math.imul((Number(num) || 0) + 104729, 2246822519) >>> 0) % 1000) < 375;
   AI.paintOf = function (num, elite) {
     const h = (Math.imul((Number(num) || 0) + 7919, 2654435761) >>> 0);
     return (h % 1000) / 1000 < (elite ? 0.85 : 0.14) ? [PAINT[(h >>> 10) % PAINT.length], ACCENT[(h >>> 16) % ACCENT.length]] : null;
@@ -145,7 +154,7 @@
   };
 
   function pickArchetype(rng, S, str, elite) {
-    const elig = S.archetypes.filter(a => !a.defense && !a.feed && str >= a.min).sort((p, q) => q.min - p.min);
+    const elig = S.archetypes.filter(a => !a.defense && !a.feed && str >= a.min && !(a.rare && (elite || !rng.chance(a.rare)))).sort((p, q) => q.min - p.min); // a.rare: the share of the teams that could build it that do
     if (elite) return elig[0]; // an elite team builds the best robot the game allows
     const spec = S.archetypes.filter(a => (a.defense || a.feed) && str >= a.min);
     if (spec.length && rng.chance(0.08)) return rng.pick(spec);
@@ -221,7 +230,7 @@
     const elite = !!rb.elite;
     const cap = G.Cap.build(year, subs, extra);
     const look = G.Cap.look(year, subs, extra);
-    { const pc = AI.paintOf(team.num, !!(team.elite || team.wasElite)); if (pc) { look.c1 = pc[0]; look.c2 = pc[1]; } } // (3.5.5) painted robots
+    { const pc = AI.paintOf(team.num, !!(team.elite || team.wasElite)); if (pc) { look.c1 = pc[0]; look.c2 = pc[1]; } if (AI.numSide(team.num)) look.numAt = 'side'; } // (3.5.5) painted robots
     const d = rb.drv, cp = rb.comp;
     return {
       team: team.num, cap, look, isPlayer: false,

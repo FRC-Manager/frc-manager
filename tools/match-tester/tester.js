@@ -80,7 +80,7 @@
     });
     m.robots.forEach(r => {
       const aiming = G.Render.animate(m, r); // the reach, the intake and the climber, as in the game
-      const rr = Object.create(r), p = pos(r); rr.x = p.x / s; rr.y = p.y / s;
+      const rr = Object.create(r), P = G.Render.pose(r, al); rr.x = P.x; rr.y = P.y; rr.hd = P.hd;
       const g = aimFor(m, r);
       G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: aiming && m.year < 2023 && (r.cap.visionLvl || 0) >= 1 }); // (no career here: the green light goes by the game's own year)
     });

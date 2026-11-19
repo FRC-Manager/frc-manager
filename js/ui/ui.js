@@ -216,7 +216,7 @@
       if (S.dispute) btns += '<button class="btn" data-act="dispute">Settle team dispute</button>';
       if (S.bagPick) btns += '<button class="btn primary" data-act="bagOpen">Choose the robot for the bag</button>';
       if (G.Career.needReg(S)) btns += '<button class="btn" data-act="closeAndGo" data-arg="calendar">Open Calendar</button>';
-      UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
+      UI.modal('<h2>Before you continue</h2>' + b.map(x => '<p>' + h(x) + '</p>').join('') + (ev && ev.def && !ev.active ? UI.selfPayLabel(S, ev.def) : '') + '<div class="row mt">' + btns + '<span class="sp"></span><button class="btn" data-act="closeModal">Close</button></div>');
       return;
     }
     if (G.Career.regWarn(S) && UI.st.regWarnAt !== G.Career.turnKey(S)) return UI.needRegModal(true);
@@ -558,7 +558,14 @@
     if (boosts.length) o += '<div class="hint mb"><b>Active boosts:</b> ' + boosts.join(' · ') + '</div>';
     return o;
   };
-  UI.A.selfPay = v => { const S = G.S, ev = G.Career.eventThisTurn(S); if (ev && ev.def) G.Career.setSelfPay(S, ev.def, !!v); UI.render(); };
+  // (3.5.1) students pay their own way: a far smaller travel bill, at a price. The tick box, for Headquarters and (3.5.6) for the window that sends the team to the event
+  UI.selfPayLabel = function (S, d) {
+    const C = G.Career, D = G.Data;
+    if (!d || d.kind === 'einstein' || !D.SELF_PAY || !(C.travelCost(S, d) > 0)) return '';
+    const on = C.selfPayOn(S, d), k = C.selfPayCost(S, d), full = on ? Math.round(C.travelCost(S, d) / D.SELF_PAY.cost) : C.travelCost(S, d), low = on ? C.travelCost(S, d) : Math.round(full * D.SELF_PAY.cost);
+    return '<label class="row wrap sm mt" title="The team pays ' + U.money(low) + ' instead of ' + U.money(full) + '. Not every student can pay: fewer make the trip, so scouting is less sure and the repairs between matches are slower at this event."><input type="checkbox" data-chg="selfPay" ' + (on ? 'checked' : '') + '> <span style="white-space:nowrap">Students pay their own way</span> <span class="xs muted">· travel ' + U.money(low) + ' instead of ' + U.money(full) + ' · morale −' + k.morale + (k.rep ? ', reputation −' + k.rep : '') + ' · weaker scouting and pit repairs this event</span></label>';
+  };
+  UI.A.selfPay = v => { const S = G.S, ev = G.Career.eventThisTurn(S), inWin = !!document.querySelector('.modal [data-chg="selfPay"]'); if (ev && ev.def) G.Career.setSelfPay(S, ev.def, !!v); UI.render(); if (inWin) UI.A.continue(); }; // (ticked in the window: the window is drawn again with the new bill)
   UI.A.skipChamps = () => { G.S.champsDeclined = true; UI.closeModal(); UI.toast('Championship skipped.'); UI.render(); };
   UI.A.skipEvent = () => {
     const ev = G.Career.eventThisTurn(G.S); if (!ev || !ev.def) return;
@@ -1043,9 +1050,9 @@
       return o;
     }
     o += '<h2 class="mt">Research (offseason R&D)</h2><div class="sub">Builds Tech Knowledge directly. Open until Kickoff: research still running then gets partial credit. ' + UI.q('design', 'Research (offseason R&D)') + '</div>';
-    o += '<table class="t"><tr><th>Project</th><th>Area</th><th>Level</th><th class="num">Hours</th><th class="num">Cost</th><th class="num">XP</th><th></th></tr>' + D.RESEARCH.map(r => {
+    o += '<table class="t bands"><tr><th>Project</th><th>Area</th><th>Level</th><th class="num">Hours</th><th class="num">Cost</th><th class="num">XP</th><th></th></tr>' + D.RESEARCH.map((r, i) => {
       const q = G.Robot.quote(S, { type: 'research', rid: r.id });
-      return '<tr><td>' + h(r.name) + '</td><td>' + h(D.AREA[r.area].name) + '</td><td>' + UI.lvlTag(G.Robot.know(S, r.area)) + '</td><td class="num">' + q.hours + '</td><td class="num">' + U.money(q.cost) + '</td><td class="num">+' + r.xp + '</td><td><button class="btn sm" data-act="startResearch" data-arg="' + r.id + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></td></tr>';
+      return '<tr class="' + (i % 2 ? 'alt' : '') + '" style="--ac:' + UI.areaColor(r.area) + '"><td><b>' + h(r.name) + '</b></td><td class="area">' + h(D.AREA[r.area].name) + '</td><td>' + UI.lvlTag(G.Robot.know(S, r.area)) + '</td><td class="num">' + q.hours + '</td><td class="num">' + U.money(q.cost) + '</td><td class="num">+' + r.xp + '</td><td><button class="btn sm" data-act="startResearch" data-arg="' + r.id + '" ' + (q.err ? 'disabled title="' + h(q.err) + '"' : '') + '>Start</button></td></tr>';
     }).join('') + '</table>';
     return o;
   } };
@@ -1257,7 +1264,7 @@
       (act ? '<div><div class="hnum">' + act + ' h</div><div class="l">Sponsor duties</div></div>' : '') + '<div><div class="hnum ' + (idle > 1 ? 'warn' : 'dim') + '">' + Math.round(idle) + ' h</div><div class="l">Idle</div></div></div>' + bar;
     if (compact) return o + (idle > 10 ? '<div class="xs warn mt">' + Math.round(idle) + ' h will go unused this ' + unit + '.</div>' : '');
     o += '<div class="hlegend mt">' + segs.map(s => '<span><i style="background:' + s.c + '"></i>' + h(s.p.name) + ': +' + Math.round(s.h) + ' h</span>').join('') + (act ? '<span><i style="background:#6c7884"></i>Sponsor duties: ' + act + ' h</span>' : '') + (idle > 0.5 ? '<span><i style="background:#2a323b"></i>Idle: ' + Math.round(idle) + ' h</span>' : '') + '</div>';
-    o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
+    o += '<div class="xs muted mt">' + bd.students + ' students × ' + bd.perStudent + ' h + ' + Math.round(bd.ment) + ' mentor h' + (bd.ftcH ? ' (after ' + bd.ftcH + ' h a week with your own FTC team' + (bd.ftcN > 1 ? 's' : '') + ')' : '') + ' · ' + h(bd.why) + ' · morale ×' + bd.moraleM.toFixed(2) + (bd.boost > 1 ? ' · boost ×' + bd.boost.toFixed(2) : '') +
       '. One project can absorb up to ' + Math.round(G.Robot.capFor(S, { prio: 'normal' })) + ' h per ' + unit + ' (high priority +25%, low −25%). Hours are spent when you press Continue.</div>';
     { const k = C.autoExtraTarget(S); if (k != null && S.projects.some(p => !G.Robot.isFab(p))) o += '<div class="row wrap gap4 mt"><button class="btn sm" data-act="autoExtra" title="Puts this ' + unit + '\'s idle hours into extra hours on the projects already running. It starts no project.">Auto-fill extra hours</button><label class="row xs muted" title="Do the same every turn when you press Continue"><input type="checkbox" data-chg="autoExtraOn" ' + (S.settings && S.settings.autoExtra ? 'checked' : '') + '> every turn</label><span class="xs muted">' + (k ? 'Fills the week to 90%, leaving the idle time that holds fatigue steady.' : 'Fills the whole month: there is no fatigue in the offseason.') + ' ' + UI.q('design', 'Extra hours') + '</span></div>'; }
     if (idle > 10) {
@@ -1315,10 +1322,10 @@
       const kitTag = (Object.keys(want).length ? UI.tag('COTS kits ' + Math.round(q.kitCov * 100) + '%' + (q.kitCov ? ': −' + Math.round((1 - D.KIT_HOURS) * q.kitCov * 100) + '% hours' : ''), q.kitCov > 0.99 ? 'good' : q.kitCov ? 'info' : '') : '') +
         (q.kop ? UI.tag(D.PART_CAT[q.kop].name + (q.kopUse ? ': −' + Math.round(D.KOP_KIT_HOURS * 100) + '% hours' : q.kitCov ? ' not needed' : ' 0/1'), q.kopUse ? 'good' : '') : '') +
         (q.frameWant ? UI.tag('GridTube ' + q.frame + '/' + q.frameWant + (q.frame ? ': −' + Math.round(D.FRAME_HOURS * q.frame / q.frameWant * 100) + '% hours' : ''), q.frame >= q.frameWant ? 'good' : q.frame ? 'info' : '') : '');
-      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (c.elite ? '<span title="The hardest mechanism of the season: more hours, more money and more to go wrong, for a small gain over the next best. The best teams in the world built it.">' + UI.tag('elite design', 'acc') + '</span>' + UI.q('design', 'Elite designs') : '') + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err ? 'disabled' : '') + '>Build</button>' + refBtns(S, subId, c) + '</div>' +
+      return '<div class="choice"><div class="row"><b>' + h(c.name) + '</b>' + UI.tag('complexity ' + c.cx) + (c.elite ? '<span title="The hardest mechanism of the season: more hours, more money and more to go wrong, for a small gain over the next best. The best teams in the world built it.">' + UI.tag('elite design', 'acc') + '</span>' + UI.q('design', 'Elite designs') : '') + (first && q.kitCov < 0.99 ? UI.tag('first time!', 'warn') : '') + kitTag + '<span class="sp"></span><span class="sm muted">' + q.hours + ' h · ' + U.money(q.cost) + ' · ' + c.w + ' lb</span><button class="btn sm primary" data-act="buildConcept" data-arg="' + subId + '|' + c.id + '" ' + (q.err || q.needErr ? 'disabled' : '') + '>Build</button>' + refBtns(S, subId, c) + '</div>' +
         '<div class="sm muted">' + h(c.desc) + '</div><div class="sm mt">' + ceil + '</div>' + (bomTxt ? '<div class="xs muted mt">' + UI.icon('parts', 12) + ' Uses ' + h(bomTxt) + '</div>' : '') + (subId === 'drive' && G.Parts.driveNote(S, c.id) ? '<div class="xs muted">' + UI.icon('gear', 12) + ' ' + h(G.Parts.driveNote(S, c.id)) + '</div>' : '') + (wantTxt ? '<div class="xs muted">' + UI.icon('gear', 12) + ' Mechanism kits it can use: ' + h(wantTxt) + '. Each one cuts hours and materials; a full set removes the first-build penalty.</div>' : '') +
         (q.kop ? '<div class="xs muted">' + UI.icon('box', 12) + ' Kit of Parts: a ' + h(D.PART_CAT[q.kop].name) + ' (' + G.Parts.kitsFree(S, q.kop) + ' free) saves ' + Math.round(D.KOP_KIT_HOURS * 100) + '% of the hours and ' + Math.round(D.KOP_KIT_COST * 100) + '% of the materials. Only the simplest concept of a subsystem can use one, and not together with a COTS kit.</div>' : '') +
-        (q.frameWant ? '<div class="xs muted">' + UI.icon('parts', 12) + ' GridTube frame stock: can use ' + q.frameWant + ' bundle' + (q.frameWant > 1 ? 's' : '') + ' (' + Math.min(q.frameWant, G.Parts.kitsFree(S, 'kFrame')) + ' free). With all of them: −' + Math.round(D.FRAME_HOURS * 100) + '% hours and −' + Math.round(D.FRAME_COST * 100) + '% materials, on top of the kits.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
+        (q.frameWant ? '<div class="xs muted">' + UI.icon('parts', 12) + ' GridTube frame stock: can use ' + q.frameWant + ' bundle' + (q.frameWant > 1 ? 's' : '') + ' (' + Math.min(q.frameWant, G.Parts.kitsFree(S, 'kFrame')) + ' free). With all of them: −' + Math.round(D.FRAME_HOURS * 100) + '% hours and −' + Math.round(D.FRAME_COST * 100) + '% materials, on top of the kits.</div>' : '') + (q.note ? '<div class="xs warn">' + h(q.note) + '</div>' : '') + '<div class="row wrap gap4 mt">' + areas + '</div>' + (q.needErr ? '<div class="sm bad mt">' + h(q.needErr) + '</div>' : '') + (q.err ? '<div class="sm bad mt">' + h(q.err) + ' <a href="#" data-act="closeAndGo" data-arg="parts">Open the Inventory</a></div>' : '') + '</div>';
     }).join('') + '</div>';
     UI.modal(o, { wide: true });
   };
@@ -1447,15 +1454,18 @@
   // knowledge levels 0 to 5 in their own colours (Tech Knowledge, the research list)
   UI.LVL_COLORS = ['var(--muted)', 'var(--bad)', 'var(--warn)', 'var(--data)', '#a8d65c', 'var(--good)']; // the bars' colours, from red at Level 1 to green at the top
   UI.lvlTag = l => '<b style="color:' + UI.LVL_COLORS[Math.max(0, Math.min(5, l))] + '">Lv ' + l + '</b>';
+  // (3.5.6) every knowledge area has a colour of its own, the same on the Tech Knowledge page and in the research list: rows are banded and carry it down their left edge, so the one you want is quick to find
+  UI.AREA_COLORS = ['#5aa9ff', '#ffb84d', '#ff7b72', '#57d39b', '#c792ea', '#f78c6c', '#4dd0e1', '#d4e157', '#f06292', '#9fa8da', '#bcaaa4', '#80cbc4', '#ffd54f', '#ba68c8'];
+  UI.areaColor = id => { const i = D.AREAS.findIndex(a => a.id === id); return UI.AREA_COLORS[(i < 0 ? 0 : i) % UI.AREA_COLORS.length]; };
   UI.S.know = { html() {
     const S = G.S, rel = S.year && S.phase !== 'off' ? G.Seasons[S.year].relevance : null;
     let o = UI.head('Tech Knowledge', 'know', 'What your program knows how to build. It carries over between seasons, and it dates: unused areas fade, and rule changes and new designs make part of it outdated.', 'design');
     o += '<div class="hint mb">Each level: +3 to stat ceilings, −6% build hours, +4 starting reliability and +5% upgrade quality for concepts that use the area. Unused areas lose 20% XP a season' + (S.equip.kb ? (G.Career.kbCurrent(S) ? ' (halved by your Knowledge Base)' : ' (your Knowledge Base would halve this, but it needs its yearly update)') : '') + ', and each offseason\'s rule changes and new designs date some of it. ' + UI.q('design', 'Tech Knowledge') + '</div>';
-    o += '<table class="t"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + h(G.Seasons[S.year].name) + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
-    D.AREAS.forEach(a => {
+    o += '<table class="t bands"><tr><th>Area</th><th>Level</th><th style="width:30%">Progress</th>' + (rel ? '<th>' + h(G.Seasons[S.year].name) + ' relevance</th>' : '') + '<th>Mentor</th><th>Used this season</th></tr>';
+    D.AREAS.forEach((a, ai) => {
       const xp = S.know[a.id] || 0, l = D.knowLevel(xp), nxt = D.KNOW_THRESH[Math.min(5, l + 1)], prev = D.KNOW_THRESH[l];
       const ment = S.mentors.find(m => m.spec === a.id);
-      o += '<tr><td><b>' + h(a.name) + '</b><div class="xs muted">' + h(a.desc) + '</div></td><td class="lg b" style="color:' + UI.LVL_COLORS[l] + '">' + l + '</td><td>' + (l >= 5 ? UI.bar(1, 1, 'var(--good)') : UI.bar(xp - prev, nxt - prev)) + '<span class="xs muted">' + xp + ' XP' + (l < 5 ? ' / ' + nxt : '') + '</span></td>' +
+      o += '<tr class="' + (ai % 2 ? 'alt' : '') + '" style="--ac:' + UI.areaColor(a.id) + '"><td><b class="area">' + h(a.name) + '</b><div class="xs muted">' + h(a.desc) + '</div></td><td class="lg b" style="color:' + UI.LVL_COLORS[l] + '">' + l + '</td><td>' + (l >= 5 ? UI.bar(1, 1, 'var(--good)') : UI.bar(xp - prev, nxt - prev)) + '<span class="xs muted">' + xp + ' XP' + (l < 5 ? ' / ' + nxt : '') + '</span></td>' +
         (rel ? '<td class="acc">' + ('★'.repeat(rel[a.id] || 0) || '<span class="dim">—</span>') + '</td>' : '') + '<td class="sm">' + (ment ? h(ment.name) : '<span class="dim">—</span>') + '</td><td>' + (S.usedAreas[a.id] ? UI.tag('yes', 'good') : '<span class="dim">no</span>') + '</td></tr>';
     });
     return o + '</table>';
