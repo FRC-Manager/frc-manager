@@ -251,7 +251,7 @@
     cal = cal.slice(0, order.length);
     const scen = o.scenario ? D.SCENARIOS.find(s => s.id === o.scenario) : null;
     const S = G.S = {
-      v: 1, liveParts: 1, mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: custom ? (o.shuffle ? 'random' : 'custom') : o.order || 'real', customGames: !!custom,
+      v: 1, liveParts: 1, ui: G.uiNew ? G.uiNew() : 'new', mode: o.mode, seed, team: Object.assign({}, o.team), profile: o.profile, diff: o.diff || 'normal', orderMode: custom ? (o.shuffle ? 'random' : 'custom') : o.order || 'real', customGames: !!custom,
       settings: Object.assign({ noFail: false }, o.settings || {}), scenario: scen ? scen.id : null, maxEvents: scen && scen.maxEvents ? scen.maxEvents : 4,
       order, cal, pxY: cal[0], si: -1, upcoming: 0, year: order[0], phase: 'off', month: 5, week: 0, preseason: o.mode === 'career',
       money: scen && scen.money ? scen.money : P.money, ledger: [], morale: scen && scen.morale ? scen.morale : 65, support: P.support, rep: P.rep,

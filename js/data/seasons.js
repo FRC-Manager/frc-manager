@@ -203,9 +203,13 @@
         { id: 'pivot', name: 'Pivot shooter', desc: 'Variable-angle shooter: Speaker from the wing. Tilts up to score the Amp without an amp mechanism at a moderate speed and success rate.', cost: 1300, hours: 190, w: 18, cx: 3, areas: ['shooter', 'arm'],
           base: { scoreSpd: 40, accuracy: 42, range: 30 }, ceil: { scoreSpd: 88, accuracy: 93, range: 85 }, caps: { speaker: true, ampViaShooter: 0.8, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'pivot' } },
         // (3.5.6) an elite design, and a small gain: a note shooter is big and heavy, so its turret turns slowly
-        // (cap.turretSlow: its aim takes that many times a light turret's) and is no more accurate than a good pivot
-        { id: 'turret', name: 'Turret shooter', elite: true, desc: 'Aims without turning the robot, and shoots on the move with vision. A note shooter is big and heavy, so the turret turns slowly and is no more accurate than a good pivot: a little quicker to aim, a little more reach, and a defender bothers it less. Its hood can also score the Amp at a moderate speed and success rate. The hardest shooter of the year.', cost: 2300, hours: 300, w: 26, cx: 5, areas: ['turret', 'shooter', 'vision'],
-          base: { scoreSpd: 38, accuracy: 40, range: 40 }, ceil: { scoreSpd: 90, accuracy: 94, range: 92 }, caps: { speaker: true, turret: true, turretSlow: 1.8, ampViaShooter: 0.75, rmin: 1.0, rmax: 5.8 }, look: { shooter: 'turret' } }
+        // (cap.turretSlow: its aim takes that many times a light turret's).
+        // (3.5.8) Smaller still, as the user asked: it reaches exactly as far as the pivot shooter (the same range numbers, and
+        // cap.turretReach 1: vision adds no reach), shoots as fast, and in the open is only a little quicker to aim (0.75 against
+        // 0.95) and a little more accurate (2 to 3 points). What it buys is under defense, where a turret keeps most of its aim
+        // and its pace. Measured with the same teams built both ways (scratchpad t24.js): see V3_PLAN, v3.5.8
+        { id: 'turret', name: 'Turret shooter', elite: true, desc: 'Aims without turning the robot. A note shooter is big and heavy, so the turret turns slowly: it reaches no further than a pivot shooter and shoots no faster, and in the open it is only a little quicker to aim and a little more accurate. Its gain is under defense: a defender spoils far less of its aim and its pace. Its hood can also score the Amp at a moderate speed and success rate. The hardest shooter of the year.', cost: 2300, hours: 300, w: 26, cx: 5, areas: ['turret', 'shooter', 'vision'],
+          base: { scoreSpd: 40, accuracy: 44, range: 30 }, ceil: { scoreSpd: 88, accuracy: 96, range: 85 }, caps: { speaker: true, turret: true, turretSlow: 2.5, turretReach: 1, turretDef: 0.25, ampViaShooter: 0.75, rmin: 1.0, rmax: 5.0 }, look: { shooter: 'turret' } }
       ] },
       { id: 'amp', name: 'Amp / Trap', concepts: [
         { id: 'none', name: 'No amp mechanism', desc: 'The shooter scores the Amp by itself: fixed shooters slowly and with a low success rate, pivot and turret shooters at a moderate rate. No Trap.', cost: 0, hours: 0, w: 0, cx: 0, areas: [], base: {}, ceil: {}, caps: {}, look: {} },

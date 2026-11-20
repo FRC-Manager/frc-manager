@@ -6,8 +6,15 @@ $scripts = @(
   'js/core.js', 'js/data/seasons.js', 'js/data/seasons-classic.js', 'js/data/seasons-fantasy.js', 'js/data/world.js', 'js/data/world-areas.js', 'js/data/sponsors.js', 'js/data/disputes.js', 'js/data/eras.js', 'js/data/parts.js',
   'js/sim/engine.js', 'js/sim/rules.js', 'js/sim/rules-classic.js', 'js/sim/rules-fantasy.js', 'js/sim/ai.js', 'js/sim/event.js',
   'js/systems/robot.js', 'js/systems/career.js', 'js/systems/shop.js', 'js/systems/parts.js', 'js/systems/news.js', 'js/systems/world.js', 'js/systems/scouting.js', 'js/render/draw.js', 'js/render/draw-classic.js', 'js/render/draw-fantasy.js', 'js/render/draw-robot.js', 'js/render/draw-robot-seasons.js', 'js/render/draw-robot-top.js',
-  'js/ui/ui.js', 'js/ui/icons.js', 'js/ui/screens-event.js', 'js/ui/screens-menu.js', 'js/ui/screens-parts.js', 'js/ui/screens-world.js', 'js/ui/tutorial.js',
+  'js/render/__ui__',
   'js/dev.js', 'js/local.js'
+)
+# (3.6) The interface: two sets of whole files, the new one and the classic one, with the files they share. All of them go
+# into the page as inert blocks, in the order they load, each marked with the interface it belongs to; js/ui/load.js,
+# which follows them, runs the blocks of the interface the page starts with (see that file and "Two interfaces" in core.js)
+$ui = @(
+  @('js/ui/ui.js', 'new'), @('js/ui/ui-classic.js', 'classic'), @('js/ui/icons.js', 'both'), @('js/ui/kit.js', 'new'), @('js/ui/menu-stage.js', 'both'),
+  @('js/ui/screens-event.js', 'both'), @('js/ui/screens-menu.js', 'both'), @('js/ui/screens-parts.js', 'both'), @('js/ui/screens-world.js', 'both'), @('js/ui/tutorial.js', 'both')
 )
 function Read-Utf8($rel) { [IO.File]::ReadAllText((Join-Path $root $rel), [Text.Encoding]::UTF8) }
 
@@ -25,6 +32,16 @@ $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine('<body>')
 [void]$sb.AppendLine('<div id="app"></div>')
 foreach ($f in $scripts) {
+  if ($f -eq 'js/render/__ui__') {
+    foreach ($p in $ui) {
+      $js = Read-Utf8 $p[0]
+      if ($js -match '</script') { throw "$($p[0]) contains '</script' and cannot be inlined" }
+      [void]$sb.AppendLine("<script type=`"text/plain`" data-ui=`"$($p[1])`" data-file=`"$($p[0])`">")
+      [void]$sb.AppendLine($js)
+      [void]$sb.AppendLine('</script>')
+    }
+    $f = 'js/ui/load.js'
+  }
   $js = Read-Utf8 $f
   if ($js -match '</script') { throw "$f contains '</script' and cannot be inlined" }
   [void]$sb.AppendLine("<script>/* $f */")
@@ -33,7 +50,7 @@ foreach ($f in $scripts) {
 }
 [void]$sb.AppendLine('<script>')
 [void]$sb.AppendLine("window.addEventListener('error', e => { try { G.UI.toast('Error: ' + e.message, 'bad'); } catch (_) {} });")
-[void]$sb.AppendLine("G.UI.go('menu');")
+[void]$sb.AppendLine("if (!G.uiResume()) G.UI.go('menu');")
 [void]$sb.AppendLine('</script>')
 [void]$sb.AppendLine('</body>')
 [void]$sb.AppendLine('</html>')

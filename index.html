@@ -37,18 +37,13 @@
   <script src="js/render/draw-robot.js"></script>
   <script src="js/render/draw-robot-seasons.js"></script>
   <script src="js/render/draw-robot-top.js"></script>
-  <script src="js/ui/ui.js"></script>
-  <script src="js/ui/icons.js"></script>
-  <script src="js/ui/screens-event.js"></script>
-  <script src="js/ui/screens-menu.js"></script>
-  <script src="js/ui/screens-parts.js"></script>
-  <script src="js/ui/screens-world.js"></script>
-  <script src="js/ui/tutorial.js"></script>
+  <!-- (3.6) the interface: load.js loads the new one (ui.js, kit.js) or the classic one (ui-classic.js), with the files they share -->
+  <script src="js/ui/load.js"></script>
   <script src="js/dev.js"></script>
   <script src="js/local.js"></script>
   <script>
     window.addEventListener('error', e => { try { G.UI.toast('Error: ' + e.message, 'bad'); } catch (_) {} });
-    G.UI.go('menu');
+    if (!G.uiResume()) G.UI.go('menu');   // (3.6) after a change of interface the page comes back to the career it left
   </script>
 </body>
 </html>

@@ -681,6 +681,7 @@
         'Your alliance runs it more often and more cleanly with a stronger strategy read: <b>' + read + '%</b> (Strategy mentor, drive coach, driver practice and events scouted). "Shoot on sight" turns it off for your robot.</div>';
     }
     if (Sz.meta && Sz.meta.faults) { o += '<div class="xs muted mb">' + h(Sz.meta.faults) + ' ' + UI.q('matches', 'Faults and falls') + '</div>'; }
+    o += '<div class="xs muted mb">Scorers and climbers of complexity 3 and up carry status lights: green for a game piece, white for scoring, purple for the climb. ' + UI.q('matches', 'Status lights') + '</div>';   // (3.5.8)
     const teamCard = (t, side) => {
       const sc = G.Ev.scout(ev, t), c = sc.cap, isMe = t === me();
       let sug = '';
@@ -785,12 +786,12 @@
       partnerRow(ev, obj, a, callBtn) +
       '<div class="row wrap gap4"><span class="xs muted" style="width:62px">Other</span>' + callBtn('rp', '1', 'Chase bonus RP') + callBtn('rp', '0', 'Just win') + callBtn('avoid', '1', 'Avoid contact') + callBtn('avoid', '0', 'Allow contact') + callBtn('reset', '1', 'Reset robot!', 'bad') + '</div></div>';
     return evRibbon(ev) + '<div class="row mb matchhead">' + UI.icon('event', 18) + '<b>' + h(UI.matchLabel(ev, obj)) + '</b><span class="xs muted">' + h(ev.name) + '</span><span class="sp"></span>' + (obj.playoff && ev.kind !== 'einstein' ? lossTag(ev) : '') + '</div>' +
-      '<div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' + liveVs(ev) +
+      '<div id="liveFs" class="livefs"><div class="scorebar"><div class="score r" id="scR">0</div><div class="clock"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="score b" id="scB">0</div></div>' + liveVs(ev) +
       '<div class="matchview"><div><div class="card' + (spec ? ' hidden' : '') + '" style="padding:10px"><div class="ct sm">Your robot</div><div id="myBox"></div></div><div class="card' + (spec ? '' : ' mt') + '" style="padding:10px"><div class="ct sm">Robots</div><div id="robBox"></div></div></div>' +
-      '<div><div class="fieldwrap">' + fieldTag(ev) + '<canvas id="fieldCv" width="1100" height="547"></canvas></div>' +
-      '<div class="card mt" style="padding:10px"><div class="row mb"><b>' + (spec ? 'Livestream ' + UI.tag('LIVE', 'bad') : 'Coach Calls') + '</b> <span class="tag acc' + (spec ? ' hidden' : '') + '" id="callsLeft"></span><span class="sp"></span><div class="row gap4" id="spd">' +
-      ['0', '1', '2', '4', '8'].map(s => '<button class="btn sm" data-act="spd" data-arg="' + s + '">' + (s === '0' ? '❚❚' : s + '×') + '</button>').join('') + '<button class="btn sm" data-act="skipLive">Skip ⏭</button></div></div>' + (spec ? '<div class="sm muted">You are watching the stream: nobody on your team is on the field, so there are no coach calls. Change the speed, pause, or skip to the end of the match.</div>' : calls) + '<div class="row mt"><span class="sp"></span><button class="btn primary hidden" id="liveDone" data-act="liveDone">' + (spec ? 'Back to the stream ▶' : 'Results ▶') + '</button></div></div></div>' +
-      '<div><div class="card" style="padding:10px"><div class="ct sm">Ranking points</div><div id="rpBox"></div></div><div class="card mt" style="padding:10px"><div class="ct sm">Match log</div><div class="log" id="logBox"></div></div></div></div>';
+      '<div class="fs-mid"><div class="fieldwrap">' + fieldTag(ev) + '<canvas id="fieldCv" width="1100" height="547"></canvas></div>' +
+      '<div class="card mt fs-ctl" style="padding:10px"><div class="row mb"><b>' + (spec ? 'Livestream ' + UI.tag('LIVE', 'bad') : 'Coach Calls') + '</b> <span class="tag acc' + (spec ? ' hidden' : '') + '" id="callsLeft"></span><span class="sp"></span><div class="row gap4" id="spd">' +
+      ['0', '1', '2', '4', '8'].map(s => '<button class="btn sm" data-act="spd" data-arg="' + s + '">' + (s === '0' ? '❚❚' : s + '×') + '</button>').join('') + '<button class="btn sm" data-act="skipLive">Skip ⏭</button>' + (spec ? '' : '<button class="btn sm fs-only" data-act="liveCalls" title="Show or hide the coach calls">Calls</button>') + '<button class="btn sm" id="fsBtn" data-act="liveFs" title="The field on the whole screen. F does the same, Esc leaves it">Full screen</button></div></div><div class="fs-calls">' + (spec ? '<div class="sm muted">You are watching the stream: nobody on your team is on the field, so there are no coach calls. Change the speed, pause, or skip to the end of the match.</div>' : calls) + '</div><div class="row mt"><span class="sp"></span><button class="btn primary hidden" id="liveDone" data-act="liveDone">' + (spec ? 'Back to the stream ▶' : 'Results ▶') + '</button></div></div></div>' +
+      '<div><div class="card" style="padding:10px"><div class="ct sm">Ranking points</div><div id="rpBox"></div></div><div class="card mt" style="padding:10px"><div class="ct sm">Match log</div><div class="log" id="logBox"></div></div></div></div></div>';
   }, after() { UI.startLive(); } };
 
   UI.startLive = function () {
@@ -802,7 +803,7 @@
     markSpeed();
     UI.live.raf = requestAnimationFrame(loop);
   };
-  UI.stopLive = function () { if (UI.live) { cancelAnimationFrame(UI.live.raf); UI.live = null; } };
+  UI.stopLive = function () { if (G.Render.fsOff) G.Render.fsOff(); if (UI.live) { cancelAnimationFrame(UI.live.raf); UI.live = null; } };   // (3.5.8) and the field gives the screen back
   function loop(ts) {
     const L = UI.live; if (!L) return;
     if (!L.last) L.last = ts;
@@ -825,13 +826,7 @@
   }
   // (3.5.1) the Robot Signal Light: dark with no power; steady while the robot is disabled (the match has not begun or
   // is over, comms are lost, a brownout, the referee switched it off); blinking while it is enabled
-  function rslOf(m, r) {
-    if (r.noPower) return 'off';
-    if (m.done || !(m.t > 0)) return 'on';
-    if (r.dead && !r.tipped) return 'on';
-    if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
-    return 'blink';
-  }
+  const rslOf = (m, r) => G.Render.rslOf(m, r);   // (3.5.8) the rule itself is in draw.js
   UI.rslOf = rslOf; UI.liveLoop = loop; UI.liveDraw = L => draw(L); // (3.5.5) liveDraw: one frame of the match view, for tests
   function draw(L) {
     const m = L.m, ctx = L.ctx, s = L.cv.width / G.Engine.FW;
@@ -844,7 +839,7 @@
       { const P = G.Render.pose(r, al); rr.x = P.x; rr.y = P.y; rr.hd = P.hd; } // (3.5.6) the heading turns smoothly between ticks too
       if (r.isPlayer) rr.look = Object.assign({}, r.look);
       const g = aimFor(m, r);
-      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: tape && aiming && (r.cap.visionLvl || 0) >= 1, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0 });
+      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: tape && aiming && (r.cap.visionLvl || 0) >= 1, rsl: rslOf(m, r), rslLit: L.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0, ledT: L.speed > 0 ? performance.now() / 1000 : m.t });   // (3.5.8) ledT: the clock the status lights blink by (they blink at the same pace at any speed)
     });
     G.Render.fx(ctx, s, m);
   }
@@ -882,6 +877,12 @@
   function markSpeed() { const L = UI.live; document.querySelectorAll('#spd [data-act="spd"]').forEach(b => b.classList.toggle('sel', Number(b.dataset.arg) === (L ? L.speed : -1))); }
   UI.A.spd = s => { if (!UI.live) return; UI.live.speed = Number(s); if (Number(s) > 0) { UI.prefs.speed = Number(s); G.Save.saveSettings(UI.prefs); } markSpeed(); };
   UI.A.skipLive = () => { const L = UI.live; if (!L) return; G.Engine.run(L.m); L.acc = 0; };
+  // (3.5.8) The field on the whole screen: the scoreboard, the field and one row of controls (G.Render.fsToggle; the layout is
+  // in the stylesheet, .livefs.fs-on). Calls opens the coach calls over the bottom of the field. F does the same as the button
+  UI.A.liveFs = () => { const box = document.getElementById('liveFs'), cv = document.getElementById('fieldCv'); if (!box || !cv || !UI.live) return;
+    G.Render.fsToggle(box, cv, { window: UI.fsWindow, onChange: on => { const b = document.getElementById('fsBtn'); if (b) b.textContent = on ? 'Exit full screen' : 'Full screen'; if (!on) box.classList.remove('calls-open'); if (UI.live) draw(UI.live); } }); };
+  UI.A.liveCalls = () => { const box = document.getElementById('liveFs'); if (box) box.classList.toggle('calls-open'); };
+  document.addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && UI.live && document.getElementById('liveFs') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) UI.A.liveFs(); });
   // Playoffs only: an alliance captain can call partners to score or defend (costs a Coach Call each).
   function isCaptain(ev) {
     const c = UI.st.match, pa = G.Ev.playerAlliance(ev);

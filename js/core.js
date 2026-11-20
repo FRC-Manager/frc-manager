@@ -66,7 +66,7 @@ window.G = window.G || {};
   U.fmtTime = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---------- Version (shown in game; see G.RELEASES in ui/screens-menu.js) ----------
-  G.VERSION = '3.5.7';
+  G.VERSION = '3.6';
   // A beta is published beside the stable game on the same web address, and a browser keeps one store for everything
   // at that address (and one for every page opened from a file). So a beta keeps its own saves and settings: it never
   // touches the stable game's. '' for a stable release.
@@ -74,6 +74,7 @@ window.G = window.G || {};
 
   // ---------- Save system ----------
   const KEY = G.BETA ? 'frcm_beta_save_' : 'frcm_save_', SET_KEY = G.BETA ? 'frcm_beta_settings' : 'frcm_settings';
+  const BETA_KEY = 'frcm_beta_save_';                                                  // (3.6) where the new-interface beta (3.5.4b to 3.5.7b) kept its careers, at the same address
   const Save = G.Save = {};
   Save.slots = ['auto', '1', '2', '3'];
   Save.write = function (slot) {
@@ -85,21 +86,27 @@ window.G = window.G || {};
       return true;
     } catch (e) { console.warn('Save failed', e); return false; }
   };
-  Save.meta = function (slot) {
+  Save.meta = function (slot, beta) {
     try {
-      const raw = localStorage.getItem(KEY + slot);
+      const raw = localStorage.getItem((beta ? BETA_KEY : KEY) + slot);
       if (!raw) return null;
       const s = JSON.parse(raw);
       return { slot, team: s.team, year: s.year, cy: s.cal && s.cal.length ? s.cal[Math.min(s.cal.length - 1, Math.max(0, s.si))] : s.year, mode: s.mode, phase: s.phase, savedAt: s.savedAt, money: s.money, px: U.pxOf(s.pxY), si: s.si };
     } catch (e) { return null; }
   };
-  Save.load = function (slot) {
+  // beta (3.6): a career of the new-interface beta, read from where the beta kept it. It was played in the new interface
+  Save.load = function (slot, beta) {
     try {
-      const raw = localStorage.getItem(KEY + slot);
+      const raw = localStorage.getItem((beta ? BETA_KEY : KEY) + slot);
       if (!raw) return false;
       G.S = JSON.parse(raw);
       G.R = new Rng(G.S.rngS || 12345);
       if (G.Shop) G.Shop.migrate(G.S); // older saves: equipment flags → facility levels
+      if (beta && !G.S.ui) G.S.ui = 'new';
+      // (3.6) a career opens in its own interface. If that is not the one this page started with, the page starts again
+      // with the right one and comes back to this career: nothing is opened here (the caller sees "not loaded")
+      if (G.uiMismatch()) { G.uiRestart(G.uiOf(G.S), slot, '', beta); return false; }
+      G.uiSeen();
       return true;
     } catch (e) { console.warn('Load failed', e); return false; }
   };
@@ -115,6 +122,10 @@ window.G = window.G || {};
       if (!s || !s.team || !s.v) throw new Error('this is not a FRC Manager save');
       G.S = s; G.R = new Rng(s.rngS || 777);
       if (G.Shop) G.Shop.migrate(G.S);
+      // (3.6) a save brought in from a file opens in its own interface too. It is in no slot yet, so it is written to the
+      // autosave first (as it would be at its first week anyway) and the page comes back to that
+      if (G.uiMismatch()) { if (Save.write('auto')) { G.uiRestart(G.uiOf(G.S), 'auto'); return; } }
+      G.uiSeen();
       cb(true);
     } catch (e) { cb(false, e.message); }
   };
@@ -128,4 +139,63 @@ window.G = window.G || {};
     try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; }
   };
   Save.saveSettings = function (o) { try { localStorage.setItem(SET_KEY, JSON.stringify(o)); } catch (e) { } };
+  Save.betaSlots = () => (G.BETA ? [] : Save.slots.filter(s => { try { return !!localStorage.getItem(BETA_KEY + s); } catch (e) { return false; } }));
+
+  // ---------- Two interfaces (3.6) ----------
+  // The game has two interfaces: the new one (pages in groups, tiles, hover cards, side windows, an exploded Garage:
+  // js/ui/ui.js and kit.js) and the classic one (js/ui/ui-classic.js). They are whole files, and only one of them is
+  // loaded: js/ui/load.js picks it when the page starts (G.UIKIND), so each runs exactly as it did as an edition of its
+  // own. Changing interface therefore starts the page again: the game is saved, the page reloads with the other files and
+  // comes back to the same career (uiRestart, uiResume).
+  // Each career remembers its interface (S.ui). One saved before 3.6 has none and opens in the classic interface until the
+  // player switches it in Settings; a new career starts in the new one, unless the player has chosen the classic
+  // interface in Settings before (settings.ui). settings.uiLast is the interface of the career last opened: the page
+  // starts with that, so Continue rarely has to start it again.
+  const UIK = ['new', 'classic'], BOOT_KEY = 'frcm_ui_boot', RES_KEY = 'frcm_resume';
+  // one setting, written into what the browser holds now (never a copy read earlier, which may lack what was set since), and into the interface's own copy
+  const pref = (k, v) => { const p = Save.settings(); if (p[k] !== v) { p[k] = v; Save.saveSettings(p); } if (G.UI && G.UI.prefs) G.UI.prefs[k] = v; };
+  G.uiOf = S => (S && UIK.includes(S.ui) ? S.ui : 'classic');
+  G.uiNew = () => (UIK.includes(window.FRCM_UI) ? window.FRCM_UI : UIK.includes(Save.settings().ui) ? Save.settings().ui : 'new');   // the interface a new career starts in
+  // which interface this page starts with: what a test page says; else what a restart asked for (once); else the last
+  // career's; else the player's choice; else classic if there are saves from before 3.6, new on a fresh start
+  G.uiBoot = function () {
+    if (UIK.includes(window.FRCM_UI)) return window.FRCM_UI;
+    let k = null; try { k = localStorage.getItem(BOOT_KEY); localStorage.removeItem(BOOT_KEY); } catch (e) { k = null; }
+    if (UIK.includes(k)) return k;
+    const st = Save.settings(); if (UIK.includes(st.uiLast)) return st.uiLast; if (UIK.includes(st.ui)) return st.ui;
+    return Save.slots.some(s => { try { return !!localStorage.getItem(KEY + s); } catch (e) { return false; } }) ? 'classic' : 'new';
+  };
+  // a career is open in the wrong interface (never in a test page, which says which interface it wants, nor while resuming)
+  G.uiMismatch = () => !!(G.S && G.UIKIND && !window.FRCM_UI && !G.uiNoRestart && G.uiOf(G.S) !== G.UIKIND);
+  G.uiSeen = () => { if (G.S && G.UIKIND && !window.FRCM_UI) pref('uiLast', G.uiOf(G.S)); };
+  G.uiReload = () => { location.reload(); };
+  // start the page again with interface `kind`, and come back to the career in `slot` (page: 'settings' or 'start')
+  G.uiRestart = function (kind, slot, page, beta) {
+    try { localStorage.setItem(BOOT_KEY, kind); if (slot) localStorage.setItem(RES_KEY, JSON.stringify({ slot, page: page || '', beta: !!beta, t: Date.now() })); } catch (e) { return false; }
+    try { document.documentElement.style.visibility = 'hidden'; } catch (e) { /* no page to hide */ }
+    G.uiRestarting = true;                                                             // (what asked for the career need not say it could not load)
+    G.uiReload();
+    return true;
+  };
+  // at the start of the page: the career a restart left to come back to, if any (asked for within the last minute)
+  G.uiResume = function () {
+    let r = null; try { r = JSON.parse(localStorage.getItem(RES_KEY) || 'null'); localStorage.removeItem(RES_KEY); } catch (e) { r = null; }
+    if (!r || !r.slot || !(Date.now() - (r.t || 0) < 60000)) return false;
+    G.uiNoRestart = true; let ok = false; try { ok = Save.load(r.slot, r.beta); } finally { G.uiNoRestart = false; }
+    if (!ok) return false;
+    const UI = G.UI; UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq');
+    if (r.page === 'settings') UI.go('settings'); else if (r.page === 'start' && UI.afterStart) UI.afterStart();
+    return true;
+  };
+  // Settings on the main menu, with no career open: the interface the careers started from now on begin in
+  G.uiPrefer = function (kind) { if (!UIK.includes(kind)) return false; pref('ui', kind); return true; };
+  // the player's switch in Settings: this career changes interface, and so do the careers started from now on
+  G.uiSwitch = function (kind) {
+    if (!G.S || !UIK.includes(kind) || (G.uiOf(G.S) === kind && G.UIKIND === kind)) return false;
+    const was = G.S.ui; G.S.ui = kind;
+    if (!Save.write('auto')) { if (was === undefined) delete G.S.ui; else G.S.ui = was; return false; }    // not saved: nothing changes
+    pref('ui', kind); pref('uiLast', kind);
+    if (G.UIKIND === kind) return true;
+    return G.uiRestart(kind, 'auto', 'settings');
+  };
 })();

@@ -198,6 +198,8 @@ canvas.side { width: 100%; height: auto; display: block; background: #12161b; bo
 .nowrap { white-space: nowrap; }
 .g12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
 @media (max-width: 1100px) { .g12 { grid-template-columns: 1fr; } }
+.g21 { grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); }
+@media (max-width: 1100px) { .g21 { grid-template-columns: 1fr; } }
 table.t.tight th, table.t.tight td { padding: 5px 5px; }
 .acc { color: var(--accent2); }
 /* version notes */
@@ -691,3 +693,230 @@ table.t tr.hi td { animation: scHi 2.4s ease-out; }
 table.t.slots tr.elec-row td { padding: 0 6px 6px; border-top: none; }
 table.t.slots tr.elec-row td:first-child { width: auto; }
 table.t.slots tr.elec-row select.inp { width: 108px; font-size: 11px; padding: 2px 3px; }
+
+/* ======================= 3.6 UI kit ======================= */
+/* ---------- navigation in groups ---------- */
+.ngrp { position: relative; }
+.nav.grp { font-weight: 600; }
+.ngrp.open > .nav.grp { color: var(--text); background: transparent; box-shadow: none; }
+.nsubs { display: flex; flex-direction: column; gap: 1px; margin: 1px 0 6px 10px; padding-left: 8px; border-left: 1px solid var(--line); animation: kitFade .18s ease both; }
+.nav.nsub { padding: 6px 8px; font-size: 13px; }
+.flyout { display: none; position: absolute; left: calc(100% + 4px); top: -4px; min-width: 190px; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; z-index: 40; }
+.flyout::before { content: ''; position: absolute; left: -10px; top: 0; bottom: 0; width: 10px; } /* a bridge, so the pointer can reach it */
+.fly-h { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); padding: 4px 8px 6px; }
+.ngrp:hover > .flyout, .ngrp:focus-within > .flyout { display: block; animation: kitPop .14s ease both; }
+:where(html[data-ui="new"]) .side { overflow: visible; }   /* (3.6) only in the new interface: the classic sidebar scrolls. :where() adds no weight, so the rule stands where it stood */
+@media (max-width: 760px) { .nsubs { margin-left: 0; padding-left: 0; border-left: none; } .nav.nsub { justify-content: center; } .fly-h { display: none; } }
+/* the group's pages as tabs at the top of a page */
+.subnav { display: flex; flex-wrap: wrap; gap: 4px; margin: -6px 0 14px; padding: 4px; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; width: fit-content; max-width: 100%; }
+.snav { display: inline-flex; align-items: center; gap: 6px; background: transparent; color: var(--muted); border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; font-size: 13px; transition: background .14s, color .14s; }
+.snav:hover { color: var(--text); background: var(--panel); }
+.snav.on { color: var(--text); background: var(--panel2); box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* ---------- hover cards ---------- */
+.hov { cursor: help; }
+.hov.tile, .hov.click, [data-act].hov { cursor: pointer; }
+span.hov { border-bottom: 1px dotted var(--dim); }
+span.hov.plain { border-bottom: none; }
+.popcard { position: fixed; z-index: 70; max-width: 360px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 12.5px; line-height: 1.45; color: var(--text); pointer-events: none; opacity: 0; transform: translateY(4px) scale(.98); transition: opacity .12s ease, transform .12s ease; }
+.popcard.on { opacity: 1; transform: none; }
+.popcard .statrow { margin: 3px 0; font-size: 12px; } .popcard .statrow .n { width: auto; }
+.popcard h4 { margin: 0 0 6px; font-size: 13px; }
+
+/* ---------- the side window ---------- */
+.win-bg { position: fixed; inset: 0; background: rgba(5,7,10,.45); z-index: 45; }
+.win-bg.in { animation: kitFade .2s ease both; }
+.win { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); background: var(--panel); border-left: 1px solid var(--line2); box-shadow: -10px 0 40px rgba(0,0,0,.45); z-index: 46; display: flex; flex-direction: column; }
+.win.wide { width: min(640px, 100vw); }
+.win.in { animation: kitSlide .24s cubic-bezier(.2,.8,.2,1) both; }
+.win-h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--bg2); }
+.win-t { font-weight: 700; font-size: 16px; }
+.win-b { padding: 14px 16px 30px; overflow-y: auto; flex: 1; }
+.win-b .sect-h { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 16px 0 6px; }
+.win-b .sect-h:first-child { margin-top: 0; }
+
+/* ---------- "more" menus ---------- */
+.more { position: relative; display: inline-block; }
+.more-m { position: absolute; right: 0; top: calc(100% + 4px); min-width: 220px; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; z-index: 30; display: flex; flex-direction: column; animation: kitPop .12s ease both; }
+.more-m[hidden] { display: none; }
+/* (3.5.7b) an open menu is never under the block that follows: whatever holds it is lifted over its neighbours */
+.main > *:has(.more-m:not([hidden])), .grid > *:has(.more-m:not([hidden])), .card:has(.more-m:not([hidden])), .ctrlbar:has(.more-m:not([hidden])) { position: relative; z-index: 60; }
+.des-hours { margin-bottom: 12px; }
+.des-hours.in-win { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg2); }
+.more-i { text-align: left; background: transparent; border: 0; color: var(--text); padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+.more-i:hover { background: var(--panel2); } .more-i:disabled { color: var(--dim); cursor: not-allowed; background: transparent; }
+
+/* ---------- tiles ---------- */
+.card.tile { transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.card.tile.click:hover, .card.tile.hov:hover { transform: translateY(-2px); border-color: var(--line2); box-shadow: 0 8px 22px rgba(0,0,0,.28); }
+.card.tile .big { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.card.tile .ct > svg, .card.tile .ct .ico { color: var(--accent2); }
+.tile-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.kpi .v.up { color: var(--good); transition: color .4s; } .kpi .v.down { color: var(--warn); transition: color .4s; }
+
+/* ---------- animations ---------- */
+@keyframes kitRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes kitFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kitPop { from { opacity: 0; transform: translateY(-3px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes kitSlide { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes kitGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.main.enter > * { animation: kitRise .26s ease both; }
+.main.enter > *:nth-child(2) { animation-delay: .03s; } .main.enter > *:nth-child(3) { animation-delay: .06s; } .main.enter > *:nth-child(4) { animation-delay: .09s; }
+.main.enter > *:nth-child(5) { animation-delay: .12s; } .main.enter > *:nth-child(n+6) { animation-delay: .15s; }
+.main.enter .grid > .card { animation: kitRise .3s ease both; }
+.main.enter .grid > .card:nth-child(2) { animation-delay: .04s; } .main.enter .grid > .card:nth-child(3) { animation-delay: .08s; } .main.enter .grid > .card:nth-child(n+4) { animation-delay: .12s; }
+.main.enter .bar > i { transform-origin: left center; animation: kitGrow .55s cubic-bezier(.2,.8,.2,1) both; }
+:where(html[data-ui="new"]) .modal { animation: kitPop .16s ease both; }   /* (3.6) only in the new interface */
+@media (prefers-reduced-motion: reduce) {
+  .main.enter > *, .main.enter .grid > .card, .main.enter .bar > i, .modal, .win.in, .win-bg.in, .nsubs, .flyout, .more-m, .xplode canvas.xl, .xplode .xlab { animation: none !important; transition: none !important; }
+  .card.tile:hover { transform: none !important; }
+}
+
+/* ---------- the exploded robot ---------- */
+.xplode { position: relative; width: 100%; max-width: calc(var(--xw) * 1px + 170px); height: calc(var(--xh, 300) * var(--xs, 1) * 1px); margin: 0 auto; }
+.xplode canvas.xl { position: absolute; left: 0; top: calc(var(--xtop, 0) * var(--xs, 1) * 1px); width: calc(var(--xw) * 1px); max-width: 76%; height: auto; transition: transform .55s cubic-bezier(.2,.8,.2,1), filter .15s; }
+.xplode.exp canvas.xl { transform: translateY(calc(var(--lift, 0) * var(--xs, 1) * 1px)); }
+.xplode canvas.xl.hl { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 70%, transparent)) brightness(1.15); }
+.xplode .xfloor { position: absolute; left: 0; bottom: 0; width: min(calc(var(--xw) * 1px), 76%); height: 2px; background: linear-gradient(90deg, transparent, var(--line2), transparent); }
+.xplode .xlab { position: absolute; left: calc(var(--lx) * var(--xs, 1) * 1px); top: calc(var(--ly0) * var(--xs, 1) * 1px); transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-start; gap: 0; background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 4px 9px; color: var(--text); cursor: pointer; font-size: 12px; white-space: nowrap; opacity: 0; transition: top .55s cubic-bezier(.2,.8,.2,1), opacity .3s ease .25s, border-color .15s, background .15s; z-index: 20; }
+.xplode.exp .xlab { top: calc(var(--ly) * var(--xs, 1) * 1px); opacity: 1; }
+.xplode.asm .xlab { opacity: 0; pointer-events: none; }
+.xplode .xlab:hover, .xplode .xlab.hl { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel2)); }
+.xplode .xlab::before { content: ''; position: absolute; right: 100%; top: 50%; width: 10px; height: 1px; background: var(--line2); }
+.unitchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.uchip { display: inline-flex; flex-direction: column; gap: 2px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: left; color: var(--text); font-size: 12px; min-width: 128px; transition: border-color .14s, transform .14s; }
+.uchip:hover { border-color: var(--line2); transform: translateY(-1px); }
+.uchip.empty { border-style: dashed; color: var(--muted); }
+.uchip .mini { width: 100%; }
+.seg { display: inline-flex; background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { background: transparent; border: 0; color: var(--muted); padding: 6px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+.seg button.on { background: var(--panel2); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.ctrlbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* the robot summary beside the exploded view: rows wrap in the narrow column */
+.gsum .row { flex-wrap: wrap; } .gsum select.inp { max-width: 100%; }
+/* the group's pages as tabs: on a narrow screen only, where the sidebar shows icons (on a wide one it lists them) */
+.subnav { display: none; }
+@media (max-width: 760px) { .subnav { display: flex; } .nsubs { display: none; } }
+/* the Inbox (3.6): the list and the reading pane */
+.inbox2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 14px; align-items: start; }
+.inbox2 .ilist { max-height: calc(100vh - 230px); overflow-y: auto; padding-right: 4px; }
+.inbox2 .ipane { position: sticky; top: 0; }
+.inbox2 .ipane .card { animation: kitFade .18s ease both; max-height: calc(100vh - 230px); overflow-y: auto; }
+.inbox2 .ipane h2 { margin: 2px 0 10px; }
+/* (3.5.6b) a message in the reading pane keeps its paragraphs; an email has its header and its letter, as in the main game */
+.inbox2 .ipane .msgbody { white-space: pre-wrap; line-height: 1.5; }
+.inbox2 .ipane .mailhd { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--accent); background: rgba(127, 127, 127, 0.08); border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.6; }
+.inbox2 .ipane .mailhd span { display: inline-block; min-width: 58px; color: var(--dim); }
+.inbox2 .ipane .mailbody { font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.55; padding: 6px 2px 4px; }
+.inbox2 .ipane .msgnote { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(127, 127, 127, 0.08); white-space: normal; }
+.msg.open { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+@media (max-width: 1100px) { .inbox2 { grid-template-columns: 1fr; } .inbox2 .ipane { position: static; order: -1; } .inbox2 .ilist, .inbox2 .ipane .card { max-height: none; } }
+.inbox2 .ilist .msg { padding: 8px 10px; margin-bottom: 6px; font-size: 13px; }
+.inbox2 .ilist .msg:not(.unread) .mt { font-weight: 500; }
+/* (3.5.8) the match on the whole screen (Full screen, or F): the scoreboard, the field as large as the screen allows, and one
+   row of controls; the coach calls open over the bottom of the field. fs-on: it is on; fs-fake: the browser would not give
+   the screen, so it fills the window instead */
+.fs-only { display: none; }
+.livefs.fs-on { background: var(--bg); display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; box-sizing: border-box; width: 100%; height: 100%; overflow: hidden; }
+.livefs.fs-fake { position: fixed; inset: 0; z-index: 900; }
+.livefs.fs-on .scorebar { margin: 0; flex: none; }
+.livefs.fs-on .vsbar { flex: none; margin: 0; }
+.livefs.fs-on .matchview { display: block; flex: 1; min-height: 0; }
+.livefs.fs-on .matchview > div { display: none; }
+.livefs.fs-on .matchview > div.fs-mid { display: flex; flex-direction: column; gap: 6px; height: 100%; }
+.livefs.fs-on .fieldwrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border-color: transparent; background: transparent; box-shadow: none; }
+.livefs.fs-on .fs-ctl { flex: none; margin: 0; position: relative; padding: 6px 10px !important; overflow: visible; }
+.livefs.fs-on .fs-ctl > .row { margin: 0; }
+.livefs.fs-on .fs-calls { display: none; }
+.livefs.fs-on.calls-open .fs-calls { display: block; position: absolute; left: 0; max-width: 100%; box-sizing: border-box; bottom: 100%; margin-bottom: 6px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); box-shadow: 0 -8px 24px rgba(0,0,0,.45); z-index: 5; }
+.livefs.fs-on .fs-only { display: inline-flex; }
+/* ---------- (3.5.8) the main menu: lines of text over a stage that plays scenes from the game (menu-stage.js) ----------
+   .mm-stage is one canvas under everything; .mm-shade fades it into the page on the left, at the top and at the bottom, so
+   nothing has an edge. The text has no boxes: a line lights up and slides a little, and its note shows under the list */
+.mm { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg); isolation: isolate; }
+.mm-stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.mm-shade { position: absolute; inset: 0; pointer-events: none; background:
+  linear-gradient(90deg, var(--bg) 0%, var(--bg) 22%, rgba(15,18,22,.86) 34%, rgba(15,18,22,0) 56%),
+  linear-gradient(180deg, var(--bg) 0%, rgba(15,18,22,0) 15%, rgba(15,18,22,0) 78%, var(--bg) 100%),
+  radial-gradient(900px 520px at 80% 6%, rgba(245,184,0,.06), transparent 70%); }
+.mm-left { position: absolute; left: 0; top: 0; bottom: 0; width: min(560px, 48vw); padding: clamp(22px, 6vh, 60px) 0 18px clamp(22px, 5vw, 72px); display: flex; flex-direction: column; pointer-events: none; }
+.mm-left > * { pointer-events: auto; }
+.mm-logo { font-size: clamp(36px, 5.4vw, 68px); font-weight: 900; letter-spacing: -.02em; line-height: .92; }
+.mm-logo span { display: block; color: var(--accent); }
+.mm-tag { color: var(--muted); margin-top: 12px; max-width: 36ch; font-size: 13px; line-height: 1.45; }
+.mm-nav, .mm-games { position: relative; margin-top: clamp(14px, 4.5vh, 44px); display: flex; flex-direction: column; align-items: flex-start; }
+.mm-nav { padding-bottom: 62px; }
+.mm-i, .mm-g, .mm-next { background: none; border: 0; margin: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.mm-i { position: static; display: block; padding: clamp(3px, .7vh, 7px) 0 clamp(3px, .7vh, 7px) 18px; }
+.mm-t { display: inline-block; position: relative; font-size: clamp(18px, 1.6vh + .75vw, 29px); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #a9b5c1; transition: color .16s, transform .16s; }
+.mm-t::before { content: ''; position: absolute; left: -18px; top: 50%; width: 3px; height: 0; background: var(--accent); transform: translateY(-50%); transition: height .16s; }
+.mm-i:hover .mm-t, .mm-i:focus-visible .mm-t { color: #fff; transform: translateX(7px); }
+.mm-i:hover .mm-t::before, .mm-i:focus-visible .mm-t::before { height: 78%; }
+.mm-i:focus-visible, .mm-g:focus-visible, .mm-next:focus-visible { outline: none; }
+.mm-i.hot .mm-t { color: var(--accent2); } .mm-i.off .mm-t { color: var(--dim); }
+/* a line's note: one place under the list for whichever line the pointer or the keys are on (an autosave shows there by itself) */
+.mm-s { position: absolute; left: 18px; bottom: 0; height: 52px; width: min(46ch, 40vw); font-size: 12px; line-height: 1.45; color: var(--muted); opacity: 0; transition: opacity .18s; pointer-events: none; }
+.mm-i:hover .mm-s, .mm-i:focus-visible .mm-s { opacity: 1; }
+.mm-nav:not(:hover):not(:focus-within) .mm-i.hot .mm-s { opacity: 1; }
+/* the list of games takes the menu's place */
+.mm-games { display: none; } .mm.games .mm-nav { display: none; } .mm.games .mm-games { display: flex; flex: 0 1 auto; min-height: 0; }
+/* (3.6) the twenty games are one list, the ten seasons and then the fantasy games: nothing lies between a game's name and the stage, so the pointer
+   can go from a name to the robot without touching another name. The list takes the height the page leaves it and scrolls inside that */
+.mm-glist { display: flex; flex-direction: column; flex: 0 1 auto; min-height: 0; margin-top: 6px; padding-right: 22px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.mm-glist > div + div { margin-top: 12px; }
+.mm-glist::-webkit-scrollbar { width: 6px; } .mm-glist::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 3px; } .mm-glist::-webkit-scrollbar-track { background: transparent; }
+@supports not selector(::-webkit-scrollbar) { .mm-glist { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; } }   /* (where the rules above are not known; given both, a browser draws its own bar with arrows) */
+.mm-gh { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin: 4px 0 6px 18px; }
+.mm-g { display: flex; gap: 10px; align-items: baseline; padding: clamp(2px, .45vh, 4px) 0 clamp(2px, .45vh, 4px) 18px; white-space: nowrap; }
+.mm-g .y { width: 32px; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.mm-g .n { position: relative; font-size: clamp(12px, 1.25vh + .3vw, 16px); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #a9b5c1; transition: color .16s, transform .16s; }
+.mm-g:hover .n, .mm-g:focus-visible .n { color: #fff; transform: translateX(5px); }
+.mm-g:hover .y, .mm-g:focus-visible .y { color: var(--accent); }
+.mm-gn { margin: 12px 0 16px 18px; max-width: 48ch; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.mm-beta { color: var(--accent2); letter-spacing: .12em; font-size: 10px; }
+.mm-foot { margin-top: auto; padding-right: 12px; max-width: 50ch; display: grid; gap: 6px; font-size: 11px; line-height: 1.45; color: var(--muted); }
+/* what is on stage, as text at the lower right; and the way to another scene */
+.mm-cap { position: absolute; right: clamp(18px, 3.2vw, 48px); bottom: clamp(16px, 4vh, 42px); max-width: 44vw; text-align: right; pointer-events: none; text-shadow: 0 2px 14px rgba(0,0,0,.7); }
+.mm-cap .k { font-size: 12px; font-weight: 800; letter-spacing: .32em; color: var(--accent); }
+.mm-cap .t { font-size: clamp(20px, 3vw, 42px); font-weight: 900; letter-spacing: .02em; text-transform: uppercase; line-height: 1.02; }
+.mm-cap .d { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.mm-cap.in { animation: mmCap .7s ease both; }
+.mm-next { position: absolute; right: clamp(18px, 3.2vw, 48px); top: clamp(14px, 3vh, 30px); padding: 4px 0; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); transition: color .16s; }
+.mm-next:hover, .mm-next:focus-visible { color: var(--accent2); }
+@keyframes mmCap { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes mmIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes mmOut { to { opacity: 0; transform: translateX(-16px); } }
+@keyframes mmFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mmPage { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes mmGhost { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes mmGhostBack { to { opacity: 0; transform: translateX(28px); } }
+/* Arriving on the menu (#app.mm-enter, set for a moment by UI.go): the text comes in line by line and the stage comes up
+   out of the dark. Arriving on a page the menu opens: the page comes in from the right. Meanwhile the page that was left
+   lingers as a picture of itself (.mm-ghost), sliding away the other way and fading.
+   (backwards only: an animation left in effect would make each line the container of its own note) */
+#app.mm-enter .mm-logo, #app.mm-enter .mm-tag, #app.mm-enter .mm-foot, #app.mm-enter .mm-nav .mm-i { animation: mmIn .45s ease backwards; }
+#app.mm-enter .mm-stage { animation: mmFade .8s ease backwards; }
+#app.mm-enter .mm-cap, #app.mm-enter .mm-next { animation: mmFade .8s ease .25s backwards; }
+#app.mm-enter .menu-box { animation: mmPage .34s cubic-bezier(.2, .7, .2, 1) backwards; }
+.mm-ghost { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--bg); pointer-events: none; animation: mmGhost .26s ease forwards; }
+.mm-ghost.back { animation-name: mmGhostBack; }
+.mm-ghost * { animation: none !important; }
+/* the menu's two lists changing places */
+.mm-out { animation: mmOut .14s ease forwards; pointer-events: none; }
+.mm-in .mm-i, .mm-in .mm-gh, .mm-in .mm-g, .mm-in .mm-gn { animation: mmIn .34s ease backwards; }
+.mm-in .mm-i:nth-child(2) { animation-delay: .04s; } .mm-in .mm-i:nth-child(3) { animation-delay: .08s; } .mm-in .mm-i:nth-child(4) { animation-delay: .12s; } .mm-in .mm-i:nth-child(5) { animation-delay: .16s; } .mm-in .mm-i:nth-child(6) { animation-delay: .20s; } .mm-in .mm-i:nth-child(7) { animation-delay: .24s; } .mm-in .mm-i:nth-child(8) { animation-delay: .28s; }
+.mm-in .mm-g:nth-child(2) { animation-delay: .03s; } .mm-in .mm-g:nth-child(3) { animation-delay: .055s; } .mm-in .mm-g:nth-child(4) { animation-delay: .08s; } .mm-in .mm-g:nth-child(5) { animation-delay: .105s; } .mm-in .mm-g:nth-child(6) { animation-delay: .13s; }
+.mm-in .mm-g:nth-child(7) { animation-delay: .155s; } .mm-in .mm-g:nth-child(8) { animation-delay: .18s; } .mm-in .mm-g:nth-child(9) { animation-delay: .205s; } .mm-in .mm-g:nth-child(10) { animation-delay: .23s; } .mm-in .mm-g:nth-child(11) { animation-delay: .255s; } .mm-in .mm-gn { animation-delay: .3s; }
+#app.mm-enter .mm-tag { animation-delay: .06s; } #app.mm-enter .mm-foot { animation-delay: .5s; }
+#app.mm-enter .mm-nav .mm-i:nth-child(1) { animation-delay: .10s; } #app.mm-enter .mm-nav .mm-i:nth-child(2) { animation-delay: .15s; } #app.mm-enter .mm-nav .mm-i:nth-child(3) { animation-delay: .20s; } #app.mm-enter .mm-nav .mm-i:nth-child(4) { animation-delay: .25s; }
+#app.mm-enter .mm-nav .mm-i:nth-child(5) { animation-delay: .30s; } #app.mm-enter .mm-nav .mm-i:nth-child(6) { animation-delay: .35s; } #app.mm-enter .mm-nav .mm-i:nth-child(7) { animation-delay: .40s; } #app.mm-enter .mm-nav .mm-i:nth-child(8) { animation-delay: .43s; }
+/* a line that is still coming in carries its note with it (a moving line is what its note is placed against): the note waits until the lines stand */
+#app.mm-enter .mm-nav .mm-s { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { #app.mm-enter .mm-logo, #app.mm-enter .mm-tag, #app.mm-enter .mm-foot, #app.mm-enter .mm-nav .mm-i, #app.mm-enter .mm-stage, #app.mm-enter .mm-cap, #app.mm-enter .mm-next, #app.mm-enter .menu-box, .mm-cap.in, .mm-in .mm-i, .mm-in .mm-gh, .mm-in .mm-g, .mm-in .mm-gn, .mm-out, .mm-ghost { animation: none; } .mm-ghost { display: none; } .mm-t, .mm-g .n { transition: none; } }
+/* a narrow window: the stage is a faint backdrop, the text has the width */
+@media (max-width: 860px) {
+  .mm { overflow-y: auto; }
+  .mm-shade { background: linear-gradient(180deg, rgba(15,18,22,.93), rgba(15,18,22,.78)); }
+  .mm-left { position: relative; width: 100%; min-height: 100%; padding: 22px 18px 18px 22px; }
+  .mm-s { width: min(46ch, 82vw); } .mm-cap, .mm-next { display: none; }
+}

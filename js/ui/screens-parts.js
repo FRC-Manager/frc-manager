@@ -12,7 +12,7 @@
   UI.S.parts = { html() {
     const S = G.S, tab = UI.st.partsTab || 'robot';
     const season = P().inSeason(S);
-    let o = UI.head('Inventory', 'parts', 'Robot parts go on your robots with the units that use them; build parts go into making units. Parts last for years but wear with use.' + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
+    let o = UI.head('Inventory', 'parts', (UI.hov ? 'Parts for your robots and for building units. ' + UI.hov('Robot parts and build parts', 'Robot parts go on a robot with the units that use them; build parts go into making units. Parts last for years but wear with use.') : 'Robot parts go on your robots with the units that use them; build parts go into making units. Parts last for years but wear with use.') + (season ? ' <span class="warn">In season, parts often sell out: check back each week.</span>' : ' <span class="good">Offseason: everything is in stock. Stock up before Kickoff.</span>'), 'parts');
     const ny = P().nextYear(S);
     o += UI.tabs(tab, [['robot', 'Your robots', 'garage'], ['elec', 'Control system', 'chip'], ['drive', 'Drive & add-ons', 'swerve'], ['cots', 'Build parts', 'gear'], ['elem', 'Game elements', 'elements']].concat(ny != null ? [['pre', 'Preorder', 'truck']] : []).concat([['sell', 'Sell', 'money'], ['spares', 'Spares & batteries', 'battery']]), 'partsTab');
     if (tab === 'robot') o += robotTab(S);

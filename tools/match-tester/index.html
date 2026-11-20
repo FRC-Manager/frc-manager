@@ -35,6 +35,12 @@
   .mt-flag { display: inline-block; font-size: 10px; padding: 0 5px; border-radius: 4px; margin: 1px 2px 0 0; background: rgba(255, 255, 255, 0.08); }
   .mt-flag.bad { background: rgba(230, 70, 70, 0.25); color: #ffb0b0; } .mt-flag.warn { background: rgba(245, 184, 0, 0.22); color: #ffd866; } .mt-flag.ai { background: rgba(150, 110, 255, 0.25); color: #d6c4ff; }
   .mt-help { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  /* (3.5.8) Full screen: the score, the field as large as the screen allows, the controls */
+  .mt-fs.fs-on { background: var(--bg, #0e1116); display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; box-sizing: border-box; width: 100%; height: 100%; overflow: hidden; }
+  .mt-fs.fs-fake { position: fixed; inset: 0; z-index: 900; }
+  .mt-fs.fs-on .mt-score { margin: 0; flex: none; }
+  .mt-fs.fs-on .mt-hold { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .mt-fs.fs-on .mt-ctl { margin: 0; flex: none; }
 </style>
 </head>
 <body>
@@ -57,21 +63,24 @@
   </div>
   <div class="mt-main">
     <div>
+      <div id="fsBox" class="mt-fs">
       <div class="mt-score"><div class="s r" id="scR">0</div><div class="c"><div class="t" id="clk">0:00</div><div class="p" id="phs">AUTO</div></div><div class="s b" id="scB">0</div></div>
-      <canvas id="cv" width="1100" height="547"></canvas>
+      <div class="mt-hold" id="hold"><canvas id="cv" width="1100" height="547"></canvas></div>
       <div class="mt-ctl">
         <span class="xs muted">Speed</span>
         <button class="btn sm" data-spd="0">❚❚</button><button class="btn sm" data-spd="0.5">½×</button><button class="btn sm" data-spd="1">1×</button><button class="btn sm" data-spd="2">2×</button><button class="btn sm" data-spd="4">4×</button><button class="btn sm" data-spd="8">8×</button>
         <button class="btn sm" id="step" title="One tenth of a second (pause first)">Step</button>
         <button class="btn sm" id="restart" title="The same match again from the start, with your changes at the same moments">Replay</button>
+        <button class="btn sm" id="fs" title="The field on the whole screen. F does the same, Esc leaves it">Full screen</button>
         <span class="sp"></span>
         <span class="xs muted" id="perf" title="How the match view is doing on this computer: pictures drawn a second, and the time one picture takes to draw. At 8× the pictures a second should stay near your screen's rate (at most about 75)."></span>
         <span class="xs muted" id="placeHint"></span>
       </div>
+      </div>
       <div class="card mt" style="padding:10px">
         <div class="ct sm">Robots</div>
         <table class="mt-bots" id="bots"></table>
-        <div class="mt-help mt">Each robot has a strength of its alliance's kind (random, unless you choose low, average, high or all elite for Red or Blue at the top) and a random strategy (role, pace, target, endgame timing), not the season's usual meta. Lines show where each robot is heading; a ring marks the spot it wants. <b>Break</b> a robot to see how it and its partners react; <b>Disable</b> one, then click the field to drop it somewhere (in front of a scoring spot, say).</div>
+        <div class="mt-help mt">Each robot has a strength of its alliance's kind (random, unless you choose low, average, high or all elite for Red or Blue at the top) and a random strategy (role, pace, target, endgame timing), not the season's usual meta. Lines show where each robot is heading; a ring marks the spot it wants. <b>Break</b> a robot to see how it and its partners react; <b>Disable</b> one, then click the field to drop it somewhere (in front of a scoring spot, say). <b>Full screen</b> (or the F key) shows the field as large as the screen allows, with the score and these controls; Esc goes back.</div>
       </div>
     </div>
     <div>

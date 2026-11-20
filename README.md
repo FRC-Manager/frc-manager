@@ -12,7 +12,7 @@ A lightweight 2D management game about running a *FIRST* Robotics Competition te
 2. Pick **New Career** (up to ten seasons, 2016 to 2026: start in any year, in real or random order or with your own list of games, as a regional or a district team) or **Single Season Challenge** (one game, real or fantasy, plus a scenario, graded S–D).
 3. Each turn is a month in the offseason and a week during the season. Make decisions, then press **Continue**.
 
-Current version: **3.5.7**. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
+Current version: **3.6**. It has two interfaces, the new one and the classic one: **Settings → Interface** switches between them, a career saved before 3.6 opens in the classic one, and a new career starts in the new one. The main menu's **What's new** page has the version notes. The previous release, 2.5, is still playable at [txtaylor2997.github.io/frc-manager](https://txtaylor2997.github.io/frc-manager/). Saves are kept per site: to bring a career over from 2.5, use **☰ → Export save** there and **Load / import** here.
 
 The original design is in [GAME_DESIGN.md](GAME_DESIGN.md), and the plan for the ten-season career and the district model in [V3_PLAN.md](V3_PLAN.md). In the game, a short guided tour runs once per game, at your first Kickoff, first event and first match (switch it off any time), every screen has a **?** button, and **How to play** (main menu) has the full guide by topic and a glossary.
 
@@ -121,9 +121,13 @@ js/render/draw-fantasy.js   the fantasy games' fields and game pieces
 js/render/draw-robot.js     the drawing kit for robots from the side (tube, plate, belts, wheels) and shared parts
 js/render/draw-robot-seasons.js   every season's robots from the side, one recipe a season
 js/render/draw-robot-top.js   every season's robots from above, as they move in a match
-js/ui/ui.js           main screens (HQ, Garage, Design Office, Team, Workshop, Finance, Calendar, History) and pop-ups
+js/ui/load.js         picks the interface when the page starts and loads its files (one of the two below, then the shared ones)
+js/ui/ui.js           the new interface: main screens (HQ, Garage, Design Office, Team, Workshop, Finance, Calendar, History) and pop-ups
+js/ui/kit.js          the new interface's kit: page groups, tiles, hover cards, side windows, the exploded Garage view
+js/ui/ui-classic.js   the classic interface: the same screens as they were before 3.6
 js/ui/screens-event.js   events: practice, matches, bracket, Championship pages, celebrations
 js/ui/screens-menu.js    main menu, new game, settings, version notes, season review
+js/ui/menu-stage.js      the main menu's stage (a robot, a match or the world map behind the menu's text) and the movement between the menu's pages
 js/ui/screens-parts.js   the Inventory tab
 js/ui/screens-world.js   the World page: the map and the season scouting table
 js/ui/tutorial.js     guided tours and the How to play guide

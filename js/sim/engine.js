@@ -48,6 +48,10 @@
     return m;
   };
 
+  // How much of a defender's effect a turret still feels (k: 0.3 of the lost pace, 0.25 of the lost accuracy, half the zone
+  // slow-down). (3.5.8) cap.turretDef: a big, heavy turret (the 2024 note shooter) shrugs off only that share of what a
+  // light one does: 1 or unset leaves the number as it is, 0 would make it an ordinary shooter
+  const turK = (c, k) => (c.turretDef == null ? k : 1 - (1 - k) * c.turretDef);
   function makeRobot(m, a, i, en) {
     const drv = en.drv || { drive: 50, comp: 50, aware: 50, mech: 50, hp: 50, strat: 50 };
     const conf = en.conf == null ? 0.5 : en.conf, tune = en.tune == null ? 0.5 : en.tune;
@@ -142,7 +146,7 @@
       case 'idle': decide(m, r); break;
       case 'move': moveStep(m, r); break;
       case 'act': {
-        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? 0.3 : 1) * (1 - DEF_DRILL * r.defSkill) : 1);
+        r.timer -= DT * (r.defBy && !r.climbing ? 1 - 0.15 * ((m.R.defense && m.R.defense.eff) || 1) * (r.cap.turret ? turK(r.cap, 0.3) : 1) * (1 - DEF_DRILL * r.defSkill) : 1);
         if (r.timer <= 0) { const f = r.onDone; r.onDone = null; r.st = 'idle'; if (f) f(); }
         break;
       }
@@ -652,7 +656,7 @@
       // targets, and a robot that is itself defending (or broken) scores nothing worth stopping
       const nr = r.mem.noReach && r.mem.noReach.until > m.t ? r.mem.noReach.team : null; // one it could not get to lately
       const all = m.robots.filter(x => x.a !== r.a && !x.dead && !taken.has(x) && x.team !== nr), busy = all.filter(x => x.st !== 'defend' && x.plan.role !== 'defend' && !x.mem.broken);
-      const val = q => (q.stats.pts + power(q)) * (q.cap.turret ? 0.75 : 1);
+      const val = q => (q.stats.pts + power(q)) * (q.cap.turret ? turK(q.cap, 0.75) : 1);
       // (3.5.7) ... so it is never the target: with nobody on the other side scoring, two defenders used to pick each
       // other and push for the rest of the match. Now it goes back to scoring for a while (noDefense) and looks again
       t = busy.sort((p, q) => val(q) - val(p))[0] || null;
@@ -773,7 +777,7 @@
       if (DF.zone) {
         for (const o of m.robots) {
           if (o === t || o.a === d.a || o.dead || o.climbing || dist(d, o) >= (DF.range || 1.4) * 1.3 || prot(o)) continue;
-          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? 0.5 : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility * (o.cap.noGrip ? NOGRIP : 1)) / 200) * (1 - DEF_DRILL * o.defSkill) * awareK(o), 0.6, 0.97);
+          const zs = U.clamp(1 - DF.zone * (o.cap.turret ? turK(o.cap, 0.5) : 1) * (0.5 + (d.cap.push - 0.6 * o.cap.agility * (o.cap.noGrip ? NOGRIP : 1)) / 200) * (1 - DEF_DRILL * o.defSkill) * awareK(o), 0.6, 0.97);
           if (zs < o.defSlow) { o.defSlow = zs; o.defBy = o.defBy || d; }
         }
       }
@@ -1052,7 +1056,7 @@
       const a = stat == null ? r.cap.accuracy : stat;
       let p = (0.2 + 0.77 * a / 100) * (0.9 + 0.1 * r.tune) * (mult || 1) * (stat == null ? gripK(r, GRIP.h0, GRIP.h1) : 1);
       p += PACE[r.plan.pace].acc - (distPen || 0);
-      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? 0.25 : 1) * (1 - DEF_DRILL * r.defSkill);
+      if (r.defBy) p -= 0.12 * ((m.R.defense && m.R.defense.eff) || 1) * (1 - r.drv.comp / 250) * (r.cap.dumper ? 1.6 : r.cap.turret ? turK(r.cap, 0.25) : 1) * (1 - DEF_DRILL * r.defSkill);
       p *= 0.95 + 0.05 * r.opF;
       p += 0.06 * r.confK;
       p -= (100 - r.cond) / 600;
@@ -1070,7 +1074,7 @@
     // blk: what the fuel cannot cross (lineClear): a robot shoved behind it while it fires shows no fuel leaving
     stream(m, r, to, after, secs, lanes, every, blk) { if (!m.headless) r.stream = { to, from: m.t + after, until: m.t + after + secs, lanes, every: every || 0.2, next: 0, blk }; }, // (3.5.5) from the shooter's place on the robot, not its middle
     shootSpot(m, r, goal, zone) {
-      const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? 1.1 : 1), rmin = c.rmin || 1.0;
+      const c = r.cap, R = (c.rangeM || 1.5) * (c.turret && c.visionLvl >= 2 ? c.turretReach || 1.1 : 1), rmin = c.rmin || 1.0;   // (3.5.8) turretReach: a heavy turret (2024) gains no reach from vision
       const d = dist(r, goal);
       let p;
       const inZone = !zone || (r.x >= zone.x0 && r.x <= zone.x1 && r.y >= zone.y0 && r.y <= zone.y1);
@@ -1109,7 +1113,7 @@
       }
       return p;
     },
-    shotRange: r => [r.cap.rmin || 1.0, (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? 1.1 : 1)],
+    shotRange: r => [r.cap.rmin || 1.0, (r.cap.rangeM || 1.5) * (r.cap.turret && r.cap.visionLvl >= 2 ? r.cap.turretReach || 1.1 : 1)],
     rangePen(m, r, goal) {
       const c = r.cap, d = dist(r, goal), span = Math.max(0.5, (c.rangeM || 1.5) - (c.rmin || 1));
       return 0.12 * U.clamp((d - (c.rmin || 1)) / span, 0, 1) * (1 - 0.25 * (c.visionLvl || 0));

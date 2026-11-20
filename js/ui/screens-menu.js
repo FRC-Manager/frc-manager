@@ -6,24 +6,61 @@
   // =====================================================================
   // MAIN MENU
   // =====================================================================
+  // (3.5.8) The menu is lines of plain text on the left. Behind it lies the stage (menu-stage.js): a canvas that plays
+  // scenes from the game, a robot built from a season's highest designs, a match of such robots, the world map, and
+  // changes them every quarter of a minute. The twenty games' Kickoff briefings are behind "The games": pointing at a
+  // game puts its field and a robot of it on stage. Nothing is a card: the stage fades into the page under .mm-shade.
   UI.S.menu = { full: true, html() {
-    const auto = G.Save.meta('auto');
-    return '<div class="menu-wrap"><div class="menu-box"><div class="logo">FRC <span>MANAGER</span></div><div class="muted mb">Run a FIRST Robotics Competition team through ten seasons, from 2016 to 2026. Unofficial fan game.</div>' +
-      (G.BETA ? '<div class="hint mb">' + UI.tag(G.BETA.toUpperCase(), 'acc') + ' Version ' + h(G.VERSION) + '. The beta keeps its own saves and never touches the stable game\'s. To bring a career over, use <b>☰ → Export save</b> there and <b>Load / import</b> here.</div>' : '') +
-      '<div class="grid g3 mt">' +
-      '<div class="choice" data-act="newGame" data-arg="career"><div class="lg b">New Career</div><div class="sm muted">Start in any year from 2016 and play through 2026: up to ten seasons, in real or random order, or a career of your own from the real games and ten fantasy ones. Build a program that learns from every robot.</div></div>' +
-      '<div class="choice" data-act="newGame" data-arg="single"><div class="lg b">Single Season Challenge</div><div class="sm muted">Pick one of the ten real games or the ten fantasy games, and a scenario. Graded S to D.</div></div>' +
-      '<div class="choice" data-act="continueGame" ' + (auto ? '' : 'style="opacity:.5"') + '><div class="lg b">Continue</div><div class="sm muted">' + (auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + (auto.cy || auto.year) + ' · ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet') + '</div></div>' +
-      '</div><div class="row mt wrap"><button class="btn" data-act="nav" data-arg="load">Load / import</button><button class="btn" data-act="nav" data-arg="help">How to play</button><button class="btn" data-act="nav" data-arg="notes">What\'s new in v' + h(G.VERSION) + '</button></div>' +
-      '<div class="grid g5 mt">' + G.SEASON_YEARS.map(y => '<div class="card flat seasoncard" data-act="seasonCard" data-arg="' + y + '" title="Open this game\'s Kickoff briefing"><div class="xs muted">' + y + '</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
-      '<h3 class="mt">Fantasy games <span class="sm muted" style="font-weight:400">· ten fictional games in the 2026 match format: a single season (as the ' + G.FANTASY_CY + ' game), a random-order career or a custom career</span></h3>' +
-      '<div class="grid g5">' + G.FANTASY_YEARS.map(y => '<div class="card flat seasoncard" data-act="seasonCard" data-arg="' + y + '" title="Open this game\'s Kickoff briefing"><div class="xs muted">FANTASY</div><div class="b">' + h(G.Seasons[y].name) + '</div><canvas data-prev="' + y + '" width="330" height="164" style="width:100%;border-radius:6px;margin-top:6px"></canvas><div class="xs muted mt">' + h(G.Seasons[y].tagline) + '</div></div>').join('') + '</div>' +
-      '<p class="xs dim mt">Version ' + h(G.VERSION) + (G.BETA ? ' (' + h(G.BETA) + ')' : '') + ' · Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</p></div></div>';
-  }, after() { document.querySelectorAll('canvas[data-prev]').forEach(c => G.Render.preview(c, Number(c.dataset.prev))); } };
+    const auto = G.Save.meta('auto'), v = h(G.VERSION);
+    const beta = !auto && G.Save.betaSlots().length > 0;                               // (3.6) nothing to continue here, but careers of the new-interface beta wait on the Load page: its line says so
+    const item = (act, arg, title, sub, cls) => '<button class="mm-i' + (cls ? ' ' + cls : '') + '" data-act="' + act + '"' + (arg ? ' data-arg="' + arg + '"' : '') + '><span class="mm-t">' + title + '</span>' + (sub ? '<span class="mm-s">' + sub + '</span>' : '') + '</button>';
+    const game = y => '<button class="mm-g" data-act="seasonCard" data-arg="' + y + '" data-year="' + y + '" title="' + h(G.Seasons[y].tagline) + '"><span class="y">' + (y < 2100 ? y : '') + '</span><span class="n">' + h(G.Seasons[y].name) + '</span></button>';
+    return '<div class="mm" id="mm"><canvas class="mm-stage" id="mmStage" aria-hidden="true"></canvas><div class="mm-shade"></div>' +
+      '<div class="mm-left"><div class="mm-logo">FRC <span>MANAGER</span></div><div class="mm-tag">Run a FIRST Robotics Competition team through ten seasons, from 2016 to 2026. Unofficial fan game.</div>' +
+      '<nav class="mm-nav" aria-label="Main menu">' +
+      item('continueGame', '', 'Continue', auto ? h(auto.team.num + ' ' + auto.team.name + ' · ' + (auto.cy || auto.year) + ' · saved ' + new Date(auto.savedAt).toLocaleString()) : 'No autosave yet.', auto ? 'hot' : 'off') +
+      item('newGame', 'career', 'New career', 'Start in any year from 2016 and play through 2026: up to ten seasons, in real or random order, or a career of your own from the real games and ten fantasy ones.') +
+      item('newGame', 'single', 'Single season', 'One of the ten real games or the ten fantasy games, and a scenario. Graded S to D.') +
+      item('mmGames', '1', 'The games', 'Twenty games, each with its Kickoff briefing. Point at one to see its field and a robot of it.') +
+      item('nav', 'load', 'Load / import', beta ? 'Your careers from the new-interface beta are here.' : 'Open a save, or bring one in from a file.', beta ? 'hot' : '') +
+      item('nav', 'help', 'How to play', 'The guide and the glossary.') +
+      item('nav', 'notes', 'What\'s new', 'The notes of version ' + v + ' and of the ones before it.') +
+      item('nav', 'settings', 'Settings', 'Match speed, tutorials, and the interface: new or classic.') +   // (3.6) the interface's switch is there
+      '</nav>' +
+      '<nav class="mm-games" aria-label="The games">' + item('mmGames', '0', '‹ Back', '', 'back') +
+      '<div class="mm-glist" id="mmGlist"><div><div class="mm-gh">Ten seasons</div>' + G.SEASON_YEARS.map(game).join('') + '</div><div><div class="mm-gh">Fantasy games</div>' + G.FANTASY_YEARS.map(game).join('') + '</div></div>' +
+      '<div class="mm-gn">Point at a game for its field and a robot of it (Next scene: another robot); click it for its Kickoff briefing. The fantasy games are fictional and play in the 2026 match format.</div></nav>' +
+      '<div class="mm-foot">' + (G.BETA ? '<div><b class="mm-beta">' + h(G.BETA.toUpperCase()) + '</b> · Version ' + v + '. The beta keeps its own saves and never touches the stable game\'s. To bring a career over, use <b>☰ → Export save</b> there and <b>Load / import</b> here.</div>' : '<div>Version ' + v + '</div>') +
+      '<div class="dim">Not affiliated with or endorsed by FIRST®, Formula 1® or Frontier Developments. Sponsors, regionals and teams are fictional; team numbers are random.</div></div></div>' +
+      '<div class="mm-cap" id="mmCap"></div><button class="mm-next" data-act="mmNext" title="Another scene. With a game from the list on stage: another robot of that game. A click on the stage does the same.">Next scene ›</button></div>';
+  }, after() {
+    const mm = document.getElementById('mm'); if (!mm) return;
+    if (UI.Stage) UI.Stage.start(document.getElementById('mmStage'), document.getElementById('mmCap'), UI.stageOpts);
+    mm.querySelectorAll('.mm-g').forEach(b => { const go = () => { if (UI.Stage) UI.Stage.show(Number(b.dataset.year)); }; b.addEventListener('mouseenter', go); b.addEventListener('focus', go); });
+  } };
+  // the menu's two lists change places with a movement: the one that is left slides away, the other comes in line by line
+  UI.A.mmGames = v => { const mm = document.getElementById('mm'); if (!mm) return; const on = v === '1'; if (mm.classList.contains('games') === on) return;
+    const out = mm.querySelector(on ? '.mm-nav' : '.mm-games'), inn = mm.querySelector(on ? '.mm-games' : '.mm-nav');
+    const swap = () => { out.classList.remove('mm-out'); mm.classList.toggle('games', on); if (!on && UI.Stage) UI.Stage.release(); const f = mm.querySelector(on ? '.mm-games .mm-g' : '.mm-nav [data-act="mmGames"]'); if (f) f.focus({ preventScroll: true }); };
+    clearTimeout(UI.mmSwapT); if (UI.Stage && UI.Stage.reduced()) { swap(); return; }
+    out.classList.add('mm-out'); UI.mmSwapT = setTimeout(() => { swap(); inn.classList.add('mm-in'); setTimeout(() => inn.classList.remove('mm-in'), 700); }, 140); };
+  UI.A.mmNext = () => { if (UI.Stage) UI.Stage.next(); };
+  // the keys: up and down walk the lines (in the list of games, left and right go to the same place in the other group of
+  // ten, and the list scrolls to the game the keys reach), Esc leaves the list.
+  // Enter and Space are the buttons' own
+  document.addEventListener('keydown', e => {
+    const mm = document.getElementById('mm'); if (!mm || document.getElementById('modal') || e.ctrlKey || e.metaKey || e.altKey) return;
+    const games = mm.classList.contains('games');
+    if (e.key === 'Escape' && games) { UI.A.mmGames('0'); e.preventDefault(); return; }
+    const d = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : games && e.key === 'ArrowRight' ? 10 : games && e.key === 'ArrowLeft' ? -10 : 0; if (!d) return;
+    const list = [...mm.querySelectorAll(games ? '.mm-games button' : '.mm-nav button')], i = list.indexOf(document.activeElement);
+    let j = i < 0 ? (d > 0 ? 0 : list.length - 1) : i + d; if (Math.abs(d) === 10 && (i < 1 || j < 1 || j >= list.length)) return; j = (j + list.length) % list.length;
+    list[j].focus({ preventScroll: true }); if (games && list[j].scrollIntoView) list[j].scrollIntoView({ block: 'nearest' }); e.preventDefault();
+  });
   // a season card opens that game's Kickoff briefing, with a way straight into a Single Season Challenge of it
   UI.A.seasonCard = y => UI.gameBriefModal(Number(y));
   UI.A.playSeason = y => { UI.closeModal(); UI.A.newGame('single'); UI.st.ng.year = Number(y); UI.render(); };
-  UI.A.continueGame = () => { if (G.Save.load('auto')) { UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); } else UI.toast('No autosave found', 'bad'); };
+  UI.A.continueGame = () => { if (G.Save.load('auto')) { UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); } else if (!G.uiRestarting) UI.toast('No autosave found', 'bad'); };   // (3.6) uiRestarting: the page is starting again with the career's own interface
 
   // =====================================================================
   // NEW GAME
@@ -223,7 +260,15 @@
     G.Career.newGame({ mode: n.mode, team: { num: Number(n.num), name: String(n.name).trim(), school: n.school, lead: String(n.lead || '').trim().slice(0, 40), c1: n.c1, c2: n.c2, avatar: n.avatar, region: n.region, home: n.mode === 'career' ? n.home || null : null, place: n.place || null, z: UI.ngZone(n) },
       profile: scen && !scen.custom ? scen.profile : n.profile, diff: n.diff, order: n.order, year: n.year, start: n.start, fantasy: n.mode === 'career' && n.order === 'random' ? Number(n.fantasy) || 0 : 0, games: cust ? n.games.slice() : undefined, shuffle: cust && n.shuffle === 'yes', scenario: scen ? scen.id : null, settings: n.mode === 'career' && n.noFail ? { noFail: true } : undefined });
     G.Save.write('auto');
+    // (3.6) a new career starts in the new interface, or in the one the player chose in Settings. If this page runs the
+    // other one, it starts again with the right files and comes back to open the career (G.uiResume, page 'start')
+    if (G.uiMismatch() && G.uiRestart(G.uiOf(G.S), 'auto', 'start')) return;
+    G.uiSeen();
     UI.go('hq');
+    UI.afterStart();
+  };
+  // the first thing a new career shows: the Kickoff, the guided tour, or the welcome
+  UI.afterStart = function () {
     if (G.S.phase === 'kickoff') UI.kickoffModal();
     else if (!UI.Tut.start('season')) UI.modal('<h2>Welcome, ' + h(G.Career.leadFirst(G.S)) + '</h2><p class="muted">It\'s October. The first game will be revealed at Kickoff in January. Sign sponsors (Finance), hire mentors, look at facilities (Workshop), stock up on parts (Inventory), register for regionals (Calendar) and start research (Design Office), then press <b>Continue</b>.</p><p class="sm muted">Research, the Knowledge Base and the code library are offseason jobs: start them before Kickoff. Research still running at Kickoff ends there with partial credit.</p>' + (function () { const eb = G.Career.eraBrief(G.S); return eb ? '<div class="card flat mb"><div class="xs muted b">' + h(eb.title.toUpperCase()) + '</div><ul class="story-ul">' + eb.lines.map(x => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : ''; })() + '<div class="row"><span class="sp"></span><button class="btn primary" data-act="closeModal">Let\'s go</button></div>');
   };
@@ -237,12 +282,16 @@
       return '<div class="card mb"><div class="row"><div class="sp"><b>' + (s === 'auto' ? 'Autosave' : 'Slot ' + s) + '</b><div class="sm muted">' + (m ? h(m.team.num + ' ' + m.team.name + ' · ' + (m.cy || m.year) + ' · ' + (m.mode === 'career' ? 'Career' : 'Single season') + ' · ' + U.money(m.money, m.px || 1) + ' · ' + new Date(m.savedAt).toLocaleString()) : 'Empty') + '</div></div>' +
         (m ? '<button class="btn primary" data-act="loadSlot" data-arg="' + s + '">Load</button><button class="btn bad" data-act="delSlot" data-arg="' + s + '">Delete</button>' : '') + '</div></div>';
     }).join('');
+    // (3.6) careers of the new-interface beta, which kept its saves apart: they open here, in the new interface
+    const beta = G.Save.betaSlots().map(s => { const m = G.Save.meta(s, true); return !m ? '' : '<div class="card mb"><div class="row"><div class="sp"><b>' + (s === 'auto' ? 'Beta autosave' : 'Beta slot ' + s) + '</b><div class="sm muted">' + h(m.team.num + ' ' + m.team.name + ' · ' + (m.cy || m.year) + ' · ' + (m.mode === 'career' ? 'Career' : 'Single season') + ' · ' + U.money(m.money, m.px || 1) + ' · ' + new Date(m.savedAt).toLocaleString()) + '</div></div><button class="btn primary" data-act="loadBeta" data-arg="' + s + '">Load</button></div></div>'; }).join('');
     return '<div class="menu-wrap"><div class="menu-box" style="max-width:720px"><div class="row"><div class="logo" style="font-size:28px">Load game</div><span class="sp"></span><button class="btn" data-act="nav" data-arg="menu">Back</button></div><div class="mt">' + rows + '</div>' +
+      (beta ? '<h3>From the new-interface beta</h3><p class="sm muted">Careers you played in the beta. A loaded one carries on here; your saves go into the slots above, and the beta\'s copy stays as it is.</p>' + beta : '') +
       '<div class="card"><b>Import a save</b><p class="sm muted">Paste a save code from <b>☰ → Export save</b>, or choose a save file.</p>' +
       '<label class="f" for="impText">Save code<textarea id="impText" class="inp mono" rows="4" style="resize:vertical;font-size:11px" placeholder="Paste your save code here"></textarea></label>' +
       '<div class="row wrap mt"><input type="file" accept=".json,application/json" id="impFile" class="inp" style="flex:1;min-width:0"><button class="btn primary" data-act="importSave">Import</button></div></div></div></div>';
   } };
-  UI.A.loadSlot = s => { if (G.Save.load(s)) UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); else UI.toast('Could not load', 'bad'); };
+  UI.A.loadSlot = s => { if (G.Save.load(s)) UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); else if (!G.uiRestarting) UI.toast('Could not load', 'bad'); };
+  UI.A.loadBeta = s => { if (G.Save.load(s, true)) UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); else if (!G.uiRestarting) UI.toast('Could not load', 'bad'); };
   UI.A.delSlot = s => UI.confirm('Delete save?', 'This cannot be undone.', 'Delete', () => { G.Save.remove(s); UI.render(); });
   UI.A.importSave = () => {
     const done = (ok, msg) => { if (ok) { G.Save.write('auto'); UI.go(G.S.phase === 'end' ? 'end' : G.S.event ? 'event' : 'hq'); } else UI.toast('Import failed: ' + msg + '.', 'bad'); };
@@ -261,6 +310,24 @@
   // =====================================================================
   // Newest first. Keep G.VERSION (core.js) equal to the first entry.
   G.RELEASES = [
+    { v: '3.6', title: 'Two interfaces, a new main menu, status lights', notes: [
+      'The new interface is part of the game now, and the classic one is still here. Settings has the switch: Interface, New or Classic. Changing it saves the game and reloads the page, and you are back in Settings a moment later. A career saved before 3.6 opens in the classic interface until you switch it; a new career starts in the new one. Each career keeps its own choice, and Settings on the main menu sets the interface for new careers.',
+      'The new interface: the sidebar groups the pages (Home, Robot, Team, Program, Season). Headquarters shows tiles with the main numbers, and the details in hover cards. A side window opens for one thing at a time, such as a unit in the Garage. The Garage shows a robot that comes apart into its units. The Inbox has filters and a reading pane, the long pages have tabs, and the buttons you need now and then are in a ⋯ menu. Pages rise in and numbers count to their new value, unless your system asks for reduced motion.',
+      'Careers from the new-interface beta are on the Load page, under "From the new-interface beta". A loaded one carries on here.',
+      'A new main menu. The menu is lines of text on the left: Continue, New career, Single season, The games, Load / import, How to play, What\'s new and Settings. The up and down keys walk the lines, and a line\'s note shows under the list.',
+      'Behind the text is a stage that changes every quarter of a minute or so: a robot built from the highest designs of one season, standing on its field; a match played by six such robots; or the world map, with teams on their way to events. All of it is drawn and played by the game itself. Next scene, or a click on the stage, moves on.',
+      'Point at the robot and it comes apart, unit by unit, with the name and the design of each; a click keeps it apart. In a match, point at a robot to see what it is doing; on the map, point at a city for its name.',
+      'The games lists all twenty: point at one to see its field, laid out as a match starts, with a robot of that game under it, and Next scene brings another robot of the same game; click it for its Kickoff briefing. Esc goes back.',
+      'The menu and the pages it opens (new game, load, the guide, these notes) change with a movement: the page you leave slides away as the next one comes in. With reduced motion asked for, nothing slides and the stage shows one picture at a time.',
+      'Status lights: a scorer or a climber of complexity 3 or more carries LED strips, and in a watched match they show what the robot is doing. Green is the game piece: blinking while the robot takes one in, steady once it holds one. White is scoring: steady while it lines up, a fast flash while it scores. Purple is the climb: running along the strip while the climber goes out, steady once it is out, a fast flash while the robot pulls itself up. A rainbow means it has climbed. Red is trouble: blinking for a jam, steady for a failed climb. The simple designs (complexity 1 and 2) have none.',
+      'The Garage\'s Robot look card says which of your subsystems carry status lights, Play its moves runs through the patterns, and the guide has the colours (Matches, Status lights). The lights only report: they change nothing in a match.',
+      'The 2024 turret shooter is a smaller gain again. It reaches exactly as far as the pivot shooter and shoots as fast; in the open it is only a little quicker to aim and a little more accurate. Its gain is under defense, and that is smaller too: a turret this heavy keeps a quarter of what a light turret shrugs off. With the same teams built both ways it is about 2% ahead of the pivot with nobody on it, and about 9% ahead with a defender on it all match.',
+      'The 2026 dye-rotor turret is drawn the way it is built: the turret\'s ring is at the top, held over the rotor by its frame, and the shooter hangs under the ring instead of standing on it. From above the ring is on top and the shooter shows through its middle.',
+      'With the large hopper on the tall 2026 frame, a shooter that fires over the hopper now stands high, with its mouth at the rim of the hopper, and a belt lifts the fuel up to it: the fixed and hooded shooters, the turret and the dye rotor. The wide dumper throws over its back and stays low.',
+      'Full screen: the match view has a Full screen button beside the speeds (the F key does the same). The field takes the whole screen and is drawn sharper to match, with the scoreboard above it and the speed buttons below. Calls opens the coach calls over a corner of the field, and Esc goes back.',
+      'The tools: the match tester has the same Full screen button and now shows the Robot Signal Light as the game does; the robot viewer has a Lights control that sets what the status lights say.',
+      'Fixed: tutorials switched off could come back when the match speed was changed in the same visit.'
+    ] },
     { v: '3.5.7', title: 'A lighter match view', notes: [
       'Watching a match takes less out of the computer, most of all at 8×: the field is drawn at most about 75 times a second (a fast screen asked for twice that), the panels beside it are rewritten only when something in them changes, and a robot that is off the floor casts one soft shadow instead of a blurred one for each of its parts.',
       'After the final buzzer the panels were rewritten on every frame. They are left alone now.',
@@ -720,8 +787,17 @@
       '<div class="card mt"><label class="f">Default match speed<select class="inp" data-chg="prefSpeed">' + [1, 2, 4, 8].map(s => '<option value="' + s + '" ' + (UI.prefs.speed === s ? 'selected' : '') + '>' + s + '×</option>').join('') + '</select></label>' +
       '<label class="row mt"><input type="checkbox" data-chg="tutToggle" ' + (UI.Tut.enabled() ? 'checked' : '') + '> Show tutorials (a short tour once per game: at your first Kickoff, first event and first match)</label>' +
       (S ? '<label class="row mt"><input type="checkbox" data-chg="badgeActSet" ' + (S.settings && S.settings.badgeAct ? 'checked' : '') + '> Inbox count in the sidebar shows only items that wait for you (open replies, a shop incident, sponsor activities)</label>' : '') +
-      (S && S.mode === 'career' ? '<label class="row mt"><input type="checkbox" data-chg="noFail" ' + (S.settings.noFail ? 'checked' : '') + '> No-fail mode (the program can\'t be cut when Program Support hits 0)</label>' : '') + '</div></div></div>';
+      (S && S.mode === 'career' ? '<label class="row mt"><input type="checkbox" data-chg="noFail" ' + (S.settings.noFail ? 'checked' : '') + '> No-fail mode (the program can\'t be cut when Program Support hits 0)</label>' : '') + '</div>' +
+      // (3.6) the interface of this career: the new one or the classic one (G.uiSwitch saves the game and starts the page again)
+      // from the main menu (no career open) it is the interface new careers start in (G.uiPrefer)
+      (G.UIKIND ? (function () { const on = S ? G.UIKIND : G.uiNew(); return '<div class="card mt"><div class="row"><b>Interface</b> ' + UI.q('basics', 'Two interfaces') + '<span class="sp"></span><div class="row gap4" id="uiPick"><button class="btn' + (on === 'new' ? ' primary' : '') + '" data-act="setUi" data-arg="new">New</button><button class="btn' + (on === 'classic' ? ' primary' : '') + '" data-act="setUi" data-arg="classic">Classic</button></div></div>' +
+        '<div class="sm muted mt">' + (S ? 'Changing it saves the game and reloads the page; you come back here.' : 'For new careers. A saved career keeps its own: open it to change it here.') + '</div></div>'; })() : '') + '</div></div>';
   } };
+  UI.A.setUi = k => {
+    if (!G.S) { if (G.uiPrefer(k)) UI.render(); return; }
+    if (G.UIKIND === k && G.uiOf(G.S) === k) return;
+    if (!G.uiSwitch(k)) UI.toast('The game could not be saved, so the interface stays as it is.', 'bad'); else if (G.UIKIND === k) UI.render();
+  };
   UI.A.badgeActSet = v => { const S = G.S; if (!S) return; S.settings = S.settings || {}; S.settings.badgeAct = !!v; G.Save.write('auto'); };
   UI.A.prefSpeed = v => { UI.prefs.speed = Number(v); G.Save.saveSettings(UI.prefs); };
   UI.A.noFail = v => { G.S.settings.noFail = v; };

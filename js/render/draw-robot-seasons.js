@@ -159,7 +159,17 @@
   SIDE[2026] = function (k, c) {
     const g = k.g, ft = g.ft, low = k.lk.frame === 'low', top = low ? 0.64 : 0.84, c1 = k.c1, c2 = k.c2, hop = c.hopper, sh = c.scorer, it = c.intake, end = c.endgame;
     const mid = sh === 'rotor';                                                       // a dye rotor stands in the middle of the robot, with the hopper all round it
+    // lift: a belt that carries fuel up to a shooter from the hopper's floor, in its polycarbonate channel (nothing if it is under 0.12 long)
+    const lift = (q, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 0.12) return false; const nx = -dy / L * 0.08, ny = dx / L * 0.08, n = Math.max(1, Math.round(L / 0.15));
+      q.glass([[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]]); q.belt(a[0], a[1], 0.02, b[0], b[1], 0.02);
+      for (let i = 1; i <= n; i++) q.wheel(a[0] + dx * i / (n + 1), a[1] + dy * i / (n + 1), 0.027, 'comp', CW.b); return true; };
     const hx0 = mid ? -0.43 : sh === 'turret' ? -0.11 : -0.06, hx1 = 0.42, hy0 = ft - 0.01, hy1 = hop === 'small' ? hy0 + 0.2 : hop === 'med' ? Math.min(top - 0.07, hy0 + 0.34) : top - 0.02;
+    // (3.5.8) On the tall frame a large hopper reaches the top of the robot, and a shooter down on the chassis would have it in
+    // the way of every shot (the user: "For tall frame make the turret higher up too, as well as other shooters", "Only 2026 is
+    // affected since the hopper will block shots", "Dumper is also fine": it throws over the back, away from the hopper). So a
+    // shooter that fires over the hopper stands with its mouth at the hopper's rim, never lower than it stood before: sy is
+    // the shaft of a fixed or hooded one, ty an ordinary turret's ring, ry the dye rotor's ring. The low frame is as it was
+    const rim = hop ? hy1 : 0, sy = low ? ft + 0.215 : sh === 'dumper' ? ft + 0.3 : Math.max(ft + 0.3, rim - 0.2), ty = low ? ft + 0.05 : Math.max(ft + 0.05, rim - 0.4), ry = low ? 0.56 : Math.max(0.66, rim - 0.06);
     if (hop) k.L(2, 'hopper', q => {
       const big = hop === 'large';
       hopper(q, hx0, hx1, hy0, hy1, { fr: big ? 0.05 : 0.02, fl: mid ? 0.015 : 0, post: c1, tint: big ? 'rgba(74,84,96,0.5)' : undefined });
@@ -167,19 +177,30 @@
       if (!mid) { q.belt(hx0 + 0.04, hy0 + 0.035, 0.02, hx1 - 0.05, hy0 + 0.035, 0.02); q.wheel(hx0 + 0.04, hy0 + 0.035, 0.02, 'pul'); q.wheel(hx1 - 0.05, hy0 + 0.035, 0.02, 'pul'); }
     });
     if (mid) {
-      const ry = low ? 0.37 : 0.5;                                                    // where the turret's ring sits
+      // (3.5.8) The turret's ring is at the top and the shooter hangs under it (4414's), it does not stand on the ring like an
+      // ordinary turret's. The frame holds the ring up over the rotor; fuel comes up the middle from the rotor, a feeder wheel
+      // hands it to the flywheel, it rides round the back of the wheel inside the hood and leaves up through the ring. Only
+      // the adjustable lip of the hood shows above the ring
+      const gap = low ? 0.105 : 0.13, rw = 0.046, wy = ry - (low ? 0.085 : 0.1), bot = wy - (rw + gap) - 0.02;   // wy: the flywheel's shaft; bot: the foot of its plates
       k.L(1.8, 'scorer', q => {                                                       // under the fuel: the rotor, a wide low drum that turns fuel in to its middle
         q.rect(-0.31, ft - 0.02, 0.62, 0.115, '#30353c', 0.03); for (let i = 1; i < 10; i++) q.line([[-0.31 + i * 0.062, ft - 0.005], [-0.31 + i * 0.062, ft + 0.08]], '#69737d', 0.006); q.line([[-0.3, ft + 0.085], [0.3, ft + 0.085]], c2, 0.01);
       });
-      k.L(3, 'scorer', q => {                                                         // the column that lifts fuel up the middle, and the frame that holds the turret over it
-        q.poly([[-0.085, ft + 0.09], [0.085, ft + 0.09], [0.07, ry], [-0.07, ry]], SMOKE); q.wheel(0, ft + 0.15, 0.034, 'comp', CW.b); q.wheel(0, ry - 0.05, 0.028, 'comp', CW.b); q.belt(0, ft + 0.15, 0.012, 0, ry - 0.05, 0.012);
+      k.L(3, 'scorer', q => {                                                         // the frame that holds the ring up, and the throat that leads fuel from the rotor's middle up to the feeder
         [-1, 1].forEach(s => q.tube(s * 0.41, hop ? hy1 : ft - 0.02, s * 0.15, ry + 0.012, 0.03, c1, { truss: 1 }));
+        if (!lift(q, [0.018, ft + 0.12], [0.018, wy - (rw + gap) * 0.98]) && bot > ft + 0.1) q.poly([[-0.1, ft + 0.09], [0.1, ft + 0.09], [0.075, bot + 0.03], [-0.075, bot + 0.03]], SMOKE);   // a belt up the middle on the tall frame; a short throat on the low one
       });
-      k.L(4, 'scorer', q => { ring(q, 0, ry, 0.32); shooter(q, 0, ry + 0.12, { r: 0.046, gap: low ? 0.105 : 0.13, ang: 56 * D, hood: 2, feed: 0 }); });
+      k.L(4, 'scorer', q => {
+        [[-0.125, -0.105], [0.125, 0.03]].forEach(p => q.bar([[p[0], ry + 0.012], [p[1], wy + 0.05]], 0.022, ALU2));   // the hangers: the shooter's plates bolt up to the turning half of the ring
+        shooter(q, 0, wy, { r: rw, gap, ang: 56 * D, hood: 2, fc: CW.b });
+        ring(q, 0, ry, 0.32);                                                           // the ring's near edge, in front of what passes up through it
+      });
     } else if (sh) k.L(4, 'scorer', q => {
-      const sy = low ? ft + 0.215 : ft + 0.3, sx = sh === 'turret' ? -0.3 : -0.25, base = ft - 0.02;
-      q.wheel(hx0 - 0.03, ft + 0.06, 0.034, 'comp', CW.b);                              // the kicker that feeds it
-      if (sh === 'turret') { ring(q, sx, ft + 0.05, 0.3); shooter(q, sx + 0.01, ft + 0.05 + (low ? 0.165 : 0.2), { r: 0.05, gap: low ? 0.13 : 0.15, ang: 60 * D, hood: 2, feed: 0 }); }   // on a back corner of the chassis
+      const sx = sh === 'turret' ? -0.3 : -0.25, base = ft - 0.02, kx = hx0 - 0.03, ky = ft + 0.06;
+      // where the fuel goes in: under a turret's ring, or at the feeder wheel under the flywheel
+      const fg = 60 * D + PI / 2 + (sh === 'hood' ? 1.95 : 1.6) + 0.32, fR = 0.213 * 0.98;
+      if (sh === 'turret' ? ty > ft + 0.06 : sh !== 'dumper' && sy > ft + 0.31) lift(q, [kx, ky], sh === 'turret' ? [sx, ty - 0.03] : [sx + fR * Math.cos(fg), sy + fR * Math.sin(fg)]);
+      q.wheel(kx, ky, 0.034, 'comp', CW.b);                                             // the kicker that feeds it
+      if (sh === 'turret') { ring(q, sx, ty, 0.3, ty > ft + 0.06 ? base : null); shooter(q, sx + 0.01, ty + (low ? 0.165 : 0.2), { r: 0.05, gap: low ? 0.13 : 0.15, ang: 60 * D, hood: 2, feed: 0 }); }   // on a back corner of the chassis (on the tall frame: up on two posts)
       else if (sh === 'dumper') q.mir(t => shooter(t, 0.25, sy - 0.01, { r: 0.076, gap: 0.15, ang: 52 * D, hood: 2, sweep: 1.7, fc: CW.o, base }));   // a drum as wide as the robot, at the back and throwing over the back: fuel runs straight through from the intake (1678's)
       else shooter(q, sx, sy, { r: 0.058, gap: 0.155, ang: 60 * D, hood: sh === 'hood' ? 2 : 1, top: sh === 'hood', base });
     });
@@ -197,7 +218,7 @@
       tele(q, x0, ft - 0.02, end === 'l1' ? h * 0.72 : h * 0.9, { st: end === 'l1' ? 1 : end === 'l2' ? 2 : 3, dir: -1, w: 0.048, spool: end === 'l1' ? 0 : 1 });
     });
     if (sh === 'dumper') cams(k, [[-0.43, ft + (low ? 0.36 : 0.5), -1], [hx1 - 0.02, hy0 + 0.12]]);                                          // its cameras look the way it throws: backwards
-    else cams(k, [mid ? [0.09, (low ? 0.37 : 0.5) + 0.15, 1, 1] : sh === 'turret' ? [-0.2, ft + 0.08 + (low ? 0.165 : 0.2), 1, 1] : [hx1 - 0.02, hy0 + 0.12], [mid ? 0.28 : -0.4, ft + 0.1, mid ? 1 : -1]]);
+    else cams(k, [mid ? [0.1, ry + 0.062, 1, 1] : sh === 'turret' ? [-0.2, ty + 0.03 + (low ? 0.165 : 0.2), 1, 1] : [hx1 - 0.02, hy0 + 0.12], [mid ? 0.28 : -0.4, ft + 0.1, mid ? 1 : -1]]);
   };
 
   // ================================================================ 2024 CRESCENDO

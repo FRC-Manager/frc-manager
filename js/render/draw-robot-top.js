@@ -1,7 +1,10 @@
 /* FRC Manager — the robots from above, as they play (3.5.5). The match view draws the chassis (draw.js) and asks
    Rd.topMech for the mechanisms: every season draws its own, from the concept built in each subsystem, and they move:
    A.vi: the intake is out (0..1), A.vx: the lift or arm reaches (0..1), A.vc: the climber is out (0..1), A.aim: where
-   a turret points. Units: 1 = the robot's width with bumpers; x runs to the robot's front, y to its right. */
+   a turret points. Units: 1 = the robot's width with bumpers; x runs to the robot's front, y to its right.
+   (3.5.8) Status lights: a scorer or a climber of complexity 3 or more carries LED
+   strips. A recipe says where with k.led(subsystem, x0, y0, x1, y1), on the part it has just drawn; Rd.topMech draws
+   them last, lit as Rd.ledState says (the table LEDS). */
 (function () {
   'use strict';
   const Rd = G.Render, PI = Math.PI, TAU = PI * 2, CW = Rd.sideKit.CW, TOP = Rd.TOP = {};
@@ -21,6 +24,7 @@
     // a roller lying across the robot at x: a shaft with wheels along it. hw: half its length; y0: its middle
     k.roller = (x, hw, r, wc, n, y0) => { const c = y0 || 0; n = n || Math.max(2, Math.round(hw / 0.075)); k.rect(x - r * 0.4, c - hw, r * 0.8, 2 * hw, '#191c20', null); const st = 2 * hw / n; for (let i = 0; i < n; i++) k.rect(x - r, c - hw + (i + 0.19) * st, 2 * r, st * 0.62, wc, INK, r * 0.5); };
     k.at = (x, y, ang, fn) => { ctx.save(); ctx.translate(x * u, y * u); ctx.rotate(ang); fn(k); ctx.restore(); };
+    k.led = (sub, x0, y0, x1, y1) => { if (k.ledOn && k.ledOn(sub)) k.leds.push({ sub, p: [x0, y0, x1, y1], tf: ctx.getTransform() }); };   // kept with the frame it was asked in (a turret's strips turn with it)
     return k;
   }
 
@@ -37,8 +41,10 @@
   // the two uprights of an A-frame, and the arm between them
   function tower(k, x, col) { [-1, 1].forEach(s => k.rect(x - 0.05, s * 0.13 - 0.04, 0.1, 0.08, col, INK, 0.012)); }
   // a flywheel shooter facing +x: side plates, the wheels on their shaft, the hood behind. o.n wheels; o.hood 1 fixed, 2 adjustable; o.flat: a wide hood
+  // o.led: the subsystem its status lights belong to ('scorer' unless said; 0: none here)
   function shooter(k, hw, o) {
     o = o || {}; const n = o.n || 2, st = (2 * hw - 0.05) / n;
+    if (o.led !== 0) { if (o.flat) k.led(o.led || 'scorer', -0.13, -hw + 0.03, -0.13, hw - 0.03); else [-1, 1].forEach(s => k.led(o.led || 'scorer', -0.08, s * hw, 0.1, s * hw)); }   // along a wide hood, or down both side plates
     if (o.flat) k.rect(-0.155, -hw - 0.012, 0.05, 2 * hw + 0.024, o.hood === 2 ? k.c2 : ALU, INK, 0.012);                // a hood over several balls abreast: flat from above
     else k.arc(0.03, 0, hw * 1.04, PI * 0.63, PI * 1.37, 0.04, o.hood === 2 ? k.c2 : ALU);
     [-1, 1].forEach(s => k.rect(-0.1, s * hw - 0.018, 0.22, 0.036, DARK2, EDGE));
@@ -47,7 +53,7 @@
   }
   const turret = (k, x, y, r) => k.circ(x, y, r, RING, k.c2, 1.6);
   // telescoping climbers: a tube each side with its hook; out: how far the hooks reach when it climbs; two: a second pair
-  function teles(k, x, hw, out, col, two) { [-1, 1].forEach(s => { if (two) k.line([[x + 0.1, s * (hw - 0.07)], [x + 0.02 - out * 0.1, s * (hw - 0.07)]], k.c2, 0.028, 'round'); k.line([[x, s * hw], [x - 0.07 - out * 0.16, s * hw]], k.c2, 0.036, 'round'); k.rect(x - 0.04, s * hw - 0.04, 0.08, 0.08, col, INK, 0.012); }); }
+  function teles(k, x, hw, out, col, two) { [-1, 1].forEach(s => { k.led('endgame', x + 0.07, s * hw, x + 0.21, s * hw); if (two) k.line([[x + 0.1, s * (hw - 0.07)], [x + 0.02 - out * 0.1, s * (hw - 0.07)]], k.c2, 0.028, 'round'); k.line([[x, s * hw], [x - 0.07 - out * 0.16, s * hw]], k.c2, 0.036, 'round'); k.rect(x - 0.04, s * hw - 0.04, 0.08, 0.08, col, INK, 0.012); }); }
   // a hopper: walls, a net, and the balls in it (filling from the back)
   function hopper(k, x0, x1, hw, A) {
     const r = A.r, cap = Math.max(1, (r.cap && r.cap.storage) || k.lk.hopper || 1), fill = Math.min(1, (r.held || 0) / cap), pc = Rd.PIECES[r.heldType];
@@ -62,8 +68,8 @@
   TOP[2016] = function (k, c, A) {
     const it = c.intake, sh = c.scorer, c1 = k.c1;
     [-1, 1].forEach(s => k.tube(-0.38, s * 0.3, 0.3, s * 0.3, 0.045, c1));                                                // the side plates over the wheels
-    if (c.endgame === 'scale') { k.tube(-0.4, -0.39, 0.12, -0.39, 0.035, ALU); k.line([[-0.4, -0.39], [-0.46 - 0.14 * A.vc, -0.39]], k.c2, 0.04, 'round'); }
-    if (sh === 'low') k.rect(0.0, -0.18, 0.32, 0.36, SMOKE, GLASSL, 0.03);
+    if (c.endgame === 'scale') { k.tube(-0.4, -0.39, 0.12, -0.39, 0.035, ALU); k.led('endgame', -0.3, -0.39, 0.06, -0.39); k.line([[-0.4, -0.39], [-0.46 - 0.14 * A.vc, -0.39]], k.c2, 0.04, 'round'); }
+    if (sh === 'low') { k.rect(0.0, -0.18, 0.32, 0.36, SMOKE, GLASSL, 0.03); k.led('scorer', 0.025, -0.14, 0.025, 0.14); }
     else if (sh === 'turret') { turret(k, -0.08, 0, 0.27); k.at(-0.08, 0, A.aim, q => shooter(q, 0.16, { hood: 2 })); }
     else if (sh) k.at(-0.1, 0, 0, q => shooter(q, 0.17, { hood: sh === 'hood' ? 2 : 1 }));
     if (it === 'fixed') k.roller(0.46, 0.3, 0.034, CW.g);
@@ -73,55 +79,57 @@
   TOP[2017] = function (k, c, A) {
     const gear = c.scorer, fuel = c.fuel, has = fuel && fuel !== 'none', c1 = k.c1, fi = has && fuel !== 'dualturret', mg = fuel === 'mega';
     const gearMech = q => { if (gear === 'floor') intake(q, A.vi, 0.2, { wc: '#d6453d', reach: 0.1 });
-      if (gear) { q.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); q.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => q.line([[0.4, s * 0.16], [0.48, s * 0.1]], q.c2, 0.03, 'round')); } };   // the gear pocket
+      if (gear) { q.rect(0.3, -0.19, 0.15, 0.38, GLASS, GLASSL, 0.02); [-1, 1].forEach(s => q.led('scorer', 0.3, s * 0.205, 0.45, s * 0.205)); q.line([[0.37, -0.14], [0.37, 0.14]], 'rgba(8,10,13,0.65)', 0.035); if (gear === 'active') [-1, 1].forEach(s => q.line([[0.4, s * 0.16], [0.48, s * 0.1]], q.c2, 0.03, 'round')); } };   // the gear pocket
     if (fi) k.at(0, 0, PI, gearMech);                                                  // (3.5.7) a robot with a fuel intake at the front carries its gear mechanism at the back, under the shooter
     if (fuel === 'dualturret') {                                                       // (3.5.6) an intake at each end, the feeder's rings in the middle of the hopper, the turret over them
       const bar = q => intake(q, A.vi, 0.44, { rows: 2, wc: '#23272c', wc2: CW.b, guard: 1 }); bar(k); k.at(0, 0, PI, bar);
       hopper(k, -0.38, 0.38, 0.39, A); k.circ(0, 0, 0.27, null, c1, 1.3); [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.12, s * 0.12, 0.03, c1); k.tube(0.38, s * 0.38, 0.12, s * 0.12, 0.03, c1); });
-      turret(k, 0, 0, 0.18); k.at(0, 0, A.aim, q => shooter(q, 0.09, { n: 2, hood: 2 }));
+      turret(k, 0, 0, 0.18); k.at(0, 0, A.aim, q => shooter(q, 0.09, { n: 2, hood: 2, led: 'fuel' }));
     }
     else if (has) { intake(k, A.vi, mg ? 0.44 : 0.36, mg ? { rows: 2, wc: CW.g, wc2: '#23272c', guard: 1 } : { wc: CW.g });   // (3.5.7) every fuel system has a fuel intake, over the front bumper
       hopper(k, -0.2, 0.38, mg ? 0.39 : 0.33, A); if (mg) { k.rect(0.38, -0.39, 0.2, 0.78, GLASS, GLASSL, 0.02); [-0.13, 0.13].forEach(y => k.line([[0.39, y], [0.57, y]], 'rgba(206,222,238,0.35)', 0.012)); }   // (3.5.7) the big hopper's wall folds out over the intake
-      if (fuel === 'dump') k.roller(-0.41, 0.2, 0.03, CW.g); else { k.at(-0.32, 0, 0, q => shooter(q, mg ? 0.17 : 0.15, { n: 2, flat: 1 })); if (mg) { k.roller(-0.17, 0.15, 0.026, CW.b, 2); [-1, 1].forEach(s => k.line([[-0.2, s * 0.17], [-0.06, s * 0.3]], ALU2, 0.02)); } } }   // (3.5.7) two flywheels abreast for every 2017 shooter: the boiler's mouth takes two balls at a time. The big one has a feeder roller and a funnel from its wide hopper
+      if (fuel === 'dump') { k.roller(-0.41, 0.2, 0.03, CW.g); k.led('fuel', -0.35, -0.17, -0.35, 0.17); } else { k.at(-0.32, 0, 0, q => shooter(q, mg ? 0.17 : 0.15, { n: 2, flat: 1, led: 'fuel' })); if (mg) { k.roller(-0.17, 0.15, 0.026, CW.b, 2); [-1, 1].forEach(s => k.line([[-0.2, s * 0.17], [-0.06, s * 0.3]], ALU2, 0.02)); } } }   // (3.5.7) two flywheels abreast for every 2017 shooter: the boiler's mouth takes two balls at a time. The big one has a feeder roller and a funnel from its wide hopper
     if (!fi) gearMech(k);
     if (c.endgame && c.endgame !== 'none') {                                           // (3.5.7) the rope climber, after 254's: a tube across the back of the robot, high up between its two legs (behind the shooter). The plain one is narrow; the fast one runs nearly the whole width, so the rope need not be met so exactly
       const fast = c.endgame === 'fast', hw = fast ? 0.37 : 0.18, x = fuel === 'dualturret' ? -0.39 : fi && fuel !== 'dump' ? -0.455 : -0.37, n = fast ? 6 : 3;
       [-1, 1].forEach(s => k.rect(x - 0.045, s * hw - 0.022, 0.11, 0.044, c1, INK, 0.008)); k.tube(x, -hw, x, hw, 0.064, '#262a30');
       for (let i = 0; i < n; i++) { const y = -hw + (i + 0.5) * 2 * hw / n; k.line([[x - 0.03, y - 0.022], [x + 0.03, y + 0.022]], fast ? k.c2 : '#d3b24a', 0.014); }   // the hook-and-loop wound round it
-      if (fast) [-1, 1].forEach(s => k.rect(x - 0.048, s * (hw - 0.014) - 0.011, 0.096, 0.022, k.c2, INK, 0.006)); }   // flanges keep the rope on
+      if (fast) [-1, 1].forEach(s => k.rect(x - 0.048, s * (hw - 0.014) - 0.011, 0.096, 0.022, k.c2, INK, 0.006));   // flanges keep the rope on
+      [-1, 1].forEach(s => k.led('endgame', x + 0.08, s * hw, x + 0.22, s * hw)); }       // its lights: forward from each leg
     if (fuel === 'dualturret') return { own: true, tur: [0, 0], dir: 0 };
     return has ? { own: true, sh: fuel === 'dump' ? [-0.41, 0] : [-0.32, 0], dir: fuel === 'dump' ? PI : 0, at: [-0.375, 0], gearBack: true } : { at: [0.375, 0] };
   };
   TOP[2018] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame, c1 = k.c1; let tip = 0.12;
     if (end === 'buddy') [-1, 1].forEach(s => k.tube(-0.4, s * 0.3, -0.47 - 0.5 * A.vc, s * 0.3, 0.04, ALU));               // forks drop behind for a partner
-    if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.3, 0.05, s * 0.2, 0.03, c1)); mast(k, 0.1, 0.2, c1); tip = 0.16 + 0.1 * A.vx; }
-    else if (lift === 'low') { tower(k, -0.16, c1); tip = 0.2 + 0.14 * A.vx; k.tube(-0.16, 0, tip, 0, 0.06, c1); }
-    else if (lift === 'dja') { tower(k, 0.02, c1); tip = 0.16 + 0.22 * A.vx; k.tube(0.02, 0.035, -0.28, 0.035, 0.06, '#2b3036'); k.tube(-0.28, -0.03, tip, -0.03, 0.045, '#2b3036'); k.circ(-0.28, 0, 0.05, ALU2, INK); }   // (3.5.6) the lower tube runs back to the elbow, the upper one forward over it
+    if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.3, 0.05, s * 0.2, 0.03, c1)); mast(k, 0.1, 0.2, c1); k.led('scorer', 0.05, -0.13, 0.05, 0.13); tip = 0.16 + 0.1 * A.vx; }
+    else if (lift === 'low') { tower(k, -0.16, c1); tip = 0.2 + 0.14 * A.vx; k.tube(-0.16, 0, tip, 0, 0.06, c1); k.led('scorer', -0.1, 0, 0.1, 0); }
+    else if (lift === 'dja') { tower(k, 0.02, c1); tip = 0.16 + 0.22 * A.vx; k.tube(0.02, 0.035, -0.28, 0.035, 0.06, '#2b3036'); k.tube(-0.28, -0.03, tip, -0.03, 0.045, '#2b3036'); k.circ(-0.28, 0, 0.05, ALU2, INK); k.led('scorer', -0.2, -0.03, 0.02, -0.03); }   // (3.5.6) the lower tube runs back to the elbow, the upper one forward over it
     const pv = lift === 'low' ? -0.16 : lift === 'dja' ? 0.02 : 0.1, fl = eff === 'flip' ? Math.cos(PI * ((A.r && A.r.vf) || 0)) : 1;   // (3.5.6) a flipping claw goes over the lift (pv): from above it draws in to the lift and comes out behind
     if (it === 'wheeled' || it === 'wide') [-1, 1].forEach(s => { const x = 0.53 + A.vi * (it === 'wide' ? 0.15 : 0.09); k.tube(0.36, s * 0.34, x, s * 0.31, 0.035, DARK2); k.circ(x, s * 0.31, 0.045, CW.g, INK); if (it === 'wide') k.circ(x - 0.1, s * 0.33, 0.036, CW.g, INK); });
     if (eff) { const open = A.held ? 0.15 : 0.21, x1 = tip + 0.3, pinch = eff === 'pinch', cx2 = k.ctx; cx2.save(); if (fl !== 1) { cx2.translate(pv * k.sz, 0); cx2.scale(Math.abs(fl) < 0.08 ? 0.08 : fl, 1); cx2.translate(-pv * k.sz, 0); }
       k.rect(tip - 0.03, -0.1, 0.07, 0.2, DARK2, EDGE, 0.012);
       [-1, 1].forEach(s => { k.tube(tip, s * 0.08, x1, s * open, pinch ? 0.03 : 0.04, pinch ? ALU2 : DARK2); if (!pinch) { k.circ(x1, s * open, 0.042, CW.g, INK); k.circ(x1 - 0.12, s * (open - 0.03), 0.036, CW.g, INK); } });
       if (eff === 'launch' || eff === 'flip') k.rect(tip + 0.04, -0.04, 0.05, 0.08, k.c2, null); if (eff === 'flip') k.circ(tip, 0, 0.05, '#b9a56c', INK); cx2.restore(); }
-    if (end && end !== 'none') hookMark(k, lift === 'low' || lift === 'dja' ? -0.3 : 0.05, lift === 'dja' ? 0.3 : 0, PI * 0.4);
+    if (end && end !== 'none') { hookMark(k, lift === 'low' || lift === 'dja' ? -0.3 : 0.05, lift === 'dja' ? 0.3 : 0, PI * 0.4); k.led('endgame', -0.41, -0.2, -0.41, 0.2); }   // (its lights: across the back rail)
     return { at: [pv + (tip + 0.2 - pv) * fl, 0] };
   };
   TOP[2019] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, end = c.endgame, c1 = k.c1; let tip = 0.3, ang = 0;
-    if (end === 'l3buddy' || end === 'l3triple') { k.rect(-0.3, 0.48, 0.52, 0.06 + 0.3 * A.vc, ALU2, INK, 0.012); if (end === 'l3triple') k.rect(-0.3, -0.54 - 0.3 * A.vc, 0.52, 0.06 + 0.3 * A.vc, ALU2, INK, 0.012); }   // ramps fold out for partners
+    if (end === 'l3buddy' || end === 'l3triple') { k.rect(-0.3, 0.48, 0.52, 0.06 + 0.3 * A.vc, ALU2, INK, 0.012); k.led('endgame', -0.26, 0.49, 0.18, 0.49); if (end === 'l3triple') { k.rect(-0.3, -0.54 - 0.3 * A.vc, 0.52, 0.06 + 0.3 * A.vc, ALU2, INK, 0.012); k.led('endgame', -0.26, -0.49, 0.18, -0.49); } }   // ramps fold out for partners
     if (it === 'ground' || it === 'floor') intake(k, A.vi, 0.3, { wc: CW.g, reach: 0.12 });
     if (it === 'floor') [-1, 1].forEach(s => k.line([[0.5, s * 0.12], [0.57 + A.vi * 0.16, s * 0.12]], ALU2, 0.028));
-    if (lift === 'turretlift') { ang = A.aim; tip = 0.2 + 0.2 * A.vx; turret(k, 0, 0, 0.3); k.at(0, 0, ang, q => { mast(q, -0.04, 0.16, c1); q.tube(0, 0, tip, 0, 0.05, ALU); }); }
-    else if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.32, s * 0.3, 0.07, s * 0.2, 0.03, c1)); mast(k, 0.12, 0.2, c1); tip = 0.2 + 0.13 * A.vx; if (lift === 'elevfast') k.tube(0.12, 0, tip, 0, 0.045, ALU); }
-    else if (lift === 'arm') { tower(k, -0.1, c1); tip = 0.24 + 0.15 * A.vx; k.tube(-0.1, 0, tip, 0, 0.055, c1); }
+    if (lift === 'turretlift') { ang = A.aim; tip = 0.2 + 0.2 * A.vx; turret(k, 0, 0, 0.3); k.at(0, 0, ang, q => { mast(q, -0.04, 0.16, c1); q.tube(0, 0, tip, 0, 0.05, ALU); q.led('scorer', -0.09, -0.1, -0.09, 0.1); }); }
+    else if (lift === 'elev' || lift === 'elevfast') { [-1, 1].forEach(s => k.tube(-0.32, s * 0.3, 0.07, s * 0.2, 0.03, c1)); mast(k, 0.12, 0.2, c1); k.led('scorer', 0.07, -0.13, 0.07, 0.13); tip = 0.2 + 0.13 * A.vx; if (lift === 'elevfast') k.tube(0.12, 0, tip, 0, 0.045, ALU); }
+    else if (lift === 'arm') { tower(k, -0.1, c1); tip = 0.24 + 0.15 * A.vx; k.tube(-0.1, 0, tip, 0, 0.055, c1); k.led('scorer', -0.05, 0, 0.14, 0); }
     if (eff) k.at(0, 0, ang, q => { [-1, 1].forEach(s => q.line([[tip, s * 0.06], [tip + 0.06, s * 0.06]], ALU2, 0.028)); q.rect(tip + 0.055, -0.17, 0.035, 0.34, eff === 'plate' ? '#d8dde2' : DARK2, INK);
       if (eff !== 'plate') q.roller(tip + 0.15, 0.13, 0.03, CW.g, 3); if (eff === 'active') q.poly([[tip + 0.09, -0.045], [tip + 0.18, 0], [tip + 0.09, 0.045]], q.c2, INK); });
     if (end === 'suction') { const bx = lift === 'turretlift' ? -0.12 : lift === 'elev' || lift === 'elevfast' ? 0.03 : -0.3, x1 = bx - 0.07 - 0.6 * A.vc;   // (3.5.6) on the back of the elevator, in the middle: the arm swings out behind and sets its pad on Level 3
       k.tube(bx, 0, x1, 0, 0.05, c1); if (A.vc > 0.3) k.rect(bx + (x1 - bx) * 0.62 - 0.03, -0.04, 0.06, 0.08, '#15181c', EDGE, 0.01);   // (its kickstand, down on the platform's edge)
-      k.rect(x1 - 0.12, -0.13, 0.14, 0.26, '#23272c', ALU2, 0.02); k.rect(x1 - 0.105, -0.11, 0.11, 0.22, '#0d0f12', null, 0.015); }
+      k.rect(x1 - 0.12, -0.13, 0.14, 0.26, '#23272c', ALU2, 0.02); k.rect(x1 - 0.105, -0.11, 0.11, 0.22, '#0d0f12', null, 0.015); k.led('endgame', x1 + 0.005, -0.11, x1 + 0.005, 0.11); }
     else if (end === 'l2') [[-0.36, -0.3], [-0.36, 0.3], [0.3, -0.3], [0.3, 0.3]].forEach(p => k.circ(p[0], p[1], 0.042, '#aab3bc', INK));
     else if (end && end !== 'none') [[-0.38, -0.31], [-0.38, 0.31], [0.26, -0.33], [0.26, 0.33]].forEach(p => k.rect(p[0] - 0.04, p[1] - 0.04, 0.08, 0.08, ALU, INK, 0.01));   // the stilts
+    if (end === 'l2' || end === 'l3') [-1, 1].forEach(s => k.led('endgame', -0.27, s * 0.33, 0.17, s * 0.33));   // its lights: along each side rail, between the legs
     return { at: [Math.cos(ang) * (tip + 0.15), Math.sin(ang) * (tip + 0.15)], tur: lift === 'turretlift' ? [0, 0] : null };
   };
   TOP[2020] = function (k, c, A) {
@@ -133,12 +141,12 @@
       k.circ(rx, 0, R0, RING, k.c2, 1.5); for (let i = 0; i < 5; i++) { const g = (i + 0.5) * TAU / 5; k.line([[rx + Math.cos(g) * R0 * 0.25, Math.sin(g) * R0 * 0.25], [rx + Math.cos(g) * R0, Math.sin(g) * R0]], '#69737d', 0.014); }
       k.circ(rx, 0, R0 * 0.22, ALU2, null); for (let i = 0; i < 5; i++) { const g = i * TAU / 5; k.circ(rx + Math.cos(g) * 0.18, Math.sin(g) * 0.18, cr, i < n ? col : null, i < n ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.14)'); }
     } else if (it) { const cr = 0.09 / Rd.RW; k.rect(-0.25, -0.215, 0.65, 0.43, SMOKE, EDGE, 0.02); [-1, 1].forEach(s => k.line([[-0.23, s * 0.1], [0.38, s * 0.1]], '#5b646e', 0.02)); for (let i = 0; i < Math.min(5, A.held); i++) k.circ(0.29 - i * 0.105, i % 2 ? 0.1 : -0.1, cr, col, 'rgba(0,0,0,0.4)'); }   // (3.5.7) cells at the size they are on the carpet: five of them stagger along two belts
-    if (sh === 'dump') { k.rect(-0.46, -0.16, 0.26, 0.32, SMOKE, EDGE, 0.02); k.roller(-0.43, 0.14, 0.03, CW.g, 3); }
+    if (sh === 'dump') { k.rect(-0.46, -0.16, 0.26, 0.32, SMOKE, EDGE, 0.02); k.roller(-0.43, 0.14, 0.03, CW.g, 3); k.led('scorer', -0.215, -0.13, -0.215, 0.13); }
     else if (sh === 'turret') { turret(k, -0.22, 0, 0.22); k.at(-0.22, 0, A.aim, q => shooter(q, 0.13, { hood: 2 })); }
-    else if (sh === 'long' && k.lk.frame !== 'low') { k.rect(-0.43, -0.21, 0.54, 0.42, GLASS, GLASSL, 0.02); k.rect(-0.47, -0.2, 0.045, 0.4, k.c2, INK, 0.012); k.rect(-0.41, -0.06, 0.5, 0.12, '#191c20', EDGE, 0.04); k.rect(-0.41, -0.06, 0.5, 0.03, CW.o, null); k.line([[-0.16, -0.19], [-0.16, 0.19]], ALU2, 0.024); }   // (3.5.6) the big wheel, edge on, in its tall frame
+    else if (sh === 'long' && k.lk.frame !== 'low') { k.rect(-0.43, -0.21, 0.54, 0.42, GLASS, GLASSL, 0.02); k.rect(-0.47, -0.2, 0.045, 0.4, k.c2, INK, 0.012); k.rect(-0.41, -0.06, 0.5, 0.12, '#191c20', EDGE, 0.04); k.rect(-0.41, -0.06, 0.5, 0.03, CW.o, null); k.line([[-0.16, -0.19], [-0.16, 0.19]], ALU2, 0.024); [-1, 1].forEach(s => k.led('scorer', -0.36, s * 0.21, 0.04, s * 0.21)); }   // (3.5.6) the big wheel, edge on, in its tall frame
     else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.15, { hood: sh === 'hood' || sh === 'long' ? 2 : 1 }));
     if (c.panel === 'spin' || c.panel === 'color') { k.circ(0.27, -0.31, 0.062, CW.g, INK); k.circ(0.27, -0.31, 0.02, RING, null); }
-    if (end && end !== 'none') { if (end === 'level') k.tube(-0.08, 0.31, 0.14, 0.31, 0.03, DARK2); k.rect(-0.015, 0.265, 0.09, 0.09, c1, INK, 0.012); hookMark(k, 0.03, 0.31, PI * 0.4); }
+    if (end && end !== 'none') { if (end === 'level') k.tube(-0.08, 0.31, 0.14, 0.31, 0.03, DARK2); k.rect(-0.015, 0.265, 0.09, 0.09, c1, INK, 0.012); hookMark(k, 0.03, 0.31, PI * 0.4); k.led('endgame', -0.26, 0.37, -0.06, 0.37); }
     return { own: true, tur: sh === 'turret' ? [-0.22, 0] : null, sh: sh === 'dump' ? [-0.43, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dump' ? PI : 0 };
   };
   TOP[2022] = function (k, c, A) {
@@ -147,17 +155,17 @@
     if (it === 'over' || it === 'pivot' || it === 'dual') bar(k); if (it === 'dual') k.at(0, 0, PI, bar);
     if (end === 'trav') [-1, 1].forEach(s => {                                          // an arm each side turns end over end: seen from above it only grows and shrinks
       const th = (38 + A.vc * 200) * PI / 180, L = 0.05 + 0.42 * Math.abs(Math.cos(th)), y = s * 0.43;
-      k.tube(-0.22 - L, y, -0.22 + L, y, 0.04, ALU); k.circ(-0.22 - L, y, 0.032, k.c2, INK); k.circ(-0.22 + L, y, 0.032, k.c2, INK); k.circ(-0.22, y, 0.046, '#b9a56c', INK);
+      k.tube(-0.22 - L, y, -0.22 + L, y, 0.04, ALU); k.circ(-0.22 - L, y, 0.032, k.c2, INK); k.circ(-0.22 + L, y, 0.032, k.c2, INK); k.circ(-0.22, y, 0.046, '#b9a56c', INK); k.led('endgame', -0.14, s * 0.365, 0.08, s * 0.365);
     });
     else if (end === 'direct') k.at(dual ? 0 : -0.02, 0, PI / 2, q => {                // across the robot, at a right angle to the intakes: the elevator along one side, its reaction bar outside it, a long arm that leans out over the other side
       const bx = 0.46 + 0.18 * A.vc, x1 = 0.44 + 0.22 * A.vc;
       [-1, 1].forEach(s => q.tube(0.36, s * 0.2, bx, s * 0.2, 0.026, c1)); q.tube(bx, -0.34, bx, 0.34, 0.04, c1);
-      mast(q, 0.36, 0.165, c1); [-1, 1].forEach(s => q.line([[0.3, s * 0.165], [0.42, s * 0.165]], '#eef1f4', 0.026, 'round'));
+      mast(q, 0.36, 0.165, c1); [-1, 1].forEach(s => q.line([[0.3, s * 0.165], [0.42, s * 0.165]], '#eef1f4', 0.026, 'round')); q.led('endgame', 0.31, -0.11, 0.31, 0.11);
       q.tube(-0.32, 0, -x1, 0, 0.04, DARK2); q.circ(-x1, 0, 0.03, '#eef1f4', INK); q.rect(-0.37, -0.04, 0.08, 0.08, c1, INK, 0.012);
     });
     else if (end && end !== 'none') teles(k, -0.41, 0.33, A.vc, c1, end === 'high');
     if (dual) k.rect(-0.32, -0.15, 0.64, 0.3, SMOKE, EDGE, 0.02); else if (it) k.rect(-0.1, -0.15, 0.42, 0.3, SMOKE, EDGE, 0.02);
-    if (sh === 'dump') { k.rect(-0.44, -0.25, 0.38, 0.5, '#3b424a', ALU2, 0.03); k.rect(-0.39, -0.2, 0.28, 0.4, '#23282e', null, 0.02); }
+    if (sh === 'dump') { k.rect(-0.44, -0.25, 0.38, 0.5, '#3b424a', ALU2, 0.03); k.rect(-0.39, -0.2, 0.28, 0.4, '#23282e', null, 0.02); k.led('scorer', -0.085, -0.2, -0.085, 0.2); }
     else if (sh === 'turret') { turret(k, sx, 0, 0.27); k.at(sx, 0, A.aim, q => shooter(q, 0.16, { hood: 2 })); }
     else if (sh) k.at(fx, 0, 0, q => shooter(q, 0.18, { hood: sh === 'hood' ? 2 : 1 }));
     return { at: sh === 'dump' ? [-0.25, 0] : [sx + 0.2, 0], tur: sh === 'turret' ? [sx, 0] : null, sh: sh === 'dump' ? [-0.25, 0] : sh ? [fx, 0] : null, dir: sh === 'dump' ? PI : 0 };
@@ -165,11 +173,11 @@
   TOP[2023] = function (k, c, A) {
     const lift = c.scorer, eff = c.effector, it = c.intake, c1 = k.c1, vx = A.vx; let tip = 0.3;
     if (it === 'gcube' || it === 'gall') intake(k, A.vi, 0.34, it === 'gall' ? { wc: CW.g, wc2: CW.o, rows: 2, guard: 1 } : { wc: CW.g });
-    if (lift === 'sja') { tower(k, -0.14, c1); tip = 0.28 + 0.4 * vx; k.tube(-0.14, 0, tip, 0, 0.06, c1); }
-    else if (lift === 'elev') { [-1, 1].forEach(s => k.tube(-0.38, s * 0.17, 0.34, s * 0.17, 0.05, c1)); tip = 0.08 + 0.42 * vx; k.rect(tip - 0.13, -0.2, 0.13, 0.4, DARK2, EDGE, 0.012); }   // the leaning elevator: its rails run the length of the robot
-    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); tip = 0.24 + 0.5 * vx; k.tube(-0.28, 0, 0.1, 0, 0.078, '#2b3036'); k.tube(-0.12, 0, 0.13 + 0.25 * vx, 0, 0.058, '#3a4149'); k.tube(0.0, 0, tip, 0, 0.04, '#59626c'); }   // (3.5.6) the escalator's three stages
-    else if (lift === 'dja') { tower(k, -0.18, c1); tip = 0.02 + 0.68 * vx; const e = 0.22 + 0.12 * vx; k.tube(-0.18, 0.045, e, 0.045, 0.055, c1); k.tube(e, -0.035, tip, -0.035, 0.045, ALU); k.circ(e, 0.005, 0.04, EDGE, INK); }
-    else if (lift === 'tele') { k.rect(-0.43, -0.2, 0.19, 0.4, '#2f353c', EDGE, 0.02); tip = 0.3 + 0.5 * vx; k.tube(-0.3, 0, 0.26, 0, 0.09, c1); k.tube(0.0, 0, tip, 0, 0.055, ALU); }
+    if (lift === 'sja') { tower(k, -0.14, c1); tip = 0.28 + 0.4 * vx; k.tube(-0.14, 0, tip, 0, 0.06, c1); k.led('scorer', -0.1, 0, 0.12, 0); }
+    else if (lift === 'elev') { [-1, 1].forEach(s => { k.tube(-0.38, s * 0.17, 0.34, s * 0.17, 0.05, c1); k.led('scorer', -0.34, s * 0.17, -0.12, s * 0.17); }); tip = 0.08 + 0.42 * vx; k.rect(tip - 0.13, -0.2, 0.13, 0.4, DARK2, EDGE, 0.012); }   // the leaning elevator: its rails run the length of the robot
+    else if (lift === 'elevw') { mast(k, -0.28, 0.2, c1); k.led('scorer', -0.33, -0.13, -0.33, 0.13); tip = 0.24 + 0.5 * vx; k.tube(-0.28, 0, 0.1, 0, 0.078, '#2b3036'); k.tube(-0.12, 0, 0.13 + 0.25 * vx, 0, 0.058, '#3a4149'); k.tube(0.0, 0, tip, 0, 0.04, '#59626c'); }   // (3.5.6) the escalator's three stages
+    else if (lift === 'dja') { tower(k, -0.18, c1); tip = 0.02 + 0.68 * vx; const e = 0.22 + 0.12 * vx; k.tube(-0.18, 0.045, e, 0.045, 0.055, c1); k.tube(e, -0.035, tip, -0.035, 0.045, ALU); k.circ(e, 0.005, 0.04, EDGE, INK); k.led('scorer', -0.16, 0.045, 0.0, 0.045); }
+    else if (lift === 'tele') { k.rect(-0.43, -0.2, 0.19, 0.4, '#2f353c', EDGE, 0.02); tip = 0.3 + 0.5 * vx; k.tube(-0.3, 0, 0.26, 0, 0.09, c1); k.tube(0.0, 0, tip, 0, 0.055, ALU); k.led('scorer', -0.26, 0, -0.04, 0); }
     if (eff) { const y = lift === 'dja' ? -0.035 : 0, open = A.held ? 0.09 : 0.15;
       if (eff === 'claw') [-1, 1].forEach(s => k.line([[tip, y + s * 0.04], [tip + 0.08, y + s * open], [tip + 0.2, y + s * open * 0.9]], ALU2, 0.035, 'round'));
       else { k.rect(tip, y - 0.14, 0.16, 0.28, DARK2, EDGE, 0.02); k.roller(tip + 0.135, 0.12, 0.03, CW.g, 3, y); if (eff === 'wrist') k.line([[tip + 0.01, y - 0.13], [tip + 0.01, y + 0.13]], k.c2, 0.022); } }
@@ -178,12 +186,12 @@
   TOP[2024] = function (k, c, A) {
     const it = c.intake, sh = c.scorer, amp = c.amp, end = c.endgame, c1 = k.c1;
     // the shooter is a box of wheels that throws the note out of its far end (it points back over the robot)
-    const box = (q, L, hw) => { q.rect(-L, -hw, L + 0.1, 2 * hw, DARK2, EDGE, 0.02); q.roller(-L + 0.07, hw - 0.03, 0.036, q.c2, 2); q.roller(-L * 0.42, hw - 0.04, 0.024, CW.o, 3); };
+    const box = (q, L, hw, rim) => { q.rect(-L, -hw, L + 0.1, 2 * hw, DARK2, EDGE, 0.02); if (rim) [-1, 1].forEach(s => q.led('scorer', -0.13, s * rim, 0.13, s * rim)); else q.led('scorer', -L + 0.015, -hw + 0.03, -L + 0.015, hw - 0.03);   /* its lights: across the back of the box (a turret's: on the turntable's rim), clear of the note it holds */ q.roller(-L + 0.07, hw - 0.03, 0.036, q.c2, 2); q.roller(-L * 0.42, hw - 0.04, 0.024, CW.o, 3); };
     if (it === 'otb') intake(k, A.vi, 0.36, { rows: 3, r: 0.025, wc: CW.o, wc2: CW.k, n: 7, guard: 1, reach: 0.1 });
     else if (it === 'utb') { k.rect(0.385, -0.31, 0.12, 0.62, '#15181b', null); k.roller(0.45, 0.29, 0.026, CW.o, 6); k.roller(0.39, 0.29, 0.02, CW.k, 6); }   // rollers under the front bumper
     else if (it === 'src') k.rect(0.04, -0.2, 0.34, 0.4, GLASS, GLASSL, 0.02);
     if (end && end !== 'none') teles(k, -0.41, 0.35, A.vc, c1, end === 'chaintrap');
-    if (sh === 'turret') { turret(k, -0.04, 0, 0.3); k.at(-0.04, 0, A.aim + PI, q => box(q, 0.26, 0.15)); }
+    if (sh === 'turret') { turret(k, -0.04, 0, 0.3); k.at(-0.04, 0, A.aim + PI, q => box(q, 0.26, 0.15, 0.252)); }
     else if (sh) k.at(0.08, 0, 0, q => box(q, sh === 'pivot' ? 0.44 : 0.36, 0.19));
     if (amp === 'ampbar') { const x = -0.38 - 0.1 * A.vx; k.tube(x, -0.2, x, 0.2, 0.03, ALU); }
     else if (amp === 'amptrap') { mast(k, 0.24, 0.15, c1); k.roller(0.3 + 0.1 * A.vx, 0.1, 0.03, CW.o, 2); }
@@ -196,18 +204,18 @@
     if (it === 'ground') intake(k, A.vi, 0.3, { wc: ROLL, rows: 2, n: 5 });
     if (alg === 'proc') { out.algae = [0.4, 0]; k.roller(0.35, 0.17, 0.026, ROLL, 2); k.roller(0.45, 0.17, 0.03, ROLL, 2); k.line([[0.3, -0.17], [0.3, 0.17]], k.c2, 0.016); }   // the cradle that holds an algae for the processor: low, at the front (it was a box on the back corner, drawn over the funnel)
     if (eff && lift !== 'trough' && lift !== 'tele') k.poly([[-0.46, -0.3], [-0.16, -0.2], [-0.16, 0.2], [-0.46, 0.3]], SMOKE, ALU2);   // the funnel coral drops into
-    if (lift === 'elev' || lift === 'elevw') { [-1, 1].forEach(s => k.tube(-0.36, s * 0.3, -0.07, s * 0.2, 0.03, c1)); mast(k, -0.02, 0.2, c1); hx = (lift === 'elevw' ? 0.16 : 0.08) + 0.24 * vx; if (lift === 'elevw') k.tube(-0.02, 0, hx, 0, 0.045, ALU); }
-    else if (lift === 'arm') { tower(k, -0.14, c1); hx = 0.3 + 0.14 * vx; k.tube(-0.14, 0, hx, 0, 0.055, c1); }
-    else if (lift === 'tele') { k.rect(-0.44, -0.2, 0.2, 0.4, '#2f353c', EDGE, 0.02); hx = 0.28 + 0.5 * vx; k.tube(-0.3, 0, 0.24, 0, 0.09, c1); k.tube(0.0, 0, hx, 0, 0.055, ALU);
-      if (onArm && end === 'deep') { const x = -0.2 - 0.16 * A.vc; k.rect(x - 0.1, -0.115, 0.2, 0.23, DARK2, EDGE, 0.02); [-1, 1].forEach(s => k.circ(x - 0.05, s * 0.066, 0.056, '#23272d', EDGE)); k.line([[x - 0.1, -0.06], [x - 0.1, 0.06]], k.c2, 0.024, 'round'); }   // the claw swings back and down with the arm to take the cage
-      else if (onArm) { const x = -0.08 - 0.2 * A.vc; k.rect(x - 0.04, -0.045, 0.1, 0.09, DARK2, EDGE, 0.015); hookMark(k, x - 0.03, 0, PI * 0.4); } }
+    if (lift === 'elev' || lift === 'elevw') { [-1, 1].forEach(s => k.tube(-0.36, s * 0.3, -0.07, s * 0.2, 0.03, c1)); mast(k, -0.02, 0.2, c1); k.led('scorer', -0.07, -0.13, -0.07, 0.13); hx = (lift === 'elevw' ? 0.16 : 0.08) + 0.24 * vx; if (lift === 'elevw') k.tube(-0.02, 0, hx, 0, 0.045, ALU); }
+    else if (lift === 'arm') { tower(k, -0.14, c1); hx = 0.3 + 0.14 * vx; k.tube(-0.14, 0, hx, 0, 0.055, c1); k.led('scorer', -0.1, 0, 0.12, 0); }
+    else if (lift === 'tele') { k.rect(-0.44, -0.2, 0.2, 0.4, '#2f353c', EDGE, 0.02); hx = 0.28 + 0.5 * vx; k.tube(-0.3, 0, 0.24, 0, 0.09, c1); k.tube(0.0, 0, hx, 0, 0.055, ALU); [-1, 1].forEach(s => k.led('scorer', -0.42, s * 0.2, -0.27, s * 0.2));   // (its lights: on the two sides of its base)
+      if (onArm && end === 'deep') { const x = -0.2 - 0.16 * A.vc; k.rect(x - 0.1, -0.115, 0.2, 0.23, DARK2, EDGE, 0.02); [-1, 1].forEach(s => k.circ(x - 0.05, s * 0.066, 0.056, '#23272d', EDGE)); k.line([[x - 0.1, -0.06], [x - 0.1, 0.06]], k.c2, 0.024, 'round'); k.led('endgame', x + 0.085, -0.09, x + 0.085, 0.09); }   // the claw swings back and down with the arm to take the cage
+      else if (onArm) { const x = -0.08 - 0.2 * A.vc; k.rect(x - 0.04, -0.045, 0.1, 0.09, DARK2, EDGE, 0.015); hookMark(k, x - 0.03, 0, PI * 0.4); k.led('endgame', x + 0.05, -0.04, x + 0.05, 0.04); } }
     else if (lift === 'trough') { k.rect(-0.36, -0.15, 0.82, 0.3, GLASS, GLASSL, 0.02); hx = 0.3;                           // the ramp, and over its low end the roller that pushes the coral out
       if (eff) { [-1, 1].forEach(s => k.rect(0.3, s * 0.165 - 0.016, 0.14, 0.032, DARK2, EDGE)); if (eff === 'chute') { k.rect(0.358, -0.15, 0.024, 0.3, '#191c20', null); k.rect(0.334, -0.128, 0.072, 0.256, '#2b3036', INK, 0.02); k.line([[0.356, -0.11], [0.356, 0.11]], 'rgba(255,255,255,0.2)', 0.01); } else { k.roller(0.33, 0.14, 0.024, CW.b, 3); k.roller(0.4, 0.14, 0.024, CW.b, 3); } } }
     if (eff && lift !== 'trough') { k.rect(hx, -0.12, 0.14, 0.24, DARK2, EDGE, 0.02); if (eff !== 'chute') { k.roller(hx + 0.04, 0.1, 0.022, CW.b, 2); k.roller(hx + 0.105, 0.1, 0.022, CW.b, 2); } if (eff === 'pivot') k.line([[hx + 0.01, -0.11], [hx + 0.01, 0.11]], k.c2, 0.022); }
     if (alg === 'net') { const ax = hx + 0.1; out.algae = [ax, 0]; out.sh = [ax, 0]; [-1, 1].forEach(s => { k.tube(hx + 0.02, s * 0.11, ax, s * 0.21, 0.026, ALU2); k.circ(ax, s * 0.21, 0.062, '#23272d', k.c2, 1.6); k.circ(ax, s * 0.21, 0.02, ALU2, null); }); }   // (3.5.7) the algae shooter rides on the head: a wheel each side of the ball, on upright shafts (it was a box on the back corner, drawn over the funnel)
     if (!onArm && (end === 'deep' || end === 'shallow')) {                              // (3.5.7) the climber stands on the right-hand side rail, half way along the robot (anywhere else the robot would not hang level). Folded up it is seen edge on; to climb it tips out over the side
       const cx2 = k.ctx, f = Math.max(0.13, A.vc);
-      k.rect(-0.04, 0.33, 0.08, 0.075, c1, INK, 0.012);
+      k.rect(-0.04, 0.33, 0.08, 0.075, c1, INK, 0.012); [-1, 1].forEach(s => k.led('endgame', s * 0.07, 0.365, s * 0.21, 0.365));   // (its lights: on the side rail, each side of its post)
       cx2.save(); cx2.translate(0, 0.37 * k.sz); cx2.scale(1, f);
       k.poly([[-0.03, 0], [-0.2, 0.3], [-0.14, 0.32], [0, 0.13], [0.14, 0.32], [0.2, 0.3], [0.03, 0]], DARK2, EDGE);
       if (end === 'deep') [-1, 1].forEach(s => k.circ(s * 0.058, 0.1, 0.05, '#23272d', EDGE)); else k.line([[-0.05, 0.11], [0.05, 0.11]], k.c2, 0.03, 'round');
@@ -222,18 +230,83 @@
     if (hop) hopper(k, mid ? -0.39 : sh === 'turret' ? -0.12 : -0.08, 0.42, Math.max(mid ? 0.36 : 0, hop === 'small' ? 0.24 : hop === 'med' ? 0.32 : 0.39), A);
     if (end && end !== 'none') teles(k, -0.42, 0.38, A.vc, c1, end === 'l3');
     if (mid) {                                                                         // the rotor fills the middle of the hopper; the turret rides over its centre
+      // (3.5.8) the shooter hangs under the turret's ring (4414's), it does not sit on it: from above the ring is on top, held up
+      // by the frame, and the shooter shows through its middle
       k.circ(0, 0, 0.3, 'rgba(35,39,44,0.8)', k.c2, 1.4); for (let i = 0; i < 8; i++) { const g = i * PI / 4 + 0.2; k.line([[Math.cos(g) * 0.1, Math.sin(g) * 0.1], [Math.cos(g) * 0.29, Math.sin(g) * 0.29]], '#69737d', 0.014); }
-      [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.11, s * 0.11, 0.03, c1); k.tube(0.38, s * 0.38, 0.11, s * 0.11, 0.03, c1); });   // the frame that holds the turret
-      turret(k, 0, 0, 0.17); k.at(0, 0, A.aim, q => shooter(q, 0.085, { n: 1, hood: 2 }));
+      k.at(0, 0, A.aim, q => shooter(q, 0.085, { n: 1, hood: 2, led: 0 }));
+      [-1, 1].forEach(s => { k.tube(-0.38, s * 0.38, -0.135, s * 0.135, 0.03, c1); k.tube(0.38, s * 0.38, 0.135, s * 0.135, 0.03, c1); });   // the frame that holds the ring up
+      k.arc(0, 0, 0.172, 0, TAU, 0.052, RING); k.circ(0, 0, 0.198, null, k.c2, 1.4); k.circ(0, 0, 0.146, null, 'rgba(200,208,216,0.5)', 1);
+      for (let i = 0; i < 12; i++) { const g = i * PI / 6 + A.aim; k.circ(Math.cos(g) * 0.172, Math.sin(g) * 0.172, 0.009, '#7c8691', null); }   // the bolts of the ring's turning half
+      [-1, 1].forEach(s => k.led('scorer', 0.35, s * 0.35, 0.2, s * 0.2));              // its lights: on the two front legs of the frame
     } else if (sh === 'turret') { turret(k, -0.24, 0.23, 0.16); k.at(-0.24, 0.23, A.aim, q => shooter(q, 0.08, { n: 1, hood: 2 })); }   // on a back corner: the hopper keeps the rest
     else if (sh === 'dumper') k.at(-0.33, 0, PI, q => shooter(q, 0.39, { n: 4, hood: 2, flat: 1 }));                    // (3.5.6) it throws over its back, away from the intake
     else if (sh) k.at(-0.28, 0, 0, q => shooter(q, 0.17, { hood: sh === 'hood' ? 2 : 1, flat: 1 }));
     return { own: !!hop, tur: mid ? [0, 0] : sh === 'turret' ? [-0.24, 0.23] : null, sh: sh === 'dumper' ? [-0.33, 0] : sh ? [-0.28, 0] : null, dir: sh === 'dumper' ? PI : 0 };
   };
 
+  // ---------------------------------------------------------------- status lights (3.5.8)
+  // ledOf: the subsystems of a robot that carry LED strips: its scorer (in 2017 its fuel system too) and its climber, each
+  // only if the design built there has complexity 3 or more (the user asked for "elite/high level" ones, then "Add LED to
+  // level 3 designs too"; every elite design is complexity 4 or 5). Read from the season's own data,
+  // so a look saved before 3.5.8 and a fantasy season's robot (drawn with a real season's parts) get the same answer
+  const LEDSUB = { scorer: 1, fuel: 1, endgame: 1 };
+  Rd.ledOf = function (lk) {
+    const on = {}, Sz = G.Seasons && G.Seasons[lk.year], c = Rd.subsOf(lk);
+    if (Sz && Sz.subs) Sz.subs.forEach(sd => { if (!LEDSUB[sd.id] || !c[sd.id]) return; const cc = (sd.concepts || []).find(x => x.id === c[sd.id]); if (cc && (cc.elite || cc.cx >= 3)) on[sd.id] = 1; });
+    return on;
+  };
+  // What the lights say: [colour, pattern]. One colour for each kind of work, and the pattern for how far along it is:
+  // green for the game piece (blinking while the robot takes one in, steady once it holds one), white for scoring (steady
+  // while it lines up, a fast flash while it scores), purple for the climb (running along the strip while the climber goes
+  // out, steady once it is out, a fast flash while the robot pulls itself up), a rainbow once it has climbed, red for
+  // trouble (blinking: a jam; steady: the climb failed). Patterns: 1 steady, 'b' blink, 'f' fast flash, 'w' wipe, 'r' rainbow
+  const LEDS = Rd.LEDS = { off: null, in: ['#3dff6e', 'b'], hold: ['#3dff6e', 1], aim: ['#ffffff', 1], score: ['#ffffff', 'f'], jam: ['#ff3b30', 'b'], ext: ['#c66bff', 'w'], out: ['#c66bff', 1], climb: ['#c66bff', 'f'], up: [null, 'r'], fail: ['#ff3b30', 1] };
+  Rd.LED_NAMES = { off: 'off', in: 'intaking', hold: 'holding a game piece', aim: 'lining up', score: 'scoring', jam: 'jammed', ext: 'climber extending', out: 'climber extended', climb: 'climbing', up: 'climbed', fail: 'climb failed' };
+  const LED_CLIMB = { ext: 1, out: 1, climb: 1, up: 1, fail: 1 };                       // a climber's own strips show only these
+  // what a robot is doing, from the engine's state (a watched match): the rules name every action, and the names begin
+  // with what it is (Intaking a cell, Loading at the chute, Aiming, Shooting speaker, Placing L4, Climbing ...)
+  // (scratchpad test leds.js runs whole matches of every season and lists any action that lit nothing: none may be missed)
+  const LED_IN = /^(Collecting|Catching|Grabbing|Intaking|Picking|Taking|Stealing|Removing|Sweeping up|Auto sweep|Neutral sweep|At (source|coral station)|Loading(?! the (Export|Home|high|low)))/;
+  const LED_SC = /^(Shooting|Placing|Scoring|Stacking|Dumping|Feeding|Firing|Laying|Lobbing|Processing|Sliding|Tipping|Dropping|Drawing|Topping|Spinning|Hanging|Stockpiling|Sweeping fuel home|Low goal|High goal|Bottom port|On the peg|Rotation Control|Position Control|Loading the (Export|Home|high|low))/;
+  const LED_UP = /^(Auto-balancing|Auto climb)/;                                        // a climb in autonomous is an action of its own
+  Rd.ledState = function (m, r) {
+    if (r.dead || (r.fault && r.fault.stall)) return 'off';                             // disabled, or browned out: dark
+    if (r.end) return r.end.lvl > 0 ? 'up' : r.end.failed ? 'fail' : r.held ? 'hold' : 'off';
+    if (r.climbing) {                                                                   // one action in the engine: its first fifth is the climber going out, then it holds a moment, then the robot goes up
+      if (r.ledN !== r.actN) { r.ledN = r.actN; r.ledT = r.timer; }
+      const f = 1 - r.timer / (r.ledT || 1);
+      return f < 0.22 ? 'ext' : f < 0.36 ? 'out' : 'climb';
+    }
+    if (r.jam && Object.keys(r.jam).some(q => r.jam[q] > m.t)) return 'jam';
+    const lab = (r.label || '').replace(/^Auto: (.)/, (x, ch) => ch.toUpperCase());       // "Auto: to a note" is "To a note"
+    if (r.st === 'act') {
+      if (LED_UP.test(lab)) return 'climb';
+      if (LED_SC.test(lab)) return 'score';
+      if (/^Aiming/.test(lab) || (/^To /.test(lab) && r.held)) return 'aim';            // aiming, or squaring up at the spot it drove to with a piece
+      if (LED_IN.test(lab)) return 'in';
+    }
+    return r.held ? 'hold' : 'off';
+  };
+  // draw the strips a robot's recipes asked for (st: its state; t: seconds, for the patterns). Each strip is a row of LEDs
+  function drawLeds(ctx, sz, leds, st, t) {
+    const w = Math.max(2.4, 0.03 * sz);
+    leds.forEach(L => {
+      const D = LEDS[L.sub === 'endgame' && !LED_CLIMB[st] ? 'off' : st], pat = D && D[1], p = L.p, n = Math.max(3, Math.round(Math.hypot(p[2] - p[0], p[3] - p[1]) / 0.05));
+      const lit = !D ? 0 : pat === 'b' ? (t * 2.2) % 1 < 0.55 : pat === 'f' ? (t * 7) % 1 < 0.5 : 1, head = pat === 'w' ? (t * 1.1) % 1.3 : 2;
+      const P = f => [(p[0] + (p[2] - p[0]) * f) * sz, (p[1] + (p[3] - p[1]) * f) * sz];
+      const seg = (f0, f1, col, lw, cap) => { const a = P(f0), b = P(f1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = cap || 'butt'; ctx.stroke(); };
+      ctx.save(); if (L.tf) ctx.setTransform(L.tf);
+      seg(0, 1, '#0b0c0e', w * 1.5 + 1, 'round');                                       // the strip itself
+      if (lit) { ctx.globalAlpha = 0.34; seg(0, Math.min(1, head), D[0] || '#ffffff', w * 3, 'round'); ctx.globalAlpha = 1; }   // its glow
+      for (let i = 0; i < n; i++) { const on = lit && (i + 0.5) / n <= head; seg((i + 0.13) / n, (i + 0.87) / n, on ? (pat === 'r' ? 'hsl(' + Math.round(((i / n + t * 0.9) % 1) * 360) + ',100%,62%)' : D[0]) : '#343a41', w); }
+      ctx.restore();
+    });
+  }
+
   // A robot showing its moves on its own (the Garage, the robot viewer): twelve seconds in which it collects, carries,
-  // scores, collects again and climbs. demoPiece: what it carries meanwhile, by season
+  // scores, collects again and climbs. demoPiece: what it carries meanwhile, by season. demoLed: what its lights say meanwhile
   Rd.demoPhase = t => ({ carry: t > 2.4 && t < 6.4, score: t > 4 && t < 6.2, climb: t > 8.6 });
+  Rd.demoLed = t => (t < 2.4 ? 'in' : t < 4 ? 'hold' : t < 4.6 ? 'aim' : t < 6.2 ? 'score' : t < 6.4 ? 'hold' : t < 8.6 ? 'in' : t < 9.5 ? 'ext' : t < 10 ? 'out' : t < 11.2 ? 'climb' : 'up');
   Rd.demoPiece = { 2016: 'boulder', 2017: 'gear', 2018: 'pcube', 2019: 'hatch', 2020: 'cell', 2023: 'cone', 2025: 'coral', 2101: 'pinball', 2102: 'drum', 2103: 'disc', 2104: 'girder', 2105: 'gcell', 2106: 'stoneB', 2107: 'cont', 2110: 'crate' };
 
   // What the engine asks of the drawings (only in a watched match). topInfo: a robot's recipe run without drawing, once
@@ -267,6 +340,7 @@
     ease('vx', act && /^(Placing|Loading|Scoring)/.test(lab) ? 1 : 0, 0.14);                                              // lifts, arms and telescopes reach out to place or load
     ease('vi', !r.dead && !r.climbing && !r.end && (r.held || 0) < ((r.cap && r.cap.storage) || 1) && !(act && /^(Placing|Scoring|Aiming|Shooting|Climbing)/.test(lab)) ? 1 : 0, 0.12);   // the intake is out while there is room and nothing to score
     ease('vc', r.climbing || (r.end && r.end.lvl > 0) ? 1 : 0, 0.05);
+    r.led = Rd.ledState(m, r);                                                          // (3.5.8) what its status lights say
     if (r.cap && r.cap.flip) { const fa = r.faceAt; ease('vf', act && fa && !fa.side && /^(Placing|Scoring|Feeding the|Tipping their Switch)/.test(lab) && Math.cos(Math.atan2(fa.y - r.y, fa.x - r.x) - (r.hd || 0)) < 0 ? 1 : 0, 0.22); } // (3.5.6) a flipping claw places behind the robot when that is nearer                                                      // climbers, forks and ramps come out to climb
     return act && /^(Aiming|Shooting|Placing|Scoring)/.test(lab);
   };
@@ -276,8 +350,8 @@
   Rd.topMech = function (ctx, sz, r, lk, o) {
     const ver = lk.ver || 1, c1 = ver >= 2 && lk.c1 ? Rd.sideKit.seen(lk.c1) : r.isPlayer ? ALU : ver >= 2 ? '#8791a0' : '#a9b1ba'; // painted from Version 2: yours, and the rivals that paint (bare ones stay grey)
     const A = { vi: r.vi == null ? 1 : r.vi, vx: r.vx || 0, vc: r.vc == null ? 0 : r.vc, aim: o && o.aim != null ? o.aim - (r.hd || 0) : 0, held: r.held || 0, r };
-    const k = Kit(ctx, sz, { c1, c2: lk.c2 || '#ffcf4a', lk, A }), out = {};
-    Rd.sideRecipes(lk).forEach(R => { const f = TOP[R.year]; if (!f) return; ctx.save(); const res = f(k, R.c, A) || {}; ctx.restore();
+    const k = Kit(ctx, sz, { c1, c2: lk.c2 || '#ffcf4a', lk, A, leds: [] }), out = {}, ledOn = ctx === NOCTX ? {} : Rd.ledOf(lk);
+    Rd.sideRecipes(lk).forEach(R => { const f = TOP[R.year]; if (!f) return; k.ledOn = sub => !!ledOn[(R.back && R.back[sub]) || sub]; ctx.save(); const res = f(k, R.c, A) || {}; ctx.restore();
       if (res.at && (R.c.scorer != null || out.at == null)) out.at = res.at;                                              // the piece rides where the scorer is
       if (res.algae) out.algae = res.algae; if (res.own) out.own = true; if (res.tur) out.tur = res.tur; if (res.sh) out.sh = res.sh; if (res.dir != null && (R.c.scorer != null || res.sh)) out.dir = res.dir;
       if (res.load != null) out.load = res.load; if (res.gearBack) out.gearBack = true; if (res.climb) out.climb = res.climb; });   // (3.5.7) these three were never passed on: a robot fed from behind (3.5.6), a 2017 gear mechanism at the back and a 2025 climber's side went unseen by the engine
@@ -289,6 +363,7 @@
       k.at(px, py, a, q => { q.rect(-0.045, -0.032, 0.085, 0.064, '#111417', EDGE, 0.012); q.circ(0.04, 0, 0.02, '#52e58a', '#0d3a1f'); });
       out.cam = [px + ca * 0.04, py + sa * 0.04, a];
     }
+    if (k.leds.length) drawLeds(ctx, sz, k.leds, LEDS[r.led] !== undefined ? r.led : 'off', o && o.ledT != null ? o.ledT : performance.now() / 1000);   // (3.5.8) the status lights, on top of everything
     return out;
   };
 })();

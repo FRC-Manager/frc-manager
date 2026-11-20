@@ -426,13 +426,16 @@
   // ------------------------------------------------------------------
   // Robot — side profile (Garage)
   // ------------------------------------------------------------------
-  Rd.robotSide = function (ctx, W, H, look, a, team) {
-    const lk = look || {};
+  // opts.only (3.6): draw only these sections, for the Garage's exploded view: 'floor', 'base' (wheels, frame, bumper,
+  // electronics, lights), 'manip', 'shooter', 'hopper', 'indexer', 'intake', 'climber', 'algae', 'vision'
+  Rd.robotSide = function (ctx, W, H, look, a, team, opts) {
+    const lk = look || {}, only = opts && opts.only, on = k => !only || only.includes(k);
     ctx.clearRect(0, 0, W, H);
     const gy = H - 24, s = Math.min(W / 2.0, (H - 30) / 1.45);
     // floor
-    ctx.fillStyle = '#20252b'; ctx.fillRect(0, gy, W, 24);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    if (on('floor')) { ctx.fillStyle = '#20252b'; ctx.fillRect(0, gy, W, 24);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+    ctx.save(); if (!on('base')) { ctx.globalAlpha = 0; } // the base is drawn invisibly when it is not wanted: its geometry still places the rest
     const cx = W / 2, fw = 0.9 * s, x0 = cx - fw / 2;
     const ver = lk.ver || 1, frame = ver >= 2 ? shade(lk.c1 || '#7a8591', -0.1) : '#8a949e';
     const low = lk.frame === 'low';
@@ -463,8 +466,11 @@
     // electronics belly pan
     ctx.fillStyle = '#2b3036'; ctx.fillRect(x0 + 0.08 * s, top - 0.08 * s, fw * 0.5, 0.08 * s);
     ctx.fillStyle = '#e5484d'; ctx.fillRect(x0 + 0.12 * s, top - 0.06 * s, 0.05 * s, 0.04 * s);
+    if (on('base') && lk.ver >= 3) { ctx.fillStyle = lk.c2 || '#4cff8a'; ctx.fillRect(x0, fy - 0.07 * s, fw, 0.015 * s); } // LEDs
+    ctx.restore();
     // manipulator / elevator
     const mp = lk.manip;
+    ctx.save(); if (!on('manip')) ctx.globalAlpha = 0;
     ctx.strokeStyle = '#d6dce2'; ctx.fillStyle = '#c3cad1';
     if (mp === 'elevator' || mp === 'elevwrist' || mp === 'ampbar') {
       const eh = (mp === 'ampbar' ? 0.35 : low ? 0.5 : 1.1) * s;
@@ -501,9 +507,10 @@
       ctx.restore();
       ctx.beginPath(); ctx.arc(px, py, 0.035 * s, 0, 7); ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fill();
     }
+    ctx.restore();
     // shooter
     const sh = lk.shooter;
-    if (sh) {
+    if (sh && on('shooter')) {
       const sy = top - (low ? 0.12 : 0.28) * s, sx = cx - 0.15 * s;
       ctx.fillStyle = '#2f353c';
       if (sh === 'turret' || sh === 'rotor') { if (sh === 'rotor') { ctx.save(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy + 0.07 * s, 0.09 * s, 0, Math.PI); ctx.stroke(); ctx.restore(); } ctx.fillRect(sx - 0.18 * s, sy + 0.04 * s, 0.36 * s, 0.06 * s); ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI, 0); ctx.fill(); ctx.strokeStyle = lk.c2 || '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 0.12 * s, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke(); }
@@ -520,12 +527,12 @@
     }
     // hopper
     // (3.5.3) an empty hopper: walls and a mesh, no fuel in it (it was drawn half full)
-    if (lk.hopper) { const hh = Math.min(0.5, 0.15 + lk.hopper / 120) * s * (low ? 0.6 : 1), hx = x0 + 0.06 * s, hw = fw * 0.55; ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(hx, top - hh, hw, hh); ctx.strokeStyle = 'rgba(170,179,188,0.45)'; ctx.lineWidth = 1; for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(hx + i * hw / 6, top - hh); ctx.lineTo(hx + i * hw / 6, top); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(hx, top - hh / 2); ctx.lineTo(hx + hw, top - hh / 2); ctx.stroke(); ctx.strokeStyle = '#aab3bc'; ctx.lineWidth = 2; ctx.strokeRect(hx, top - hh, hw, hh); }
+    if (lk.hopper && on('hopper')) { const hh = Math.min(0.5, 0.15 + lk.hopper / 120) * s * (low ? 0.6 : 1), hx = x0 + 0.06 * s, hw = fw * 0.55; ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(hx, top - hh, hw, hh); ctx.strokeStyle = 'rgba(170,179,188,0.45)'; ctx.lineWidth = 1; for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(hx + i * hw / 6, top - hh); ctx.lineTo(hx + i * hw / 6, top); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(hx, top - hh / 2); ctx.lineTo(hx + hw, top - hh / 2); ctx.stroke(); ctx.strokeStyle = '#aab3bc'; ctx.lineWidth = 2; ctx.strokeRect(hx, top - hh, hw, hh); }
     // (3.5.3) the revolver: a drum in front of the shooter, ribbed, with a team-colour band
-    if (lk.indexer === 'revolver') { const dx = cx + 0.12 * s, dw = 0.3 * s, dh = 0.13 * s; ctx.fillStyle = '#2f353c'; ctx.fillRect(dx, top - dh, dw, dh); ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1; for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(dx + i * dw / 5, top - dh); ctx.lineTo(dx + i * dw / 5, top); ctx.stroke(); } ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(dx, top - dh, dw, 0.018 * s); }
+    if (lk.indexer === 'revolver' && on('indexer')) { const dx = cx + 0.12 * s, dw = 0.3 * s, dh = 0.13 * s; ctx.fillStyle = '#2f353c'; ctx.fillRect(dx, top - dh, dw, dh); ctx.strokeStyle = '#69737d'; ctx.lineWidth = 1; for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(dx + i * dw / 5, top - dh); ctx.lineTo(dx + i * dw / 5, top); ctx.stroke(); } ctx.fillStyle = lk.c2 || '#ffcf4a'; ctx.fillRect(dx, top - dh, dw, 0.018 * s); }
     // intake
     const it = lk.intake;
-    if (it && it !== 'none') {
+    if (it && it !== 'none' && on('intake')) {
       const ix = it === 'dual' ? [x0 - 0.08 * s, x0 + fw + 0.08 * s] : [x0 + fw + 0.08 * s];
       ix.forEach(xx => { ctx.beginPath(); ctx.arc(xx, fy + (it === 'under' ? 0.06 : -0.04) * s, (it === 'wide' ? 0.06 : 0.05) * s, 0, 7); ctx.fillStyle = '#d9dee3'; ctx.fill(); });
       if (it === 'funnel') { ctx.strokeStyle = '#d9dee3'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x0 + 0.1 * s, top - 0.55 * s); ctx.lineTo(x0 + 0.25 * s, top - 0.2 * s); ctx.lineTo(x0 + 0.4 * s, top - 0.55 * s); ctx.stroke(); }
@@ -533,7 +540,7 @@
     }
     // climber
     const cl = lk.climber;
-    if (cl && cl !== 'none') {
+    if (cl && cl !== 'none' && on('climber')) {
       const ch = { hook: 0.55, hook2: 0.75, arms: 0.95, triple: 0.95 }[cl] * s * (low ? 0.75 : 1), clx = x0 + 0.06 * s;
       ctx.fillStyle = '#ffcf4a'; ctx.fillRect(clx, top - ch, 0.035 * s, ch);
       ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(clx + 0.06 * s, top - ch, 0.05 * s, Math.PI, Math.PI * 2.1); ctx.stroke();
@@ -542,7 +549,7 @@
     }
     // algae
     // (3.5.3) the algae mechanism without an algae in it: a pivot, an arm and two rollers (high for the net, low for the processor)
-    if (lk.algae === 'net' || lk.algae === 'proc') {
+    if ((lk.algae === 'net' || lk.algae === 'proc') && on('algae')) {
       const net = lk.algae === 'net', px = x0 + fw * 0.62, py = top - 0.04 * s, ang = net ? -1.0 : -0.35, L = (net ? 0.34 : 0.24) * s;
       ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
       ctx.fillStyle = '#4a525b'; ctx.fillRect(0, -0.025 * s, L, 0.05 * s);
@@ -550,10 +557,8 @@
       ctx.restore(); ctx.beginPath(); ctx.arc(px, py, 0.025 * s, 0, 7); ctx.fillStyle = '#8d97a1'; ctx.fill();
     }
     // vision camera
-    if (lk.vision) { ctx.fillStyle = '#111'; ctx.fillRect(cx + 0.25 * s, top - 0.12 * s, 0.06 * s, 0.05 * s); ctx.fillStyle = '#4cff8a'; ctx.fillRect(cx + 0.31 * s, top - 0.11 * s, 0.015 * s, 0.03 * s); if (lk.vision > 1) { ctx.fillStyle = '#111'; ctx.fillRect(x0 + 0.1 * s, top - 0.16 * s, 0.06 * s, 0.05 * s); } }
-    // LEDs
-    if (ver >= 3) { ctx.fillStyle = lk.c2 || '#4cff8a'; ctx.fillRect(x0, fy - 0.07 * s, fw, 0.015 * s); }
-    if (low) { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(0, gy - 0.6 * s); ctx.lineTo(W, gy - 0.6 * s); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left'; ctx.fillText(lk.year === 2016 ? 'low bar' : 'trench clearance', 6, gy - 0.6 * s - 7); }
+    if (lk.vision && on('vision')) { ctx.fillStyle = '#111'; ctx.fillRect(cx + 0.25 * s, top - 0.12 * s, 0.06 * s, 0.05 * s); ctx.fillStyle = '#4cff8a'; ctx.fillRect(cx + 0.31 * s, top - 0.11 * s, 0.015 * s, 0.03 * s); if (lk.vision > 1) { ctx.fillStyle = '#111'; ctx.fillRect(x0 + 0.1 * s, top - 0.16 * s, 0.06 * s, 0.05 * s); } }
+    if (low && on('floor')) { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(0, gy - 0.6 * s); ctx.lineTo(W, gy - 0.6 * s); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px system-ui'; ctx.textAlign = 'left'; ctx.fillText(lk.year === 2016 ? 'low bar' : 'trench clearance', 6, gy - 0.6 * s - 7); }
   };
 
   // ------------------------------------------------------------------
@@ -596,4 +601,62 @@
     const ctx = canvas.getContext('2d'), s = canvas.width / FW;
     Rd.field(ctx, year, s, null);
   };
+
+  // ------------------------------------------------------------------
+  // (3.5.8) The field on the whole screen (the match view, the match tester). Rd.fsToggle(box, cv, o): box, which holds the
+  // canvas and whatever stays with it (scoreboard, controls), goes full screen; where the browser will not allow that it
+  // fills the window instead (class fs-fake). Either way it carries class fs-on, which the page's styles lay out. The
+  // canvas is fitted into its holder (o.hold, or its parent) and drawn sharper: its drawing size follows its size on screen,
+  // up to 2400 px wide, and goes back to what it was afterwards. o.onChange(on): the page redraws and relabels its button.
+  // Rd.fsOff() ends it, Rd.fsOn() says whether it is on, Rd.fsFit() fits the canvas again
+  // ------------------------------------------------------------------
+  // (3.5.1; here since 3.5.8, so that the match tester draws it too) The Robot Signal Light: dark with no power; steady while
+  // the robot is disabled (the match has not begun or is over, comms are lost, a brownout, the referee switched it off);
+  // blinking while it is enabled
+  Rd.rslOf = function (m, r) {
+    if (r.noPower) return 'off';
+    if (m.done || !(m.t > 0)) return 'on';
+    if (r.dead && !r.tipped) return 'on';
+    if (r.fault && /COMMS|BROWNOUT/.test(r.fault.label || '')) return 'on';
+    return 'blink';
+  };
+  const FS = { box: null };
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  function fsFit() {
+    const F = FS; if (!F.box) return;
+    const cv = F.cv, hold = F.hold || cv.parentElement, ar = F.base[0] / F.base[1];
+    cv.style.width = cv.style.height = '0px';                                          // so that the holder shows what room there is
+    const pw = hold.clientWidth, ph = hold.clientHeight;
+    if (!(pw > 0 && ph > 0)) { cv.style.width = cv.style.height = ''; return; }
+    const w = Math.floor(Math.min(pw, ph * ar)), bw = Math.max(F.base[0], Math.min(2400, Math.round(w * (window.devicePixelRatio || 1)))), bh = Math.round(bw / ar);
+    cv.style.width = w + 'px'; cv.style.height = Math.round(w / ar) + 'px';
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+    if (F.o.onChange) F.o.onChange(true);
+  }
+  function fsOff() {
+    const F = FS, box = F.box; if (!box) return;
+    const cv = F.cv, o = F.o, base = F.base; FS.box = null;
+    box.classList.remove('fs-on', 'fs-fake'); cv.style.width = cv.style.height = '';
+    if (cv.width !== base[0] || cv.height !== base[1]) { cv.width = base[0]; cv.height = base[1]; }
+    if (fsEl() === box) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* already out */ } }
+    if (o.onChange) o.onChange(false);
+  }
+  Rd.fsOn = () => !!FS.box; Rd.fsOff = fsOff; Rd.fsFit = fsFit;
+  Rd.fsToggle = function (box, cv, o) {
+    if (FS.box) { const same = FS.box === box; fsOff(); if (same) return false; }
+    FS.box = box; FS.cv = cv; FS.o = o || {}; FS.hold = FS.o.hold || null; FS.base = [cv.width, cv.height]; FS.fake = false;
+    box.classList.add('fs-on');
+    const req = box.requestFullscreen || box.webkitRequestFullscreen, fake = () => { if (FS.box !== box || fsEl() === box || FS.fake) return; FS.fake = true; box.classList.add('fs-fake'); fsFit(); };
+    if (!req || FS.o.window) fake();
+    else { try { const p = req.call(box); if (p && p.then) p.then(() => { if (FS.box === box) fsFit(); }, fake); } catch (e) { fake(); }
+      setTimeout(fake, 500); }                                                           // some browsers (an embedded pane) neither give the screen nor refuse: then the box fills the window
+    fsFit();
+    return true;
+  };
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    const chg = () => { if (!FS.box) return; if (fsEl() === FS.box) { if (FS.fake) { FS.fake = false; FS.box.classList.remove('fs-fake'); } fsFit(); } else if (!FS.fake) fsOff(); };   // the screen came (late, perhaps); or Esc, or the browser took it back
+    document.addEventListener('fullscreenchange', chg); document.addEventListener('webkitfullscreenchange', chg);
+    window.addEventListener('resize', () => { if (FS.box) fsFit(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && FS.box && FS.fake) fsOff(); });
+  }
 })();

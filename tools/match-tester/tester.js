@@ -86,7 +86,7 @@
       const aiming = G.Render.animate(m, r); // the reach, the intake and the climber, as in the game
       const rr = Object.create(r), P = G.Render.pose(r, al); rr.x = P.x; rr.y = P.y; rr.hd = P.hd;
       const g = aimFor(m, r);
-      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: aiming && m.year < 2023 && (r.cap.visionLvl || 0) >= 1 }); // (no career here: the green light goes by the game's own year)
+      G.Render.robot(ctx, s, rr, { aim: g ? Math.atan2(g.y - rr.y, g.x - rr.x) : null, year: m.year, aimLight: aiming && m.year < 2023 && (r.cap.visionLvl || 0) >= 1, rsl: G.Render.rslOf(m, r), rslLit: T.speed > 0 ? Math.floor(performance.now() / 450) % 2 === 0 : Math.floor(m.t / 0.45) % 2 === 0, ledT: T.speed > 0 ? performance.now() / 1000 : m.t }); // (no career here: the green light goes by the game's own year) (3.5.8) the signal light and the status lights' clock, as in the game
     });
     G.Render.fx(ctx, s, m);
     if (T.labels) m.robots.forEach(r => {
@@ -184,6 +184,10 @@
     $('new').onclick = () => start(true);
     $('restart').onclick = () => start(false, true);
     $('step').onclick = () => { setSpeed(0); if (!T.m.done) { stepOnce(); dom(); report(); } };
+    // (3.5.8) the field on the whole screen, with the score and the controls (the button, or F; Esc leaves it)
+    const fs = () => G.Render.fsToggle($('fsBox'), $('cv'), { hold: $('hold'), window: T.fsWindow, onChange: on => { $('fs').textContent = on ? 'Exit full screen' : 'Full screen'; if (T.m) draw(); } });
+    $('fs').onclick = fs; T.fs = fs;
+    document.addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) fs(); });
     document.querySelectorAll('[data-spd]').forEach(b => { b.onclick = () => setSpeed(Number(b.dataset.spd)); });
     $('paths').onchange = e => { T.paths = e.target.checked; };
     $('labels').onchange = e => { T.labels = e.target.checked; };
